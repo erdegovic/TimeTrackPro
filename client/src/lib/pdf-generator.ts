@@ -147,7 +147,7 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
       styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
     },
     {
-      content: `$${reportData.totalAmount.toFixed(2)}`,
+      content: formatCurrency(reportData.totalAmount, filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD'),
       styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
     }
   ]);
