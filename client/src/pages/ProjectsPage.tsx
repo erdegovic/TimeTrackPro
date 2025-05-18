@@ -11,6 +11,7 @@ import ProjectForm from "@/components/Projects/ProjectForm";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Project, Client } from "@shared/schema";
+import { formatCurrency } from "../lib/utils/timeUtils";
 
 export default function ProjectsPage() {
   const { toast } = useToast();
