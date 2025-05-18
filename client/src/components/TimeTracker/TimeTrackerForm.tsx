@@ -1,151 +1,175 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Keyboard, Play, Square } from "lucide-react";
+import { Keyboard } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Client, Project } from "@shared/schema";
+import { Client, Project, TimeEntry } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { useTimeTracker } from "@/hooks/useTimeTracker";
+import { apiRequest } from "@/lib/queryClient";
 import { formatTime } from "@/lib/utils/timeUtils";
+import { format } from "date-fns";
+import SimpleTimer from "./SimpleTimer";
 
 export default function TimeTrackerForm() {
   const { toast } = useToast();
-  const { 
-    isTracking, 
-    description, 
-    setDescription,
-    elapsedTime,
-    startTimer, 
-    stopTimer,
-    selectedClientId,
-    setSelectedClientId,
-    selectedProjectId,
-    setSelectedProjectId
-  } = useTimeTracker();
+  const [description, setDescription] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   
   // Fetch clients
-  const { data: clients = [] } = useQuery<Client[]>({
+  const { data: clients = [] } = useQuery({
     queryKey: ["/api/clients"],
+    queryFn: async () => {
+      const response = await fetch("/api/clients");
+      if (!response.ok) throw new Error("Failed to fetch clients");
+      return response.json() as Promise<Client[]>;
+    }
   });
 
-  // Fetch projects
-  const { data: projects = [] } = useQuery<Project[]>({
+  // Fetch projects for the selected client
+  const { data: projects = [] } = useQuery({
     queryKey: ["/api/projects", selectedClientId],
     queryFn: async () => {
       if (!selectedClientId) return [];
-      const res = await fetch(`/api/projects?clientId=${selectedClientId}`);
-      if (!res.ok) throw new Error("Failed to fetch projects");
-      return res.json();
+      const response = await fetch(`/api/projects?clientId=${selectedClientId}`);
+      if (!response.ok) throw new Error("Failed to fetch projects");
+      return response.json() as Promise<Project[]>;
     },
-    enabled: !!selectedClientId,
+    enabled: !!selectedClientId
   });
 
-  // Filtered projects for the selected client
-  const clientProjects = selectedClientId 
-    ? projects.filter(project => project.clientId === selectedClientId)
-    : [];
-
   // Handle client selection
-  const handleClientChange = (clientId: string) => {
-    setSelectedClientId(Number(clientId));
-    setSelectedProjectId(undefined);
+  const handleClientChange = (value: string) => {
+    const clientId = Number(value);
+    setSelectedClientId(clientId);
+    setSelectedProjectId(null); // Reset project when client changes
   };
 
   return (
-    <div className="bg-white shadow rounded-lg mb-6">
-      <div className="p-5">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-          <div className="flex-1">
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder="What are you working on?"
-                className="block w-full pr-10 text-base"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                <Keyboard className="h-5 w-5 text-gray-400" />
+    <div className="bg-white dark:bg-slate-900 shadow rounded-lg p-4">
+      <div className="max-w-full">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row md:items-center gap-2.5 w-full">
+            <div className="flex-1">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                  <Keyboard className="h-4 w-4 opacity-70" />
+                </span>
+                <Input
+                  type="text"
+                  placeholder="What are you working on?"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full pl-10"
+                />
               </div>
             </div>
-          </div>
           
-          <div className="flex flex-wrap gap-2.5 md:flex-nowrap w-full md:w-auto">
-            <Select 
-              value={selectedClientId?.toString()} 
-              onValueChange={(value) => {
-                if (value === "new") {
-                  // TODO: Open new client form dialog
-                  alert("Add new client feature will be implemented soon");
-                } else {
-                  handleClientChange(value);
-                }
-              }}
-            >
-              <SelectTrigger className="w-full md:w-40">
-                <SelectValue placeholder="Select client" />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id.toString()}>
-                    {client.name}
-                  </SelectItem>
-                ))}
-                <SelectItem value="new">+ Add new client</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select 
-              value={selectedProjectId?.toString()} 
-              onValueChange={(val) => {
-                if (val === "new") {
-                  // TODO: Open new project form dialog
-                  alert("Add new project feature will be implemented soon");
-                } else {
-                  setSelectedProjectId(Number(val));
-                }
-              }}
-              disabled={!selectedClientId}
-            >
-              <SelectTrigger className="w-full md:w-40">
-                <SelectValue placeholder="Select project" />
-              </SelectTrigger>
-              <SelectContent>
-                {clientProjects.map((project) => (
-                  <SelectItem key={project.id} value={project.id.toString()}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-                <SelectItem value="new">+ Add new project</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <div className="w-full md:w-auto min-w-[140px]">
-              <Input
-                type="text"
-                value={formatTime(elapsedTime, "time")}
-                className="block w-full text-center font-mono font-medium"
-                readOnly
+            <div className="flex flex-wrap gap-2.5 md:flex-nowrap w-full md:w-auto">
+              <Select 
+                value={selectedClientId?.toString()} 
+                onValueChange={(value) => {
+                  console.log("Client selected:", value);
+                  if (value === "new") {
+                    // Show an alert for now
+                    window.alert("Add new client feature will be implemented soon");
+                  } else {
+                    handleClientChange(value);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-full md:w-40">
+                  <SelectValue placeholder="Select client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id.toString()}>{client.name}</SelectItem>
+                  ))}
+                  <SelectItem value="new">+ Add new client</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select 
+                value={selectedProjectId?.toString()} 
+                onValueChange={(val) => {
+                  console.log("Project selected:", val);
+                  if (val === "new") {
+                    // Show an alert for now
+                    window.alert("Add new project feature will be implemented soon");
+                  } else {
+                    setSelectedProjectId(Number(val));
+                  }
+                }}
+                disabled={!selectedClientId}
+              >
+                <SelectTrigger className="w-full md:w-40">
+                  <SelectValue placeholder="Select project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>{project.name}</SelectItem>
+                  ))}
+                  <SelectItem value="new">+ Add new project</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <SimpleTimer 
+                description={description}
+                projectId={selectedProjectId || undefined}
+                isDisabled={!description || !selectedProjectId}
+                onStop={async (data) => {
+                  console.log("Timer stopped with data:", data);
+                  
+                  // Format dates for display
+                  const dateStr = format(data.startTime, 'yyyy-MM-dd');
+                  const monthStr = format(data.startTime, 'MMMM');
+                  const yearNum = data.startTime.getFullYear();
+                  
+                  // Calculate week number and label
+                  const weekNum = Math.ceil(data.startTime.getDate() / 7);
+                  const weekLabel = `Week ${weekNum}`;
+                  
+                  // Prepare time entry data
+                  const timeEntry = {
+                    description,
+                    projectId: selectedProjectId || 0,
+                    startTime: data.startTime,
+                    endTime: data.endTime,
+                    duration: formatTime(data.seconds),
+                    date: dateStr,
+                    month: monthStr,
+                    year: yearNum,
+                    weekNumber: weekNum,
+                    weekLabel: weekLabel,
+                    billable: true,
+                  };
+                  
+                  console.log("Saving time entry:", timeEntry);
+                  
+                  try {
+                    // Save time entry
+                    const result = await apiRequest("POST", "/api/time-entries", timeEntry);
+                    console.log("Time entry saved:", result);
+                    
+                    // Show success toast
+                    toast({
+                      title: "Time entry saved",
+                      description: "Your time entry has been saved successfully.",
+                    });
+                    
+                    // Reset form
+                    setDescription("");
+                  } catch (error) {
+                    console.error("Error saving time entry:", error);
+                    toast({
+                      title: "Error",
+                      description: "Failed to save time entry. Please try again.",
+                      variant: "destructive",
+                    });
+                  }
+                }}
               />
             </div>
-            
-            <Button 
-              variant={isTracking ? "destructive" : "default"}
-              className={isTracking ? "bg-destructive" : "bg-accent"}
-              onClick={isTracking ? stopTimer : startTimer}
-              disabled={!description || !selectedProjectId}
-            >
-              {isTracking ? (
-                <>
-                  <Square className="mr-2 h-4 w-4" /> Stop
-                </>
-              ) : (
-                <>
-                  <Play className="mr-2 h-4 w-4" /> Start
-                </>
-              )}
-            </Button>
           </div>
         </div>
       </div>
