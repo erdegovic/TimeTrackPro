@@ -186,16 +186,26 @@ export class DatabaseStorage implements IStorage {
     const weekEnd = format(endOfWeek(entryDate), 'MMM d');
     const weekLabel = `Week ${weekOfMonth} (${weekStart} - ${weekEnd})`;
     
-    // Calculate proper duration if the client provided start and end times
-    let duration = "0.00";
-    if (timeEntryData.startTime && timeEntryData.endTime) {
+    // FIXED: Always ensure duration is at least 0.01 hours
+    let duration = "0.01"; // Minimum duration to display
+    
+    // If client sent a duration, use it as long as it's not 0
+    if (timeEntryData.duration && parseFloat(timeEntryData.duration) > 0) {
+      duration = timeEntryData.duration;
+    } 
+    // If we have start/end times, calculate duration (but keep minimum)
+    else if (timeEntryData.startTime && timeEntryData.endTime) {
       const diffMs = timeEntryData.endTime.getTime() - timeEntryData.startTime.getTime();
       const diffHours = diffMs / (1000 * 60 * 60);
-      duration = diffHours.toFixed(2);
-    } else if (timeEntryData.duration) {
-      duration = timeEntryData.duration;
+      
+      // Only override minimum if calculated value is larger
+      if (diffHours > 0.01) {
+        duration = diffHours.toFixed(2);
+      }
     }
-    console.log(`Database calculated duration: ${duration} hours`);
+    
+    console.log(`Database using duration: ${duration} hours (enforcing minimum value)`);
+    
     
     const billable = timeEntryData.billable !== undefined ? timeEntryData.billable : true;
     
