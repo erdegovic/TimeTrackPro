@@ -19,6 +19,7 @@ function formatTimeFromDecimal(decimalHours: number): string {
 
 export default function Dashboard() {
   const [timeFormat, setTimeFormat] = useState<"decimal" | "time">("decimal");
+  const [displayCurrency, setDisplayCurrency] = useState<string>("USD");
   const today = new Date();
   const weekStart = format(startOfWeek(today), "yyyy-MM-dd");
   const weekEnd = format(endOfWeek(today), "yyyy-MM-dd");
@@ -53,6 +54,19 @@ export default function Dashboard() {
   // Fetch projects
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+  });
+  
+  // Fetch settings for display currency
+  const { data: settings } = useQuery({
+    queryKey: ["/api/settings"],
+    onSuccess: (data) => {
+      if (data?.displayCurrency) {
+        setDisplayCurrency(data.displayCurrency);
+      }
+      if (data?.defaultTimeFormat) {
+        setTimeFormat(data.defaultTimeFormat as "decimal" | "time");
+      }
+    }
   });
 
   // Calculate total hours for this week using exact duration from timestamps

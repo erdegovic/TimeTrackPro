@@ -54,3 +54,24 @@ export function roundTime(
   
   return Math.max(0, hoursFraction);
 }
+
+// Format amount based on currency
+export function formatCurrency(amount: number, currency: string = 'USD'): string {
+  const currencySymbols: {[key: string]: string} = {
+    'USD': '$',
+    'EUR': '€',
+    'GBP': '£',
+    'CAD': 'C$',
+    'RSD': 'RSD',
+  };
+  
+  const symbol = currencySymbols[currency] || currency;
+  
+  // Use currency symbol before amount for USD, CAD, GBP
+  if (['USD', 'CAD', 'GBP'].includes(currency)) {
+    return `${symbol}${amount.toFixed(2)}`;
+  }
+  
+  // Use currency symbol/code after amount for EUR, RSD
+  return `${amount.toFixed(2)} ${symbol}`;
+}

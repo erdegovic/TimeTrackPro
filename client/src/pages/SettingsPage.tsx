@@ -454,6 +454,37 @@ export default function SettingsPage() {
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={form.control}
+                    name="displayCurrency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Dashboard Display Currency</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select display currency" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="USD">USD - US Dollar</SelectItem>
+                            <SelectItem value="EUR">EUR - Euro</SelectItem>
+                            <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                            <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
+                            <SelectItem value="RSD">RSD - Serbian Dinar</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Currency used to display billable amounts on the dashboard
+                        </p>
+                      </FormItem>
+                    )}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
