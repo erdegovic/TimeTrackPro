@@ -29,6 +29,7 @@ const settingsSchema = z.object({
   bankName: z.string().optional(),
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
+  bankSortCode: z.string().optional(),
   nextInvoiceNumber: z.number().int().positive("Must be a positive number"),
   defaultTimeFormat: z.enum(["decimal", "time"]),
   defaultCurrency: z.string().min(1, "Currency is required"),
@@ -390,7 +391,7 @@ export default function SettingsPage() {
                             <SelectItem value="EUR">EUR - Euro</SelectItem>
                             <SelectItem value="GBP">GBP - British Pound</SelectItem>
                             <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
-                            <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
+                            <SelectItem value="RSD">RSD - Serbian Dinar</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />

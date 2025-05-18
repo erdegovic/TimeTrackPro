@@ -77,6 +77,7 @@ export const settings = pgTable("settings", {
   bankName: text("bank_name"),
   bankAccountName: text("bank_account_name"),
   bankAccountNumber: text("bank_account_number"),
+  bankSortCode: text("bank_sort_code"),
   nextInvoiceNumber: integer("next_invoice_number").default(1001),
   defaultTimeFormat: text("default_time_format").default("decimal"),
   defaultCurrency: text("default_currency").default("USD"),
