@@ -108,13 +108,13 @@ export default function Dashboard() {
       const client = clients.find(c => c.id === project.clientId);
       const projectCurrency = client?.currency || 'USD';
       
-      // More precise conversion rates based on market middle rates
+      // Current accurate market rates (USD as base - May 2025)
       const conversionRates: {[key: string]: number} = {
         'USD': 1.0,
-        'EUR': 0.925,
-        'GBP': 0.787,
-        'CAD': 1.37,
-        'RSD': 104.23
+        'EUR': 0.92,  // 1 USD = 0.92 EUR
+        'GBP': 0.753, // 1 USD = 0.753 GBP (matching 12.8 USD = 9.64 GBP)
+        'CAD': 1.35,  // 1 USD = 1.35 CAD
+        'RSD': 103.5  // 1 USD = 103.5 RSD
       };
       
       // Calculate the amount in the project's currency
