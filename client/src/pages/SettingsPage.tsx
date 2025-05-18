@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Save } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -69,6 +70,8 @@ export default function SettingsPage() {
       defaultTimeFormat: "decimal",
       defaultCurrency: "USD",
       displayCurrency: "USD",
+      enableTax: false,
+      defaultTaxRate: 0,
     },
   });
   
@@ -93,6 +96,8 @@ export default function SettingsPage() {
         defaultTimeFormat: settings.defaultTimeFormat as "decimal" | "time" || "decimal",
         defaultCurrency: settings.defaultCurrency || "USD",
         displayCurrency: settings.displayCurrency || "USD",
+        enableTax: settings.enableTax || false,
+        defaultTaxRate: settings.defaultTaxRate || 0,
       });
     }
   }, [settings, form]);
