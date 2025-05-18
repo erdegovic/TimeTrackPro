@@ -46,7 +46,13 @@ export default function TimeTrackerPage() {
         </div>
       </div>
 
-      <TimeTrackerForm />
+      <TimeTrackerForm 
+        onAddClient={() => setShowNewClientDialog(true)}
+        onAddProject={(clientId) => {
+          setSelectedClientId(clientId);
+          setShowNewProjectDialog(true);
+        }}
+      />
       <TimeEntryList />
 
       {/* New Client Dialog */}

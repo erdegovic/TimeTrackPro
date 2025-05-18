@@ -10,7 +10,12 @@ import { formatTime } from "@/lib/utils/timeUtils";
 import { format } from "date-fns";
 import SimpleTimer from "./SimpleTimer";
 
-export default function TimeTrackerForm() {
+interface TimeTrackerFormProps {
+  onAddClient?: () => void;
+  onAddProject?: (clientId: number) => void;
+}
+
+export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrackerFormProps = {}) {
   const { toast } = useToast();
   const [description, setDescription] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
@@ -71,8 +76,10 @@ export default function TimeTrackerForm() {
                 onValueChange={(value) => {
                   console.log("Client selected:", value);
                   if (value === "new") {
-                    // Show an alert for now
-                    window.alert("Add new client feature will be implemented soon");
+                    // Show the client dialog through the callback
+                    if (onAddClient) {
+                      onAddClient();
+                    }
                   } else {
                     handleClientChange(value);
                   }
@@ -94,8 +101,10 @@ export default function TimeTrackerForm() {
                 onValueChange={(val) => {
                   console.log("Project selected:", val);
                   if (val === "new") {
-                    // Show an alert for now
-                    window.alert("Add new project feature will be implemented soon");
+                    // Show the project dialog through the callback and pass the client ID
+                    if (onAddProject && selectedClientId) {
+                      onAddProject(selectedClientId);
+                    }
                   } else {
                     setSelectedProjectId(Number(val));
                   }
