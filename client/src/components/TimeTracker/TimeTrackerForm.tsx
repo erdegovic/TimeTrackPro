@@ -20,18 +20,29 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
   const [description, setDescription] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [isTimerActive, setIsTimerActive] = useState(false);
   
   // On component mount, check if there's an active timer and initialize form state
   useEffect(() => {
     try {
       const storedTimer = localStorage.getItem("timeTracker");
       if (storedTimer) {
-        const { description: storedDesc, projectId, clientId } = JSON.parse(storedTimer);
+        const parsedTimer = JSON.parse(storedTimer);
+        const { description: storedDesc, projectId, clientId } = parsedTimer;
         
         // Populate the form with the stored values
         if (storedDesc) setDescription(storedDesc);
         if (projectId) setSelectedProjectId(projectId);
         if (clientId) setSelectedClientId(clientId);
+        
+        // Set timer active state so UI can be updated
+        setIsTimerActive(true);
+        
+        // Make the clientId available for the timer
+        if (typeof window !== 'undefined') {
+          // @ts-ignore - add selectedClientId to window for SimpleTimer to use
+          window.selectedClientId = clientId;
+        }
       }
     } catch (error) {
       console.error("Error restoring timer state:", error);
@@ -142,6 +153,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
               <SimpleTimer 
                 description={description}
                 projectId={selectedProjectId || undefined}
+                clientId={selectedClientId || undefined}
                 isDisabled={!description || !selectedProjectId}
                 onStop={async (data) => {
                   console.log("Timer stopped with data:", data);

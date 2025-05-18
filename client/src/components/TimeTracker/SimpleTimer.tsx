@@ -7,6 +7,7 @@ import { formatTime } from "@/lib/utils/timeUtils";
 interface SimpleTimerProps {
   description: string;
   projectId?: number;
+  clientId?: number;
   onStop: (data: { seconds: number, startTime: Date, endTime: Date }) => void;
   isDisabled: boolean;
 }
@@ -14,6 +15,7 @@ interface SimpleTimerProps {
 export default function SimpleTimer({ 
   description, 
   projectId,
+  clientId,
   onStop,
   isDisabled
 }: SimpleTimerProps) {
@@ -29,9 +31,9 @@ export default function SimpleTimer({
       try {
         const { startTime, description: storedDesc, projectId: storedProjectId } = JSON.parse(storedTimer);
         
-        // Only restore if the current description and projectId match the stored one
-        // This prevents restoring the wrong timer if the user changes projects
-        if (description === storedDesc && projectId === storedProjectId && startTime) {
+        // Always restore the timer if it exists
+        // This ensures the timer continues when returning to the tab
+        if (startTime) {
           const start = new Date(startTime);
           setStartTime(start);
           setIsRunning(true);
@@ -44,6 +46,8 @@ export default function SimpleTimer({
           intervalRef.current = window.setInterval(() => {
             setTime(prev => prev + 1);
           }, 1000);
+          
+          console.log("Timer restored with elapsed time:", formatTime(elapsed));
         }
       } catch (error) {
         console.error("Error parsing stored timer:", error);
@@ -56,7 +60,7 @@ export default function SimpleTimer({
         window.clearInterval(intervalRef.current);
       }
     };
-  }, [description, projectId]);
+  }, []);
 
   // Start the timer
   const handleStart = () => {
@@ -80,7 +84,7 @@ export default function SimpleTimer({
       startTime: now.getTime(),
       description,
       projectId,
-      clientId: window.selectedClientId // Add client ID to storage
+      clientId
     }));
   };
 
