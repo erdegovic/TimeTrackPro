@@ -7,7 +7,7 @@ import { Edit, FileSpreadsheet, File } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { generatePdf } from "@/lib/pdf-generator";
-import { formatTime } from "@/lib/utils/timeUtils";
+import { formatTime, formatCurrency } from "@/lib/utils/timeUtils";
 import { Client, Settings, TimeFormat } from "@shared/schema";
 
 interface InvoicePreviewProps {
@@ -23,7 +23,12 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
   // Fetch next invoice number
   useQuery({
     queryKey: ["/api/next-invoice-number"],
-    onSuccess: (data) => {
+    queryFn: async () => {
+      const response = await fetch("/api/next-invoice-number");
+      if (!response.ok) throw new Error("Failed to fetch next invoice number");
+      return response.json();
+    },
+    onSuccess: (data: any) => {
       setInvoiceNumber(data.invoiceNumber);
     }
   });
@@ -47,6 +52,16 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
   const [notes, setNotes] = useState(
     "Thank you for your business. Payment is due within 15 days of invoice date.\nPlease include the invoice number in your payment reference."
   );
+  const [taxRate, setTaxRate] = useState(0);
+  const [enableTax, setEnableTax] = useState(false);
+  
+  // Get tax settings from business settings
+  useEffect(() => {
+    if (settings) {
+      setEnableTax(settings.enableTax || false);
+      setTaxRate(Number(settings.defaultTaxRate) || 0);
+    }
+  }, [settings]);
   
   const issueDate = format(new Date(), "MMMM d, yyyy");
   const dueDate = format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), "MMMM d, yyyy");
@@ -58,15 +73,24 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
       // Get time entry IDs for marking as invoiced
       const timeEntryIds = reportData.timeEntries.map((entry: any) => entry.id);
       
+      // Calculate tax and total
+      const subtotal = reportData.totalAmount;
+      const tax = enableTax ? subtotal * (taxRate / 100) : 0;
+      const total = subtotal + tax;
+      
       // Create invoice
       const invoiceData = {
         clientId: client.id,
-        subtotal: reportData.totalAmount,
-        tax: 0,
-        taxRate: 0,
-        total: reportData.totalAmount,
+        subtotal: subtotal,
+        tax: tax,
+        taxRate: enableTax ? taxRate : 0,
+        total: total,
         notes,
-        timeEntryIds
+        timeEntryIds,
+        issueDate: format(new Date(), 'yyyy-MM-dd'),
+        dueDate: format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
+        invoiceNumber: invoiceNumber,
+        status: 'draft'
       };
       
       await apiRequest("POST", "/api/invoices", invoiceData);
@@ -208,13 +232,24 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
                           {entry.description} ({format(new Date(entry.date), "MMM d")})
                         </td>
                         <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900 border-r">
-                          {formatTime(entry.adjustedDuration || entry.duration, reportData.timeFormat as TimeFormat)}
+                          {formatTime(
+                            typeof entry.adjustedDuration === 'number' 
+                              ? entry.adjustedDuration 
+                              : typeof entry.duration === 'number' 
+                                ? entry.duration 
+                                : parseFloat(entry.duration || '0'), 
+                            reportData.timeFormat as TimeFormat
+                          )}
                         </td>
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 border-r">
-                          ${parseFloat(entry.hourlyRate).toFixed(2)}
+                          {client?.currency 
+                            ? formatCurrency(parseFloat(entry.hourlyRate), client.currency)
+                            : `$${parseFloat(entry.hourlyRate).toFixed(2)}`}
                         </td>
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                          ${parseFloat(entry.amount).toFixed(2)}
+                          {client?.currency 
+                            ? formatCurrency(parseFloat(entry.amount), client.currency)
+                            : `$${parseFloat(entry.amount).toFixed(2)}`}
                         </td>
                       </tr>
                     ))
@@ -225,21 +260,46 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
               <tr className="bg-gray-100 font-medium">
                 <td colSpan={2} className="px-6 py-3 text-sm text-gray-900 border-r">Subtotal</td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900 border-r">
-                  {formatTime(reportData.totalHours, reportData.timeFormat as TimeFormat)}
+                  {formatTime(
+                    typeof reportData.totalHours === 'number' 
+                      ? reportData.totalHours 
+                      : parseFloat(reportData.totalHours || '0'), 
+                    reportData.timeFormat as TimeFormat
+                  )}
                 </td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900 border-r"></td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                  ${reportData.totalAmount.toFixed(2)}
+                  {client?.currency
+                    ? formatCurrency(reportData.totalAmount, client.currency)
+                    : `$${reportData.totalAmount.toFixed(2)}`}
                 </td>
               </tr>
-              <tr>
-                <td colSpan={4} className="px-6 py-3 text-sm text-gray-900 text-right border-r">Tax (0%)</td>
-                <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">$0.00</td>
-              </tr>
+              {/* Only show tax if it's enabled */}
+              {enableTax && (
+                <tr>
+                  <td colSpan={4} className="px-6 py-3 text-sm text-gray-900 text-right border-r">
+                    Tax ({taxRate}%)
+                  </td>
+                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                    {client?.currency
+                      ? formatCurrency(reportData.totalAmount * (taxRate / 100), client.currency)
+                      : `$${(reportData.totalAmount * (taxRate / 100)).toFixed(2)}`}
+                  </td>
+                </tr>
+              )}
               <tr className="bg-primary bg-opacity-5 font-semibold">
                 <td colSpan={4} className="px-6 py-3 text-sm text-gray-900 text-right border-r">Total Due</td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-primary">
-                  ${reportData.totalAmount.toFixed(2)}
+                  {client?.currency
+                    ? formatCurrency(
+                        enableTax 
+                          ? reportData.totalAmount * (1 + taxRate / 100) 
+                          : reportData.totalAmount, 
+                        client.currency
+                      )
+                    : `$${(enableTax 
+                        ? reportData.totalAmount * (1 + taxRate / 100) 
+                        : reportData.totalAmount).toFixed(2)}`}
                 </td>
               </tr>
             </tbody>

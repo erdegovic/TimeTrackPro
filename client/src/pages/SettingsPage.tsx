@@ -34,6 +34,8 @@ const settingsSchema = z.object({
   defaultTimeFormat: z.enum(["decimal", "time"]),
   defaultCurrency: z.string().min(1, "Currency is required"),
   displayCurrency: z.string().min(1, "Display currency is required"),
+  enableTax: z.boolean().default(false),
+  defaultTaxRate: z.number().min(0).max(100).default(0),
 });
 
 export default function SettingsPage() {
