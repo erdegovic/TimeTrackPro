@@ -135,10 +135,10 @@ export default function TimeTrackerForm() {
                   
                   // Calculate duration correctly
                   const diffMs = endDateTime.getTime() - startDateTime.getTime();
-                  const diffHours = diffMs / (1000 * 60 * 60);
-                  const durationStr = diffHours.toFixed(2);
+                  // Convert milliseconds to hours with 2 decimal places
+                  const diffHours = (diffMs / (1000 * 60 * 60)).toFixed(2);
                   
-                  console.log(`Client calculated duration: ${durationStr} hours from ${diffMs}ms`);
+                  console.log(`Client calculated duration: ${diffHours} hours from ${diffMs}ms`);
                   
                   // Prepare time entry data
                   const timeEntry = {
@@ -147,8 +147,8 @@ export default function TimeTrackerForm() {
                     // Pass the Date objects directly - they'll be serialized to strings automatically
                     startTime: startDateTime,
                     endTime: endDateTime,
-                    // Use the properly calculated duration
-                    duration: durationStr,
+                    // Use the properly calculated duration (as a string to preserve decimal precision)
+                    duration: diffHours,
                     date: dateStr,
                     month: monthStr,
                     year: yearNum,

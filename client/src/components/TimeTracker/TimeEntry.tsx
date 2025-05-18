@@ -210,7 +210,8 @@ export default function TimeEntryRow({
                     const seconds = parts.length > 2 ? (parseInt(parts[2]) || 0) / 3600 : 0;
                     newDuration = hours + minutes + seconds;
                   }
-                  setEditedEntry({ ...editedEntry, duration: newDuration });
+                  // Store duration as a string to preserve decimal precision
+                  setEditedEntry({ ...editedEntry, duration: newDuration.toString() });
                 }}
                 className="font-mono"
               />
