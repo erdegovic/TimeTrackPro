@@ -543,22 +543,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/settings", async (req: Request, res: Response) => {
     try {
       const settings = await storage.getSettings();
+      console.log("Fetched settings:", JSON.stringify(settings));
       res.json(settings);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch settings" });
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ message: "Failed to fetch settings", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
   app.put("/api/settings", async (req: Request, res: Response) => {
     try {
+      console.log("Updating settings with data:", JSON.stringify(req.body));
       const settingsData = insertSettingsSchema.partial().parse(req.body);
+      console.log("Parsed settings data:", JSON.stringify(settingsData));
+      
       const settings = await storage.updateSettings(settingsData);
+      console.log("Settings updated successfully:", JSON.stringify(settings));
+      
       res.json(settings);
     } catch (error) {
+      console.error("Error updating settings:", error);
+      
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid settings data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to update settings" });
+      
+      res.status(500).json({ 
+        message: "Failed to update settings", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
     }
   });
 

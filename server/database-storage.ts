@@ -360,36 +360,71 @@ export class DatabaseStorage implements IStorage {
 
   // Settings
   async getSettings(): Promise<Settings | undefined> {
-    const [settingsData] = await db.select().from(settings);
-    
-    // If no settings exist, create default settings
-    if (!settingsData) {
+    try {
+      // Debug the query
+      console.log("Attempting to fetch settings from database");
+      
+      const result = await db.select().from(settings);
+      console.log("Settings query result:", result);
+      
+      if (!result || result.length === 0) {
+        console.log("No settings found, creating default settings");
+        return this.createDefaultSettings();
+      }
+      
+      console.log("Retrieved settings successfully");
+      return result[0];
+    } catch (error) {
+      console.error("Error in getSettings:", error);
+      // Create default settings if there's an error
       return this.createDefaultSettings();
     }
-    
-    return settingsData;
   }
 
   async updateSettings(settingsData: Partial<InsertSettings>): Promise<Settings> {
-    // Get existing settings or create default
-    const existingSettings = await this.getSettings();
-    
-    if (!existingSettings) {
-      // Create with new data
-      const defaultSettings = this.getDefaultSettings();
-      const newSettings = { ...defaultSettings, ...settingsData };
-      const [createdSettings] = await db.insert(settings).values(newSettings).returning();
-      return createdSettings;
+    try {
+      console.log("Updating settings with data:", settingsData);
+      
+      // Get existing settings or create default
+      const existingSettings = await this.getSettings();
+      
+      if (!existingSettings) {
+        console.log("No existing settings found, creating new settings");
+        // Create with new data
+        const defaultSettings = this.getDefaultSettings();
+        const newSettings = { ...defaultSettings, ...settingsData };
+        console.log("Creating new settings with:", newSettings);
+        const result = await db.insert(settings).values(newSettings).returning();
+        console.log("Created settings result:", result);
+        return result[0];
+      }
+      
+      console.log("Updating existing settings with ID:", existingSettings.id);
+      
+      // Convert numeric string values to numbers if needed
+      const processedData: any = { ...settingsData };
+      if (processedData.nextInvoiceNumber && typeof processedData.nextInvoiceNumber === 'string') {
+        processedData.nextInvoiceNumber = parseInt(processedData.nextInvoiceNumber, 10);
+      }
+      
+      // Update existing settings
+      const result = await db
+        .update(settings)
+        .set(processedData)
+        .where(eq(settings.id, existingSettings.id))
+        .returning();
+      
+      console.log("Settings update result:", result);
+      
+      if (!result || result.length === 0) {
+        throw new Error("Failed to update settings: No rows returned");
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      throw error;
     }
-    
-    // Update existing settings
-    const [updatedSettings] = await db
-      .update(settings)
-      .set(settingsData)
-      .where(eq(settings.id, existingSettings.id))
-      .returning();
-    
-    return updatedSettings;
   }
   
   // Helper to create default settings if none exist
@@ -419,7 +454,7 @@ export class DatabaseStorage implements IStorage {
       defaultCurrency: "USD",
       displayCurrency: "USD",
       enableTax: false,
-      defaultTaxRate: 0,
+      defaultTaxRate: "0",
     };
   }
 }
