@@ -208,28 +208,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/time-entries", async (req: Request, res: Response) => {
     try {
-      // Pre-process the date fields to convert ISO strings to Date objects
-      const data = { ...req.body };
-      
-      // Convert string dates to Date objects if they're provided as strings
-      if (data.startTime && typeof data.startTime === 'string') {
-        data.startTime = new Date(data.startTime);
-      }
-      
-      if (data.endTime && typeof data.endTime === 'string') {
-        data.endTime = new Date(data.endTime);
-      }
-      
-      // Parse and validate the data
-      const entryData = insertTimeEntrySchema.parse(data);
+      const entryData = insertTimeEntrySchema.parse(req.body);
       const entry = await storage.createTimeEntry(entryData);
       res.status(201).json(entry);
     } catch (error) {
-      console.error("Error creating time entry:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid time entry data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to create time entry" });
+    }
+  });
+  
+  // Add a special endpoint for the time tracker to handle string dates
+  app.post("/api/tracker/time-entries", async (req: Request, res: Response) => {
+    try {
+      console.log("Received time entry from tracker:", req.body);
+      
+      // Extract the data from the request
+      const { 
+        description, 
+        projectId, 
+        startTime: startTimeStr, 
+        endTime: endTimeStr, 
+        duration,
+        date,
+        month,
+        year,
+        weekNumber,
+        weekLabel,
+        billable 
+      } = req.body;
+      
+      // Validate required fields
+      if (!description || !projectId || !startTimeStr || !endTimeStr || !date) {
+        return res.status(400).json({ 
+          message: "Missing required fields", 
+          required: ["description", "projectId", "startTime", "endTime", "date"] 
+        });
+      }
+      
+      // Convert string dates to Date objects
+      const startTime = new Date(startTimeStr);
+      const endTime = new Date(endTimeStr);
+      
+      // Create the time entry with converted dates
+      const entry = await storage.createTimeEntry({
+        description,
+        projectId: Number(projectId),
+        startTime,
+        endTime,
+        duration: String(duration),
+        date,
+        month,
+        year: Number(year),
+        weekNumber: Number(weekNumber),
+        weekLabel,
+        billable: Boolean(billable)
+      });
+      
+      res.status(201).json(entry);
+    } catch (error) {
+      console.error("Error creating time entry from tracker:", error);
+      res.status(500).json({ 
+        message: "Failed to create time entry", 
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 

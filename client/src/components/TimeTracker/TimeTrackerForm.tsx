@@ -153,8 +153,8 @@ export default function TimeTrackerForm() {
                   console.log("Saving time entry:", timeEntry);
                   
                   try {
-                    // Save time entry
-                    const result = await apiRequest("POST", "/api/time-entries", timeEntry);
+                    // Save time entry using the special timer endpoint
+                    const result = await apiRequest("POST", "/api/tracker/time-entries", timeEntry);
                     console.log("Time entry saved:", result);
                     
                     // Show success toast
