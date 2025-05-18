@@ -1,6 +1,5 @@
 import { TimeEntry, Client, Settings, Invoice } from "@shared/schema";
-import { formatTime, timeToDecimal } from "@/lib/utils/timeUtils";
-import { formatCurrency } from "@/lib/utils/invoiceUtils";
+import { formatTime, formatCurrency, convertCurrency } from "@/lib/utils/timeUtils";
 import { format } from "date-fns";
 
 type PdfOptions = {
@@ -272,6 +271,10 @@ function generateInvoicePdf(
   let subtotal = 0;
   let totalHours = 0;
   
+  // Get the currency for the client
+  const currency = client.currency || 'USD';
+  const currencySymbol = currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : '$';
+  
   if (reportData) {
     // Use report data for generating invoice
     reportData.weeklyData.forEach((weekData: any) => {
@@ -283,7 +286,7 @@ function generateInvoicePdf(
           styles: { fillColor: [240, 240, 240], fontStyle: 'bold' }
         },
         {
-          content: `$${weekData.totalAmount.toFixed(2)}`,
+          content: formatCurrency(weekData.totalAmount, currency),
           styles: { halign: 'right', fillColor: [240, 240, 240], fontStyle: 'bold' }
         }
       ]);
@@ -294,15 +297,26 @@ function generateInvoicePdf(
       );
       
       clientEntries.forEach((entry: any) => {
+        // Convert duration from string to number if needed
+        const duration = typeof entry.adjustedDuration === 'number' 
+          ? entry.adjustedDuration 
+          : typeof entry.duration === 'number' 
+            ? entry.duration 
+            : parseFloat(entry.duration || '0');
+        
+        // Format hourly rate and amount in client's currency
+        const hourlyRate = parseFloat(entry.hourlyRate);
+        const amount = parseFloat(entry.amount);
+        
         tableContent.push([
           entry.description,
-          formatTime(entry.adjustedDuration || entry.duration, reportData.timeFormat),
-          `$${parseFloat(entry.hourlyRate).toFixed(2)}`,
-          `$${parseFloat(entry.amount).toFixed(2)}`
+          formatTime(duration, reportData.timeFormat),
+          formatCurrency(hourlyRate, currency),
+          formatCurrency(amount, currency)
         ]);
         
-        subtotal += parseFloat(entry.amount);
-        totalHours += Number(entry.adjustedDuration || entry.duration);
+        subtotal += amount;
+        totalHours += duration;
       });
     });
   } else if (invoice) {
@@ -324,16 +338,24 @@ function generateInvoicePdf(
         styles: {}
       },
       {
-        content: `$${subtotal.toFixed(2)}`,
+        content: formatCurrency(subtotal, currency),
         styles: { halign: 'right' }
       }
     ]);
   }
   
-  // Add subtotal, tax, and total rows
-  const tax = invoice ? Number(invoice.tax) : 0;
-  const taxRate = invoice ? Number(invoice.taxRate) : 0;
-  const total = invoice ? Number(invoice.total) : subtotal;
+  // Calculate tax based on settings
+  let tax = invoice ? Number(invoice.tax) : 0;
+  let taxRate = invoice ? Number(invoice.taxRate) : 0;
+  
+  // If no invoice is provided (we're generating a new one), use settings
+  if (!invoice && settings.enableTax) {
+    taxRate = Number(settings.defaultTaxRate);
+    tax = subtotal * (taxRate / 100);
+  }
+  
+  // Calculate total
+  const total = invoice ? Number(invoice.total) : (subtotal + tax);
   
   tableContent.push([
     {

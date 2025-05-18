@@ -148,7 +148,14 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                         {entry.project?.name || "—"}
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
-                        {formatTime(entry.adjustedDuration || entry.duration, filters.timeFormat)}
+                        {formatTime(
+                          typeof entry.adjustedDuration === 'number' 
+                            ? entry.adjustedDuration 
+                            : typeof entry.duration === 'number' 
+                              ? entry.duration 
+                              : parseFloat(entry.duration || '0'), 
+                          filters.timeFormat
+                        )}
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
                         {entry.client?.currency 
