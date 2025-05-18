@@ -430,11 +430,20 @@ function generateInvoicePdf(options: {
   });
   
   // Add notes section
-  const finalY = doc.previousAutoTable.finalY + 15;
-  doc.setFont(undefined, 'bold');
-  doc.text("Notes:", 14, finalY);
-  doc.setFont(undefined, 'normal');
-  doc.text(invNotes, 14, finalY + 8, { maxWidth: doc.internal.pageSize.width - 28 });
+  try {
+    // Safe access to finalY - handle case where previousAutoTable might be undefined
+    const finalY = doc.previousAutoTable && doc.previousAutoTable.finalY 
+      ? doc.previousAutoTable.finalY + 15
+      : tableStartY + 100; // Fallback position
+      
+    doc.setFont(undefined, 'bold');
+    doc.text("Notes:", 14, finalY);
+    doc.setFont(undefined, 'normal');
+    doc.text(invNotes || '', 14, finalY + 8, { maxWidth: doc.internal.pageSize.width - 28 });
+  } catch (error) {
+    console.error("Error adding notes section to PDF:", error);
+    // Continue PDF generation even if notes section fails
+  }
   
   // Add footer with page numbers
   const pageCount = doc.internal.getNumberOfPages();
