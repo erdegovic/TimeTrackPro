@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Client, Project, TimeEntry } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatTime } from "@/lib/utils/timeUtils";
 import { format } from "date-fns";
 import SimpleTimer from "./SimpleTimer";
@@ -165,6 +165,9 @@ export default function TimeTrackerForm() {
                     
                     // Reset form
                     setDescription("");
+                    
+                    // Invalidate the time entries query to refresh the list
+                    queryClient.invalidateQueries({ queryKey: ['/api/time-entries'] });
                   } catch (error) {
                     console.error("Error saving time entry:", error);
                     toast({

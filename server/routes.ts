@@ -251,13 +251,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startTime = new Date(startTimeStr);
       const endTime = new Date(endTimeStr);
       
+      // Calculate a proper duration if it's too small
+      const durationValue = parseFloat(duration) || 0;
+      let finalDuration = String(durationValue);
+      
+      if (durationValue < 0.01) {
+        // Calculate duration in hours from the time difference
+        const diffMs = endTime.getTime() - startTime.getTime();
+        const diffHours = diffMs / (1000 * 60 * 60);
+        finalDuration = diffHours.toFixed(2);
+      }
+      
       // Create the time entry with converted dates
       const entry = await storage.createTimeEntry({
         description,
         projectId: Number(projectId),
         startTime,
         endTime,
-        duration: String(duration),
+        duration: finalDuration,
         date,
         month,
         year: Number(year),
@@ -266,6 +277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         billable: Boolean(billable)
       });
       
+      console.log("Time entry created:", entry);
       res.status(201).json(entry);
     } catch (error) {
       console.error("Error creating time entry from tracker:", error);
