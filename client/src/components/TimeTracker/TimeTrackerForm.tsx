@@ -129,14 +129,19 @@ export default function TimeTrackerForm() {
                   const weekNum = Math.ceil(data.startTime.getDate() / 7);
                   const weekLabel = `Week ${weekNum}`;
                   
+                  // Format date values according to what the server expects
+                  const startDateTime = new Date(data.startTime);
+                  const endDateTime = new Date(data.endTime);
+                  
                   // Prepare time entry data
                   const timeEntry = {
                     description,
                     projectId: selectedProjectId || 0,
-                    // Convert Date objects to ISO strings for proper JSON serialization
-                    startTime: data.startTime.toISOString(),
-                    endTime: data.endTime.toISOString(),
-                    duration: data.seconds / 3600, // Convert seconds to hours for storing in database
+                    // Pass the Date objects directly - they'll be serialized to strings automatically
+                    startTime: startDateTime,
+                    endTime: endDateTime,
+                    // Format duration as a string (the server expects a string for numeric fields)
+                    duration: (data.seconds / 3600).toFixed(2),
                     date: dateStr,
                     month: monthStr,
                     year: yearNum,
