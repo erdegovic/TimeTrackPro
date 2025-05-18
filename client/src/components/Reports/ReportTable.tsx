@@ -6,7 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { generatePdf } from "@/lib/pdf-generator";
-import { formatTime, adjustTime, roundTime } from "@/lib/utils/timeUtils";
+import { formatTime, adjustTime, roundTime, formatCurrency } from "@/lib/utils/timeUtils";
 import { ReportFilters, Client, TimeEntry, Project, TimeFormat, RoundingType } from "@shared/schema";
 
 interface ReportTableProps {
@@ -124,7 +124,9 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                       {weekData.weekLabel}
                     </td>
                     <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
-                      ${weekData.totalAmount.toFixed(2)}
+                      {filters.clientId && weekData.entries[0]?.client?.currency
+                        ? formatCurrency(weekData.totalAmount, weekData.entries[0].client.currency)
+                        : `$${weekData.totalAmount.toFixed(2)}`}
                     </td>
                   </tr>
                   
@@ -149,10 +151,14 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                         {formatTime(entry.adjustedDuration || entry.duration, filters.timeFormat)}
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                        ${parseFloat(entry.hourlyRate).toFixed(2)}
+                        {entry.client?.currency 
+                          ? formatCurrency(parseFloat(entry.hourlyRate), entry.client.currency)
+                          : `$${parseFloat(entry.hourlyRate).toFixed(2)}`}
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                        ${parseFloat(entry.amount).toFixed(2)}
+                        {entry.client?.currency 
+                          ? formatCurrency(parseFloat(entry.amount), entry.client.currency)
+                          : `$${parseFloat(entry.amount).toFixed(2)}`}
                       </td>
                     </tr>
                   ))}
