@@ -38,18 +38,18 @@ export async function generatePdf(options: PdfOptions): Promise<void> {
   if (options.type === "report") {
     generateReportPdf(doc, autoTable, options.reportData, options.filters);
   } else {
-    generateInvoicePdf(
+    generateInvoicePdf({
       doc, 
       autoTable, 
-      options.invoice || undefined, 
-      options.reportData || undefined, 
-      options.client, 
-      options.settings,
-      options.invoiceNumber,
-      options.issueDate,
-      options.dueDate,
-      options.notes
-    );
+      client: options.client, 
+      settings: options.settings,
+      invoice: options.invoice,
+      reportData: options.reportData,
+      invoiceNumber: options.invoiceNumber,
+      issueDate: options.issueDate,
+      dueDate: options.dueDate,
+      notes: options.notes
+    });
   }
   
   // Save the PDF
@@ -138,7 +138,12 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
       styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
     },
     {
-      content: formatTime(reportData.totalHours, filters.timeFormat),
+      content: formatTime(
+        typeof reportData.totalHours === 'number' 
+          ? reportData.totalHours 
+          : parseFloat(reportData.totalHours || '0'),
+        filters.timeFormat
+      ),
       styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
     },
     {
@@ -174,18 +179,30 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
 /**
  * Generates an invoice PDF
  */
-function generateInvoicePdf(
-  doc: any, 
-  autoTable: any, 
-  invoice?: Invoice, 
-  reportData?: any,
-  client: Client,
-  settings: Settings,
-  invoiceNumber?: string,
-  issueDate?: string,
-  dueDate?: string,
-  notes?: string
-) {
+function generateInvoicePdf(options: {
+  doc: any;
+  autoTable: any;
+  client: Client;
+  settings: Settings;
+  invoice?: Invoice;
+  reportData?: any;
+  invoiceNumber?: string;
+  issueDate?: string;
+  dueDate?: string;
+  notes?: string;
+}) {
+  const { 
+    doc, 
+    autoTable, 
+    client, 
+    settings, 
+    invoice, 
+    reportData, 
+    invoiceNumber, 
+    issueDate, 
+    dueDate, 
+    notes 
+  } = options;
   // Use either the invoice data or the provided parameters
   const invNumber = invoice?.invoiceNumber || invoiceNumber || "DRAFT";
   const invIssueDate = invoice?.issueDate || issueDate || format(new Date(), 'yyyy-MM-dd');
@@ -364,22 +381,25 @@ function generateInvoicePdf(
       styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
     },
     {
-      content: `$${subtotal.toFixed(2)}`,
+      content: formatCurrency(subtotal, currency),
       styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] }
     }
   ]);
   
-  tableContent.push([
-    {
-      content: `Tax (${taxRate}%)`,
-      colSpan: 3,
-      styles: { fillColor: [255, 255, 255] }
-    },
-    {
-      content: `$${tax.toFixed(2)}`,
-      styles: { halign: 'right', fillColor: [255, 255, 255] }
-    }
-  ]);
+  // Only show tax row if tax is enabled or there's a tax amount
+  if (taxRate > 0 || tax > 0) {
+    tableContent.push([
+      {
+        content: `Tax (${taxRate}%)`,
+        colSpan: 3,
+        styles: { fillColor: [255, 255, 255] }
+      },
+      {
+        content: formatCurrency(tax, currency),
+        styles: { halign: 'right', fillColor: [255, 255, 255] }
+      }
+    ]);
+  }
   
   tableContent.push([
     {
@@ -388,7 +408,7 @@ function generateInvoicePdf(
       styles: { fontStyle: 'bold', fillColor: [0, 165, 228, 0.1] }
     },
     {
-      content: `$${total.toFixed(2)}`,
+      content: formatCurrency(total, currency),
       styles: { halign: 'right', fontStyle: 'bold', fillColor: [0, 165, 228, 0.1], textColor: [0, 165, 228] }
     }
   ]);

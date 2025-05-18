@@ -424,6 +424,56 @@ export default function SettingsPage() {
                       </FormItem>
                     )}
                   />
+                  
+                  <Separator className="my-4" />
+                  
+                  <div className="space-y-4">
+                    <h3 className="text-md font-medium">Tax Settings</h3>
+                    
+                    <FormField
+                      control={form.control}
+                      name="enableTax"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                          <div className="space-y-0.5">
+                            <FormLabel>Enable Tax</FormLabel>
+                            <p className="text-sm text-gray-500">
+                              Add tax calculations to invoices
+                            </p>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="defaultTaxRate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Default Tax Rate (%)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              placeholder="0"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={field.value}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                              disabled={!form.watch("enableTax")}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
