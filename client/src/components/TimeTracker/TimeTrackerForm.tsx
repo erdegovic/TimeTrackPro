@@ -133,9 +133,10 @@ export default function TimeTrackerForm() {
                   const timeEntry = {
                     description,
                     projectId: selectedProjectId || 0,
-                    startTime: data.startTime,
-                    endTime: data.endTime,
-                    duration: formatTime(data.seconds),
+                    // Convert Date objects to ISO strings for proper JSON serialization
+                    startTime: data.startTime.toISOString(),
+                    endTime: data.endTime.toISOString(),
+                    duration: data.seconds / 3600, // Convert seconds to hours for storing in database
                     date: dateStr,
                     month: monthStr,
                     year: yearNum,
