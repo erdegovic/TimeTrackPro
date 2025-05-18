@@ -61,6 +61,7 @@ export default function SettingsPage() {
       bankName: "",
       bankAccountName: "",
       bankAccountNumber: "",
+      bankSortCode: "",
       nextInvoiceNumber: 1001,
       defaultTimeFormat: "decimal",
       defaultCurrency: "USD",
@@ -83,6 +84,7 @@ export default function SettingsPage() {
         bankName: settings.bankName || "",
         bankAccountName: settings.bankAccountName || "",
         bankAccountNumber: settings.bankAccountNumber || "",
+        bankSortCode: settings.bankSortCode || "",
         nextInvoiceNumber: settings.nextInvoiceNumber || 1001,
         defaultTimeFormat: settings.defaultTimeFormat as "decimal" | "time" || "decimal",
         defaultCurrency: settings.defaultCurrency || "USD",
@@ -334,6 +336,20 @@ export default function SettingsPage() {
                         <FormLabel>Account Number</FormLabel>
                         <FormControl>
                           <Input placeholder="Account Number" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="bankSortCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Sort Code (for UK/GBP payments)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Sort Code (e.g., 12-34-56)" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
