@@ -33,6 +33,7 @@ const settingsSchema = z.object({
   nextInvoiceNumber: z.number().int().positive("Must be a positive number"),
   defaultTimeFormat: z.enum(["decimal", "time"]),
   defaultCurrency: z.string().min(1, "Currency is required"),
+  displayCurrency: z.string().min(1, "Display currency is required"),
 });
 
 export default function SettingsPage() {
@@ -65,6 +66,7 @@ export default function SettingsPage() {
       nextInvoiceNumber: 1001,
       defaultTimeFormat: "decimal",
       defaultCurrency: "USD",
+      displayCurrency: "USD",
     },
   });
   
@@ -88,6 +90,7 @@ export default function SettingsPage() {
         nextInvoiceNumber: settings.nextInvoiceNumber || 1001,
         defaultTimeFormat: settings.defaultTimeFormat as "decimal" | "time" || "decimal",
         defaultCurrency: settings.defaultCurrency || "USD",
+        displayCurrency: settings.displayCurrency || "USD",
       });
     }
   }, [settings, form]);
