@@ -251,12 +251,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startTime = new Date(startTimeStr);
       const endTime = new Date(endTimeStr);
       
-      // Always calculate duration from the time difference
-      const diffMs = endTime.getTime() - startTime.getTime();
-      const diffHours = diffMs / (1000 * 60 * 60);
-      const finalDuration = diffHours.toFixed(2);
-      
-      console.log(`Calculated duration from time difference: ${finalDuration} hours`);
+      // If client provided a duration, use it; otherwise calculate it
+      let finalDuration;
+      if (duration) {
+        // Trust the client's calculation if it's provided
+        finalDuration = duration;
+        console.log(`Using client-provided duration: ${finalDuration} hours`);
+      } else {
+        // Calculate it on the server as a fallback
+        const diffMs = endTime.getTime() - startTime.getTime();
+        const diffHours = diffMs / (1000 * 60 * 60);
+        // For very short durations, ensure we don't round to zero
+        let hoursDecimal = diffHours;
+        if (hoursDecimal > 0 && hoursDecimal < 0.01) {
+          hoursDecimal = 0.01; // Minimum of 0.01 hours (36 seconds)
+        }
+        finalDuration = hoursDecimal.toFixed(2);
+        console.log(`Calculated duration from time difference: ${finalDuration} hours`);
+      }
       
       // Create the time entry with converted dates
       const entry = await storage.createTimeEntry({
