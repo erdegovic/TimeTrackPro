@@ -26,39 +26,59 @@ export default function SimpleTimer({
   
   // Check localStorage on mount to see if we have a running timer
   useEffect(() => {
-    const storedTimer = localStorage.getItem("timeTracker");
-    if (storedTimer) {
-      try {
-        const { startTime, description: storedDesc, projectId: storedProjectId } = JSON.parse(storedTimer);
-        
-        // Always restore the timer if it exists
-        // This ensures the timer continues when returning to the tab
-        if (startTime) {
-          const start = new Date(startTime);
-          setStartTime(start);
-          setIsRunning(true);
+    // Check for a running timer in localStorage
+    const checkForRunningTimer = () => {
+      const storedTimer = localStorage.getItem("timeTracker");
+      if (storedTimer) {
+        try {
+          const { startTime } = JSON.parse(storedTimer);
           
-          // Calculate elapsed time
-          const elapsed = Math.floor((Date.now() - start.getTime()) / 1000);
-          setTime(elapsed);
-          
-          // Start the interval
-          intervalRef.current = window.setInterval(() => {
-            setTime(prev => prev + 1);
-          }, 1000);
-          
-          console.log("Timer restored with elapsed time:", formatTime(elapsed));
+          // Always restore the timer if it exists
+          // This ensures the timer continues when returning to the tab
+          if (startTime) {
+            const start = new Date(startTime);
+            setStartTime(start);
+            setIsRunning(true);
+            
+            // Calculate elapsed time
+            const elapsed = Math.floor((Date.now() - start.getTime()) / 1000);
+            setTime(elapsed);
+            
+            // Start the interval
+            if (intervalRef.current) {
+              window.clearInterval(intervalRef.current);
+            }
+            
+            intervalRef.current = window.setInterval(() => {
+              setTime(prev => prev + 1);
+            }, 1000);
+            
+            console.log("Timer restored with elapsed time:", formatTime(elapsed));
+          }
+        } catch (error) {
+          console.error("Error parsing stored timer:", error);
         }
-      } catch (error) {
-        console.error("Error parsing stored timer:", error);
       }
-    }
+    };
+
+    // Initial check
+    checkForRunningTimer();
+    
+    // Set up visibility change listener to refresh timer when tab becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkForRunningTimer();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
     // Clean up on unmount
     return () => {
       if (intervalRef.current) {
         window.clearInterval(intervalRef.current);
       }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 

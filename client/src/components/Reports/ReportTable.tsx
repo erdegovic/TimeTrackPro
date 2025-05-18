@@ -174,7 +174,9 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                 </td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900"></td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                  ${reportData.totalAmount.toFixed(2)}
+                  {filters.clientId && reportData.timeEntries[0]?.client?.currency
+                    ? formatCurrency(reportData.totalAmount, reportData.timeEntries[0].client.currency)
+                    : `$${reportData.totalAmount.toFixed(2)}`}
                 </td>
               </tr>
             </tbody>
