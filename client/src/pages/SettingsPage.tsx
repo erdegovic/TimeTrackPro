@@ -147,8 +147,8 @@ export default function SettingsPage() {
         nextInvoiceNumber: typeof data.nextInvoiceNumber === 'string' 
           ? parseInt(data.nextInvoiceNumber, 10) 
           : data.nextInvoiceNumber,
-        defaultTaxRate: typeof data.defaultTaxRate === 'string' 
-          ? parseFloat(data.defaultTaxRate) 
+        defaultTaxRate: typeof data.defaultTaxRate === 'number'
+          ? String(data.defaultTaxRate)
           : data.defaultTaxRate,
         enableTax: Boolean(data.enableTax)
       };
