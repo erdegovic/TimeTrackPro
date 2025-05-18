@@ -79,7 +79,8 @@ export default function SimpleTimer({
     localStorage.setItem("timeTracker", JSON.stringify({
       startTime: now.getTime(),
       description,
-      projectId
+      projectId,
+      clientId: window.selectedClientId // Add client ID to storage
     }));
   };
 

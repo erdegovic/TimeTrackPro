@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Keyboard } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,23 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
   const [description, setDescription] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  
+  // On component mount, check if there's an active timer and initialize form state
+  useEffect(() => {
+    try {
+      const storedTimer = localStorage.getItem("timeTracker");
+      if (storedTimer) {
+        const { description: storedDesc, projectId, clientId } = JSON.parse(storedTimer);
+        
+        // Populate the form with the stored values
+        if (storedDesc) setDescription(storedDesc);
+        if (projectId) setSelectedProjectId(projectId);
+        if (clientId) setSelectedClientId(clientId);
+      }
+    } catch (error) {
+      console.error("Error restoring timer state:", error);
+    }
+  }, []);
   
   // Fetch clients
   const { data: clients = [] } = useQuery({
