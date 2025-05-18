@@ -251,16 +251,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startTime = new Date(startTimeStr);
       const endTime = new Date(endTimeStr);
       
-      // Calculate a proper duration if it's too small
-      const durationValue = parseFloat(duration) || 0;
-      let finalDuration = String(durationValue);
-      
-      if (durationValue < 0.01) {
-        // Calculate duration in hours from the time difference
-        const diffMs = endTime.getTime() - startTime.getTime();
-        const diffHours = diffMs / (1000 * 60 * 60);
-        finalDuration = diffHours.toFixed(2);
-      }
+      // Always calculate duration from the time difference
+      const diffMs = endTime.getTime() - startTime.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+      const finalDuration = diffHours.toFixed(2);
       
       // Create the time entry with converted dates
       const entry = await storage.createTimeEntry({
