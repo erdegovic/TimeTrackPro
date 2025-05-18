@@ -108,19 +108,28 @@ export default function Dashboard() {
       const client = clients.find(c => c.id === project.clientId);
       const projectCurrency = client?.currency || 'USD';
       
-      // Simple conversion rate for demonstration (in real app, would use API)
+      // More precise conversion rates based on market middle rates
       const conversionRates: {[key: string]: number} = {
         'USD': 1.0,
-        'EUR': 0.92,
-        'GBP': 0.78,
-        'CAD': 1.36,
-        'RSD': 108.5
+        'EUR': 0.925,
+        'GBP': 0.787,
+        'CAD': 1.37,
+        'RSD': 104.23
       };
       
-      // Convert to display currency
+      // Calculate the amount in the project's currency
       const amount = Number(entry.duration || 0) * Number(project.hourlyRate || 0);
-      const inOriginalCurrency = amount / (conversionRates[projectCurrency] || 1);
-      const inDisplayCurrency = inOriginalCurrency * (conversionRates[displayCurrency] || 1);
+      
+      // If the currencies are the same, no conversion needed
+      if (projectCurrency === displayCurrency) {
+        return total + amount;
+      }
+      
+      // Convert directly between currencies using the most accurate method
+      // First to USD (as base currency)
+      const amountInUSD = projectCurrency === 'USD' ? amount : amount / conversionRates[projectCurrency];
+      // Then from USD to display currency
+      const inDisplayCurrency = displayCurrency === 'USD' ? amountInUSD : amountInUSD * conversionRates[displayCurrency];
       
       return total + inDisplayCurrency;
     }
