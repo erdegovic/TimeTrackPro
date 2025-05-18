@@ -64,18 +64,24 @@ export function useTimeTracker() {
   
   // Update elapsed time when tracking
   useEffect(() => {
+    console.log("Timer effect running, isTracking:", isTracking, "startTime:", startTime);
+    
     if (isTracking && startTime) {
       // Initial calculation
       setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
       
       // Set up timer to update every second
-      timerRef.current = window.setInterval(() => {
+      const intervalId = window.setInterval(() => {
         setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
+      
+      timerRef.current = intervalId;
+      console.log("Timer interval set:", intervalId);
     } else {
       // Clear timer when not tracking
       if (timerRef.current) {
-        clearInterval(timerRef.current);
+        console.log("Clearing timer interval:", timerRef.current);
+        window.clearInterval(timerRef.current);
         timerRef.current = null;
       }
     }
@@ -83,7 +89,8 @@ export function useTimeTracker() {
     // Cleanup on unmount
     return () => {
       if (timerRef.current) {
-        clearInterval(timerRef.current);
+        console.log("Cleanup: clearing timer interval:", timerRef.current);
+        window.clearInterval(timerRef.current);
       }
     };
   }, [isTracking, startTime]);
@@ -125,20 +132,40 @@ export function useTimeTracker() {
   
   // Stop the timer and save time entry
   const stopTimer = async () => {
+    console.log("Stopping timer...");
+    
     if (isTracking && startTime && selectedProjectId) {
       const endTime = Date.now();
       const duration = calculateDuration(startTime, endTime);
+      
+      const startDateTime = new Date(startTime);
+      const endDateTime = new Date(endTime);
+      
+      // Format dates for display
+      const dateStr = format(startDateTime, 'yyyy-MM-dd');
+      const monthStr = format(startDateTime, 'MMMM');
+      const yearNum = startDateTime.getFullYear();
+      
+      // Calculate week number and label
+      const weekNum = Math.ceil(startDateTime.getDate() / 7);
+      const weekLabel = `Week ${weekNum}`;
       
       // Prepare time entry data
       const timeEntry: Partial<TimeEntry> = {
         description,
         projectId: selectedProjectId,
-        startTime: new Date(startTime).toISOString(),
-        endTime: new Date(endTime).toISOString(),
-        duration: duration.toString(),
-        date: format(new Date(startTime), 'yyyy-MM-dd'),
+        startTime: startDateTime,
+        endTime: endDateTime,
+        duration: duration.toString(), // Convert duration to string
+        date: dateStr,
+        month: monthStr,
+        year: yearNum,
+        weekNumber: weekNum,
+        weekLabel: weekLabel,
         billable: true,
       };
+      
+      console.log("Saving time entry:", timeEntry);
       
       // Save time entry
       createTimeEntry.mutate(timeEntry);
