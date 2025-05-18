@@ -369,12 +369,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const project = projects.find(p => p.id === entry.projectId);
           const client = project ? clients.find(c => c.id === project.clientId) : undefined;
           
+          // Use client's currency for the amount calculation
+          let hourlyRate = project?.hourlyRate || "0";
+          let duration = typeof entry.duration === 'number' ? entry.duration : parseFloat(entry.duration || "0");
+          let amount = (parseFloat(hourlyRate) * duration).toFixed(2);
+          
           return {
             ...entry,
             project,
             client,
-            hourlyRate: project?.hourlyRate || "0",
-            amount: (Number(project?.hourlyRate || 0) * Number(entry.duration)).toFixed(2)
+            hourlyRate,
+            amount,
+            // Include client currency to ensure it's available for formatting
+            currency: client?.currency || 'USD'
           };
         })
       );

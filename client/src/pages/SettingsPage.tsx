@@ -31,12 +31,16 @@ const settingsSchema = z.object({
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
   bankSortCode: z.string().optional(),
-  nextInvoiceNumber: z.number().int().positive("Must be a positive number"),
+  nextInvoiceNumber: z.coerce.number().int().positive("Must be a positive number"),
   defaultTimeFormat: z.enum(["decimal", "time"]),
   defaultCurrency: z.string().min(1, "Currency is required"),
   displayCurrency: z.string().min(1, "Display currency is required"),
   enableTax: z.boolean().default(false),
-  defaultTaxRate: z.coerce.number().min(0).max(100).default(0),
+  // Make it a string in the form to match the database type
+  defaultTaxRate: z.preprocess(
+    (val) => (typeof val === 'number' ? val.toString() : val),
+    z.string().transform((val) => (val === '' ? '0' : val))
+  ),
 });
 
 export default function SettingsPage() {
@@ -106,8 +110,14 @@ export default function SettingsPage() {
   
   // Update settings mutation
   const updateSettings = useMutation({
-    mutationFn: async (data: z.infer<typeof settingsSchema>) => {
-      return apiRequest("PUT", "/api/settings", data);
+    mutationFn: async (data: any) => {
+      // Ensure defaultTaxRate is sent as a string
+      const processedData = {
+        ...data,
+        defaultTaxRate: String(data.defaultTaxRate)
+      };
+      console.log("Sending settings to server:", processedData);
+      return apiRequest("PUT", "/api/settings", processedData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
@@ -118,6 +128,7 @@ export default function SettingsPage() {
       setIsSubmitting(false);
     },
     onError: (error) => {
+      console.error("Settings update error:", error);
       toast({
         title: "Error",
         description: "Failed to update settings. Please try again.",
