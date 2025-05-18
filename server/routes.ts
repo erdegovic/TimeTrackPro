@@ -277,7 +277,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         billable: Boolean(billable)
       });
       
-      console.log("Time entry created:", entry);
+      // Debug the entry creation
+      console.log("Time entry created:", JSON.stringify(entry));
+      
+      // Double-check to make sure the entry was saved
+      const savedEntry = await storage.getTimeEntry(entry.id);
+      console.log("Verified entry in database:", JSON.stringify(savedEntry));
+      
       res.status(201).json(entry);
     } catch (error) {
       console.error("Error creating time entry from tracker:", error);

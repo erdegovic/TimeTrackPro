@@ -176,25 +176,58 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTimeEntry(timeEntryData: InsertTimeEntry): Promise<TimeEntry> {
+    // Create a properly typed entry with all required fields and defaults for optional ones
     const entryDate = parseISO(timeEntryData.date);
     const year = getYear(entryDate);
-    const month = format(entryDate, 'yyyy-MM');
+    const month = format(entryDate, 'MMM'); // Just the month name
     const weekOfMonth = getWeekOfMonth(entryDate);
     
     const weekStart = format(startOfWeek(entryDate), 'MMM d');
     const weekEnd = format(endOfWeek(entryDate), 'MMM d');
     const weekLabel = `Week ${weekOfMonth} (${weekStart} - ${weekEnd})`;
     
-    const timeEntry = {
-      ...timeEntryData,
+    // Ensure duration is a string
+    const duration = timeEntryData.duration || "0.00";
+    const billable = timeEntryData.billable !== undefined ? timeEntryData.billable : true;
+    
+    console.log("Creating time entry with data:", {
+      description: timeEntryData.description,
+      projectId: timeEntryData.projectId,
+      startTime: timeEntryData.startTime,
+      endTime: timeEntryData.endTime,
+      duration,
+      date: timeEntryData.date,
       weekNumber: weekOfMonth,
       weekLabel,
       month,
       year,
-    };
+      billable,
+      invoiceId: null
+    });
     
-    const [newEntry] = await db.insert(timeEntries).values(timeEntry).returning();
-    return newEntry;
+    try {
+      // Insert the properly structured entry
+      const [newEntry] = await db.insert(timeEntries).values({
+        description: timeEntryData.description,
+        projectId: timeEntryData.projectId,
+        startTime: timeEntryData.startTime,
+        endTime: timeEntryData.endTime,
+        duration,
+        date: timeEntryData.date,
+        weekNumber: weekOfMonth,
+        weekLabel,
+        month,
+        year,
+        billable,
+        invoiceId: null
+      }).returning();
+      
+      console.log("Successfully created time entry:", newEntry);
+      return newEntry;
+    } catch (error) {
+      console.error("Database error creating time entry:", error);
+      throw error;
+    }
   }
 
   async updateTimeEntry(id: number, timeEntryData: Partial<InsertTimeEntry>): Promise<TimeEntry | undefined> {
