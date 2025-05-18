@@ -477,8 +477,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const issueDate = format(new Date(), 'yyyy-MM-dd');
       const dueDate = format(addDays(new Date(), 15), 'yyyy-MM-dd'); // Default to 15 days
       
+      // Process data to ensure types match schema
+      const data = {...req.body};
+      
+      // Ensure taxRate is a string
+      if (data.taxRate && typeof data.taxRate !== 'string') {
+        data.taxRate = String(data.taxRate);
+      }
+      
       const invoiceData = insertInvoiceSchema.parse({
-        ...req.body,
+        ...data,
         invoiceNumber: nextInvoiceNumber,
         issueDate,
         dueDate
@@ -576,8 +584,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/settings", async (req: Request, res: Response) => {
     try {
       console.log("Updating settings with data:", JSON.stringify(req.body));
-      const settingsData = insertSettingsSchema.partial().parse(req.body);
-      console.log("Parsed settings data:", JSON.stringify(settingsData));
+      
+      // Process data to ensure types match schema
+      const data = req.body;
+      
+      // Convert nextInvoiceNumber to number if it's a string
+      if (data.nextInvoiceNumber && typeof data.nextInvoiceNumber === 'string') {
+        data.nextInvoiceNumber = parseInt(data.nextInvoiceNumber, 10);
+      }
+      
+      // Ensure defaultTaxRate is a string
+      if (data.defaultTaxRate && typeof data.defaultTaxRate !== 'string') {
+        data.defaultTaxRate = String(data.defaultTaxRate);
+      }
+      
+      console.log("Processed settings data:", JSON.stringify(data));
+      const settingsData = insertSettingsSchema.partial().parse(data);
       
       const settings = await storage.updateSettings(settingsData);
       console.log("Settings updated successfully:", JSON.stringify(settings));
@@ -587,7 +609,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error updating settings:", error);
       
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid settings data", errors: error.errors });
+        return res.status(400).json({ 
+          message: "Invalid settings data", 
+          errors: error.errors,
+          details: "Make sure defaultTaxRate is a string and nextInvoiceNumber is a number" 
+        });
       }
       
       res.status(500).json({ 
