@@ -104,6 +104,8 @@ export function useTimeTracker() {
   
   // Start the timer
   const startTimer = () => {
+    console.log("Starting timer...", { description, selectedProjectId });
+    
     if (!description || !selectedProjectId) {
       toast({
         title: "Missing information",
@@ -117,6 +119,8 @@ export function useTimeTracker() {
     setStartTime(now);
     setIsTracking(true);
     setElapsedTime(0);
+    
+    console.log("Timer started at:", new Date(now).toISOString());
   };
   
   // Stop the timer and save time entry

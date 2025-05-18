@@ -72,7 +72,10 @@ export default function TimeTrackerForm() {
           </div>
           
           <div className="flex flex-wrap gap-2.5 md:flex-nowrap w-full md:w-auto">
-            <Select value={selectedClientId?.toString()} onValueChange={handleClientChange}>
+            <Select 
+              value={selectedClientId?.toString()} 
+              onValueChange={handleClientChange}
+            >
               <SelectTrigger className="w-full md:w-40">
                 <SelectValue placeholder="Select client" />
               </SelectTrigger>
@@ -82,13 +85,16 @@ export default function TimeTrackerForm() {
                     {client.name}
                   </SelectItem>
                 ))}
-                <SelectItem value="new">+ Add new client</SelectItem>
               </SelectContent>
             </Select>
             
             <Select 
               value={selectedProjectId?.toString()} 
-              onValueChange={(val) => setSelectedProjectId(Number(val))}
+              onValueChange={(val) => {
+                if (val !== "new") {
+                  setSelectedProjectId(Number(val));
+                }
+              }}
               disabled={!selectedClientId}
             >
               <SelectTrigger className="w-full md:w-40">
@@ -100,7 +106,6 @@ export default function TimeTrackerForm() {
                     {project.name}
                   </SelectItem>
                 ))}
-                <SelectItem value="new">+ Add new project</SelectItem>
               </SelectContent>
             </Select>
             
