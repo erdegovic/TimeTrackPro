@@ -95,7 +95,8 @@ export default function TimeEntryList() {
     }
     
     acc[groupKey].entries.push(entry);
-    acc[groupKey].totalHours += Number(entry.duration || 0);
+    // Use exactDuration for more accurate totals
+    acc[groupKey].totalHours += entry.exactDuration || Number(entry.duration || 0);
     
     return acc;
   }, {} as Record<string, { label: string; entries: typeof enhancedEntries; totalHours: number }>);
