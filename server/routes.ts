@@ -208,10 +208,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/time-entries", async (req: Request, res: Response) => {
     try {
-      const entryData = insertTimeEntrySchema.parse(req.body);
+      // Pre-process the date fields to convert ISO strings to Date objects
+      const data = { ...req.body };
+      
+      // Convert string dates to Date objects if they're provided as strings
+      if (data.startTime && typeof data.startTime === 'string') {
+        data.startTime = new Date(data.startTime);
+      }
+      
+      if (data.endTime && typeof data.endTime === 'string') {
+        data.endTime = new Date(data.endTime);
+      }
+      
+      // Parse and validate the data
+      const entryData = insertTimeEntrySchema.parse(data);
       const entry = await storage.createTimeEntry(entryData);
       res.status(201).json(entry);
     } catch (error) {
+      console.error("Error creating time entry:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid time entry data", errors: error.errors });
       }
