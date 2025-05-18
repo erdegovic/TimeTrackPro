@@ -316,7 +316,7 @@ export class DatabaseStorage implements IStorage {
     
     // Update the next invoice number in settings
     const settingsData = await this.getSettings();
-    if (settingsData) {
+    if (settingsData && settingsData.nextInvoiceNumber) {
       await this.updateSettings({
         nextInvoiceNumber: settingsData.nextInvoiceNumber + 1
       });
@@ -417,6 +417,9 @@ export class DatabaseStorage implements IStorage {
       nextInvoiceNumber: 1001,
       defaultTimeFormat: "decimal",
       defaultCurrency: "USD",
+      displayCurrency: "USD",
+      enableTax: false,
+      defaultTaxRate: 0,
     };
   }
 }

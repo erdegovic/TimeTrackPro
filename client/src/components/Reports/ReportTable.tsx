@@ -177,7 +177,12 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                   Total
                 </td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
-                  {formatTime(reportData.totalHours, filters.timeFormat)}
+                  {formatTime(
+                    typeof reportData.totalHours === 'number' 
+                      ? reportData.totalHours 
+                      : parseFloat(String(reportData.totalHours) || '0'), 
+                    filters.timeFormat
+                  )}
                 </td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900"></td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
