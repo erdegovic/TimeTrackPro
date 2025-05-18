@@ -20,11 +20,26 @@ export const clients = pgTable("clients", {
   taxId: text("tax_id"),
 });
 
+// Invoices table
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  invoiceNumber: text("invoice_number").notNull().unique(),
+  clientId: integer("client_id").notNull().references(() => clients.id),
+  issueDate: text("issue_date").notNull(), // Store as YYYY-MM-DD
+  dueDate: text("due_date").notNull(), // Store as YYYY-MM-DD
+  status: text("status").notNull().default("draft"), // draft, sent, paid
+  subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
+  tax: numeric("tax", { precision: 10, scale: 2 }).default("0"),
+  taxRate: numeric("tax_rate", { precision: 5, scale: 2 }).default("0"),
+  total: numeric("total", { precision: 10, scale: 2 }).notNull(),
+  notes: text("notes"),
+});
+
 // Projects table
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  clientId: integer("client_id").notNull(),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
   description: text("description"),
   active: boolean("active").default(true),
   hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }).default("0"),
@@ -34,7 +49,7 @@ export const projects = pgTable("projects", {
 export const timeEntries = pgTable("time_entries", {
   id: serial("id").primaryKey(),
   description: text("description").notNull(),
-  projectId: integer("project_id").notNull(),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: 'cascade' }),
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time"),
   duration: numeric("duration", { precision: 10, scale: 2 }), // Duration in hours
@@ -44,22 +59,7 @@ export const timeEntries = pgTable("time_entries", {
   month: text("month").notNull(), // Store as YYYY-MM
   year: integer("year").notNull(),
   billable: boolean("billable").default(true),
-  invoiceId: integer("invoice_id"),
-});
-
-// Invoices table
-export const invoices = pgTable("invoices", {
-  id: serial("id").primaryKey(),
-  invoiceNumber: text("invoice_number").notNull().unique(),
-  clientId: integer("client_id").notNull(),
-  issueDate: text("issue_date").notNull(), // Store as YYYY-MM-DD
-  dueDate: text("due_date").notNull(), // Store as YYYY-MM-DD
-  status: text("status").notNull().default("draft"), // draft, sent, paid
-  subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
-  tax: numeric("tax", { precision: 10, scale: 2 }).default("0"),
-  taxRate: numeric("tax_rate", { precision: 5, scale: 2 }).default("0"),
-  total: numeric("total", { precision: 10, scale: 2 }).notNull(),
-  notes: text("notes"),
+  invoiceId: integer("invoice_id").references(() => invoices.id, { onDelete: 'set null' }),
 });
 
 // Settings table
