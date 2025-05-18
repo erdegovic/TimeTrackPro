@@ -186,25 +186,26 @@ export class DatabaseStorage implements IStorage {
     const weekEnd = format(endOfWeek(entryDate), 'MMM d');
     const weekLabel = `Week ${weekOfMonth} (${weekStart} - ${weekEnd})`;
     
-    // FIXED: Always ensure duration is at least 0.01 hours
-    let duration = "0.01"; // Minimum duration to display
+    // Calculate exact duration with no minimum value
+    let duration = "0.00";
     
-    // If client sent a duration, use it as long as it's not 0
-    if (timeEntryData.duration && parseFloat(timeEntryData.duration) > 0) {
-      duration = timeEntryData.duration;
-    } 
-    // If we have start/end times, calculate duration (but keep minimum)
-    else if (timeEntryData.startTime && timeEntryData.endTime) {
+    // If we have start/end times, calculate exact duration to the second
+    if (timeEntryData.startTime && timeEntryData.endTime) {
+      // Calculate precise time difference in milliseconds
       const diffMs = timeEntryData.endTime.getTime() - timeEntryData.startTime.getTime();
+      
+      // Convert to hours with higher precision (6 decimal places)
       const diffHours = diffMs / (1000 * 60 * 60);
       
-      // Only override minimum if calculated value is larger
-      if (diffHours > 0.01) {
-        duration = diffHours.toFixed(2);
-      }
+      // Store exact duration value (4 decimal places to capture seconds)
+      duration = diffHours.toFixed(4);
+    } 
+    // If client sent a duration directly, use it
+    else if (timeEntryData.duration) {
+      duration = timeEntryData.duration;
     }
     
-    console.log(`Database using duration: ${duration} hours (enforcing minimum value)`);
+    console.log(`Database using exact duration: ${duration} hours (no minimum value)`);
     
     
     const billable = timeEntryData.billable !== undefined ? timeEntryData.billable : true;

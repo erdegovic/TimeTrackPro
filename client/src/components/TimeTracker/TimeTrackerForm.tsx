@@ -136,19 +136,13 @@ export default function TimeTrackerForm() {
                   // Calculate duration correctly
                   const diffMs = endDateTime.getTime() - startDateTime.getTime();
                   
-                  // For very short durations (less than a minute), ensure we don't round to zero
-                  // by ensuring a minimum value of 0.01 hours (36 seconds)
-                  let hoursDecimal = diffMs / (1000 * 60 * 60);
+                  // Calculate exact duration with higher precision (no minimum value)
+                  const hoursDecimal = diffMs / (1000 * 60 * 60);
                   
-                  // If it's a very small duration but not zero, ensure it shows as at least 0.01
-                  if (hoursDecimal > 0 && hoursDecimal < 0.01) {
-                    hoursDecimal = 0.01; // Minimum duration of 0.01 hours (36 seconds)
-                  }
+                  // Convert to string with 4 decimal places to capture seconds precisely
+                  const diffHours = hoursDecimal.toFixed(4);
                   
-                  // Convert to string with 2 decimal places
-                  const diffHours = hoursDecimal.toFixed(2);
-                  
-                  console.log(`Client calculated duration: ${diffHours} hours from ${diffMs}ms (${hoursDecimal} raw hours)`);
+                  console.log(`Client calculated exact duration: ${diffHours} hours from ${diffMs}ms (${hoursDecimal} raw hours)`);
                   
                   // Prepare time entry data
                   const timeEntry = {

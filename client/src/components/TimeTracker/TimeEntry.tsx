@@ -90,27 +90,37 @@ export default function TimeEntryRow({
     }
   };
 
+  // Format duration with precise time conversion
   const formatDuration = (duration: string | number) => {
     let durationNum = 0;
     
     // Ensure we have a valid number to work with
     if (typeof duration === "string") {
-      // Try to parse the string as a float
+      // Try to parse the string as a float with higher precision
       durationNum = parseFloat(duration) || 0;
     } else if (typeof duration === "number") {
       durationNum = duration;
     }
     
-    // Add proper formatting based on the format option
+    // Format based on the selected display mode
     if (timeFormat === "decimal") {
       // Show as decimal hours with 2 decimal places
       return `${durationNum.toFixed(2)}h`;
     } else {
-      // Convert decimal hours to HH:MM:SS format
+      // Convert decimal hours to precise HH:MM:SS format
+      // Get hours as integer part
       const hours = Math.floor(durationNum);
-      const minutes = Math.floor((durationNum - hours) * 60);
-      const seconds = Math.round(((durationNum - hours) * 60 - minutes) * 60);
       
+      // Calculate total seconds
+      const totalSeconds = durationNum * 3600;
+      
+      // Extract minutes from remaining seconds after hours
+      const minutes = Math.floor((totalSeconds - (hours * 3600)) / 60);
+      
+      // Extract remaining seconds
+      const seconds = Math.round(totalSeconds - (hours * 3600) - (minutes * 60));
+      
+      // Format with leading zeros
       return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
   };
