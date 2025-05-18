@@ -75,7 +75,7 @@ export default function SettingsPage() {
       defaultCurrency: "USD",
       displayCurrency: "USD",
       enableTax: false,
-      defaultTaxRate: 0 as number,
+      defaultTaxRate: "0", // Tax rate must be a string to match schema
     },
   });
   
@@ -101,9 +101,7 @@ export default function SettingsPage() {
         defaultCurrency: settings.defaultCurrency || "USD",
         displayCurrency: settings.displayCurrency || "USD",
         enableTax: typeof settings.enableTax === 'boolean' ? settings.enableTax : false,
-        defaultTaxRate: typeof settings.defaultTaxRate === 'number' 
-          ? settings.defaultTaxRate 
-          : parseFloat(settings.defaultTaxRate?.toString() || '0'),
+        defaultTaxRate: settings.defaultTaxRate?.toString() || "0",
       });
     }
   }, [settings, form]);

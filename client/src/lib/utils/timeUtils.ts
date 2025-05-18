@@ -50,7 +50,13 @@ export function formatCurrency(amount: number, currencyCode: string = 'USD'): st
     'USD': '$',
     'EUR': '€',
     'GBP': '£',
+    'JPY': '¥',
     'CAD': 'CA$',
+    'AUD': 'A$',
+    'INR': '₹',
+    'CNY': '¥',
+    'BRL': 'R$',
+    'ZAR': 'R',
     'RSD': 'RSD'
   };
   
@@ -60,7 +66,7 @@ export function formatCurrency(amount: number, currencyCode: string = 'USD'): st
   const formattedAmount = amount.toFixed(2);
   
   // For most currencies, the symbol comes before the amount
-  if (currencyCode === 'RSD') {
+  if (['RSD', 'SEK', 'DKK', 'NOK'].includes(currencyCode)) {
     return `${formattedAmount} ${symbol}`;
   } else {
     return `${symbol}${formattedAmount}`;
