@@ -31,15 +31,15 @@ export function adjustTime(seconds: number, percentage: number = 0): number {
 }
 
 export function roundTime(
-  seconds: number, 
+  hours: number, 
   roundingType: 'none' | 'nearest_tenth' | 'nearest_quarter' | 'nearest_half' = 'none'
 ): number {
-  if (roundingType === 'none') return seconds;
-  
-  // Convert to hours
-  let hoursFraction = seconds / 3600;
+  if (roundingType === 'none') return hours;
   
   // Apply rounding based on type
+  // The input is already in hours (from duration field), so no need to convert
+  let hoursFraction = hours;
+  
   switch(roundingType) {
     case 'nearest_tenth':
       hoursFraction = Math.round(hoursFraction * 10) / 10;
@@ -52,7 +52,5 @@ export function roundTime(
       break;
   }
   
-  // Convert back to seconds
-  const rounded = hoursFraction * 3600;
-  return Math.max(0, rounded);
+  return Math.max(0, hoursFraction);
 }
