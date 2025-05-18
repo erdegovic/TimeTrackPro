@@ -21,17 +21,21 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
   const [invoiceNumber, setInvoiceNumber] = useState("");
   
   // Fetch next invoice number
-  useQuery({
+  const { data: invoiceNumberData } = useQuery({
     queryKey: ["/api/next-invoice-number"],
     queryFn: async () => {
       const response = await fetch("/api/next-invoice-number");
       if (!response.ok) throw new Error("Failed to fetch next invoice number");
       return response.json();
-    },
-    onSuccess: (data: any) => {
-      setInvoiceNumber(data.invoiceNumber);
     }
   });
+  
+  // Set invoice number when data is available
+  useEffect(() => {
+    if (invoiceNumberData?.invoiceNumber) {
+      setInvoiceNumber(invoiceNumberData.invoiceNumber);
+    }
+  }, [invoiceNumberData]);
   
   // Fetch client data
   const { data: client } = useQuery<Client>({
@@ -58,8 +62,13 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
   // Get tax settings from business settings
   useEffect(() => {
     if (settings) {
-      setEnableTax(settings.enableTax || false);
-      setTaxRate(Number(settings.defaultTaxRate) || 0);
+      const taxEnabled = typeof settings.enableTax === 'boolean' ? settings.enableTax : false;
+      const rate = typeof settings.defaultTaxRate === 'number' 
+        ? settings.defaultTaxRate 
+        : parseFloat(settings.defaultTaxRate?.toString() || '0');
+      
+      setEnableTax(taxEnabled);
+      setTaxRate(rate);
     }
   }, [settings]);
   

@@ -36,7 +36,7 @@ const settingsSchema = z.object({
   defaultCurrency: z.string().min(1, "Currency is required"),
   displayCurrency: z.string().min(1, "Display currency is required"),
   enableTax: z.boolean().default(false),
-  defaultTaxRate: z.number().min(0).max(100).default(0),
+  defaultTaxRate: z.coerce.number().min(0).max(100).default(0),
 });
 
 export default function SettingsPage() {
@@ -71,7 +71,7 @@ export default function SettingsPage() {
       defaultCurrency: "USD",
       displayCurrency: "USD",
       enableTax: false,
-      defaultTaxRate: 0,
+      defaultTaxRate: 0 as number,
     },
   });
   
@@ -96,8 +96,10 @@ export default function SettingsPage() {
         defaultTimeFormat: settings.defaultTimeFormat as "decimal" | "time" || "decimal",
         defaultCurrency: settings.defaultCurrency || "USD",
         displayCurrency: settings.displayCurrency || "USD",
-        enableTax: settings.enableTax || false,
-        defaultTaxRate: settings.defaultTaxRate || 0,
+        enableTax: typeof settings.enableTax === 'boolean' ? settings.enableTax : false,
+        defaultTaxRate: typeof settings.defaultTaxRate === 'number' 
+          ? settings.defaultTaxRate 
+          : parseFloat(settings.defaultTaxRate?.toString() || '0'),
       });
     }
   }, [settings, form]);
@@ -464,8 +466,11 @@ export default function SettingsPage() {
                               min="0"
                               max="100"
                               step="0.01"
-                              value={field.value}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
+                              value={field.value.toString()}
+                              onChange={(e) => {
+                                const value = e.target.value === '' ? 0 : Number(e.target.value);
+                                field.onChange(value);
+                              }}
                               disabled={!form.watch("enableTax")}
                             />
                           </FormControl>
