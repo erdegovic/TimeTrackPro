@@ -1,12 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { Clock, CreditCard, DollarSign, Users, Calendar, Activity } from "lucide-react";
 import { TimeEntry, Client, Project } from "@shared/schema";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+// Helper function to format decimal hours to HH:MM:SS
+function formatTimeFromDecimal(decimalHours: number): string {
+  const hours = Math.floor(decimalHours);
+  const minutes = Math.floor((decimalHours - hours) * 60);
+  const seconds = Math.round(((decimalHours - hours) * 60 - minutes) * 60);
+  
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
 
 export default function Dashboard() {
+  const [timeFormat, setTimeFormat] = useState<"decimal" | "time">("decimal");
   const today = new Date();
   const weekStart = format(startOfWeek(today), "yyyy-MM-dd");
   const weekEnd = format(endOfWeek(today), "yyyy-MM-dd");
@@ -109,8 +121,22 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-        <div className="text-sm text-gray-500">
-          {format(today, "MMMM d, yyyy")}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center space-x-2">
+            <label htmlFor="time-format" className="text-sm font-medium text-gray-500">Format:</label>
+            <Select value={timeFormat} onValueChange={(val: "decimal" | "time") => setTimeFormat(val)}>
+              <SelectTrigger id="time-format" className="w-[130px]">
+                <SelectValue placeholder="Select format" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="decimal">Decimal (1.5h)</SelectItem>
+                <SelectItem value="time">Time (1:30:00)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="text-sm text-gray-500">
+            {format(today, "MMMM d, yyyy")}
+          </div>
         </div>
       </div>
 
@@ -121,7 +147,11 @@ export default function Dashboard() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{weeklyHours.toFixed(1)}h</div>
+            <div className="text-2xl font-bold">
+              {timeFormat === "decimal" 
+                ? `${weeklyHours.toFixed(1)}h` 
+                : formatTimeFromDecimal(weeklyHours)}
+            </div>
             <p className="text-xs text-muted-foreground">
               From {format(new Date(weekStart), "MMM d")} to {format(new Date(weekEnd), "MMM d")}
             </p>
@@ -134,7 +164,11 @@ export default function Dashboard() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{monthlyHours.toFixed(1)}h</div>
+            <div className="text-2xl font-bold">
+              {timeFormat === "decimal" 
+                ? `${monthlyHours.toFixed(1)}h` 
+                : formatTimeFromDecimal(monthlyHours)}
+            </div>
             <p className="text-xs text-muted-foreground">
               {format(new Date(monthStart), "MMMM yyyy")}
             </p>
@@ -181,7 +215,15 @@ export default function Dashboard() {
                 <XAxis dataKey="day" />
                 <YAxis label={{ value: 'Hours', angle: -90, position: 'insideLeft' }} />
                 <Tooltip 
-                  formatter={(value) => [`${Number(value).toFixed(1)} hours`, 'Time']}
+                  formatter={(value) => {
+                    const numValue = Number(value);
+                    return [
+                      timeFormat === "decimal" 
+                        ? `${numValue.toFixed(1)} hours` 
+                        : formatTimeFromDecimal(numValue),
+                      'Time'
+                    ];
+                  }}
                   labelFormatter={(label) => `${label}`} 
                 />
                 <Bar dataKey="hours" fill="#00a5e4" radius={[4, 4, 0, 0]} />
@@ -217,7 +259,15 @@ export default function Dashboard() {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => [`${Number(value).toFixed(1)} hours`, 'Time']} />
+                    <Tooltip formatter={(value) => {
+                      const numValue = Number(value);
+                      return [
+                        timeFormat === "decimal" 
+                          ? `${numValue.toFixed(1)} hours` 
+                          : formatTimeFromDecimal(numValue),
+                        'Time'
+                      ];
+                    }} />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
