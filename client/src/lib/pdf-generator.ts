@@ -112,7 +112,8 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
         styles: { fillColor: [240, 240, 240], fontStyle: 'bold' }
       },
       {
-        content: `$${weekData.totalAmount.toFixed(2)}`,
+        content: formatCurrency(weekData.totalAmount, 
+          filters.clientId && weekData.entries[0]?.client?.currency || 'USD'),
         styles: { halign: 'right', fillColor: [240, 240, 240], fontStyle: 'bold' }
       }
     ]);
@@ -125,7 +126,7 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
         entry.client?.name || '—',
         entry.project?.name || '—',
         formatTime(entry.adjustedDuration || entry.duration, filters.timeFormat),
-        `$${parseFloat(entry.amount).toFixed(2)}`
+        formatCurrency(parseFloat(entry.amount), entry.client?.currency || 'USD')
       ]);
     });
   });
@@ -405,11 +406,11 @@ function generateInvoicePdf(options: {
     {
       content: 'Total Due',
       colSpan: 3,
-      styles: { fontStyle: 'bold', fillColor: [0, 165, 228, 0.1] }
+      styles: { fontStyle: 'bold', fillColor: [0, 45, 91] }
     },
     {
       content: formatCurrency(total, currency),
-      styles: { halign: 'right', fontStyle: 'bold', fillColor: [0, 165, 228, 0.1], textColor: [0, 165, 228] }
+      styles: { halign: 'right', fontStyle: 'bold', fillColor: [0, 45, 91], textColor: [255, 255, 255] }
     }
   ]);
   
