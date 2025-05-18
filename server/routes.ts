@@ -8,10 +8,13 @@ import {
   insertInvoiceSchema, 
   insertSettingsSchema,
   timeFormatEnum,
-  roundingTypeEnum
+  roundingTypeEnum,
+  timeEntries
 } from "@shared/schema";
 import { z } from "zod";
 import { addDays, format } from "date-fns";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // All API routes use /api prefix
@@ -478,10 +481,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Mark related time entries as invoiced
       if (req.body.timeEntryIds && Array.isArray(req.body.timeEntryIds)) {
+        console.log("Marking time entries as invoiced:", req.body.timeEntryIds);
+        
         for (const entryId of req.body.timeEntryIds) {
-          const entry = await storage.getTimeEntry(parseInt(entryId));
-          if (entry) {
-            await storage.updateTimeEntry(entry.id, { invoiceId: invoice.id });
+          try {
+            const entry = await storage.getTimeEntry(parseInt(entryId));
+            if (entry) {
+              // Use direct database update since the schema doesn't include invoiceId in the type
+              await db
+                .update(timeEntries)
+                .set({ invoiceId: invoice.id })
+                .where(eq(timeEntries.id, entry.id));
+                
+              console.log(`Updated time entry ${entry.id} with invoice ID ${invoice.id}`);
+            }
+          } catch (err) {
+            console.error(`Error updating time entry ${entryId}:`, err);
           }
         }
       }

@@ -429,9 +429,23 @@ export class DatabaseStorage implements IStorage {
   
   // Helper to create default settings if none exist
   private async createDefaultSettings(): Promise<Settings> {
-    const defaultSettings = this.getDefaultSettings();
-    const [createdSettings] = await db.insert(settings).values(defaultSettings).returning();
-    return createdSettings;
+    try {
+      console.log("Creating default settings");
+      const defaultSettings = this.getDefaultSettings();
+      console.log("Default settings object:", defaultSettings);
+      
+      const result = await db.insert(settings).values(defaultSettings).returning();
+      console.log("Default settings creation result:", result);
+      
+      if (!result || result.length === 0) {
+        throw new Error("Failed to create default settings: No rows returned");
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error creating default settings:", error);
+      throw error;
+    }
   }
   
   // Default settings
