@@ -186,8 +186,17 @@ export class DatabaseStorage implements IStorage {
     const weekEnd = format(endOfWeek(entryDate), 'MMM d');
     const weekLabel = `Week ${weekOfMonth} (${weekStart} - ${weekEnd})`;
     
-    // Ensure duration is a string
-    const duration = timeEntryData.duration || "0.00";
+    // Calculate proper duration if the client provided start and end times
+    let duration = "0.00";
+    if (timeEntryData.startTime && timeEntryData.endTime) {
+      const diffMs = timeEntryData.endTime.getTime() - timeEntryData.startTime.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+      duration = diffHours.toFixed(2);
+    } else if (timeEntryData.duration) {
+      duration = timeEntryData.duration;
+    }
+    console.log(`Database calculated duration: ${duration} hours`);
+    
     const billable = timeEntryData.billable !== undefined ? timeEntryData.billable : true;
     
     console.log("Creating time entry with data:", {

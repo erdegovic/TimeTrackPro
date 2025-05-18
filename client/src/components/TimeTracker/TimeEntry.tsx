@@ -91,12 +91,22 @@ export default function TimeEntryRow({
   };
 
   const formatDuration = (duration: string | number) => {
-    const durationNum = typeof duration === "string" ? parseFloat(duration) : duration;
+    let durationNum = 0;
     
+    // Ensure we have a valid number to work with
+    if (typeof duration === "string") {
+      // Try to parse the string as a float
+      durationNum = parseFloat(duration) || 0;
+    } else if (typeof duration === "number") {
+      durationNum = duration;
+    }
+    
+    // Add proper formatting based on the format option
     if (timeFormat === "decimal") {
-      return durationNum.toFixed(2);
+      // Show as decimal hours with 2 decimal places
+      return `${durationNum.toFixed(2)}h`;
     } else {
-      // Convert decimal hours to HH:MM:SS
+      // Convert decimal hours to HH:MM:SS format
       const hours = Math.floor(durationNum);
       const minutes = Math.floor((durationNum - hours) * 60);
       const seconds = Math.round(((durationNum - hours) * 60 - minutes) * 60);
