@@ -102,7 +102,7 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
         amount: total, // Use the total amount including tax
         subtotal: subtotal,
         tax: tax,
-        taxRate: enableTax ? taxRate : 0,
+        taxRate: String(enableTax ? taxRate : 0), // Send as string to match database schema
         totalHours: reportData.totalHours,
         notes,
         timeEntryIds,
