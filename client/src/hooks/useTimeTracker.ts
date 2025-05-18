@@ -16,7 +16,7 @@ export function useTimeTracker() {
   const [selectedProjectId, setSelectedProjectId] = useState<number | undefined>(undefined);
   
   // Timer interval ref
-  const timerRef = useRef<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Create time entry mutation
   const createTimeEntry = useMutation({
@@ -34,7 +34,8 @@ export function useTimeTracker() {
       setDescription("");
       setElapsedTime(0);
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Failed to save time entry:", error);
       toast({
         title: "Error",
         description: "Failed to save time entry. Please try again.",
@@ -66,31 +67,30 @@ export function useTimeTracker() {
   useEffect(() => {
     console.log("Timer effect running, isTracking:", isTracking, "startTime:", startTime);
     
+    // Clear any existing interval first
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
     if (isTracking && startTime) {
       // Initial calculation
       setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
       
       // Set up timer to update every second
-      const intervalId = window.setInterval(() => {
+      timerRef.current = setInterval(() => {
         setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
       
-      timerRef.current = intervalId;
-      console.log("Timer interval set:", intervalId);
-    } else {
-      // Clear timer when not tracking
-      if (timerRef.current) {
-        console.log("Clearing timer interval:", timerRef.current);
-        window.clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      console.log("Timer interval set:", timerRef.current);
     }
     
     // Cleanup on unmount
     return () => {
       if (timerRef.current) {
-        console.log("Cleanup: clearing timer interval:", timerRef.current);
-        window.clearInterval(timerRef.current);
+        console.log("Cleanup: clearing timer interval");
+        clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     };
   }, [isTracking, startTime]);
@@ -125,8 +125,6 @@ export function useTimeTracker() {
     const now = Date.now();
     setStartTime(now);
     setIsTracking(true);
-    setElapsedTime(0);
-    
     console.log("Timer started at:", new Date(now).toISOString());
   };
   
@@ -156,7 +154,7 @@ export function useTimeTracker() {
         projectId: selectedProjectId,
         startTime: startDateTime,
         endTime: endDateTime,
-        duration: duration.toString(), // Convert duration to string
+        duration: duration.toString(),
         date: dateStr,
         month: monthStr,
         year: yearNum,
