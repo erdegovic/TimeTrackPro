@@ -18,6 +18,7 @@ export const clients = pgTable("clients", {
   country: text("country"),
   phone: text("phone"),
   taxId: text("tax_id"),
+  currency: text("currency").default("USD"),
 });
 
 // Invoices table

@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { InsertClient } from "@shared/schema";
 
@@ -22,6 +23,7 @@ const clientSchema = z.object({
   country: z.string().optional(),
   phone: z.string().optional(),
   taxId: z.string().optional(),
+  currency: z.string().default("USD"),
 });
 
 type ClientFormProps = {
@@ -49,6 +51,7 @@ export default function ClientForm({ onSuccess, initialData, isEditing = false, 
       country: initialData?.country || "",
       phone: initialData?.phone || "",
       taxId: initialData?.taxId || "",
+      currency: initialData?.currency || "USD",
     },
   });
 
@@ -239,6 +242,34 @@ export default function ClientForm({ onSuccess, initialData, isEditing = false, 
                 <FormControl>
                   <Input placeholder="Tax ID" {...field} />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Client Currency</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select currency" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="USD">USD - US Dollar</SelectItem>
+                    <SelectItem value="EUR">EUR - Euro</SelectItem>
+                    <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                    <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
+                    <SelectItem value="RSD">RSD - Serbian Dinar</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
