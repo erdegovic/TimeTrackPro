@@ -74,7 +74,11 @@ export default function TimeTrackerPage() {
           <ProjectForm 
             onSuccess={() => setShowNewProjectDialog(false)} 
             initialData={{
-              clientId: selectedClientId || ""
+              name: "",
+              clientId: selectedClientId || "",
+              description: "",
+              active: true,
+              hourlyRate: "0"
             }}
           />
         </DialogContent>

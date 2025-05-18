@@ -55,13 +55,29 @@ export default function Dashboard() {
     queryKey: ["/api/projects"],
   });
 
-  // Calculate total hours for this week
+  // Calculate total hours for this week using exact duration from timestamps
   const weeklyHours = weekEntries.reduce((total, entry) => {
+    // If we have start and end times, calculate exact duration
+    if (entry.startTime && entry.endTime) {
+      const startTime = new Date(entry.startTime);
+      const endTime = new Date(entry.endTime);
+      const diffMs = endTime.getTime() - startTime.getTime();
+      return total + (diffMs / (1000 * 60 * 60)); // Convert to hours
+    }
+    // Fallback to stored duration
     return total + Number(entry.duration || 0);
   }, 0);
 
-  // Calculate total hours for this month
+  // Calculate total hours for this month using exact duration from timestamps
   const monthlyHours = monthEntries.reduce((total, entry) => {
+    // If we have start and end times, calculate exact duration
+    if (entry.startTime && entry.endTime) {
+      const startTime = new Date(entry.startTime);
+      const endTime = new Date(entry.endTime);
+      const diffMs = endTime.getTime() - startTime.getTime();
+      return total + (diffMs / (1000 * 60 * 60)); // Convert to hours
+    }
+    // Fallback to stored duration
     return total + Number(entry.duration || 0);
   }, 0);
 
