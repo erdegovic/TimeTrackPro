@@ -20,7 +20,7 @@ import TimeEntryRow from "./TimeEntry";
 
 export default function TimeEntryList() {
   const { toast } = useToast();
-  const [timeFormat, setTimeFormat] = useState<"decimal" | "time">("decimal");
+  const [timeFormat, setTimeFormat] = useState<"decimal" | "time">("time");
   const [groupBy, setGroupBy] = useState<"date" | "project" | "client">("date");
   const [filterDate, setFilterDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [deleteId, setDeleteId] = useState<number | null>(null);
