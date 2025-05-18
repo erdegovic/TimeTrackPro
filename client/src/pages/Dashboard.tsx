@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { Clock, CreditCard, DollarSign, Users, Calendar, Activity } from "lucide-react";
-import { TimeEntry, Client, Project } from "@shared/schema";
+import { TimeEntry, Client, Project, Settings } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatCurrency } from "@/lib/utils/timeUtils";
 
 // Helper function to format decimal hours to HH:MM:SS
 function formatTimeFromDecimal(decimalHours: number): string {
@@ -57,17 +58,21 @@ export default function Dashboard() {
   });
   
   // Fetch settings for display currency
-  const { data: settings } = useQuery({
+  const { data: settings } = useQuery<Settings>({
     queryKey: ["/api/settings"],
-    onSuccess: (data) => {
-      if (data?.displayCurrency) {
-        setDisplayCurrency(data.displayCurrency);
+  });
+  
+  // Update state when settings are loaded
+  useEffect(() => {
+    if (settings) {
+      if (settings.displayCurrency) {
+        setDisplayCurrency(settings.displayCurrency);
       }
-      if (data?.defaultTimeFormat) {
-        setTimeFormat(data.defaultTimeFormat as "decimal" | "time");
+      if (settings.defaultTimeFormat) {
+        setTimeFormat(settings.defaultTimeFormat as "decimal" | "time");
       }
     }
-  });
+  }, [settings]);
 
   // Calculate total hours for this week using exact duration from timestamps
   const weeklyHours = weekEntries.reduce((total, entry) => {
@@ -99,7 +104,25 @@ export default function Dashboard() {
   const monthlyBillableAmount = monthEntries.reduce((total, entry) => {
     const project = projects.find(p => p.id === entry.projectId);
     if (project && entry.billable) {
-      return total + (Number(entry.duration || 0) * Number(project.hourlyRate || 0));
+      // Find the client to use their currency if available
+      const client = clients.find(c => c.id === project.clientId);
+      const projectCurrency = client?.currency || 'USD';
+      
+      // Simple conversion rate for demonstration (in real app, would use API)
+      const conversionRates: {[key: string]: number} = {
+        'USD': 1.0,
+        'EUR': 0.92,
+        'GBP': 0.78,
+        'CAD': 1.36,
+        'RSD': 108.5
+      };
+      
+      // Convert to display currency
+      const amount = Number(entry.duration || 0) * Number(project.hourlyRate || 0);
+      const inOriginalCurrency = amount / (conversionRates[projectCurrency] || 1);
+      const inDisplayCurrency = inOriginalCurrency * (conversionRates[displayCurrency] || 1);
+      
+      return total + inDisplayCurrency;
     }
     return total;
   }, 0);
@@ -211,7 +234,7 @@ export default function Dashboard() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${monthlyBillableAmount.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(monthlyBillableAmount, displayCurrency)}</div>
             <p className="text-xs text-muted-foreground">
               For {format(new Date(monthStart), "MMMM yyyy")}
             </p>
