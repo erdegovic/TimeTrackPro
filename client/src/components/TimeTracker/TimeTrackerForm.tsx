@@ -140,8 +140,8 @@ export default function TimeTrackerForm() {
                     // Pass the Date objects directly - they'll be serialized to strings automatically
                     startTime: startDateTime,
                     endTime: endDateTime,
-                    // Format duration as a string (the server expects a string for numeric fields)
-                    duration: (data.seconds / 3600).toFixed(2),
+                    // Calculate duration in hours and format as a string with 2 decimal places
+                    duration: ((endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60 * 60)).toFixed(2),
                     date: dateStr,
                     month: monthStr,
                     year: yearNum,

@@ -256,6 +256,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const diffHours = diffMs / (1000 * 60 * 60);
       const finalDuration = diffHours.toFixed(2);
       
+      console.log(`Calculated duration from time difference: ${finalDuration} hours`);
+      
       // Create the time entry with converted dates
       const entry = await storage.createTimeEntry({
         description,
