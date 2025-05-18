@@ -90,37 +90,47 @@ export default function TimeEntryRow({
     }
   };
 
-  // Format duration with precise time conversion
+  // Format duration with precise time conversion - using the start and end times directly
   const formatDuration = (duration: string | number) => {
-    let durationNum = 0;
+    // If we have start and end times in the entry, calculate the exact duration from those
+    if (entry.startTime && entry.endTime) {
+      const startTime = new Date(entry.startTime);
+      const endTime = new Date(entry.endTime);
+      const diffMs = endTime.getTime() - startTime.getTime();
+      
+      if (timeFormat === "decimal") {
+        // Convert to hours with 2 decimal places
+        const diffHours = diffMs / (1000 * 60 * 60);
+        return `${diffHours.toFixed(2)}h`;
+      } else {
+        // Get total seconds
+        const totalSeconds = Math.floor(diffMs / 1000);
+        
+        // Calculate hours, minutes, seconds
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        
+        // Format with leading zeros
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      }
+    }
     
-    // Ensure we have a valid number to work with
+    // Fallback to using the duration field if no start/end times
+    let durationNum = 0;
     if (typeof duration === "string") {
-      // Try to parse the string as a float with higher precision
       durationNum = parseFloat(duration) || 0;
     } else if (typeof duration === "number") {
       durationNum = duration;
     }
     
-    // Format based on the selected display mode
     if (timeFormat === "decimal") {
-      // Show as decimal hours with 2 decimal places
       return `${durationNum.toFixed(2)}h`;
     } else {
-      // Convert decimal hours to precise HH:MM:SS format
-      // Get hours as integer part
+      // Convert hours to HH:MM:SS
       const hours = Math.floor(durationNum);
-      
-      // Calculate total seconds
-      const totalSeconds = durationNum * 3600;
-      
-      // Extract minutes from remaining seconds after hours
-      const minutes = Math.floor((totalSeconds - (hours * 3600)) / 60);
-      
-      // Extract remaining seconds
-      const seconds = Math.round(totalSeconds - (hours * 3600) - (minutes * 60));
-      
-      // Format with leading zeros
+      const minutes = Math.floor((durationNum - hours) * 60);
+      const seconds = Math.round(((durationNum - hours) * 60 - minutes) * 60);
       return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
   };
