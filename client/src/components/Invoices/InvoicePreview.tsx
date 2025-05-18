@@ -76,9 +76,18 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
   const dueDate = format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), "MMMM d, yyyy");
   
   const handleCreateInvoice = async () => {
-    if (!reportData || !client) return;
+    if (!reportData || !client) {
+      toast({
+        title: "Error",
+        description: "Missing client or report data",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
+      console.log("Creating invoice with report data:", reportData);
+      
       // Get time entry IDs for marking as invoiced
       const timeEntryIds = reportData.timeEntries.map((entry: any) => entry.id);
       
@@ -87,22 +96,27 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
       const tax = enableTax ? subtotal * (taxRate / 100) : 0;
       const total = subtotal + tax;
       
-      // Create invoice
+      // Create invoice with all necessary fields
       const invoiceData = {
         clientId: client.id,
+        amount: total, // Use the total amount including tax
         subtotal: subtotal,
         tax: tax,
         taxRate: enableTax ? taxRate : 0,
-        total: total,
+        totalHours: reportData.totalHours,
         notes,
         timeEntryIds,
+        currency: client.currency || 'USD', // Include currency
         issueDate: format(new Date(), 'yyyy-MM-dd'),
         dueDate: format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
         invoiceNumber: invoiceNumber,
         status: 'draft'
       };
       
-      await apiRequest("POST", "/api/invoices", invoiceData);
+      console.log("Sending invoice data to server:", invoiceData);
+      
+      const response = await apiRequest("POST", "/api/invoices", invoiceData);
+      console.log("Invoice creation response:", response);
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
@@ -114,9 +128,10 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
       });
       
     } catch (error) {
+      console.error("Error creating invoice:", error);
       toast({
         title: "Error",
-        description: "Failed to create invoice. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to create invoice. Please try again.",
         variant: "destructive",
       });
     }

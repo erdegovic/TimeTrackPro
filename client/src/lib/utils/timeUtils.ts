@@ -1,8 +1,16 @@
 /**
- * Format seconds into a time string
+ * Format time value into a string
  * Handles formatting in either decimal format or HH:MM:SS format
+ * Can accept either seconds or decimal hours as input
  */
-export function formatTime(seconds: number, format: 'decimal' | 'time' = 'time'): string {
+export function formatTime(value: number, format: 'decimal' | 'time' = 'time'): string {
+  // Check if the value is already in hours (anything less than 100 is likely hours, not seconds)
+  // This handles cases where the duration is stored in decimal hours instead of seconds
+  const isValueInHours = value < 100;
+  
+  // Convert everything to seconds for consistent processing
+  const seconds = isValueInHours ? value * 3600 : value;
+  
   if (format === 'decimal') {
     // Convert to hours with 2 decimal places
     return (seconds / 3600).toFixed(2);
@@ -10,7 +18,7 @@ export function formatTime(seconds: number, format: 'decimal' | 'time' = 'time')
     // Format as HH:MM:SS
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = seconds % 60;
+    const remainingSeconds = Math.floor(seconds % 60);
     
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   }

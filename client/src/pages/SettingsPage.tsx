@@ -128,8 +128,34 @@ export default function SettingsPage() {
   });
   
   const onSubmit = async (data: z.infer<typeof settingsSchema>) => {
-    setIsSubmitting(true);
-    updateSettings.mutate(data);
+    try {
+      setIsSubmitting(true);
+      console.log("Submitting settings data:", data);
+      
+      // Ensure numeric values are properly typed before sending to server
+      const processedData = {
+        ...data,
+        nextInvoiceNumber: typeof data.nextInvoiceNumber === 'string' 
+          ? parseInt(data.nextInvoiceNumber, 10) 
+          : data.nextInvoiceNumber,
+        defaultTaxRate: typeof data.defaultTaxRate === 'string' 
+          ? parseFloat(data.defaultTaxRate) 
+          : data.defaultTaxRate,
+        enableTax: Boolean(data.enableTax)
+      };
+      
+      console.log("Processed settings data:", processedData);
+      await updateSettings.mutateAsync(processedData);
+    } catch (error) {
+      console.error("Error submitting settings:", error);
+      setIsSubmitting(false);
+      
+      toast({
+        title: "Error",
+        description: "There was a problem saving your settings. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
   
   if (isLoading) {
