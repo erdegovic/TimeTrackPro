@@ -21,23 +21,51 @@ export default function SimpleTimer({
   const [time, setTime] = useState(0);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const intervalRef = useRef<number | null>(null);
-
-  // Clean up the interval when the component unmounts
+  
+  // Check localStorage on mount to see if we have a running timer
   useEffect(() => {
+    const storedTimer = localStorage.getItem("timeTracker");
+    if (storedTimer) {
+      try {
+        const { startTime, description: storedDesc, projectId: storedProjectId } = JSON.parse(storedTimer);
+        
+        // Only restore if the current description and projectId match the stored one
+        // This prevents restoring the wrong timer if the user changes projects
+        if (description === storedDesc && projectId === storedProjectId && startTime) {
+          const start = new Date(startTime);
+          setStartTime(start);
+          setIsRunning(true);
+          
+          // Calculate elapsed time
+          const elapsed = Math.floor((Date.now() - start.getTime()) / 1000);
+          setTime(elapsed);
+          
+          // Start the interval
+          intervalRef.current = window.setInterval(() => {
+            setTime(prev => prev + 1);
+          }, 1000);
+        }
+      } catch (error) {
+        console.error("Error parsing stored timer:", error);
+      }
+    }
+    
+    // Clean up on unmount
     return () => {
       if (intervalRef.current) {
         window.clearInterval(intervalRef.current);
       }
     };
-  }, []);
+  }, [description, projectId]);
 
   // Start the timer
   const handleStart = () => {
     if (isDisabled) return;
     
     console.log("Starting timer...");
+    const now = new Date();
     setIsRunning(true);
-    setStartTime(new Date());
+    setStartTime(now);
     
     // Reset time to 0
     setTime(0);
@@ -46,6 +74,13 @@ export default function SimpleTimer({
     intervalRef.current = window.setInterval(() => {
       setTime(prev => prev + 1);
     }, 1000);
+    
+    // Store in localStorage to persist across page refreshes and tab changes
+    localStorage.setItem("timeTracker", JSON.stringify({
+      startTime: now.getTime(),
+      description,
+      projectId
+    }));
   };
 
   // Stop the timer
@@ -64,6 +99,9 @@ export default function SimpleTimer({
     
     // Reset state
     setIsRunning(false);
+    
+    // Remove from localStorage
+    localStorage.removeItem("timeTracker");
     
     // Call the onStop callback
     onStop({

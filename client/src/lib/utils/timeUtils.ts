@@ -1,77 +1,110 @@
+/**
+ * Format seconds into a time string
+ * Handles formatting in either decimal format or HH:MM:SS format
+ */
 export function formatTime(seconds: number, format: 'decimal' | 'time' = 'time'): string {
   if (format === 'decimal') {
-    // Format as decimal (e.g., 1.5h)
-    const hours = seconds / 3600;
-    return `${hours.toFixed(2)}h`;
+    // Convert to hours with 2 decimal places
+    return (seconds / 3600).toFixed(2);
   } else {
-    // Format as time (e.g., 01:30:45)
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
+    // Format as HH:MM:SS
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
     
-    return [h, m, s]
-      .map(v => v.toString().padStart(2, '0'))
-      .join(':');
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   }
 }
 
-export function calculateDuration(startTime: number, endTime: number): string {
-  // Calculate duration in seconds
-  const durationInSeconds = Math.floor((endTime - startTime) / 1000);
-  return formatTime(durationInSeconds);
+/**
+ * Convert a decimal hours value to a time string (HH:MM:SS)
+ */
+export function formatTimeFromDecimal(decimalHours: number): string {
+  // Convert to seconds first
+  const totalSeconds = Math.round(decimalHours * 3600);
+  return formatTime(totalSeconds);
 }
 
-// Time adjustment functions
-export function adjustTime(seconds: number, percentage: number = 0): number {
-  if (percentage === 0) return seconds;
-  
-  // Apply percentage increase
-  const factor = 1 + percentage / 100;
-  return seconds * factor;
+/**
+ * Calculate duration between two timestamps in hours (decimal)
+ */
+export function calculateDuration(startTime: number, endTime: number): number {
+  const diffMs = endTime - startTime;
+  const diffHours = diffMs / (1000 * 60 * 60);
+  return parseFloat(diffHours.toFixed(4)); // Keep 4 decimal places for precision
 }
 
-export function roundTime(
-  hours: number, 
-  roundingType: 'none' | 'nearest_tenth' | 'nearest_quarter' | 'nearest_half' = 'none'
-): number {
-  if (roundingType === 'none') return hours;
-  
-  // Apply rounding based on type
-  // The input is already in hours (from duration field), so no need to convert
-  let hoursFraction = hours;
-  
-  switch(roundingType) {
-    case 'nearest_tenth':
-      hoursFraction = Math.round(hoursFraction * 10) / 10;
-      break;
-    case 'nearest_quarter':
-      hoursFraction = Math.round(hoursFraction * 4) / 4;
-      break;
-    case 'nearest_half':
-      hoursFraction = Math.round(hoursFraction * 2) / 2;
-      break;
-  }
-  
-  return Math.max(0, hoursFraction);
-}
-
-// Format amount based on currency
-export function formatCurrency(amount: number, currency: string = 'USD'): string {
+/**
+ * Format currency value based on the provided currency code
+ */
+export function formatCurrency(amount: number, currencyCode: string = 'USD'): string {
   const currencySymbols: {[key: string]: string} = {
     'USD': '$',
     'EUR': '€',
     'GBP': '£',
-    'CAD': 'C$',
-    'RSD': 'RSD',
+    'CAD': 'CA$',
+    'RSD': 'RSD'
   };
   
-  const symbol = currencySymbols[currency] || currency;
+  const symbol = currencySymbols[currencyCode] || currencyCode;
   
-  // Use currency symbol before amount for USD, CAD, GBP
-  if (['USD', 'CAD', 'GBP'].includes(currency)) {
-    return `${symbol}${amount.toFixed(2)}`;
+  // Format with 2 decimal places
+  const formattedAmount = amount.toFixed(2);
+  
+  // For most currencies, the symbol comes before the amount
+  if (currencyCode === 'RSD') {
+    return `${formattedAmount} ${symbol}`;
+  } else {
+    return `${symbol}${formattedAmount}`;
   }
-  
-  // Use currency symbol/code after amount for EUR, RSD
-  return `${amount.toFixed(2)} ${symbol}`;
+}
+
+/**
+ * Get client currency from a client ID using cached client data
+ */
+export function getClientCurrency(clientId: number): string {
+  try {
+    const cachedClients = localStorage.getItem("cachedClients");
+    if (cachedClients) {
+      const clients = JSON.parse(cachedClients);
+      const client = clients.find((c: any) => c.id === clientId);
+      return client?.currency || 'USD';
+    }
+  } catch (error) {
+    console.error("Error getting client currency:", error);
+  }
+  return 'USD'; // Default to USD if client not found
+}
+
+/**
+ * Adjust time by a percentage increase
+ * @param duration Duration in hours (decimal)
+ * @param percentage Percentage to increase by
+ * @returns Adjusted duration in hours
+ */
+export function adjustTime(duration: number, percentage: number): number {
+  return duration * (1 + percentage / 100);
+}
+
+/**
+ * Round time according to the specified rounding type
+ * @param duration Duration in hours (decimal)
+ * @param roundingType Type of rounding to apply
+ * @returns Rounded duration in hours
+ */
+export function roundTime(
+  duration: number, 
+  roundingType: 'none' | 'nearest_tenth' | 'nearest_quarter' | 'nearest_half'
+): number {
+  switch (roundingType) {
+    case 'nearest_tenth':
+      return Math.round(duration * 10) / 10;
+    case 'nearest_quarter':
+      return Math.round(duration * 4) / 4;
+    case 'nearest_half':
+      return Math.round(duration * 2) / 2;
+    case 'none':
+    default:
+      return duration;
+  }
 }

@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Logo } from "@/components/ui/logo";
 import { 
@@ -11,7 +11,8 @@ import {
   BarChart2, 
   Settings, 
   Menu,
-  X
+  X,
+  Timer
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -39,8 +40,81 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [location] = useLocation();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [hasActiveTimer, setHasActiveTimer] = useState(false);
+  const [timerInfo, setTimerInfo] = useState<{
+    description: string;
+    elapsedTime: number;
+    projectName?: string;
+    clientName?: string;
+  } | null>(null);
 
   const closeSidebar = () => setSidebarOpen(false);
+  
+  // Check for active timer
+  useEffect(() => {
+    // Function to check if timer is active and update state
+    const checkTimer = () => {
+      try {
+        const timerData = localStorage.getItem('timeTracker');
+        if (timerData) {
+          const data = JSON.parse(timerData);
+          if (data.startTime) {
+            setHasActiveTimer(true);
+            
+            // Calculate elapsed time
+            const elapsed = Math.floor((Date.now() - data.startTime) / 1000);
+            
+            // Get project and client info if available
+            let projectName;
+            let clientName;
+            
+            try {
+              const projectsData = localStorage.getItem('cachedProjects');
+              const clientsData = localStorage.getItem('cachedClients');
+              
+              if (projectsData && data.projectId) {
+                const projects = JSON.parse(projectsData);
+                const project = projects.find((p: any) => p.id === data.projectId);
+                projectName = project?.name;
+              }
+              
+              if (clientsData && data.clientId) {
+                const clients = JSON.parse(clientsData);
+                const client = clients.find((c: any) => c.id === data.clientId);
+                clientName = client?.name;
+              }
+            } catch (e) {
+              console.error('Error getting project/client data:', e);
+            }
+            
+            setTimerInfo({
+              description: data.description || 'Time tracking',
+              elapsedTime: elapsed,
+              projectName,
+              clientName
+            });
+          } else {
+            setHasActiveTimer(false);
+            setTimerInfo(null);
+          }
+        } else {
+          setHasActiveTimer(false);
+          setTimerInfo(null);
+        }
+      } catch (error) {
+        console.error('Error checking timer:', error);
+        setHasActiveTimer(false);
+        setTimerInfo(null);
+      }
+    };
+    
+    // Check immediately and then every second
+    checkTimer();
+    const interval = setInterval(checkTimer, 1000);
+    
+    // Clean up interval
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -71,9 +145,43 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
           
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+            {/* Active Timer Indicator */}
+            {timerInfo && (
+              <div className="mx-3 mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <div className="flex items-center">
+                  <Timer className="w-5 h-5 mr-2 text-blue-600 animate-pulse" />
+                  <span className="text-sm font-medium text-blue-700">Timer Running</span>
+                </div>
+                <div className="mt-2">
+                  <div className="text-xs font-medium text-gray-500">
+                    {timerInfo.projectName || "Project"} 
+                    {timerInfo.clientName && ` - ${timerInfo.clientName}`}
+                  </div>
+                  <div className="text-sm font-medium mt-1 truncate text-gray-700">
+                    {timerInfo.description}
+                  </div>
+                  <div className="mt-1 font-mono text-sm text-blue-700">
+                    {Math.floor(timerInfo.elapsedTime / 3600).toString().padStart(2, '0')}:
+                    {Math.floor((timerInfo.elapsedTime % 3600) / 60).toString().padStart(2, '0')}:
+                    {(timerInfo.elapsedTime % 60).toString().padStart(2, '0')}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Safe to change tabs or close window
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <nav className="mt-2 flex-1 px-2 space-y-1">
-              <NavItem href="/" icon={<Clock className="w-5 h-5" />} isActive={location === '/'}>
+              <NavItem 
+                href="/" 
+                icon={<Clock className="w-5 h-5" />} 
+                isActive={location === '/'}
+              >
                 Time Tracker
+                {hasActiveTimer && 
+                  <span className="ml-1 w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
+                }
               </NavItem>
               <NavItem href="/dashboard" icon={<BarChart2 className="w-5 h-5" />} isActive={location === '/dashboard'}>
                 Dashboard

@@ -81,7 +81,14 @@ export default function ProjectsPage() {
     },
     {
       header: "Hourly Rate",
-      accessorKey: (row: Project) => `$${Number(row.hourlyRate).toFixed(2)}`,
+      accessorKey: (row: Project) => {
+        // Find the client to get their currency
+        const client = clients.find(c => c.id === row.clientId);
+        const currency = client?.currency || 'USD';
+        
+        // Format the hourly rate with the client's currency
+        return formatCurrency(Number(row.hourlyRate), currency);
+      },
     },
     {
       header: "Description",

@@ -189,7 +189,10 @@ export default function ProjectForm({ onSuccess, initialData, isEditing = false,
             name="hourlyRate"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Hourly Rate ($)</FormLabel>
+                <FormLabel>Hourly Rate {form.getValues('clientId') ? 
+                  `(${clients?.find(c => c.id === Number(form.getValues('clientId')))?.currency || 'USD'})` : 
+                  '(USD)'
+                }</FormLabel>
                 <FormControl>
                   <Input
                     type="number"
@@ -199,6 +202,9 @@ export default function ProjectForm({ onSuccess, initialData, isEditing = false,
                     {...field}
                   />
                 </FormControl>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Rate is shown in the client's currency
+                </p>
                 <FormMessage />
               </FormItem>
             )}
