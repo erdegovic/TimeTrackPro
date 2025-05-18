@@ -45,8 +45,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
-      <aside className={`${isMobile ? (sidebarOpen ? 'fixed inset-0 z-40 block' : 'hidden') : 'flex flex-shrink-0'}`}>
-        <div className="flex flex-col w-64 bg-white border-r border-gray-200">
+      {/* Added a backdrop div to handle closing when clicking outside the sidebar */}
+      {isMobile && sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-30"
+          onClick={closeSidebar}
+          aria-hidden="true"
+        />
+      )}
+      <aside className={`${isMobile ? (sidebarOpen ? 'fixed inset-y-0 left-0 z-40 block' : 'hidden') : 'flex flex-shrink-0'}`}>
+        <div className="flex flex-col w-64 bg-white border-r border-gray-200 h-full">
           <div className="h-16 flex items-center px-4 border-b border-gray-200">
             <Logo />
             {isMobile && (
@@ -55,6 +63,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 size="icon"
                 className="ml-auto"
                 onClick={closeSidebar}
+                aria-label="Close menu"
               >
                 <X className="w-5 h-5" />
               </Button>

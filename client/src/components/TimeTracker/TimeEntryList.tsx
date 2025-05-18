@@ -40,11 +40,21 @@ export default function TimeEntryList() {
     queryKey: ["/api/projects"],
   });
 
-  // Enhanced time entries with client and project data
+  // Enhanced time entries with client and project data and accurate time calculations
   const enhancedEntries = timeEntries.map(entry => {
     const project = projects.find(p => p.id === entry.projectId);
     const client = project ? clients.find(c => c.id === project.clientId) : undefined;
-    return { ...entry, project, client };
+    
+    // Calculate exact duration from timestamps if available
+    let exactDuration = Number(entry.duration || 0);
+    if (entry.startTime && entry.endTime) {
+      const startTime = new Date(entry.startTime);
+      const endTime = new Date(entry.endTime);
+      const diffMs = endTime.getTime() - startTime.getTime();
+      exactDuration = diffMs / (1000 * 60 * 60); // Convert to hours for consistency
+    }
+    
+    return { ...entry, project, client, exactDuration };
   });
 
   // Group entries by date, project, or client
