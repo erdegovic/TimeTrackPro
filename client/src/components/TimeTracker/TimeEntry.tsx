@@ -65,61 +65,61 @@ export default function TimeEntryRow({
       
       console.log("Updating time entry with new duration:", newDuration, "hours");
       
-      // Calculate new end time based on the duration
-      const startTime = new Date(entry.startTime);
-      const durationMs = newDuration * 60 * 60 * 1000; // Convert hours to milliseconds
-      const newEndTime = new Date(startTime.getTime() + durationMs);
+      // Get the project to calculate hourly rate
+      const project = projects.find(p => p.id === editedEntry.projectId) || 
+                      projects.find(p => p.id === entry.projectId);
+      
+      // Calculate hourly rate and amount
+      const hourlyRate = project?.hourlyRate || "0";
+      const amount = (parseFloat(hourlyRate) * newDuration).toFixed(2);
+      
+      console.log(`Calculated amount: ${amount} from hourly rate ${hourlyRate} and duration ${newDuration}`);
       
       // Store duration as decimal string with 2 decimal places to ensure consistency
       const formattedDuration = newDuration.toFixed(2);
       
-      // Build update object with all necessary fields - completely avoid date objects which cause validation issues
+      // Build a complete update object with all necessary fields
       const updateData = {
         duration: formattedDuration,
         description: editedEntry.description || entry.description,
         projectId: editedEntry.projectId || entry.projectId,
-        // Don't include endTime or startTime, which cause validation errors
-        // We'll recalculate these on the server based on the duration
+        hourlyRate: hourlyRate,
+        amount: amount
       };
       
-      // Send the update request
-      const result = await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
-      const updatedEntry = await result.json();
+      console.log("Sending update with data:", updateData);
       
-      // Update the response when successful
-      if (updatedEntry) {
-        console.log('TimeEntry updated successfully:', updatedEntry);
-        
-        // Force a complete refresh of all related queries in the cache
-        queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
-        
-        // Also force a complete cache refresh
-        queryClient.invalidateQueries();
-        
-        // Update the current entry in component state to reflect the change immediately
-        // This will update the UI before the full refresh
-        setEditedEntry({
-          ...editedEntry,
-          duration: formattedDuration,
-          amount: updatedEntry.amount || editedEntry.amount
-        });
-        
-        // Close the dialog
-        setIsEditing(false);
-        
-        // Let the user know it worked
-        toast({
-          title: "Time entry updated",
-          description: `Duration updated to ${formattedDuration} hours.`,
-        });
-        
-        // Force a page refresh to ensure all data is updated
-        setTimeout(() => {
-          window.location.reload();
-        }, 500);
+      // Send the update request
+      const response = await fetch(`/api/time-entries/${entry.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
       }
+      
+      const updatedEntry = await response.json();
+      console.log('TimeEntry updated successfully:', updatedEntry);
+      
+      // Clear all query cache to ensure everything gets refreshed
+      queryClient.clear();
+      
+      // Let the user know it worked
+      toast({
+        title: "Time entry updated",
+        description: `Duration updated to ${formattedDuration} hours.`,
+      });
+      
+      // Close dialog
+      setIsEditing(false);
+      
+      // Force a page refresh to ensure all data is fresh
+      window.location.href = window.location.href;
+      
     } catch (error) {
       console.error("Failed to update time entry:", error);
       toast({

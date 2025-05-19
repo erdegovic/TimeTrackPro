@@ -61,6 +61,8 @@ export const timeEntries = pgTable("time_entries", {
   year: integer("year").notNull(),
   billable: boolean("billable").default(true),
   invoiceId: integer("invoice_id").references(() => invoices.id, { onDelete: 'set null' }),
+  hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }), // Store hourly rate
+  amount: numeric("amount", { precision: 10, scale: 2 }), // Store calculated amount
 });
 
 // Settings table
@@ -100,6 +102,8 @@ export const timeEntryUpdateSchema = z.object({
   description: z.string().optional(),
   projectId: z.coerce.number().optional(),
   duration: z.string().optional(),
+  amount: z.string().optional(),      // Add amount to schema
+  hourlyRate: z.string().optional(),  // Add hourly rate to schema
   date: z.string().optional(),
   month: z.string().optional(),
   year: z.number().optional(),
