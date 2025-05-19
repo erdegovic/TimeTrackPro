@@ -676,11 +676,27 @@ function generateInvoicePdf(options: {
     doc.text('Notes:', 14, totalY);
     totalY += 6;
     
-    // Split notes into lines
+    // Make sure we have enough space for notes
+    // If we're near the bottom of the page, move to the next page
+    if (totalY > doc.internal.pageSize.height - 30) {
+      doc.addPage();
+      totalY = 20; // Reset Y position at the top of the new page
+    }
+    
+    // Split notes into lines with wider width to prevent wrapping
     const notesLines = doc.splitTextToSize(invNotes, 180);
+    
+    // Add notes text with proper spacing
+    doc.setFontSize(10);
     notesLines.forEach((line: string) => {
       doc.text(line, 14, totalY);
       totalY += 5;
+      
+      // If we reach the bottom of the page, add a new page
+      if (totalY > doc.internal.pageSize.height - 20) {
+        doc.addPage();
+        totalY = 20; // Reset Y position at the top of the new page
+      }
     });
   }
   
