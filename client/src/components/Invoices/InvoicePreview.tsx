@@ -306,16 +306,36 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
     
     const filename = `invoice-${invoiceNumber.replace('INV-', '')}.pdf`;
     
+    // Create a modified version of reportData that includes all edited values
+    const modifiedReportData = {
+      ...reportData,
+      timeEntries: editableEntries,
+      totalAmount: subtotal,
+      totalHours: editableEntries.reduce((sum, entry) => {
+        // Use the edited duration from editableEntries
+        const duration = typeof entry.editedDuration === 'number' 
+          ? entry.editedDuration 
+          : typeof entry.duration === 'number'
+            ? entry.duration
+            : parseFloat(entry.duration || '0');
+        return sum + duration;
+      }, 0),
+      additionalItems: additionalItems,
+      subtotal: subtotal,
+      total: total
+    };
+    
     generatePdf({
       filename,
-      reportData,
+      reportData: modifiedReportData,
       client,
       settings,
       invoiceNumber,
       issueDate,
       dueDate,
       notes,
-      type: "invoice"
+      type: "invoice",
+      showDueDate: settings.showDueDate
     });
     
     toast({

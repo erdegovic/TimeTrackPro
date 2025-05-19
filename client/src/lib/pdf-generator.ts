@@ -191,6 +191,7 @@ function generateInvoicePdf(options: {
   issueDate?: string;
   dueDate?: string;
   notes?: string;
+  showDueDate?: boolean;
 }) {
   const { 
     doc, 
