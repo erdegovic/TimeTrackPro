@@ -327,63 +327,46 @@ export default function TimeEntryRow({
                   <span className="text-xs text-gray-500">hours</span>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {/* Simple direct minute entry - most common use case */}
-                  <div className="flex flex-col">
-                    <label className="text-xs font-medium text-gray-500">Quick Entry (Minutes)</label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min="0"
-                        value={Math.round(parseFloat(editedEntry.duration || "0") * 60)}
-                        onChange={(e) => {
-                          const minutes = parseInt(e.target.value, 10) || 0;
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="text" 
+                    value={timeInputValue}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      
+                      // Only allow valid time characters
+                      if (/^[0-9:]*$/.test(value)) {
+                        setTimeInputValue(value);
+                        
+                        // If user entered a single number, assume it's minutes
+                        if (/^\d+$/.test(value)) {
+                          const minutes = parseInt(value, 10) || 0;
                           const decimalHours = minutes / 60;
-                          console.log(`Converting ${minutes} minutes to ${decimalHours.toFixed(2)} hours`);
+                          
+                          // Update decimal value
                           setEditedEntry({
                             ...editedEntry,
                             duration: decimalHours.toString()
                           });
-                          // Also update the time display
-                          setTimeInputValue(formatDecimalToTime(decimalHours));
-                        }}
-                        className="w-24 font-mono"
-                        placeholder="0"
-                      />
-                      <span className="text-xs text-gray-500">minutes</span>
-                    </div>
-                  </div>
-                  
-                  {/* Standard HH:MM:SS format */}
-                  <div className="flex flex-col">
-                    <label className="text-xs font-medium text-gray-500">HH:MM:SS Format</label>
-                    <Input
-                      type="text" 
-                      value={timeInputValue}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        // Only allow valid time characters
-                        if (/^[0-9:]*$/.test(value)) {
-                          setTimeInputValue(value);
-                          
+                        }
+                        // Otherwise try to parse as HH:MM:SS
+                        else if (value.includes(':')) {
                           try {
-                            if (value.includes(':')) {
-                              // Parse time to decimal hours
-                              const decimalValue = parseTimeToDecimal(value);
-                              setEditedEntry({
-                                ...editedEntry,
-                                duration: decimalValue.toString()
-                              });
-                            }
+                            const decimalValue = parseTimeToDecimal(value);
+                            setEditedEntry({
+                              ...editedEntry,
+                              duration: decimalValue.toString()
+                            });
                           } catch (e) {
                             console.error("Error parsing time:", e);
                           }
                         }
-                      }}
-                      className="font-mono"
-                      placeholder="00:00:00"
-                    />
-                  </div>
+                      }
+                    }}
+                    className="font-mono"
+                    placeholder="HH:MM:SS"
+                  />
+                  <span className="text-xs text-gray-500">HH:MM:SS</span>
                 </div>
               )}
             </div>
