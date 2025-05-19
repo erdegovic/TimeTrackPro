@@ -146,8 +146,8 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
       yPos += 5;
     }
     
-    if (filters.timeAdjustment && filters.timeAdjustment.percentage > 0) {
-      doc.text(`Time Adjustment: ${filters.timeAdjustment.increaseByPercentage ? '+' : '-'}${filters.timeAdjustment.percentage}%`, 14, yPos);
+    if (filters.timeAdjustment && filters.timeAdjustment.increaseByPercentage && filters.timeAdjustment.percentage > 0) {
+      doc.text(`Time Adjustment: +${filters.timeAdjustment.percentage}%`, 14, yPos);
       yPos += 5;
     }
   }
@@ -274,7 +274,7 @@ function generateInvoicePdf(options: {
   const invDueDate = invoice?.dueDate || dueDate || format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
   
   // Parse the notes to extract additional items and edited entries if present
-  let invNotes = invoice?.notes || notes || "Thank you for your business.";
+  let invNotes = invoice?.notes || notes || "";
   let additionalItems: any[] = [];
   let editedEntries: any[] = [];
   
