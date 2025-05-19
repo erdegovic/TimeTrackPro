@@ -519,12 +519,14 @@ export default function InvoicePreview({
             <span>{formatAmount(subtotal)}</span>
           </div>
           
-          {additionalItems.map((item, index) => (
-            <div key={index} className="flex justify-between text-sm">
-              <span>{item.description}:</span>
-              <span>{formatAmount(parseFloat(String(item.amount)))}</span>
-            </div>
-          ))}
+          {additionalItems && Array.isArray(additionalItems) && additionalItems.length > 0 ? 
+            additionalItems.map((item, index) => (
+              <div key={index} className="flex justify-between text-sm">
+                <span>{item.description || 'Item'}:</span>
+                <span>{formatAmount(parseFloat(String(item.amount || 0)))}</span>
+              </div>
+            ))
+          : null}
           
           <div className="flex justify-between font-bold text-lg pt-2 border-t">
             <span>Total:</span>

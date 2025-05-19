@@ -180,32 +180,9 @@ export default function TimeEntryRow({
 
   // Format duration with precise time conversion - using the start and end times directly
   const formatDuration = (duration: string | number) => {
-    // If we have start and end times in the entry, calculate the exact duration from those
-    if (entry.startTime && entry.endTime) {
-      const startTime = new Date(entry.startTime);
-      const endTime = new Date(entry.endTime);
-      const diffMs = endTime.getTime() - startTime.getTime();
-      
-      if (timeFormat === "decimal") {
-        // Convert to hours with 2 decimal places
-        const diffHours = diffMs / (1000 * 60 * 60);
-        return `${diffHours.toFixed(2)}h`;
-      } else {
-        // Get total seconds
-        const totalSeconds = Math.floor(diffMs / 1000);
-        
-        // Calculate hours, minutes, seconds
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        
-        // Format with leading zeros
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      }
-    }
-    
-    // Fallback to using the duration field if no start/end times
+    // Always prioritize the current duration value stored in the entry
     let durationNum = 0;
+    
     if (typeof duration === "string") {
       durationNum = parseFloat(duration) || 0;
     } else if (typeof duration === "number") {
