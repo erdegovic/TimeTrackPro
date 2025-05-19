@@ -107,6 +107,17 @@ export default function TimeEntryRow({
         // Send the complete update request
         await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
         
+        // Update the local entry immediately to show the change
+        entry.duration = formattedDuration;
+        entry.description = editedEntry.description || entry.description;
+        entry.projectId = Number(editedEntry.projectId) || entry.projectId;
+        if (entry.project) {
+          entry.project.name = projects.find(p => p.id === Number(editedEntry.projectId))?.name || entry.project.name;
+        }
+        if (entry.endTime) {
+          entry.endTime = newEndTime;
+        }
+        
         // Invalidate queries to refresh data
         queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
         
@@ -123,6 +134,9 @@ export default function TimeEntryRow({
         await apiRequest("PUT", `/api/time-entries/${entry.id}`, {
           duration: formattedDuration
         });
+        
+        // Update just the duration in the local entry
+        entry.duration = formattedDuration;
         
         queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
         setIsEditing(false);

@@ -436,7 +436,7 @@ export default function InvoicePreview({
           </Button>
         </div>
         
-        {additionalItems.length > 0 ? (
+        {additionalItems && additionalItems.length > 0 ? (
           <div className="space-y-2">
             {additionalItems.map((item, index) => (
               <div key={index} className="flex items-center border p-2 rounded">
