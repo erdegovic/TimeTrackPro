@@ -14,6 +14,7 @@ import { generatePdf } from "@/lib/pdf-generator";
 import { Invoice, Client, Settings } from "@shared/schema";
 // Make sure to use relative path for imports
 import InvoiceEditView from "../components/Invoices/InvoiceEditView";
+import InvoiceViewEdit from "../components/Invoices/InvoiceViewEdit";
 
 export default function InvoicesPage() {
   const { toast } = useToast();
@@ -324,18 +325,18 @@ export default function InvoicesPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Invoice</DialogTitle>
+            <DialogTitle>Generate Invoice</DialogTitle>
           </DialogHeader>
           
           {editingInvoice && (
-            <InvoiceEditView 
+            <InvoiceViewEdit 
               invoice={editingInvoice}
               onSave={() => {
                 setIsEditDialogOpen(false);
                 setEditingInvoice(null);
                 queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
               }}
-              onCancel={() => {
+              onClose={() => {
                 setIsEditDialogOpen(false);
                 setEditingInvoice(null);
               }}
