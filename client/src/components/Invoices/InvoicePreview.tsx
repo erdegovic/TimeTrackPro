@@ -181,14 +181,20 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
   
   // Add a new additional item
   const addItem = () => {
-    setAdditionalItems(prev => [
-      ...prev, 
+    const newItems = [
+      ...additionalItems, 
       { 
         id: Date.now(), 
         description: "Additional Item", 
         amount: 0 
       }
-    ]);
+    ];
+    setAdditionalItems(newItems);
+    
+    // Force recalculation immediately after adding an item
+    setTimeout(() => {
+      recalculateTotals(editableEntries);
+    }, 0);
   };
   
   // Update an additional item
