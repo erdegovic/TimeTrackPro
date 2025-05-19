@@ -409,14 +409,33 @@ export default function InvoicePreview({
       entriesCount: enhancedEntries.length
     });
     
+    // Update each week's data with corrected totals
+    const updatedWeeklyData = reportData.weeklyData.map((weekData: any) => {
+      // Filter entries for this week that match our enhanced entries
+      const weekEntries = enhancedEntries.filter(entry => 
+        entry.weekNumber === weekData.weekNumber);
+      
+      // Calculate corrected total for this week
+      const weekTotal = weekEntries.reduce((sum, entry) => 
+        sum + parseFloat(entry.amount.toString()), 0);
+      
+      // Return the updated week data
+      return {
+        ...weekData,
+        entries: weekEntries,
+        totalAmount: weekTotal
+      };
+    });
+    
     // Create a modified version of reportData that includes all edited values
     const modifiedReportData = {
       ...reportData,
       timeEntries: enhancedEntries,
+      weeklyData: updatedWeeklyData,
       totalHours: totalHours,
       totalAmount: totalAmount,
+      subtotal: totalAmount,
       additionalItems: additionalItems,
-      subtotal: subtotal,
       total: total,
       // Flag that these entries are edited to force using edited values
       hasEditedEntries: true,
