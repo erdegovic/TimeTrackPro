@@ -590,19 +590,7 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
               </React.Fragment>
             ))}
             
-            {/* Additional Items Section */}
-            {additionalItems.length > 0 && (
-              additionalItems.map(item => (
-                <tr key={`item-${item.id}`} className="text-sm">
-                  <td colSpan={4} className="p-3">
-                    {item.description}
-                  </td>
-                  <td className="p-3 text-right">
-                    {formatCurrency(parseFloat(String(item.amount)))}
-                  </td>
-                </tr>
-              ))
-            )}
+            {/* Removed additional items section from here to only show after subtotal */}
             
             {/* Subtotal row */}
             <tr className="font-medium bg-gray-50">
