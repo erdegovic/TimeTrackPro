@@ -279,7 +279,8 @@ export default function InvoiceViewEdit({ invoice, onClose, onSave }: InvoiceVie
     const newItem = {
       id: Date.now(), // Use timestamp as ID
       description: "Additional Item",
-      amount: "0.00"
+      amount: "0.00",
+      rawValue: "0.00" // Store raw input value
     };
     
     setAdditionalItems([...additionalItems, newItem]);
@@ -289,7 +290,16 @@ export default function InvoiceViewEdit({ invoice, onClose, onSave }: InvoiceVie
   const handleUpdateAdditionalItem = (id: number, field: 'description' | 'amount', value: string) => {
     const updatedItems = additionalItems.map(item => {
       if (item.id === id) {
-        return { ...item, [field]: value };
+        if (field === 'amount') {
+          // For amount field, store raw input and formatted amount separately
+          return { 
+            ...item, 
+            rawValue: value, // Store the raw value for editing
+            amount: value ? parseFloat(value).toString() : "0" // Store parsed value for calculations
+          };
+        } else {
+          return { ...item, [field]: value };
+        }
       }
       return item;
     });
@@ -598,18 +608,6 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
               <td className="p-3 text-right">{formatCurrency(totalAmount)}</td>
             </tr>
             
-            {/* Add item button row */}
-            <tr>
-              <td colSpan={5} className="p-3">
-                <button 
-                  onClick={handleAddItem} 
-                  className="text-sm text-blue-500 hover:text-blue-700 flex items-center"
-                >
-                  + Add Item
-                </button>
-              </td>
-            </tr>
-            
             {/* Add item section */}
             {additionalItems.map((item, index) => (
               <tr key={`additional-${item.id}`} className="text-sm">
@@ -628,7 +626,7 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
                       type="text"
                       inputMode="decimal"
                       className="w-24 text-right border rounded p-1 mr-2"
-                      value={parseFloat(String(item.amount)).toFixed(2)}
+                      value={item.rawValue || item.amount}
                       onChange={(e) => {
                         // Replace commas with dots for consistency
                         const sanitizedValue = e.target.value.replace(',', '.');
@@ -645,6 +643,18 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
                 </td>
               </tr>
             ))}
+            
+            {/* Add item button row */}
+            <tr>
+              <td colSpan={5} className="p-3">
+                <button 
+                  onClick={handleAddItem} 
+                  className="text-sm text-blue-500 hover:text-blue-700 flex items-center"
+                >
+                  + Add Item
+                </button>
+              </td>
+            </tr>
             
             {/* Total due row */}
             <tr className="font-bold bg-blue-500 text-white">
