@@ -83,15 +83,23 @@ export default function TimeEntryRow({
       };
       
       // Send the update request
-      await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
+      const result = await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
+      const updatedEntry = await result.json();
       
-      // Invalidate queries to refresh data
+      // Force a complete refresh of all related data
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      
+      // Also refresh the dashboard data
+      queryClient.invalidateQueries();
+      
+      // Force re-render by updating window location
+      window.location.reload();
       
       setIsEditing(false);
       toast({
         title: "Time entry updated",
-        description: `Duration updated successfully.`,
+        description: `Duration updated to ${formattedDuration} hours.`,
       });
     } catch (error) {
       console.error("Failed to update time entry:", error);
