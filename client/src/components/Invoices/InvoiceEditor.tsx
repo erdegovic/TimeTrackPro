@@ -54,65 +54,45 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
       setIsLoading(true);
       console.log("Fetching data for invoice ID:", invoice.id);
       
-      // Fetch the full invoice data
-      const res = await fetch(`/api/invoices/${invoice.id}`);
-      const invoiceData = await res.json();
-      console.log("Loaded invoice data:", invoiceData);
+      // Get the invoice details
+      const invoiceRes = await fetch(`/api/invoices/${invoice.id}`);
+      const invoiceData = await invoiceRes.json();
       
-      // Set due date from invoice data
       setDueDate(invoiceData.dueDate);
-      
-      // Check if settings have showDueDate preference
       if (settings) {
-        setShowDueDate(settings.showDueDate || true);
+        setShowDueDate(settings.showDueDate || false);
       }
       
-      // Parse additional items from notes if they exist
-      let notes = invoiceData.notes || "";
-      let items: any[] = [];
+      // Extract basic notes without the additional items or edited entries
+      let basicNotes = invoiceData.notes || "";
+      let additionalItems: any[] = [];
       
-      if (notes && notes.includes("ADDITIONAL_ITEMS:")) {
-        const parts = notes.split("ADDITIONAL_ITEMS:");
-        notes = parts[0].trim();
-        
+      // Try to extract just the basic notes part
+      if (basicNotes.includes("ADDITIONAL_ITEMS:")) {
+        basicNotes = basicNotes.split("ADDITIONAL_ITEMS:")[0].trim();
+      }
+      
+      // Try to parse additional items - use a basic approach
+      if (invoiceData.notes && invoiceData.notes.includes("ADDITIONAL_ITEMS:")) {
         try {
-          // Handle different possible formats of the additional items in the notes
-          const additionalItemsText = parts[1].trim();
-          
-          // Try parsing the whole additional items section
-          try {
-            items = JSON.parse(additionalItemsText);
-            console.log("Successfully parsed additional items:", items);
-          } catch (parseError) {
-            // If that fails, try to extract just the JSON part
-            console.log("Initial additional items parse failed, trying to extract JSON section");
-            
-            if (additionalItemsText.includes("\n\n")) {
-              // If there are multiple sections, take just the first one
-              const itemsClean = additionalItemsText.split("\n\n")[0];
-              items = JSON.parse(itemsClean);
-              console.log("Parsed additional items from first section:", items);
-            } else {
-              // Last attempt - find the closing bracket of the JSON array
-              const lastBracketIndex = additionalItemsText.lastIndexOf("]");
-              if (lastBracketIndex > 0) {
-                const itemsClean = additionalItemsText.substring(0, lastBracketIndex + 1);
-                items = JSON.parse(itemsClean);
-                console.log("Parsed additional items by finding closing bracket:", items);
-              } else {
-                throw new Error("Could not find valid JSON data for additional items");
-              }
-            }
+          const itemsPart = invoiceData.notes.split("ADDITIONAL_ITEMS:")[1];
+          if (itemsPart) {
+            // If there are other sections after this one, just take the first part
+            const cleanItemsPart = itemsPart.includes("\n\n") 
+              ? itemsPart.split("\n\n")[0] 
+              : itemsPart;
+              
+            additionalItems = JSON.parse(cleanItemsPart.trim());
+            console.log("Successfully parsed additional items:", additionalItems);
           }
         } catch (e) {
-          console.error("Failed to parse additional items:", e);
-          // Use empty array as fallback
-          items = [];
+          console.log("Failed to parse additional items, using empty array");
+          additionalItems = [];
         }
       }
       
-      setInvoiceNotes(notes);
-      setAdditionalItems(items || []);
+      setInvoiceNotes(basicNotes);
+      setAdditionalItems(additionalItems);
       
       // Get all time entries and filter by those with matching invoiceId
       const entriesRes = await fetch(`/api/time-entries`);
@@ -144,70 +124,49 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         return entry;
       }));
       
-      // Check for edited entries in the stored notes
+      // Try to extract edited entries from the invoice notes
       let editedEntries = enrichedEntries;
-      if (notes && notes.includes("EDITED_ENTRIES:")) {
+      if (invoiceData.notes && invoiceData.notes.includes("EDITED_ENTRIES:")) {
         try {
-          // Extract the edited entries section
-          const editedEntriesParts = notes.split("EDITED_ENTRIES:");
-          const editedEntriesJson = editedEntriesParts[1].trim();
+          // Extract the edited entries part
+          const editedPart = invoiceData.notes.split("EDITED_ENTRIES:")[1];
           
-          // Handle different possible formats in the notes
-          let parsedEditedEntries;
-          try {
-            // Try parsing the whole thing first
-            parsedEditedEntries = JSON.parse(editedEntriesJson);
-            console.log("Successfully parsed edited entries JSON");
-          } catch (parseError) {
-            // If that fails, try to extract just the JSON part
-            console.log("Initial parse failed, trying to extract JSON section");
-            if (editedEntriesJson.includes("\n\n")) {
-              // If there are multiple sections, take just the first one
-              const editedEntriesClean = editedEntriesJson.split("\n\n")[0];
-              parsedEditedEntries = JSON.parse(editedEntriesClean);
-            } else {
-              // Last attempt - find the closing bracket of the JSON array
-              const lastBracketIndex = editedEntriesJson.lastIndexOf("]");
-              if (lastBracketIndex > 0) {
-                const editedEntriesClean = editedEntriesJson.substring(0, lastBracketIndex + 1);
-                parsedEditedEntries = JSON.parse(editedEntriesClean);
-              } else {
-                throw new Error("Could not find valid JSON data");
-              }
+          if (editedPart) {
+            // If there are other sections after this one, just take the first part
+            const cleanEditedPart = editedPart.includes("\n\n") 
+              ? editedPart.split("\n\n")[0] 
+              : editedPart;
+            
+            const parsedEditedEntries = JSON.parse(cleanEditedPart.trim());
+            console.log("Successfully parsed edited entries:", parsedEditedEntries.length);
+            
+            if (parsedEditedEntries && Array.isArray(parsedEditedEntries)) {
+              // Create a map for quick lookup
+              const editedEntriesMap = new Map();
+              parsedEditedEntries.forEach((edited: any) => {
+                editedEntriesMap.set(edited.id, edited);
+              });
+              
+              // Apply edited values to our entries
+              editedEntries = enrichedEntries.map((entry: any) => {
+                const editedVersion = editedEntriesMap.get(entry.id);
+                if (editedVersion) {
+                  return {
+                    ...entry,
+                    duration: editedVersion.duration,
+                    amount: editedVersion.amount,
+                    editedDuration: editedVersion.duration,
+                    editedAmount: editedVersion.amount,
+                    wasEdited: true
+                  };
+                }
+                return entry;
+              });
             }
-          }
-          
-          if (parsedEditedEntries && Array.isArray(parsedEditedEntries)) {
-            console.log("Found edited entries data:", parsedEditedEntries.length);
-            
-            // Create a map for quick lookup
-            const editedEntriesMap = new Map();
-            parsedEditedEntries.forEach((edited: any) => {
-              editedEntriesMap.set(edited.id, edited);
-            });
-            
-            // Apply edited values to our entries
-            editedEntries = enrichedEntries.map((entry: any) => {
-              const editedVersion = editedEntriesMap.get(entry.id);
-              if (editedVersion) {
-                return {
-                  ...entry,
-                  duration: editedVersion.duration,
-                  amount: editedVersion.amount,
-                  editedDuration: editedVersion.duration,
-                  editedAmount: editedVersion.amount,
-                  wasEdited: true
-                };
-              }
-              return entry;
-            });
-          } else {
-            console.warn("Parsed data is not an array or is empty");
           }
         } catch (error) {
           console.error("Error parsing edited entries data:", error);
           // Fall back to using the original entries without edits
-          console.log("Using non-edited entries as fallback");
         }
       }
       
@@ -252,10 +211,10 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         setReportData({
           timeEntries: editedEntries,
           weeklyData: [singleWeek],
-          additionalItems: items,
+          additionalItems: additionalItems,
           totalHours: editedEntries.reduce((sum: number, entry: any) => 
             sum + parseFloat(String(entry.duration || '0')), 0),
-          totalAmount: Number(invoiceData.total),
+          totalAmount: Number(invoice?.total || 0),
           timeFormat: settings?.defaultTimeFormat || 'decimal'
         });
       } else {
@@ -264,10 +223,10 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         setReportData({
           timeEntries: editedEntries,
           weeklyData,
-          additionalItems: items,
+          additionalItems: additionalItems,
           totalHours: editedEntries.reduce((sum: number, entry: any) => 
             sum + parseFloat(String(entry.duration || '0')), 0),
-          totalAmount: Number(invoiceData.total),
+          totalAmount: Number(invoice?.total || 0),
           timeFormat: settings?.defaultTimeFormat || 'decimal'
         });
       }
