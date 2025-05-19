@@ -59,11 +59,19 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
       const invoiceData = await res.json();
       console.log("Loaded invoice data:", invoiceData);
       
+      // Set due date from invoice data
+      setDueDate(invoiceData.dueDate);
+      
+      // Check if settings have showDueDate preference
+      if (settings) {
+        setShowDueDate(settings.showDueDate || true);
+      }
+      
       // Parse additional items from notes if they exist
       let notes = invoiceData.notes || "";
       let items: any[] = [];
       
-      if (notes.includes("ADDITIONAL_ITEMS:")) {
+      if (notes && notes.includes("ADDITIONAL_ITEMS:")) {
         const parts = notes.split("ADDITIONAL_ITEMS:");
         notes = parts[0].trim();
         try {
@@ -76,11 +84,11 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
       
       setInvoiceNotes(notes);
       setAdditionalItems(items || []);
-      setDueDate(invoiceData.dueDate);
       
       // Get all time entries and filter by those with matching invoiceId
-      const allTimeEntries = await fetch(`/api/time-entries`).then(r => r.json());
-      const timeEntries = allTimeEntries.filter((entry: any) => entry.invoiceId === invoice.id);
+      const entriesRes = await fetch(`/api/time-entries`);
+      const allTimeEntries = await entriesRes.json();
+      let timeEntries = allTimeEntries.filter((entry: any) => entry.invoiceId === invoice.id);
       
       console.log("Found time entries for invoice:", timeEntries.length);
       
@@ -91,11 +99,29 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         });
       }
       
+      // Enrich time entries with client and project data
+      const enrichedEntries = await Promise.all(timeEntries.map(async (entry: any) => {
+        if (!entry.project) {
+          try {
+            // Get project data
+            const projectRes = await fetch(`/api/projects/${entry.projectId}`);
+            if (projectRes.ok) {
+              entry.project = await projectRes.json();
+            }
+          } catch (err) {
+            console.error("Failed to fetch project for entry:", err);
+          }
+        }
+        return entry;
+      }));
+      
       // Format the report data for the preview
       setReportData({
-        timeEntries,
-        totalHours: timeEntries.reduce((sum: number, entry: any) => sum + parseFloat(entry.duration || 0), 0),
-        totalAmount: Number(invoiceData.total)
+        timeEntries: enrichedEntries,
+        additionalItems: items,
+        totalHours: enrichedEntries.reduce((sum: number, entry: any) => sum + parseFloat(entry.duration || 0), 0),
+        totalAmount: Number(invoiceData.total),
+        timeFormat: settings?.defaultTimeFormat || 'decimal'
       });
       
       setIsLoading(false);

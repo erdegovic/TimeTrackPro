@@ -157,7 +157,7 @@ export default function InvoicesPage() {
       accessorKey: (row: Invoice) => (
         <Badge 
           variant={
-            row.status === "paid" ? "success" : 
+            row.status === "paid" ? "default" : 
             row.status === "sent" ? "outline" : 
             "secondary"
           }
