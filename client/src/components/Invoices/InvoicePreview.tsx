@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Minus, Edit2, Save, X, FileDown } from "lucide-react";
+import { Plus, Minus, Edit2, Save, X, FileDown, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -559,29 +559,38 @@ export default function InvoicePreview({
       {/* Action buttons */}
       <div className="mt-8 flex justify-end gap-3">
         {client && settings && (
-          <Button
-            onClick={() => {
-              const filename = `invoice-${invoiceNumber || "draft"}.pdf`;
-              
-              // Generate PDF
-              generatePdf({
-                filename,
-                client,
-                settings,
-                reportData,
-                type: "invoice",
-                notes,
-                invoiceNumber,
-                issueDate,
-                dueDate,
-                showDueDate
-              });
-            }}
-            variant="outline"
-          >
-            <FileDown className="h-4 w-4 mr-2" />
-            Export PDF
-          </Button>
+          <>
+            <Button
+              onClick={() => {
+                const filename = `invoice-${invoiceNumber || "draft"}.pdf`;
+                
+                // Generate PDF
+                generatePdf({
+                  filename,
+                  client,
+                  settings,
+                  reportData,
+                  type: "invoice",
+                  notes,
+                  invoiceNumber,
+                  issueDate,
+                  dueDate,
+                  showDueDate
+                });
+              }}
+              variant="outline"
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              Export PDF
+            </Button>
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={() => window.location.href = `/invoices/create?clientId=${clientId}`}
+            >
+              <Edit2 className="h-4 w-4 mr-2" />
+              Create Invoice
+            </Button>
+          </>
         )}
       </div>
     </div>

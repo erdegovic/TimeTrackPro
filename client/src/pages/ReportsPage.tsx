@@ -91,27 +91,13 @@ export default function ReportsPage() {
       <Dialog open={showInvoicePreview} onOpenChange={setShowInvoicePreview}>
         <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Invoice Preview</DialogTitle>
+            <DialogTitle>Generate Invoice</DialogTitle>
           </DialogHeader>
           {invoiceData && selectedClientId && (
-            <>
-              <InvoicePreview 
-                reportData={invoiceData} 
-                clientId={selectedClientId}
-              />
-              <div className="mt-8 flex justify-end gap-3">
-                <Button
-                  onClick={() => {
-                    // Show full invoice editor
-                    setShowInvoicePreview(false);
-                    window.location.href = `/invoices/create?clientId=${selectedClientId}`;
-                  }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  Create Full Invoice
-                </Button>
-              </div>
-            </>
+            <InvoicePreview 
+              reportData={invoiceData} 
+              clientId={selectedClientId}
+            />
           )}
         </DialogContent>
       </Dialog>
