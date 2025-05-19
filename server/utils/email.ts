@@ -1,101 +1,178 @@
-import SibApiV3Sdk from 'sib-api-v3-sdk';
+// Use dynamic import for ESM compatibility
+import fetch from 'node-fetch';
 
-// Initialize Brevo (previously Sendinblue) API
-const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-const defaultClient = SibApiV3Sdk.ApiClient.instance;
-const apiKey = defaultClient.authentications['api-key'];
+// Get API key from environment variable
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
 
-// Set the API key from environment variables
-apiKey.apiKey = process.env.BREVO_API_KEY;
+// Default sender details
+const DEFAULT_SENDER = {
+  name: 'Time Tracker Support',
+  email: 'support@timetracker.com'
+};
 
-/**
- * Send verification email to user upon registration
- */
-export async function sendVerificationEmail(
-  email: string, 
-  username: string, 
-  verificationToken: string
-): Promise<boolean> {
-  try {
-    const verificationUrl = `${process.env.APP_URL || 'http://localhost:3000'}/verify-email/${verificationToken}`;
-    
-    // Create email
-    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-    sendSmtpEmail.subject = 'Verify Your Email Address';
-    sendSmtpEmail.htmlContent = `
-      <h1>Welcome to TimeTracker</h1>
-      <p>Hello ${username},</p>
-      <p>Thank you for registering. Please verify your email address by clicking the link below:</p>
-      <p><a href="${verificationUrl}">Verify Email Address</a></p>
-      <p>If you did not create an account, please ignore this email.</p>
-      <p>This link will expire in 24 hours.</p>
-    `;
-    sendSmtpEmail.sender = { name: 'TimeTracker', email: 'noreply@timetracker.com' };
-    sendSmtpEmail.to = [{ email }];
-    
-    // Send email
-    await apiInstance.sendTransacEmail(sendSmtpEmail);
-    return true;
-  } catch (error) {
-    console.error('Error sending verification email:', error);
-    return false;
-  }
+if (BREVO_API_KEY) {
+  console.log('Brevo email configuration detected');
+} else {
+  console.warn('BREVO_API_KEY not set. Email functionality will be limited to development mode only.');
+}
+
+interface EmailParams {
+  to: string | string[];
+  subject: string;
+  htmlContent: string;
+  textContent?: string;
+  sender?: {
+    name: string;
+    email: string;
+  };
 }
 
 /**
- * Send password reset email to user
+ * Sends an email using Brevo API
  */
-export async function sendPasswordResetEmail(
-  email: string, 
-  username: string, 
-  resetToken: string
-): Promise<boolean> {
+export async function sendEmail(params: EmailParams): Promise<boolean> {
   try {
-    const resetUrl = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
-    
-    // Create email
-    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-    sendSmtpEmail.subject = 'Reset Your Password';
-    sendSmtpEmail.htmlContent = `
-      <h1>TimeTracker Password Reset</h1>
-      <p>Hello ${username},</p>
-      <p>You requested to reset your password. Please click the link below to reset it:</p>
-      <p><a href="${resetUrl}">Reset Password</a></p>
-      <p>If you did not request a password reset, please ignore this email.</p>
-      <p>This link will expire in 1 hour.</p>
-    `;
-    sendSmtpEmail.sender = { name: 'TimeTracker', email: 'noreply@timetracker.com' };
-    sendSmtpEmail.to = [{ email }];
-    
-    // Send email
-    await apiInstance.sendTransacEmail(sendSmtpEmail);
-    return true;
-  } catch (error) {
-    console.error('Error sending password reset email:', error);
-    return false;
-  }
-}
-
-/**
- * Validate reCAPTCHA token
- */
-export async function validateCaptcha(token: string): Promise<boolean> {
-  try {
-    if (!process.env.RECAPTCHA_SECRET_KEY) {
-      console.warn('RECAPTCHA_SECRET_KEY not set, captcha validation bypassed');
-      return true; // For development without recaptcha
+    if (!BREVO_API_KEY) {
+      console.log('Email would be sent (DEV MODE):', params);
+      return true; // Return success in dev mode
     }
-    
-    const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+
+    // Format recipient for Brevo API
+    const recipients = Array.isArray(params.to) 
+      ? params.to.map(email => ({ email })) 
+      : [{ email: params.to }];
+
+    // Prepare email payload for Brevo
+    const payload = {
+      sender: params.sender || DEFAULT_SENDER,
+      to: recipients,
+      subject: params.subject,
+      htmlContent: params.htmlContent,
+      textContent: params.textContent || ''
+    };
+
+    // Send request to Brevo API
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${token}`
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'api-key': BREVO_API_KEY
+      },
+      body: JSON.stringify(payload)
     });
-    
-    const data = await response.json();
-    return data.success === true;
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Brevo API error: ${JSON.stringify(errorData)}`);
+    }
+
+    console.log('Email sent successfully via Brevo');
+    return true;
   } catch (error) {
-    console.error('Error validating captcha:', error);
+    console.error('Failed to send email:', error);
     return false;
   }
+}
+
+/**
+ * Sends a verification email to a new user
+ */
+export async function sendVerificationEmail(email: string, username: string, token: string): Promise<boolean> {
+  const verificationUrl = `${process.env.APP_URL || 'http://localhost:3000'}/verify-email/${token}`;
+  
+  const subject = 'Verify your Time Tracker account';
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Welcome to Time Tracker</h2>
+      <p>Hello ${username},</p>
+      <p>Thank you for registering. Please click the button below to verify your email address:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${verificationUrl}" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+          Verify Email Address
+        </a>
+      </div>
+      <p>If the button doesn't work, you can copy and paste the following link into your browser:</p>
+      <p><a href="${verificationUrl}">${verificationUrl}</a></p>
+      <p>This verification link will expire in 24 hours.</p>
+      <p>If you did not create an account, no further action is required.</p>
+      <p>Best regards,</p>
+      <p>Time Tracker Team</p>
+    </div>
+  `;
+  
+  const textContent = `
+    Welcome to Time Tracker
+    
+    Hello ${username},
+    
+    Thank you for registering. Please click on the link below to verify your email address:
+    
+    ${verificationUrl}
+    
+    This verification link will expire in 24 hours.
+    
+    If you did not create an account, no further action is required.
+    
+    Best regards,
+    Time Tracker Team
+  `;
+  
+  return sendEmail({
+    to: email,
+    subject,
+    htmlContent,
+    textContent
+  });
+}
+
+/**
+ * Sends a password reset email to a user
+ */
+export async function sendPasswordResetEmail(email: string, username: string, token: string): Promise<boolean> {
+  const resetUrl = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password/${token}`;
+  
+  const subject = 'Reset your Time Tracker password';
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Password Reset Request</h2>
+      <p>Hello ${username},</p>
+      <p>We received a request to reset your password. Click the button below to create a new password:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${resetUrl}" style="background-color: #2196F3; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+          Reset Password
+        </a>
+      </div>
+      <p>If the button doesn't work, you can copy and paste the following link into your browser:</p>
+      <p><a href="${resetUrl}">${resetUrl}</a></p>
+      <p>This password reset link will expire in 1 hour.</p>
+      <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
+      <p>Best regards,</p>
+      <p>Time Tracker Team</p>
+    </div>
+  `;
+  
+  const textContent = `
+    Password Reset Request
+    
+    Hello ${username},
+    
+    We received a request to reset your password. Please click on the link below to create a new password:
+    
+    ${resetUrl}
+    
+    This password reset link will expire in 1 hour.
+    
+    If you did not request a password reset, please ignore this email or contact support if you have concerns.
+    
+    Best regards,
+    Time Tracker Team
+  `;
+  
+  return sendEmail({
+    to: email,
+    subject,
+    htmlContent,
+    textContent
+  });
 }

@@ -1,24 +1,24 @@
-import { Router } from 'express';
+import express from 'express';
 import { 
   register, 
-  verifyEmail, 
   login, 
-  forgotPassword, 
-  resetPassword, 
   logout, 
+  verifyEmail, 
+  forgotPassword, 
+  resetPassword,
   getCurrentUser 
 } from '../controllers/authController';
-import { authenticate } from '../middleware/auth';
+import { authenticate } from '../utils/auth';
 
-const router = Router();
+const router = express.Router();
 
-// Auth routes
+// Authentication routes
 router.post('/register', register);
-router.get('/verify-email/:token', verifyEmail);
 router.post('/login', login);
+router.get('/logout', logout);
+router.get('/verify-email/:token', verifyEmail);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
-router.post('/logout', logout);
 router.get('/user', authenticate, getCurrentUser);
 
 export default router;

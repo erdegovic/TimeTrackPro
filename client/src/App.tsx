@@ -14,11 +14,18 @@ import ProjectsPage from "./pages/ProjectsPage";
 import SettingsPage from "./pages/SettingsPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 function Router() {
   // Public routes (no layout)
   const isAuthRoute = (path: string) => {
-    return path === '/login' || path === '/register';
+    return path === '/login' || 
+           path === '/register' || 
+           path.startsWith('/verify-email') || 
+           path === '/forgot-password' || 
+           path.startsWith('/reset-password');
   };
   
   return (
@@ -28,6 +35,15 @@ function Router() {
       </Route>
       <Route path="/register">
         <RegisterPage />
+      </Route>
+      <Route path="/verify-email/:token">
+        <VerifyEmailPage />
+      </Route>
+      <Route path="/forgot-password">
+        <ForgotPasswordPage />
+      </Route>
+      <Route path="/reset-password/:token">
+        <ResetPasswordPage />
       </Route>
       
       {/* Protected routes with app layout */}

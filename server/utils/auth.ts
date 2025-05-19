@@ -1,59 +1,93 @@
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 
-// Password hashing
+// JWT secret from environment or a default for development
+const JWT_SECRET = process.env.JWT_SECRET || 'development-secret-key';
+const JWT_EXPIRY = '24h';
+
+/**
+ * Hashes a password using bcrypt
+ */
 export async function hashPassword(password: string): Promise<string> {
-  const saltRounds = 10;
-  return bcrypt.hash(password, saltRounds);
+  const salt = await bcrypt.genSalt(10);
+  return bcrypt.hash(password, salt);
 }
 
-export async function comparePassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
-  return bcrypt.compare(plainPassword, hashedPassword);
+/**
+ * Compares a password with a hashed password
+ */
+export async function comparePassword(password: string, hashedPassword: string): Promise<boolean> {
+  return bcrypt.compare(password, hashedPassword);
 }
 
-// JWT token generation
-export function generateToken(payload: object, expiresIn = '1d'): string {
-  const secret = process.env.JWT_SECRET || 'supersecretkey'; // Fallback for development only
-  return jwt.sign(payload, secret, { expiresIn });
+/**
+ * Generates a JWT token
+ */
+export function generateToken(payload: any): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRY });
 }
 
+/**
+ * Verifies a JWT token
+ */
 export function verifyToken(token: string): any {
-  const secret = process.env.JWT_SECRET || 'supersecretkey'; // Fallback for development only
   try {
-    return jwt.verify(token, secret);
+    return jwt.verify(token, JWT_SECRET);
   } catch (error) {
     return null;
   }
 }
 
-// Generate unique tokens for verification (email, password reset)
-export function generateVerificationToken(length = 32): string {
-  return crypto.randomBytes(length).toString('hex');
+/**
+ * Generates a random token for email verification
+ */
+export function generateVerificationToken(): string {
+  return crypto.randomBytes(32).toString('hex');
 }
 
-// Validate email format
-export function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
-
-// Validate password strength
-export function isStrongPassword(password: string): boolean {
-  // At least 8 characters, with at least 1 uppercase, 1 lowercase, 1 number
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-  return passwordRegex.test(password);
-}
-
-// Generate password reset token
+/**
+ * Generates a reset password token with expiry
+ */
 export function generatePasswordResetToken(): { token: string; expires: Date } {
-  const token = crypto.randomBytes(32).toString('hex');
-  const expires = new Date(Date.now() + 3600000); // 1 hour
+  // Token expires in 1 hour
+  const expires = new Date();
+  expires.setHours(expires.getHours() + 1);
   
-  return { token, expires };
+  return {
+    token: crypto.randomBytes(32).toString('hex'),
+    expires
+  };
 }
 
-// Check if password reset token is expired
-export function isTokenExpired(tokenExpiry: Date): boolean {
-  return new Date() > new Date(tokenExpiry);
+/**
+ * Checks if a token has expired
+ */
+export function isTokenExpired(expires: Date): boolean {
+  return new Date() > expires;
+}
+
+/**
+ * Middleware to check if user is authenticated
+ */
+export function authenticate(req: any, res: any, next: any) {
+  const userId = req.session?.userId;
+  
+  if (!userId) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+  
+  req.user = { id: userId };
+  next();
+}
+
+/**
+ * Middleware to check if user is an admin
+ */
+export function requireAdmin(req: any, res: any, next: any) {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  
+  next();
 }

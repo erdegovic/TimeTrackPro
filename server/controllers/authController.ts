@@ -11,9 +11,9 @@ import {
 } from '../utils/auth';
 import { 
   sendVerificationEmail, 
-  sendPasswordResetEmail,
-  validateCaptcha
+  sendPasswordResetEmail
 } from '../utils/email';
+import { validateCaptcha } from '../utils/captcha';
 import { 
   userRegisterSchema, 
   userLoginSchema,
