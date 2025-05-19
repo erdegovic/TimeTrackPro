@@ -236,26 +236,17 @@ export default function TimeEntryRow({
             
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Duration</label>
-              <input
-                type="text"
-                value={formatDuration(editedEntry.duration || 0)}
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={editedEntry.duration || "0"}
                 onChange={(e) => {
-                  // Handle both decimal and HH:MM:SS format based on timeFormat
-                  let newDuration;
-                  if (timeFormat === "decimal") {
-                    newDuration = parseFloat(e.target.value) || 0;
-                  } else {
-                    // Parse HH:MM:SS to decimal hours
-                    const parts = e.target.value.split(":");
-                    const hours = parseInt(parts[0]) || 0;
-                    const minutes = parts.length > 1 ? (parseInt(parts[1]) || 0) / 60 : 0;
-                    const seconds = parts.length > 2 ? (parseInt(parts[2]) || 0) / 3600 : 0;
-                    newDuration = hours + minutes + seconds;
-                  }
-                  // Store duration as a string to preserve decimal precision
-                  setEditedEntry({ ...editedEntry, duration: newDuration.toString() });
+                  const newDuration = e.target.value;
+                  console.log("Setting new duration:", newDuration);
+                  setEditedEntry({ ...editedEntry, duration: newDuration });
                 }}
-                className="w-full p-2 border rounded font-mono"
+                className="font-mono"
               />
             </div>
             

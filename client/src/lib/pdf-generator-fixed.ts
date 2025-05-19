@@ -215,6 +215,9 @@ function generateInvoicePdf(options: {
   const invDueDate = invoice?.dueDate || dueDate || format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
   const invNotes = invoice?.notes || notes || "Thank you for your business.";
   
+  // Use client's currency or fall back to USD
+  console.log("Using client currency for invoice:", client.currency);
+  
   // Add title and invoice number
   doc.setFontSize(24);
   doc.text("INVOICE", 14, 20);
