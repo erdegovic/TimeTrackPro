@@ -163,19 +163,20 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
   
   // Recalculate subtotal and total based on current entries and additional items
   const recalculateTotals = (entries = editableEntries) => {
-    // Sum up all entry amounts
+    // Sum up all entry amounts (subtotal only includes time entries)
     const entriesTotal = entries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
     
-    // Add additional items
+    // Set new subtotal (without additional items)
+    setSubtotal(entriesTotal);
+    
+    // Calculate additional items total separately
     const additionalTotal = getAdditionalItemsTotal();
     
-    // Set new subtotal
-    const newSubtotal = entriesTotal + additionalTotal;
-    setSubtotal(newSubtotal);
+    // Calculate tax based on subtotal only
+    const tax = enableTax ? entriesTotal * (taxRate / 100) : 0;
     
-    // Calculate tax and total
-    const tax = enableTax ? newSubtotal * (taxRate / 100) : 0;
-    setTotal(newSubtotal + tax);
+    // Set total (subtotal + additional items + tax)
+    setTotal(entriesTotal + additionalTotal + tax);
   };
   
   // Add a new additional item
@@ -406,10 +407,10 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
                         </td>
                         <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900 border-r">
                           {isEditing ? (
-                            <Input
+                            <input
                               type="text"
-                              className="w-24 h-8 p-1 text-sm font-mono"
-                              value={formatTime(
+                              className="w-24 h-8 p-1 text-sm font-mono border rounded"
+                              defaultValue={formatTime(
                                  editableEntries.find(e => e.id === entry.id)?.editedDuration || 
                                  (typeof entry.adjustedDuration === 'number' 
                                    ? entry.adjustedDuration 
@@ -418,13 +419,10 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
                                       : parseFloat(entry.duration || '0')),
                                  reportData.timeFormat as TimeFormat
                               )}
-                              onChange={(e) => {
+                              onBlur={(e) => {
                                 const timeValue = e.target.value;
                                 const durationInHours = parseTime(timeValue, reportData.timeFormat as TimeFormat);
-                                const entryToUpdate = editableEntries.find(e => e.id === entry.id);
-                                if (entryToUpdate) {
-                                  updateEntryDuration(entry.id, durationInHours, reportData.timeFormat as TimeFormat);
-                                }
+                                updateEntryDuration(entry.id, durationInHours, reportData.timeFormat as TimeFormat);
                               }}
                             />
                           ) : (
@@ -512,11 +510,11 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
                   </td>
                   <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                     {isEditing ? (
-                      <Input
+                      <input
                         type="number"
-                        className="w-24 h-8 p-1 text-sm text-right"
-                        value={item.amount.toString()}
-                        onChange={(e) => updateAdditionalItem(item.id, 'amount', e.target.value)}
+                        className="w-24 h-8 p-1 text-sm text-right border rounded"
+                        defaultValue={item.amount.toString()}
+                        onBlur={(e) => updateAdditionalItem(item.id, 'amount', e.target.value)}
                       />
                     ) : (
                       client?.currency
