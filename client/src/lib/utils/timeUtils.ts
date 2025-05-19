@@ -1,4 +1,5 @@
 import { TimeFormat } from "@shared/schema";
+import { format } from "date-fns";
 
 /**
  * Formats a time in decimal hours to either decimal or HH:MM:SS format
@@ -216,4 +217,19 @@ export function convertCurrency(
   // If no conversion rate available, return original amount
   console.warn(`No conversion rate available from ${fromCurrency} to ${toCurrency}`);
   return amount;
+}
+
+/**
+ * Formats a date string to a user-friendly format
+ * @param dateString ISO date string
+ * @returns Formatted date string
+ */
+export function formatDate(dateString: string): string {
+  try {
+    const date = new Date(dateString);
+    return format(date, 'MMM d, yyyy');
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    return dateString;
+  }
 }

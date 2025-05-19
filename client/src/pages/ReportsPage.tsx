@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import ReportFilters from "@/components/Reports/ReportFilters";
 import ReportTable from "@/components/Reports/ReportTable";
 import InvoicePreview from "@/components/Invoices/InvoicePreview";
@@ -90,28 +91,27 @@ export default function ReportsPage() {
       <Dialog open={showInvoicePreview} onOpenChange={setShowInvoicePreview}>
         <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Generate Invoice</DialogTitle>
+            <DialogTitle>Invoice Preview</DialogTitle>
           </DialogHeader>
           {invoiceData && selectedClientId && (
-            <InvoicePreview 
-              reportData={invoiceData} 
-              clientId={selectedClientId}
-              additionalItems={additionalItems}
-              setAdditionalItems={setAdditionalItems}
-              notes={invoiceNotes}
-              setNotes={setInvoiceNotes}
-              dueDate={invoiceDueDate}
-              setDueDate={setInvoiceDueDate}
-              showDueDate={invoiceShowDueDate}
-              setShowDueDate={setInvoiceShowDueDate}
-              invoiceNumber={`INV-${new Date().getTime().toString().slice(-6)}`}
-              issueDate={format(new Date(), 'yyyy-MM-dd')}
-              onEditInvoice={() => {
-                // Go to create invoice page with data
-                console.log("Edit invoice clicked - would go to edit page");
-                setShowInvoicePreview(false);
-              }}
-            />
+            <>
+              <InvoicePreview 
+                reportData={invoiceData} 
+                clientId={selectedClientId}
+              />
+              <div className="mt-8 flex justify-end gap-3">
+                <Button
+                  onClick={() => {
+                    // Show full invoice editor
+                    setShowInvoicePreview(false);
+                    window.location.href = `/invoices/create?clientId=${selectedClientId}`;
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Create Full Invoice
+                </Button>
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

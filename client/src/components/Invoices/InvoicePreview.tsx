@@ -583,14 +583,6 @@ export default function InvoicePreview({
             Export PDF
           </Button>
         )}
-        
-        <Button 
-          onClick={() => onEditInvoice && onEditInvoice()} 
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          <Edit2 className="h-4 w-4 mr-2" />
-          Edit Invoice
-        </Button>
       </div>
     </div>
   );
