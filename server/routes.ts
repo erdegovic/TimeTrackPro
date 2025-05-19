@@ -485,22 +485,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.taxRate = String(data.taxRate);
       }
       
-      // Extract additionalItems from the request if present and remove it from data
-      const additionalItems = data.additionalItems;
+      // Store additional items in notes field if present
+      let notes = data.notes || '';
+      if (data.additionalItems) {
+        const additionalItemsTag = `\n\nADDITIONAL_ITEMS:${data.additionalItems}`;
+        notes += additionalItemsTag;
+      }
       delete data.additionalItems;
+      
+      // Convert all numeric values to strings to pass validation
+      const subtotal = String(data.subtotal || '0');
+      const tax = String(data.tax || '0');
+      const taxRate = String(data.taxRate || '0');
+      const total = String(data.amount || '0');
       
       // Prepare invoice data with only the fields expected by the schema
       const invoiceData = insertInvoiceSchema.parse({
-        clientId: data.clientId,
+        clientId: Number(data.clientId),
         invoiceNumber: nextInvoiceNumber,
         issueDate,
         dueDate,
-        subtotal: data.subtotal,
-        tax: data.tax,
-        taxRate: data.taxRate,
-        total: data.amount,
+        subtotal,
+        tax,
+        taxRate,
+        total,
         status: data.status || 'draft',
-        notes: data.notes || '',
+        notes,
         currency: data.currency || 'USD'
       });
       
