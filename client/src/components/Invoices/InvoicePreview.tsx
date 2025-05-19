@@ -415,17 +415,13 @@ export default function InvoicePreview({
       timeEntries: enhancedEntries,
       totalHours: totalHours,
       totalAmount: totalAmount,
-      totalAmount: subtotal,
-      totalHours: enhancedEntries.reduce((sum, entry) => 
-        sum + (typeof entry.editedDuration === 'number' 
-          ? entry.editedDuration 
-          : parseFloat(entry.duration || '0')), 0),
       additionalItems: additionalItems,
       subtotal: subtotal,
       total: total,
       // Flag that these entries are edited to force using edited values
+      hasEditedEntries: true,
       hasEditedValues: true,
-      useEditedValues: true,
+      useEditedValues: true
     };
     
     console.log("Modified report data for PDF:", {
