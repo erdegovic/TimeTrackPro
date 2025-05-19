@@ -320,8 +320,8 @@ function generateInvoicePdf(options: {
   let subtotal = 0;
   let totalHours = 0;
   
-  // Use the currency we determined earlier
-  const currencySymbol = invoiceCurrency === 'GBP' ? '£' : invoiceCurrency === 'EUR' ? '€' : '$';
+  // Set the invoiceCurrency for use throughout the function
+  const usedCurrency = invoiceCurrency;
   
   if (reportData) {
     // Use report data for generating invoice
@@ -335,7 +335,7 @@ function generateInvoicePdf(options: {
             styles: { fillColor: [240, 240, 240], fontStyle: 'bold' }
           },
           {
-            content: formatCurrency(weekData.totalAmount, currency),
+            content: formatCurrency(weekData.totalAmount, usedCurrency),
             styles: { halign: 'right', fillColor: [240, 240, 240], fontStyle: 'bold' }
           }
         ]);

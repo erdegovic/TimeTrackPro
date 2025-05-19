@@ -1,20 +1,24 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { File, FileText, Trash2, Download } from "lucide-react";
+import { File, FileText, Trash2, Download, Edit, PenTool } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { generatePdf } from "@/lib/pdf-generator";
 import { Invoice, Client, Settings } from "@shared/schema";
+import InvoiceEditor from "@/components/Invoices/InvoiceEditor";
 
 export default function InvoicesPage() {
   const { toast } = useToast();
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
   // Fetch invoices
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
@@ -143,14 +147,28 @@ export default function InvoicesPage() {
             size="icon" 
             onClick={() => handleExportPdf(row)}
             className="h-8 w-8"
+            title="Export PDF"
           >
             <File className="h-4 w-4" />
           </Button>
           <Button 
             variant="ghost" 
             size="icon" 
+            onClick={() => {
+              setEditingInvoice(row);
+              setIsEditDialogOpen(true);
+            }}
+            className="h-8 w-8"
+            title="Edit Invoice"
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon" 
             onClick={() => setSelectedInvoiceId(row.id)}
             className="h-8 w-8 text-destructive hover:text-destructive/80"
+            title="Delete Invoice"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -213,6 +231,34 @@ export default function InvoicesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Edit Invoice Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Invoice</DialogTitle>
+            <DialogDescription>
+              Make changes to the invoice details, due date, or additional items.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingInvoice && (
+            <InvoiceEditor 
+              invoice={editingInvoice}
+              onClose={() => {
+                setIsEditDialogOpen(false);
+                setEditingInvoice(null);
+              }}
+              onSave={() => {
+                setIsEditDialogOpen(false);
+                setEditingInvoice(null);
+                // Refresh invoice data
+                queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
