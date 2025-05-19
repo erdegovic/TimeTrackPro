@@ -320,15 +320,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.duration = String(data.duration);
         console.log("Updating duration to:", data.duration);
         
-        // Get the original entry to calculate the amount
+        // Get the original entry
         const originalEntry = await storage.getTimeEntry(id);
-        if (originalEntry && originalEntry.hourlyRate) {
-          const hourlyRate = parseFloat(originalEntry.hourlyRate);
-          const newDuration = parseFloat(data.duration);
-          if (!isNaN(hourlyRate) && !isNaN(newDuration)) {
-            // Calculate new amount based on hourly rate and duration
-            data.amount = String(hourlyRate * newDuration);
-            console.log(`Recalculated amount: ${data.amount} based on rate: ${hourlyRate} and duration: ${newDuration}`);
+        if (originalEntry) {
+          // Look up the project to get the hourly rate
+          const project = await storage.getProject(originalEntry.projectId);
+          if (project && project.hourlyRate) {
+            const hourlyRate = parseFloat(project.hourlyRate);
+            const newDuration = parseFloat(data.duration);
+            if (!isNaN(hourlyRate) && !isNaN(newDuration)) {
+              // We don't have amount field in the database, but we can calculate it for the response
+              console.log(`Calculated amount: ${hourlyRate * newDuration} based on rate: ${hourlyRate} and duration: ${newDuration}`);
+            }
           }
         }
       }
