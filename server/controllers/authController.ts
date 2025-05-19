@@ -1,27 +1,25 @@
 import { Request, Response } from 'express';
-import { db } from '../db';
-import { users } from '@shared/schema';
-import { eq } from 'drizzle-orm';
-import { 
-  userRegisterSchema,
-  userLoginSchema,
-  forgotPasswordSchema,
-  resetPasswordSchema,
-  type User
-} from '@shared/schema';
-import { 
-  hashPassword, 
+import { storage } from '../storage';
+import {
+  hashPassword,
   comparePassword, 
+  generateJwtToken,
+  generateToken,
   createVerificationToken,
   verifyToken,
   deleteVerificationToken,
-  validateCaptcha,
-  createSession
+  validateCaptcha
 } from '../utils/auth';
-import {
-  sendVerificationEmail,
-  sendPasswordResetEmail
+import { 
+  sendVerificationEmail, 
+  sendPasswordResetEmail 
 } from '../utils/email';
+import { 
+  userRegisterSchema, 
+  userLoginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema 
+} from '@shared/schema';
 
 /**
  * Register a new user
@@ -29,86 +27,58 @@ import {
 export async function register(req: Request, res: Response) {
   try {
     // Validate request body
-    const validationResult = userRegisterSchema.safeParse(req.body);
-    
-    if (!validationResult.success) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Validation failed', 
-        errors: validationResult.error.errors 
+    const result = userRegisterSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({
+        message: 'Invalid input data',
+        errors: result.error.errors
       });
     }
-    
-    const { username, email, password, firstName, lastName, captchaToken } = validationResult.data;
-    
-    // Validate captcha
-    const isCaptchaValid = await validateCaptcha(captchaToken);
-    
-    if (!isCaptchaValid) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'CAPTCHA validation failed. Please try again.' 
-      });
+
+    const { username, email, password, firstName, lastName, captchaToken } = result.data;
+
+    // Validate captcha token
+    if (!captchaToken) {
+      return res.status(400).json({ message: 'CAPTCHA verification required' });
     }
-    
+
+    const isValidCaptcha = await validateCaptcha(captchaToken);
+    if (!isValidCaptcha) {
+      return res.status(400).json({ message: 'CAPTCHA verification failed' });
+    }
+
     // Check if user already exists
-    const existingUser = await db.select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-    
-    if (existingUser.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email is already registered' 
-      });
+    const existingUser = await storage.getUserByUsername(username);
+    if (existingUser) {
+      return res.status(409).json({ message: 'Username already taken' });
     }
-    
-    // Check if username is taken
-    const existingUsername = await db.select()
-      .from(users)
-      .where(eq(users.username, username))
-      .limit(1);
-    
-    if (existingUsername.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Username is already taken' 
-      });
-    }
-    
+
     // Hash password
     const hashedPassword = await hashPassword(password);
-    
+
     // Create user
-    const [user] = await db.insert(users)
-      .values({
-        username,
-        email,
-        password: hashedPassword,
-        firstName: firstName || null,
-        lastName: lastName || null,
-        status: 'pending',
-        role: 'user',
-      })
-      .returning();
-    
+    const user = await storage.createUser({
+      username,
+      email,
+      password: hashedPassword,
+      firstName: firstName || null,
+      lastName: lastName || null,
+      status: 'pending',
+      role: 'user',
+    });
+
     // Create verification token
     const verificationToken = await createVerificationToken(user.id, 'email');
     
     // Send verification email
-    await sendVerificationEmail(email, username, verificationToken);
-    
+    await sendVerificationEmail(email, verificationToken);
+
     return res.status(201).json({
-      success: true,
-      message: 'Registration successful. Please check your email to verify your account.',
+      message: 'User registered successfully. Please check your email to verify your account.'
     });
   } catch (error) {
     console.error('Registration error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'An error occurred during registration' 
-    });
+    return res.status(500).json({ message: 'Registration failed. Please try again.' });
   }
 }
 
@@ -118,42 +88,29 @@ export async function register(req: Request, res: Response) {
 export async function verifyEmail(req: Request, res: Response) {
   try {
     const { token } = req.params;
-    
-    if (!token) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Verification token is required' 
-      });
-    }
-    
+
     // Verify token
     const userId = await verifyToken(token, 'email');
-    
     if (!userId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid or expired verification token' 
-      });
+      return res.status(400).json({ message: 'Invalid or expired verification token' });
     }
-    
-    // Update user status
-    await db.update(users)
-      .set({ status: 'active' })
-      .where(eq(users.id, userId));
-    
+
+    // Get user
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Update user status to active
+    await storage.updateUser(user.id, { status: 'active' });
+
     // Delete verification token
     await deleteVerificationToken(token);
-    
-    return res.status(200).json({
-      success: true,
-      message: 'Email verification successful. You can now log in.',
-    });
+
+    return res.status(200).json({ message: 'Email verified successfully. You can now log in.' });
   } catch (error) {
     console.error('Email verification error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'An error occurred during email verification' 
-    });
+    return res.status(500).json({ message: 'Email verification failed. Please try again.' });
   }
 }
 
@@ -163,64 +120,43 @@ export async function verifyEmail(req: Request, res: Response) {
 export async function login(req: Request, res: Response) {
   try {
     // Validate request body
-    const validationResult = userLoginSchema.safeParse(req.body);
-    
-    if (!validationResult.success) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Validation failed', 
-        errors: validationResult.error.errors 
+    const result = userLoginSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({
+        message: 'Invalid input data',
+        errors: result.error.errors
       });
     }
-    
-    const { usernameOrEmail, password } = validationResult.data;
-    
+
+    const { usernameOrEmail, password } = result.data;
+
     // Find user by username or email
-    const [user] = await db.select()
-      .from(users)
-      .where(
-        usernameOrEmail.includes('@') 
-          ? eq(users.email, usernameOrEmail) 
-          : eq(users.username, usernameOrEmail)
-      );
-    
+    const user = await storage.getUserByUsername(usernameOrEmail);
     if (!user) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid credentials' 
-      });
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
-    
-    // Check if user is active
+
+    // Check if user account is active
     if (user.status !== 'active') {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Account is not active. Please verify your email.' 
-      });
+      return res.status(403).json({ message: 'Account not activated. Please check your email for verification link.' });
     }
-    
-    // Check password
+
+    // Verify password
     const isPasswordValid = await comparePassword(password, user.password);
-    
     if (!isPasswordValid) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid credentials' 
-      });
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
-    
-    // Create session
-    const session = await createSession(user.id);
-    
-    // Set session cookie
-    res.cookie('sessionId', session.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
-    
+
+    // Generate JWT token
+    const token = generateJwtToken(user.id);
+
+    // Set session
+    if (req.session) {
+      req.session.userId = user.id;
+      req.session.token = token;
+    }
+
     return res.status(200).json({
-      success: true,
       message: 'Login successful',
       user: {
         id: user.id,
@@ -228,14 +164,12 @@ export async function login(req: Request, res: Response) {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-      },
+        role: user.role
+      }
     });
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'An error occurred during login' 
-    });
+    return res.status(500).json({ message: 'Login failed. Please try again.' });
   }
 }
 
@@ -245,47 +179,37 @@ export async function login(req: Request, res: Response) {
 export async function forgotPassword(req: Request, res: Response) {
   try {
     // Validate request body
-    const validationResult = forgotPasswordSchema.safeParse(req.body);
-    
-    if (!validationResult.success) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Validation failed', 
-        errors: validationResult.error.errors 
+    const result = forgotPasswordSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({
+        message: 'Invalid input data',
+        errors: result.error.errors
       });
     }
-    
-    const { email } = validationResult.data;
-    
+
+    const { email } = result.data;
+
     // Find user by email
-    const [user] = await db.select()
-      .from(users)
-      .where(eq(users.email, email));
-    
-    // If no user is found, still return success to prevent email enumeration
+    const user = await storage.getUserByEmail(email);
     if (!user) {
-      return res.status(200).json({
-        success: true,
-        message: 'If your email is registered, you will receive a password reset link',
+      // Don't reveal that the email doesn't exist
+      return res.status(200).json({ 
+        message: 'If your email is registered, you will receive a password reset link shortly.'
       });
     }
-    
-    // Create password reset token
+
+    // Create reset token
     const resetToken = await createVerificationToken(user.id, 'password_reset');
     
     // Send password reset email
     await sendPasswordResetEmail(email, resetToken);
-    
-    return res.status(200).json({
-      success: true,
-      message: 'If your email is registered, you will receive a password reset link',
+
+    return res.status(200).json({ 
+      message: 'If your email is registered, you will receive a password reset link shortly.'
     });
   } catch (error) {
     console.error('Forgot password error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'An error occurred while processing your request' 
-    });
+    return res.status(500).json({ message: 'Failed to process request. Please try again.' });
   }
 }
 
@@ -295,49 +219,41 @@ export async function forgotPassword(req: Request, res: Response) {
 export async function resetPassword(req: Request, res: Response) {
   try {
     // Validate request body
-    const validationResult = resetPasswordSchema.safeParse(req.body);
-    
-    if (!validationResult.success) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Validation failed', 
-        errors: validationResult.error.errors 
+    const result = resetPasswordSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({
+        message: 'Invalid input data',
+        errors: result.error.errors
       });
     }
-    
-    const { token, password } = validationResult.data;
-    
+
+    const { token, password } = result.data;
+
     // Verify token
     const userId = await verifyToken(token, 'password_reset');
-    
     if (!userId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid or expired reset token' 
-      });
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
     }
-    
-    // Hash new password
+
+    // Get user
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Hash password
     const hashedPassword = await hashPassword(password);
-    
-    // Update password
-    await db.update(users)
-      .set({ password: hashedPassword })
-      .where(eq(users.id, userId));
-    
+
+    // Update user password
+    await storage.updateUser(user.id, { password: hashedPassword });
+
     // Delete reset token
     await deleteVerificationToken(token);
-    
-    return res.status(200).json({
-      success: true,
-      message: 'Password reset successful. You can now log in with your new password.',
-    });
+
+    return res.status(200).json({ message: 'Password reset successfully. You can now log in with your new password.' });
   } catch (error) {
     console.error('Reset password error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'An error occurred while resetting your password' 
-    });
+    return res.status(500).json({ message: 'Password reset failed. Please try again.' });
   }
 }
 
@@ -346,18 +262,21 @@ export async function resetPassword(req: Request, res: Response) {
  */
 export async function logout(req: Request, res: Response) {
   try {
-    // Clear session cookie
-    res.clearCookie('sessionId');
-    
-    return res.status(200).json({
-      success: true,
-      message: 'Logout successful',
-    });
+    // Clear session
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Session destruction error:', err);
+          return res.status(500).json({ message: 'Logout failed. Please try again.' });
+        }
+        res.clearCookie('connect.sid');
+        return res.status(200).json({ message: 'Logged out successfully' });
+      });
+    } else {
+      return res.status(200).json({ message: 'Logged out successfully' });
+    }
   } catch (error) {
     console.error('Logout error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'An error occurred during logout' 
-    });
+    return res.status(500).json({ message: 'Logout failed. Please try again.' });
   }
 }

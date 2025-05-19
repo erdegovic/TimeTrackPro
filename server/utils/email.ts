@@ -1,12 +1,17 @@
 import * as SibApiV3Sdk from 'sib-api-v3-sdk';
 
-// Initialize Brevo API instance
-const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+// Initialize Brevo (SendinBlue) client
 const apiKey = process.env.BREVO_API_KEY;
+if (!apiKey) {
+  console.warn('WARNING: BREVO_API_KEY environment variable is not set. Email functionality will not work.');
+}
 
-// Configure API key authorization
-const apiKeys = SibApiV3Sdk.ApiClient.instance.authentications['api-key'];
-apiKeys.apiKey = apiKey;
+const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+if (apiKey) {
+  const defaultClient = SibApiV3Sdk.ApiClient.instance;
+  const apiKey_auth = defaultClient.authentications['api-key'];
+  apiKey_auth.apiKey = apiKey;
+}
 
 interface SendEmailParams {
   to: string;
@@ -24,27 +29,35 @@ export async function sendEmail({
   to,
   subject,
   htmlContent,
-  textContent = '',
-  fromName = 'Time Tracker',
-  fromEmail = 'noreply@timetracker.app'
+  textContent,
+  fromName = 'TimeTrack Pro',
+  fromEmail = 'no-reply@timetrackpro.com'
 }: SendEmailParams): Promise<boolean> {
+  if (!apiKey) {
+    console.warn('Cannot send email: BREVO_API_KEY environment variable is not set.');
+    return false;
+  }
+
   try {
     const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-    
-    sendSmtpEmail.to = [{ email: to }];
     sendSmtpEmail.subject = subject;
     sendSmtpEmail.htmlContent = htmlContent;
-    sendSmtpEmail.textContent = textContent || htmlContent.replace(/<[^>]*>/g, '');
-    sendSmtpEmail.sender = { 
-      name: fromName, 
-      email: fromEmail 
+    
+    if (textContent) {
+      sendSmtpEmail.textContent = textContent;
+    }
+    
+    sendSmtpEmail.sender = {
+      name: fromName,
+      email: fromEmail
     };
     
-    const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
-    console.log('Email sent successfully:', response);
+    sendSmtpEmail.to = [{ email: to }];
+    
+    await apiInstance.sendTransacEmail(sendSmtpEmail);
     return true;
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error('Email sending error:', error);
     return false;
   }
 }
@@ -53,35 +66,46 @@ export async function sendEmail({
  * Send verification email to a newly registered user
  */
 export async function sendVerificationEmail(
-  email: string, 
-  username: string, 
-  token: string
+  email: string,
+  token: string,
+  appBaseUrl = process.env.APP_URL || 'http://localhost:5000'
 ): Promise<boolean> {
-  const verificationUrl = `${process.env.APP_URL || 'http://localhost:5000'}/verify-email?token=${token}`;
+  const verificationLink = `${appBaseUrl}/api/auth/verify-email/${token}`;
   
-  const subject = 'Verify your email address';
   const htmlContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2>Welcome to Time Tracker!</h2>
-      <p>Hello ${username},</p>
-      <p>Thank you for registering. Please click the button below to verify your email address:</p>
-      <p style="text-align: center; margin: 30px 0;">
-        <a href="${verificationUrl}" 
-           style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">
+      <h2>Welcome to TimeTrack Pro!</h2>
+      <p>Thank you for registering. Please verify your email address by clicking the button below:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${verificationLink}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">
           Verify Email Address
         </a>
-      </p>
-      <p>If the button doesn't work, you can also copy and paste this link into your browser:</p>
-      <p>${verificationUrl}</p>
-      <p>This verification link will expire in 24 hours.</p>
-      <p>Best regards,<br>The Time Tracker Team</p>
+      </div>
+      <p>If the button doesn't work, you can also copy and paste the following link into your browser:</p>
+      <p><a href="${verificationLink}">${verificationLink}</a></p>
+      <p>This link will expire in 24 hours.</p>
+      <p>Best regards,<br>The TimeTrack Pro Team</p>
     </div>
+  `;
+  
+  const textContent = `
+    Welcome to TimeTrack Pro!
+    
+    Thank you for registering. Please verify your email address by visiting the following link:
+    
+    ${verificationLink}
+    
+    This link will expire in 24 hours.
+    
+    Best regards,
+    The TimeTrack Pro Team
   `;
   
   return sendEmail({
     to: email,
-    subject,
-    htmlContent
+    subject: 'Verify Your Email Address',
+    htmlContent,
+    textContent
   });
 }
 
@@ -89,33 +113,48 @@ export async function sendVerificationEmail(
  * Send password reset email
  */
 export async function sendPasswordResetEmail(
-  email: string, 
-  token: string
+  email: string,
+  token: string,
+  appBaseUrl = process.env.APP_URL || 'http://localhost:5000'
 ): Promise<boolean> {
-  const resetUrl = `${process.env.APP_URL || 'http://localhost:5000'}/reset-password?token=${token}`;
+  const resetLink = `${appBaseUrl}/reset-password/${token}`;
   
-  const subject = 'Reset your password';
   const htmlContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2>Password Reset Request</h2>
-      <p>Hello,</p>
       <p>We received a request to reset your password. Click the button below to create a new password:</p>
-      <p style="text-align: center; margin: 30px 0;">
-        <a href="${resetUrl}" 
-           style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${resetLink}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">
           Reset Password
         </a>
-      </p>
-      <p>If the button doesn't work, you can also copy and paste this link into your browser:</p>
-      <p>${resetUrl}</p>
-      <p>This reset link will expire in 1 hour. If you didn't request a password reset, please ignore this email.</p>
-      <p>Best regards,<br>The Time Tracker Team</p>
+      </div>
+      <p>If the button doesn't work, you can also copy and paste the following link into your browser:</p>
+      <p><a href="${resetLink}">${resetLink}</a></p>
+      <p>This link will expire in 1 hour.</p>
+      <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
+      <p>Best regards,<br>The TimeTrack Pro Team</p>
     </div>
+  `;
+  
+  const textContent = `
+    Password Reset Request
+    
+    We received a request to reset your password. Please visit the following link to create a new password:
+    
+    ${resetLink}
+    
+    This link will expire in 1 hour.
+    
+    If you did not request a password reset, please ignore this email or contact support if you have concerns.
+    
+    Best regards,
+    The TimeTrack Pro Team
   `;
   
   return sendEmail({
     to: email,
-    subject,
-    htmlContent
+    subject: 'Reset Your Password',
+    htmlContent,
+    textContent
   });
 }

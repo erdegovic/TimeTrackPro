@@ -1,17 +1,13 @@
-import { randomBytes, createHash } from 'crypto';
+import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { db } from '../db';
-import { users, verifications, sessions } from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
-import type { User, Session } from '@shared/schema';
+import { storage } from '../storage';
 
-// JWT secret key
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const JWT_EXPIRY = '7d'; // Token expires in 7 days
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const TOKEN_EXPIRY = '24h';
 
 /**
- * Generate a secure random token
+ * Generate a random token
  */
 export function generateToken(length = 32): string {
   return randomBytes(length).toString('hex');
@@ -36,7 +32,11 @@ export async function comparePassword(password: string, hashedPassword: string):
  * Generate a signed JWT token
  */
 export function generateJwtToken(userId: number): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+  return jwt.sign(
+    { userId },
+    JWT_SECRET,
+    { expiresIn: TOKEN_EXPIRY }
+  );
 }
 
 /**
@@ -47,68 +47,37 @@ export function verifyJwtToken(token: string): { userId: number } | null {
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: number };
     return decoded;
   } catch (error) {
+    console.error('JWT verification error:', error);
     return null;
   }
 }
 
 /**
- * Create a session
- */
-export async function createSession(userId: number): Promise<Session> {
-  const sessionId = generateToken(32);
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7); // Session expires in 7 days
-  
-  const [session] = await db.insert(sessions)
-    .values({
-      id: sessionId,
-      userId,
-      expiresAt,
-    })
-    .returning();
-
-  return session;
-}
-
-/**
- * Get a session by ID
- */
-export async function getSession(sessionId: string): Promise<Session | undefined> {
-  const [session] = await db.select()
-    .from(sessions)
-    .where(eq(sessions.id, sessionId));
-  
-  if (!session || session.expiresAt < new Date()) {
-    return undefined;
-  }
-  
-  return session;
-}
-
-/**
- * Create a verification token
+ * Create a verification token for email verification or password reset
  */
 export async function createVerificationToken(
   userId: number,
   type: 'email' | 'password_reset'
 ): Promise<string> {
-  const token = generateToken(32);
-  const expiresAt = new Date();
+  // Generate a random token
+  const token = generateToken();
   
-  if (type === 'password_reset') {
-    expiresAt.setHours(expiresAt.getHours() + 1); // Password reset tokens expire in 1 hour
+  // Calculate expiry date (24 hours for email verification, 1 hour for password reset)
+  const expiresAt = new Date();
+  if (type === 'email') {
+    expiresAt.setHours(expiresAt.getHours() + 24);
   } else {
-    expiresAt.setHours(expiresAt.getHours() + 24); // Email verification tokens expire in 24 hours
+    expiresAt.setHours(expiresAt.getHours() + 1);
   }
   
-  await db.insert(verifications)
-    .values({
-      userId,
-      token,
-      type,
-      expiresAt,
-    });
-    
+  // Store token in database
+  await storage.createVerification({
+    userId,
+    token,
+    type,
+    expiresAt: expiresAt.toISOString(),
+  });
+  
   return token;
 }
 
@@ -118,29 +87,38 @@ export async function createVerificationToken(
 export async function verifyToken(
   token: string,
   type: 'email' | 'password_reset'
-): Promise<number | undefined> {
-  const [verification] = await db.select()
-    .from(verifications)
-    .where(
-      and(
-        eq(verifications.token, token),
-        eq(verifications.type, type)
-      )
-    );
+): Promise<number | null> {
+  try {
+    // Get verification from database
+    const verification = await storage.getVerificationByToken(token);
+    if (!verification) {
+      return null;
+    }
     
-  if (!verification || verification.expiresAt < new Date()) {
-    return undefined;
+    // Check if token is of the correct type
+    if (verification.type !== type) {
+      return null;
+    }
+    
+    // Check if token has expired
+    const now = new Date();
+    const expiresAt = new Date(verification.expiresAt);
+    if (now > expiresAt) {
+      return null;
+    }
+    
+    return verification.userId;
+  } catch (error) {
+    console.error('Token verification error:', error);
+    return null;
   }
-  
-  return verification.userId;
 }
 
 /**
  * Delete a verification token
  */
 export async function deleteVerificationToken(token: string): Promise<void> {
-  await db.delete(verifications)
-    .where(eq(verifications.token, token));
+  await storage.deleteVerification(token);
 }
 
 /**
@@ -148,25 +126,27 @@ export async function deleteVerificationToken(token: string): Promise<void> {
  */
 export async function validateCaptcha(token: string): Promise<boolean> {
   try {
-    const secretKey = process.env.RECAPTCHA_SECRET_KEY;
-    
-    if (!secretKey) {
-      console.error('RECAPTCHA_SECRET_KEY not set in environment variables');
-      return false;
+    // For development/testing purposes, you might want to bypass this check
+    if (process.env.NODE_ENV === 'development') {
+      // Check if token is the test token
+      if (token === '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI') {
+        return true;
+      }
     }
     
-    const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+    // Verify token with Google reCAPTCHA API
+    const response = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: `secret=${secretKey}&response=${token}`,
+      body: `secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${token}`,
     });
     
     const data = await response.json();
     return data.success === true;
   } catch (error) {
-    console.error('Error validating reCAPTCHA:', error);
+    console.error('CAPTCHA validation error:', error);
     return false;
   }
 }

@@ -4,11 +4,26 @@ import {
   TimeEntry, InsertTimeEntry, timeEntries,
   Invoice, InsertInvoice, invoices,
   Settings, InsertSettings, settings,
+  User, InsertUser, users, 
+  Verification, verifications,
   ReportFilters, TimeFormat, RoundingType, TimeAdjustment
 } from "@shared/schema";
 import { addWeeks, format, getWeekOfMonth, startOfWeek, endOfWeek, parseISO, getYear, getMonth } from "date-fns";
 
 export interface IStorage {
+  // Users
+  getUser(id: number): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: number): Promise<boolean>;
+
+  // Verifications
+  createVerification(verification: Omit<Verification, "id">): Promise<Verification>;
+  getVerificationByToken(token: string): Promise<Verification | undefined>;
+  deleteVerification(token: string): Promise<void>;
+
   // Clients
   getClients(): Promise<Client[]>;
   getClient(id: number): Promise<Client | undefined>;
@@ -54,22 +69,30 @@ export class MemStorage implements IStorage {
   private timeEntriesData: Map<number, TimeEntry>;
   private invoicesData: Map<number, Invoice>;
   private settingsData: Settings | undefined;
+  private usersData: Map<number, User>;
+  private verificationsData: Map<string, Verification>;
 
   private clientId: number;
   private projectId: number;
   private timeEntryId: number;
   private invoiceId: number;
+  private userId: number; 
+  private verificationId: number;
 
   constructor() {
     this.clientsData = new Map();
     this.projectsData = new Map();
     this.timeEntriesData = new Map();
     this.invoicesData = new Map();
+    this.usersData = new Map();
+    this.verificationsData = new Map();
 
     this.clientId = 1;
     this.projectId = 1;
     this.timeEntryId = 1;
     this.invoiceId = 1;
+    this.userId = 1;
+    this.verificationId = 1;
 
     // Initialize with default settings
     this.settingsData = {

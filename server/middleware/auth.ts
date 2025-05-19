@@ -1,114 +1,96 @@
 import { Request, Response, NextFunction } from 'express';
-import { getSession } from '../utils/auth';
-import { db } from '../db';
-import { users } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { storage } from '../storage';
+import { verifyJwtToken } from '../utils/auth';
 
-// Extend Express Request type to include user
 declare global {
-  namespace Express {
-    interface Request {
-      user?: any;
-      session?: any;
+    namespace Express {
+        interface Request {
+            user?: any;
+            session?: any;
+        }
     }
-  }
 }
 
 /**
  * Authentication middleware - verifies session and attaches user to request
  */
 export async function authenticate(req: Request, res: Response, next: NextFunction) {
-  try {
-    // Get session ID from cookie
-    const sessionId = req.cookies.sessionId;
-    
-    if (!sessionId) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Unauthorized' 
-      });
+    try {
+        // Check if the user is logged in via session
+        if (!req.session || !req.session.userId) {
+            return res.status(401).json({ message: 'Authentication required' });
+        }
+
+        // Get user from storage
+        const user = await storage.getUser(req.session.userId);
+        if (!user) {
+            return res.status(401).json({ message: 'User not found' });
+        }
+
+        // Check if token is still valid
+        if (req.session.token) {
+            const tokenPayload = verifyJwtToken(req.session.token);
+            if (!tokenPayload) {
+                return res.status(401).json({ message: 'Session expired' });
+            }
+        }
+
+        // Attach user to request
+        req.user = user;
+        
+        next();
+    } catch (error) {
+        console.error('Authentication error:', error);
+        return res.status(401).json({ message: 'Authentication failed' });
     }
-    
-    // Verify session
-    const session = await getSession(sessionId);
-    
-    if (!session) {
-      // Clear invalid session cookie
-      res.clearCookie('sessionId');
-      
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Session expired or invalid' 
-      });
-    }
-    
-    // Get user
-    const [user] = await db.select()
-      .from(users)
-      .where(eq(users.id, session.userId));
-    
-    if (!user) {
-      // Clear session cookie if user not found
-      res.clearCookie('sessionId');
-      
-      return res.status(401).json({ 
-        success: false, 
-        message: 'User not found' 
-      });
-    }
-    
-    // Check if user is active
-    if (user.status !== 'active') {
-      // Clear session cookie if user is not active
-      res.clearCookie('sessionId');
-      
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Account is not active' 
-      });
-    }
-    
-    // Attach user and session to request
-    req.user = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-    };
-    
-    req.session = session;
-    
-    next();
-  } catch (error) {
-    console.error('Authentication error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'An error occurred during authentication' 
-    });
-  }
 }
 
 /**
  * Authorization middleware - verifies user role
  */
 export function authorize(roles: string[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Unauthorized' 
-      });
+    return (req: Request, res: Response, next: NextFunction) => {
+        try {
+            // Check if user is authenticated
+            if (!req.user) {
+                return res.status(401).json({ message: 'Authentication required' });
+            }
+
+            // Check if user has the required role
+            if (!roles.includes(req.user.role)) {
+                return res.status(403).json({ message: 'Insufficient permissions' });
+            }
+
+            next();
+        } catch (error) {
+            console.error('Authorization error:', error);
+            return res.status(403).json({ message: 'Authorization failed' });
+        }
+    };
+}
+
+/**
+ * Get current user middleware - attaches user to request if authenticated
+ */
+export async function getCurrentUser(req: Request, res: Response, next: NextFunction) {
+    try {
+        // If no session or no userId in session, continue without user
+        if (!req.session || !req.session.userId) {
+            return next();
+        }
+
+        // Get user from storage
+        const user = await storage.getUser(req.session.userId);
+        if (!user) {
+            return next();
+        }
+
+        // Attach user to request
+        req.user = user;
+        
+        next();
+    } catch (error) {
+        console.error('Get current user error:', error);
+        next();
     }
-    
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Forbidden - Insufficient permissions' 
-      });
-    }
-    
-    next();
-  };
 }
