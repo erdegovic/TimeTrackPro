@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { 
@@ -24,11 +24,44 @@ export default function TimeEntryList() {
   const [groupBy, setGroupBy] = useState<"date" | "project" | "client">("date");
   const [filterDate, setFilterDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [newEntryIds, setNewEntryIds] = useState<number[]>([]);
 
   // Fetch time entries
   const { data: timeEntries = [], isLoading: isLoadingEntries } = useQuery<TimeEntry[]>({
-    queryKey: ["/api/time-entries"],
+    queryKey: ["/api/time-entries"]
   });
+  
+  // Track new entries for highlighting
+  useEffect(() => {
+    if (timeEntries.length > 0) {
+      // Find the most recently created entry
+      const latestEntry = timeEntries.reduce((latest, current) => {
+        const latestDate = new Date(latest.endTime || latest.date);
+        const currentDate = new Date(current.endTime || current.date);
+        return currentDate > latestDate ? current : latest;
+      }, timeEntries[0]);
+      
+      // If the latest entry is new (within last 5 seconds) and not already highlighted
+      const now = new Date();
+      const entryTime = new Date(latestEntry.endTime || latestEntry.date);
+      const isRecent = (now.getTime() - entryTime.getTime()) < 5000; // 5 seconds
+      
+      if (isRecent && !newEntryIds.includes(latestEntry.id)) {
+        setNewEntryIds(prev => [...prev, latestEntry.id]);
+      }
+    }
+  }, [timeEntries]);
+  
+  // Effect to remove the highlight after it fades away
+  useEffect(() => {
+    if (newEntryIds.length > 0) {
+      const timer = setTimeout(() => {
+        setNewEntryIds([]);
+      }, 3000); // Remove highlight after 3 seconds
+      
+      return () => clearTimeout(timer);
+    }
+  }, [newEntryIds]);
 
   // Fetch clients
   const { data: clients = [] } = useQuery<Client[]>({

@@ -136,15 +136,30 @@ export default function SimpleTimer({
     });
   };
 
+  // Format the time to a string in HH:MM:SS format
+  const formatTimerDisplay = (seconds: number): string => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  };
+
   return (
     <div className="flex items-center gap-2">
-      <Input
-        type="text"
-        value={formatTime(time)}
-        readOnly
-        className="font-mono text-center w-28"
-      />
-      <Button
+      <div className="flex-1">
+        <Input 
+          type="text" 
+          placeholder="What are you working on?" 
+          className="w-full"
+          value={description}
+          readOnly
+          disabled={isDisabled}
+        />
+      </div>
+      <div className="font-mono text-lg w-36 text-center border rounded-md p-2 bg-gray-50 select-none">
+        {formatTimerDisplay(time)}
+      </div>
+      <Button 
         onClick={isRunning ? handleStop : handleStart}
         disabled={isDisabled}
         variant={isRunning ? "destructive" : "default"}

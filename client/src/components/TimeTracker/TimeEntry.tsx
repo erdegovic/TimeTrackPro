@@ -23,6 +23,7 @@ interface TimeEntryRowProps {
   projects: Project[];
   timeFormat: "decimal" | "time";
   onDelete: (id: number) => void;
+  isNew?: boolean;
 }
 
 export default function TimeEntryRow({
