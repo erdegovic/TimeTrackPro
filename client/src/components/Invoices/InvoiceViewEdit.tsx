@@ -223,6 +223,85 @@ export default function InvoiceViewEdit({ invoice, onClose, onSave }: InvoiceVie
     }
   };
 
+  // Handle editing time entry duration
+  const handleEditDuration = (entryId: number, newDuration: string) => {
+    // Parse the new duration
+    const durationValue = parseFloat(newDuration) || 0;
+    
+    // Find the entry in our data
+    const entryToUpdate = timeEntries.find(entry => entry.id === entryId);
+    if (!entryToUpdate) return;
+    
+    // Calculate new amount based on hourly rate
+    const newAmount = (parseFloat(entryToUpdate.hourlyRate) * durationValue).toFixed(2);
+    
+    // Update the entry
+    const updatedEntries = timeEntries.map(entry => {
+      if (entry.id === entryId) {
+        return {
+          ...entry,
+          duration: durationValue.toString(),
+          amount: newAmount
+        };
+      }
+      return entry;
+    });
+    
+    // Update the state
+    setTimeEntries(updatedEntries);
+    
+    // Add to edited entries for saving later
+    setEditedEntries({
+      ...editedEntries,
+      [entryId]: { duration: durationValue.toString(), amount: newAmount }
+    });
+    
+    // Recalculate totals and weekly data
+    const weeklyGroups = groupEntriesByWeek(updatedEntries);
+    setWeeklyData(weeklyGroups);
+    
+    // Update totals
+    const newTotalHours = updatedEntries.reduce(
+      (sum, entry) => sum + parseFloat(entry.duration || "0"), 
+      0
+    );
+    const newTotalAmount = updatedEntries.reduce(
+      (sum, entry) => sum + parseFloat(entry.amount || "0"), 
+      0
+    );
+    
+    setTotalHours(newTotalHours);
+    setTotalAmount(newTotalAmount);
+  };
+  
+  // Add new additional item
+  const handleAddItem = () => {
+    const newItem = {
+      id: Date.now(), // Use timestamp as ID
+      description: "Additional Item",
+      amount: "0.00"
+    };
+    
+    setAdditionalItems([...additionalItems, newItem]);
+  };
+  
+  // Update additional item
+  const handleUpdateAdditionalItem = (id: number, field: 'description' | 'amount', value: string) => {
+    const updatedItems = additionalItems.map(item => {
+      if (item.id === id) {
+        return { ...item, [field]: value };
+      }
+      return item;
+    });
+    
+    setAdditionalItems(updatedItems);
+  };
+  
+  // Remove additional item
+  const handleRemoveAdditionalItem = (id: number) => {
+    setAdditionalItems(additionalItems.filter(item => item.id !== id));
+  };
+
   // Calculate total due including additional items
   const calculateTotalDue = () => {
     const entriesTotal = totalAmount;
@@ -449,7 +528,14 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
                       {entry.description} ({format(new Date(entry.date), "MMM d")})
                     </td>
                     <td className="p-3 text-right">
-                      {parseFloat(entry.duration).toFixed(2)}
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="w-20 text-right border rounded p-1"
+                        value={parseFloat(entry.duration).toFixed(2)}
+                        onChange={(e) => handleEditDuration(entry.id, e.target.value)}
+                      />
                     </td>
                     <td className="p-3 text-right text-gray-500">
                       {formatCurrency(parseFloat(entry.hourlyRate))}
@@ -482,6 +568,51 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
               <td className="p-3 text-right">{totalHours.toFixed(2)}</td>
               <td></td>
               <td className="p-3 text-right">{formatCurrency(totalAmount)}</td>
+            </tr>
+            
+            {/* Add item section */}
+            {additionalItems.map((item, index) => (
+              <tr key={`additional-${item.id}`} className="text-sm">
+                <td colSpan={3} className="p-3">
+                  <input
+                    type="text"
+                    className="w-full border rounded p-1"
+                    value={item.description}
+                    onChange={(e) => handleUpdateAdditionalItem(item.id, 'description', e.target.value)}
+                  />
+                </td>
+                <td className="p-3"></td>
+                <td className="p-3 text-right flex items-center justify-end">
+                  <div className="flex items-center">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="w-24 text-right border rounded p-1 mr-2"
+                      value={parseFloat(String(item.amount)).toFixed(2)}
+                      onChange={(e) => handleUpdateAdditionalItem(item.id, 'amount', e.target.value)}
+                    />
+                    <button 
+                      className="text-red-500 hover:text-red-700"
+                      onClick={() => handleRemoveAdditionalItem(item.id)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            
+            {/* Add item button row */}
+            <tr>
+              <td colSpan={5} className="p-3">
+                <button 
+                  onClick={handleAddItem} 
+                  className="text-sm text-blue-500 hover:text-blue-700 flex items-center"
+                >
+                  + Add Item
+                </button>
+              </td>
             </tr>
             
             {/* Total due row */}
