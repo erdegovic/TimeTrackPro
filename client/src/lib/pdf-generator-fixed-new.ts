@@ -411,12 +411,17 @@ function generateInvoicePdf(options: {
     } else if (reportData.timeEntries) {
       // Directly use time entries without weekly grouping
       reportData.timeEntries.forEach((entry: any) => {
-        // Use edited duration if available
-        const duration = typeof entry.editedDuration === 'number' 
-          ? entry.editedDuration 
-          : typeof entry.duration === 'number' 
-            ? entry.duration 
-            : parseFloat(entry.duration || '0');
+        // Make sure we use the most up-to-date edited duration
+        // Check all possible sources for edited duration in this priority order
+        const duration = 
+          // 1. Explicit editedDuration property (set by the invoice editor)
+          typeof entry.editedDuration === 'number' ? entry.editedDuration :
+          // 2. Adjusted duration from time adjustment in reports
+          typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration :
+          // 3. Regular duration as a number
+          typeof entry.duration === 'number' ? entry.duration :
+          // 4. Duration as a string that needs parsing
+          parseFloat(entry.duration || '0');
         
         // Get the hourly rate safely - handle the type issue
         let hourlyRate = 0;
@@ -424,12 +429,19 @@ function generateInvoicePdf(options: {
           // Access hourlyRate from project safely
           const projectData = entry.project as any;
           hourlyRate = parseFloat(String(projectData.hourlyRate || '0'));
+        } else if (typeof entry.hourlyRate !== 'undefined') {
+          // Direct hourly rate on the entry
+          hourlyRate = parseFloat(String(entry.hourlyRate || '0'));
         }
         
-        // Use the edited amount if available, otherwise calculate from duration and hourly rate
-        const amount = typeof entry.editedAmount !== 'undefined' 
-          ? parseFloat(String(entry.editedAmount)) 
-          : duration * hourlyRate;
+        // Calculate the amount, prioritizing any explicitly edited amount
+        const amount = 
+          // 1. Explicit editedAmount property
+          typeof entry.editedAmount !== 'undefined' ? parseFloat(String(entry.editedAmount)) :
+          // 2. Explicit amount property
+          typeof entry.amount !== 'undefined' && entry.amount !== null ? parseFloat(String(entry.amount)) :
+          // 3. Calculate from duration and hourly rate
+          duration * hourlyRate;
         
         tableContent.push([
           entry.description,
