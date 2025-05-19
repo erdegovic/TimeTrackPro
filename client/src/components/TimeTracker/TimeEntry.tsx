@@ -332,35 +332,59 @@ export default function TimeEntryRow({
                     type="text" 
                     value={timeInputValue}
                     onChange={(e) => {
+                      // Allow direct editing of the time string without any auto-formatting or calculations
+                      // Just take the value exactly as typed
                       const value = e.target.value;
-                      
-                      // Only allow valid time characters
                       if (/^[0-9:]*$/.test(value)) {
                         setTimeInputValue(value);
+                      }
+                    }}
+                    onBlur={(e) => {
+                      // Only when the field loses focus, parse the time and update the duration
+                      try {
+                        const value = e.target.value;
+                        console.log("Processing time input on blur:", value);
                         
-                        // If user entered a single number, assume it's minutes
+                        // If it's a simple number, treat as minutes
                         if (/^\d+$/.test(value)) {
                           const minutes = parseInt(value, 10) || 0;
                           const decimalHours = minutes / 60;
-                          
-                          // Update decimal value
                           setEditedEntry({
                             ...editedEntry,
                             duration: decimalHours.toString()
                           });
+                          
+                          // Update the display to show the formatted time
+                          setTimeInputValue(formatDecimalToTime(decimalHours));
                         }
-                        // Otherwise try to parse as HH:MM:SS
+                        // If it looks like a time string with colons
                         else if (value.includes(':')) {
-                          try {
-                            const decimalValue = parseTimeToDecimal(value);
+                          // Split the time into parts
+                          const parts = value.split(':');
+                          // Ensure we have at least HH:MM format
+                          if (parts.length >= 2) {
+                            const hours = parseInt(parts[0], 10) || 0;
+                            const minutes = parseInt(parts[1], 10) || 0;
+                            const seconds = parts.length > 2 ? (parseInt(parts[2], 10) || 0) : 0;
+                            
+                            // Calculate the decimal value
+                            const decimalValue = hours + (minutes / 60) + (seconds / 3600);
+                            console.log(`Parsed time ${value} to ${decimalValue} hours`);
+                            
+                            // Update the duration in the entry
                             setEditedEntry({
                               ...editedEntry,
                               duration: decimalValue.toString()
                             });
-                          } catch (e) {
-                            console.error("Error parsing time:", e);
+                            
+                            // Format the time properly for display
+                            const formattedTime = 
+                              `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                            setTimeInputValue(formattedTime);
                           }
                         }
+                      } catch (e) {
+                        console.error("Error processing time input:", e);
                       }
                     }}
                     className="font-mono"
