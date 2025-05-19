@@ -18,10 +18,35 @@ import { db } from "./db";
 import { eq } from "drizzle-orm";
 import authRoutes from "./routes/auth";
 import { authenticate } from "./middleware/auth";
+import fetch from "node-fetch";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register auth routes
   app.use('/api/auth', authRoutes);
+  
+  // Handle frontend verification route - redirects to API route
+  app.get('/verify-email', (req: Request, res: Response) => {
+    const token = req.query.token as string;
+    if (!token) {
+      return res.redirect('/login?error=missing-token');
+    }
+    
+    // Process verification directly
+    fetch(`http://localhost:5000/api/auth/verify-email?token=${token}`)
+      .then(response => response.json())
+      .then(data => {
+        const responseData = data as { message: string };
+        if (responseData.message === 'Email verified successfully. You can now log in.') {
+          return res.redirect('/login?verified=true');
+        } else {
+          return res.redirect(`/login?error=${encodeURIComponent(responseData.message || 'Verification failed')}`);
+        }
+      })
+      .catch(error => {
+        console.error('Error during verification redirect:', error);
+        return res.redirect('/login?error=verification-error');
+      });
+  });
   
   // All API routes use /api prefix
   
