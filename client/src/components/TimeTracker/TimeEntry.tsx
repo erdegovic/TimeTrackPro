@@ -49,20 +49,25 @@ export default function TimeEntryRow({
       // Get duration value, ensuring it's a valid number
       let newDuration = 0;
       
-      // Check if we're dealing with a time format or decimal format
-      if (timeFormat === "time" && typeof editedEntry.duration === 'string' && editedEntry.duration.includes(':')) {
-        // Parse HH:MM:SS format to decimal hours
-        const parts = editedEntry.duration.split(':');
-        const hours = parseInt(parts[0]) || 0;
-        const minutes = parts.length > 1 ? parseInt(parts[1]) / 60 : 0;
-        const seconds = parts.length > 2 ? parseInt(parts[2]) / 3600 : 0;
-        newDuration = hours + minutes + seconds;
-      } else {
-        // Default to parsing as a decimal number
+      // Check if we're using time format and we have a raw time input
+      if (timeFormat === "time" && editedEntry._timeInput) {
+        // Parse from the raw time input the user entered
+        const timeValue = editedEntry._timeInput;
+        if (timeValue.includes(':')) {
+          const parts = timeValue.split(':');
+          const hours = parseInt(parts[0]) || 0;
+          const minutes = parts.length > 1 ? parseInt(parts[1]) / 60 : 0;
+          const seconds = parts.length > 2 ? parseInt(parts[2]) / 3600 : 0;
+          newDuration = hours + minutes + seconds;
+        }
+      } 
+      
+      // If no valid time input or not using time format, parse the duration directly
+      if (isNaN(newDuration) || newDuration === 0) {
         newDuration = parseFloat(String(editedEntry.duration || '0'));
       }
       
-      // Validate the duration
+      // Final safety check
       if (isNaN(newDuration)) {
         throw new Error("Duration must be a valid number or time format");
       }
@@ -73,11 +78,9 @@ export default function TimeEntryRow({
       const startTime = new Date(entry.startTime);
       const durationMs = newDuration * 60 * 60 * 1000; // Convert hours to milliseconds
       const newEndTime = new Date(startTime.getTime() + durationMs);
-      console.log("New end time calculated:", newEndTime.toISOString());
       
       // Store duration as decimal string with 2 decimal places
       const formattedDuration = newDuration.toFixed(2);
-      console.log("Formatted duration:", formattedDuration);
       
       // Build update object with all necessary fields
       const updateData = {
@@ -87,34 +90,17 @@ export default function TimeEntryRow({
         endTime: newEndTime.toISOString()
       };
       
-      try {
-        // Send the complete update request
-        await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
-        
-        // Invalidate queries to refresh data
-        queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-        
-        setIsEditing(false);
-        toast({
-          title: "Time entry updated",
-          description: timeFormat === "time" 
-            ? `Duration updated to ${formatDuration(formattedDuration)}.`
-            : `Duration updated to ${formattedDuration} hours.`,
-        });
-      } catch (updateError) {
-        console.error("Update request failed:", updateError);
-        // Try a simpler update with just the duration if the first attempt fails
-        await apiRequest("PUT", `/api/time-entries/${entry.id}`, {
-          duration: formattedDuration
-        });
-        
-        queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-        setIsEditing(false);
-        toast({
-          title: "Time entry updated",
-          description: `Time entry updated successfully.`,
-        });
-      }
+      // Send the update request
+      await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      
+      setIsEditing(false);
+      toast({
+        title: "Time entry updated",
+        description: `Duration updated successfully.`,
+      });
     } catch (error) {
       console.error("Failed to update time entry:", error);
       toast({
@@ -304,6 +290,12 @@ export default function TimeEntryRow({
                       
                       // Allow time format input with loose validation to make editing easier
                       if (timeValue === "" || /^[0-9:]*$/.test(timeValue)) { 
+                        // Store the raw time value directly in a temporary field so we can track what the user is typing
+                        setEditedEntry({ 
+                          ...editedEntry, 
+                          _timeInput: timeValue 
+                        });
+                        
                         // Only try to parse as time if it has a colon
                         if (timeValue.includes(':')) {
                           try {
@@ -315,15 +307,15 @@ export default function TimeEntryRow({
                             const decimalHours = (hours + minutes + seconds).toFixed(2);
                             
                             console.log("Setting new duration from time:", timeValue, "to decimal:", decimalHours);
-                            setEditedEntry({ ...editedEntry, duration: decimalHours });
+                            setEditedEntry({ 
+                              ...editedEntry, 
+                              duration: decimalHours,
+                              _timeInput: timeValue
+                            });
                           } catch (e) {
-                            // Just store the current value if parsing fails, to allow incomplete entry
-                            // This keeps the input responsive during typing
+                            // If parsing fails, we still save the input but don't update the duration yet
                             console.log("Partial time input:", timeValue);
                           }
-                        } else {
-                          // If no colon yet, keep current input to allow user to type freely
-                          console.log("Partial time input (no colons yet):", timeValue); 
                         }
                       }
                     }}
