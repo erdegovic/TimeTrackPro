@@ -311,9 +311,9 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
                   </td>
                 </tr>
               )}
-              <tr className="bg-primary bg-opacity-5 font-semibold">
-                <td colSpan={4} className="px-6 py-3 text-sm text-gray-900 text-right border-r">Total Due</td>
-                <td className="px-6 py-3 whitespace-nowrap text-sm text-primary">
+              <tr className="bg-[#002D5B] font-semibold">
+                <td colSpan={4} className="px-6 py-3 text-sm text-white text-right border-r">Total Due</td>
+                <td className="px-6 py-3 whitespace-nowrap text-sm text-white">
                   {client?.currency
                     ? formatCurrency(
                         enableTax 

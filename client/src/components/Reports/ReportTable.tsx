@@ -124,9 +124,8 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                       {weekData.weekLabel}
                     </td>
                     <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
-                      {filters.clientId && weekData.entries[0]?.client?.currency
-                        ? formatCurrency(weekData.totalAmount, weekData.entries[0].client.currency)
-                        : `$${weekData.totalAmount.toFixed(2)}`}
+                      {formatCurrency(weekData.totalAmount, 
+                        filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
                     </td>
                   </tr>
                   
@@ -158,14 +157,12 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                         )}
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {entry.client?.currency 
-                          ? formatCurrency(parseFloat(entry.hourlyRate), entry.client.currency)
-                          : `$${parseFloat(entry.hourlyRate).toFixed(2)}`}
+                        {formatCurrency(parseFloat(entry.hourlyRate), 
+                          filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {entry.client?.currency 
-                          ? formatCurrency(parseFloat(entry.amount), entry.client.currency)
-                          : `$${parseFloat(entry.amount).toFixed(2)}`}
+                        {formatCurrency(parseFloat(entry.amount), 
+                          filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
                       </td>
                     </tr>
                   ))}
