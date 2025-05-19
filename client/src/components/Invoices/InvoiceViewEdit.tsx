@@ -436,7 +436,8 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
         timeFormat: "decimal",
         clientCurrency: client.currency || settings.defaultCurrency || "USD",
         additionalItems,
-        hasEditedData: Object.keys(editedEntries).length > 0
+        hasEditedData: Object.keys(editedEntries).length > 0,
+        useWeeklyGrouping: true // Force weekly grouping in PDF export
       };
       
       console.log("Exporting invoice with data:", {
