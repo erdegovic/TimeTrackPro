@@ -13,7 +13,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TimeEntry, Client, Project } from "@shared/schema";
-import { formatTime, timeStringToDecimal } from "@/lib/utils/timeUtils";
 
 interface TimeEntryRowProps {
   entry: TimeEntry & { 
@@ -37,22 +36,7 @@ export default function TimeEntryRow({
 }: TimeEntryRowProps) {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
-  // Define interface for edited entry to include timeInput
-  interface EditedTimeEntry {
-    id: number;
-    description: string;
-    projectId: number;
-    duration: string | null;
-    startTime: Date;
-    endTime: Date | null;
-    timeInput?: string; // Optional for storing raw time input
-    [key: string]: any; // Allow other properties
-  }
-  
-  const [editedEntry, setEditedEntry] = useState<EditedTimeEntry>({ 
-    ...entry,
-    timeInput: undefined // Add timeInput field to store the raw time input
-  });
+  const [editedEntry, setEditedEntry] = useState({ ...entry });
   const [editedClientId, setEditedClientId] = useState(entry.project?.clientId?.toString() || "");
 
   // Filtered projects for the selected client
@@ -107,17 +91,6 @@ export default function TimeEntryRow({
         // Send the complete update request
         await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
         
-        // Update the local entry immediately to show the change
-        entry.duration = formattedDuration;
-        entry.description = editedEntry.description || entry.description;
-        entry.projectId = Number(editedEntry.projectId) || entry.projectId;
-        if (entry.project) {
-          entry.project.name = projects.find(p => p.id === Number(editedEntry.projectId))?.name || entry.project.name;
-        }
-        if (entry.endTime) {
-          entry.endTime = newEndTime;
-        }
-        
         // Invalidate queries to refresh data
         queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
         
@@ -134,9 +107,6 @@ export default function TimeEntryRow({
         await apiRequest("PUT", `/api/time-entries/${entry.id}`, {
           duration: formattedDuration
         });
-        
-        // Update just the duration in the local entry
-        entry.duration = formattedDuration;
         
         queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
         setIsEditing(false);
@@ -180,9 +150,32 @@ export default function TimeEntryRow({
 
   // Format duration with precise time conversion - using the start and end times directly
   const formatDuration = (duration: string | number) => {
-    // Always prioritize the current duration value stored in the entry
-    let durationNum = 0;
+    // If we have start and end times in the entry, calculate the exact duration from those
+    if (entry.startTime && entry.endTime) {
+      const startTime = new Date(entry.startTime);
+      const endTime = new Date(entry.endTime);
+      const diffMs = endTime.getTime() - startTime.getTime();
+      
+      if (timeFormat === "decimal") {
+        // Convert to hours with 2 decimal places
+        const diffHours = diffMs / (1000 * 60 * 60);
+        return `${diffHours.toFixed(2)}h`;
+      } else {
+        // Get total seconds
+        const totalSeconds = Math.floor(diffMs / 1000);
+        
+        // Calculate hours, minutes, seconds
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        
+        // Format with leading zeros
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      }
+    }
     
+    // Fallback to using the duration field if no start/end times
+    let durationNum = 0;
     if (typeof duration === "string") {
       durationNum = parseFloat(duration) || 0;
     } else if (typeof duration === "number") {
@@ -305,42 +298,32 @@ export default function TimeEntryRow({
                   // Time format (HH:MM:SS)
                   <Input
                     type="text"
-                    value={
-                      // Display time in correct format
-                      editedEntry.timeInput || formatDuration(editedEntry.duration || "0")
-                    }
+                    value={formatDuration(editedEntry.duration || "0")}
                     onChange={(e) => {
                       const timeValue = e.target.value;
                       
-                      console.log("Setting time input value:", timeValue);
-                      
-                      // Allow time format input with loose validation
+                      // Allow time format input with loose validation to make editing easier
                       if (timeValue === "" || /^[0-9:]*$/.test(timeValue)) { 
-                        // Store the raw input for display
-                        setEditedEntry({
-                          ...editedEntry,
-                          timeInput: timeValue
-                        });
-                        
-                        // Try to parse as time if it has colons
+                        // Only try to parse as time if it has a colon
                         if (timeValue.includes(':')) {
                           try {
+                            // Parse time to decimal hours
                             const parts = timeValue.split(":");
                             const hours = parseInt(parts[0]) || 0;
                             const minutes = (parts.length > 1 && parts[1]) ? parseInt(parts[1]) / 60 : 0;
                             const seconds = (parts.length > 2 && parts[2]) ? parseInt(parts[2]) / 3600 : 0;
-                            const decimalHours = hours + minutes + seconds;
+                            const decimalHours = (hours + minutes + seconds).toFixed(2);
                             
-                            console.log("Parsed time:", timeValue, "to decimal hours:", decimalHours);
-                            
-                            // Only update decimal value, keeping the timeInput for display
-                            setEditedEntry((prev: EditedTimeEntry) => ({
-                              ...prev,
-                              duration: decimalHours.toFixed(2)
-                            }));
+                            console.log("Setting new duration from time:", timeValue, "to decimal:", decimalHours);
+                            setEditedEntry({ ...editedEntry, duration: decimalHours });
                           } catch (e) {
-                            console.error("Error parsing time value:", e);
+                            // Just store the current value if parsing fails, to allow incomplete entry
+                            // This keeps the input responsive during typing
+                            console.log("Partial time input:", timeValue);
                           }
+                        } else {
+                          // If no colon yet, keep current input to allow user to type freely
+                          console.log("Partial time input (no colons yet):", timeValue); 
                         }
                       }
                     }}

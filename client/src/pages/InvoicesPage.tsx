@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { generatePdf } from "@/lib/pdf-simple";
+import { generatePdf } from "@/lib/pdf-generator";
 import { Invoice, Client, Settings } from "@shared/schema";
 import InvoiceEditor from "@/components/Invoices/InvoiceEditor";
 
@@ -123,21 +123,14 @@ export default function InvoicesPage() {
       const usedCurrency = client.currency || settings.defaultCurrency || 'USD';
       console.log("Using currency for PDF export:", usedCurrency);
       
-      // Create properly structured report data with weeklyData to avoid PDF generation errors
+      // Create report data
       const reportData = {
         timeEntries: enrichedEntries,
         additionalItems,
         clientCurrency: usedCurrency,
         totalHours: enrichedEntries.reduce((sum: number, entry: any) => sum + parseFloat(entry.duration || 0), 0),
         totalAmount: Number(invoiceData.total),
-        timeFormat: settings.defaultTimeFormat || 'decimal',
-        // Explicitly add weeklyData to prevent the "Cannot read properties of undefined (reading 'forEach')" error
-        weeklyData: [{
-          weekLabel: 'All Entries',
-          entries: enrichedEntries,
-          totalDuration: enrichedEntries.reduce((sum: number, entry: any) => sum + parseFloat(entry.duration || 0), 0),
-          totalAmount: Number(invoiceData.total)
-        }]
+        timeFormat: settings.defaultTimeFormat || 'decimal'
       };
       
       // Generate PDF
@@ -150,7 +143,7 @@ export default function InvoicesPage() {
         settings,
         reportData, // Include enhanced report data with time entries
         type: "invoice",
-        showDueDate: settings.showDueDate === null ? undefined : settings.showDueDate
+        showDueDate: settings.showDueDate
       });
       
       toast({

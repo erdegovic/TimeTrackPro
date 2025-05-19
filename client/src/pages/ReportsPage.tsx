@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import ReportFilters from "@/components/Reports/ReportFilters";
 import ReportTable from "@/components/Reports/ReportTable";
 import InvoicePreview from "@/components/Invoices/InvoicePreview";
@@ -13,10 +11,6 @@ export default function ReportsPage() {
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any>(null);
   const [selectedClientId, setSelectedClientId] = useState<number | undefined>(undefined);
-  const [additionalItems, setAdditionalItems] = useState<any[]>([]);
-  const [invoiceNotes, setInvoiceNotes] = useState("");
-  const [invoiceDueDate, setInvoiceDueDate] = useState("");
-  const [invoiceShowDueDate, setInvoiceShowDueDate] = useState(true);
 
   const handleApplyFilters = (filters: ReportFiltersType) => {
     setCurrentFilters(filters);
@@ -97,6 +91,7 @@ export default function ReportsPage() {
             <InvoicePreview 
               reportData={invoiceData} 
               clientId={selectedClientId}
+              onEditInvoice={() => setShowInvoicePreview(false)}
             />
           )}
         </DialogContent>
