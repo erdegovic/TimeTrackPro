@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Minus, Edit2, Save, X } from "lucide-react";
+import { Plus, Minus, Edit2, Save, X, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,20 +9,22 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Client, Project, TimeEntry, Settings } from "@shared/schema";
 import { formatTime, formatCurrency } from "@/lib/utils/timeUtils";
+import { generatePdf } from "@/lib/pdf-generator";
 
 interface InvoicePreviewProps {
   clientId: number;
   reportData: any;
-  additionalItems: any[];
-  setAdditionalItems: (items: any[]) => void;
-  notes: string;
-  setNotes: (notes: string) => void;
+  additionalItems?: any[];
+  setAdditionalItems?: (items: any[]) => void;
+  notes?: string;
+  setNotes?: (notes: string) => void;
   showDueDate?: boolean;
   setShowDueDate?: (show: boolean) => void;
   dueDate?: string;
   setDueDate?: (date: string) => void;
   invoiceNumber?: string;
   issueDate?: string;
+  onEditInvoice?: () => void;
 }
 
 export default function InvoicePreview({
@@ -552,6 +554,43 @@ export default function InvoicePreview({
             {notes || "No notes"}
           </div>
         )}
+      </div>
+      
+      {/* Action buttons */}
+      <div className="mt-8 flex justify-end gap-3">
+        {client && settings && (
+          <Button
+            onClick={() => {
+              const filename = `invoice-${invoiceNumber || "draft"}.pdf`;
+              
+              // Generate PDF
+              generatePdf({
+                filename,
+                client,
+                settings,
+                reportData,
+                type: "invoice",
+                notes,
+                invoiceNumber,
+                issueDate,
+                dueDate,
+                showDueDate
+              });
+            }}
+            variant="outline"
+          >
+            <FileDown className="h-4 w-4 mr-2" />
+            Export PDF
+          </Button>
+        )}
+        
+        <Button 
+          onClick={() => onEditInvoice && onEditInvoice()} 
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          <Edit2 className="h-4 w-4 mr-2" />
+          Edit Invoice
+        </Button>
       </div>
     </div>
   );
