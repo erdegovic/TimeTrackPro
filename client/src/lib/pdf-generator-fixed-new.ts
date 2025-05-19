@@ -592,11 +592,26 @@ function generateInvoicePdf(options: {
   // Add additional items if present (from reportData or extracted from notes)
   const itemsToDisplay = reportData?.additionalItems || additionalItems;
   if (itemsToDisplay && itemsToDisplay.length > 0) {
+    console.log("PDF - Adding additional items to invoice:", itemsToDisplay);
+    
+    // Add a label for additional items section
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text('Additional Items:', 14, totalY);
+    totalY += 8;
+    
+    // Return to normal font style
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(10);
+    
     itemsToDisplay.forEach((item: any) => {
       doc.text(item.description + ':', doc.internal.pageSize.width - 60, totalY);
       doc.text(formatCurrency(Number(item.amount), currencyToUse), doc.internal.pageSize.width - 15, totalY, { align: 'right' });
       totalY += 6;
     });
+    
+    // Add some space after additional items
+    totalY += 4;
   }
   
   // Add tax if applicable
