@@ -1,10 +1,51 @@
-import { pgTable, text, serial, integer, numeric, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, numeric, boolean, timestamp, pgEnum, varchar, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Define enums
 export const timeFormatEnum = pgEnum('time_format', ['decimal', 'time']);
 export const roundingTypeEnum = pgEnum('rounding_type', ['none', 'nearest_tenth', 'nearest_quarter', 'nearest_half']);
+export const userRoleEnum = pgEnum('user_role', ['admin', 'user']);
+export const userStatusEnum = pgEnum('user_status', ['pending', 'active', 'inactive']);
+export const verificationTypeEnum = pgEnum('verification_type', ['email', 'password_reset']);
+
+// Users table
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  role: userRoleEnum("role").notNull().default("user"),
+  status: userStatusEnum("status").notNull().default("pending"),
+  verificationToken: text("verification_token"),
+  resetPasswordToken: text("reset_password_token"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Email verifications table
+export const verifications = pgTable("verifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: text("token").notNull(),
+  type: verificationTypeEnum("type").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Sessions table for user authentication
+export const sessions = pgTable("sessions", {
+  id: text("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    userIdx: index("session_user_idx").on(table.userId),
+  }
+});
 
 // Clients table
 export const clients = pgTable("clients", {
@@ -157,3 +198,45 @@ export type InvoiceTemplate = {
   defaultNotes: string;
   defaultDueDays: number;
 };
+
+// User related types
+export const insertUserSchema = createInsertSchema(users)
+  .omit({ id: true, verificationToken: true, resetPasswordToken: true, createdAt: true, updatedAt: true });
+
+export const userLoginSchema = z.object({
+  usernameOrEmail: z.string().min(1, "Username or email is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const userRegisterSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  email: z.string().email("Please enter a valid email"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  captchaToken: z.string().min(1, "Please complete the captcha"),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"]
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Please enter a valid email"),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string(),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string(),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"]
+});
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UserRegister = z.infer<typeof userRegisterSchema>;
+export type UserLogin = z.infer<typeof userLoginSchema>;
+export type Verification = typeof verifications.$inferSelect;
+export type Session = typeof sessions.$inferSelect;
