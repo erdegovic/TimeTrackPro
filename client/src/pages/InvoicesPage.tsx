@@ -14,6 +14,7 @@ import { generatePdf } from "@/lib/pdf-generator";
 import { Invoice, Client, Settings } from "@shared/schema";
 // Make sure to use relative path for imports
 import InvoiceEditor from "../components/Invoices/ReportInvoiceEditor";
+import InvoicePreview from "../components/Invoices/InvoicePreview";
 
 export default function InvoicesPage() {
   const { toast } = useToast();
@@ -322,29 +323,27 @@ export default function InvoicesPage() {
       
       {/* Edit Invoice Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Invoice</DialogTitle>
-            <DialogDescription>
-              Make changes to the invoice details, due date, or additional items.
-            </DialogDescription>
           </DialogHeader>
           
           {editingInvoice && (
-            <InvoiceEditor 
+            <InvoicePreview 
+              reportData={{
+                timeEntries: [],
+                weeklyData: [], 
+                totalHours: 0,
+                totalAmount: 0,
+                timeFormat: 'decimal'
+              }} 
               invoice={editingInvoice}
-              clients={clients}
-              settings={settings}
-              onClose={() => {
+              clientId={editingInvoice.clientId}
+              onEditInvoice={() => {
                 setIsEditDialogOpen(false);
                 setEditingInvoice(null);
               }}
-              onSave={() => {
-                setIsEditDialogOpen(false);
-                setEditingInvoice(null);
-                // Refresh invoice data
-                queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
-              }}
+              isEditing={true}
             />
           )}
         </DialogContent>

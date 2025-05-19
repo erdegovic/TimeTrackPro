@@ -27,6 +27,8 @@ interface InvoicePreviewProps {
   showDueDate?: boolean;
   setShowDueDate?: (show: boolean) => void;
   onEditInvoice?: () => void;
+  isEditing?: boolean;
+  invoice?: any;
 }
 
 export default function InvoicePreview({ 
@@ -44,11 +46,13 @@ export default function InvoicePreview({
   setNotes: propSetNotes,
   showDueDate: propShowDueDate,
   setShowDueDate: propSetShowDueDate,
-  onEditInvoice
+  onEditInvoice,
+  isEditing = false,
+  invoice
 }: InvoicePreviewProps) {
   const { toast } = useToast();
   const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
+  const [editMode, setEditMode] = useState(isEditing);
   const [editableEntries, setEditableEntries] = useState<any[]>([]);
   const [additionalItems, setAdditionalItems] = useState<{
     description: string;
