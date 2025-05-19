@@ -1,6 +1,6 @@
-import { and, eq, gte, lte, desc, asc } from 'drizzle-orm';
-import { db } from './db';
-import {
+import { 
+  User, InsertUser, users,
+  Verification, verifications,
   Client, InsertClient, clients,
   Project, InsertProject, projects,
   TimeEntry, InsertTimeEntry, timeEntries,
@@ -8,13 +8,74 @@ import {
   Settings, InsertSettings, settings,
   ReportFilters
 } from "@shared/schema";
-import { addWeeks, format, getWeekOfMonth, startOfWeek, endOfWeek, parseISO, getYear } from "date-fns";
-import { IStorage } from './storage';
+import { db } from "./db";
+import { eq, and, between, desc, sql, like } from "drizzle-orm";
+import { IStorage } from "./storage";
+import { addWeeks, format, parseISO, startOfWeek, endOfWeek, getWeekOfMonth, getYear, getMonth } from "date-fns";
 
 export class DatabaseStorage implements IStorage {
-  // Clients
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .returning();
+    return user;
+  }
+
+  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({ ...userData, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser;
+  }
+
+  async deleteUser(id: number): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Verification methods
+  async createVerification(verification: Omit<Verification, "id">): Promise<Verification> {
+    const [result] = await db
+      .insert(verifications)
+      .values(verification)
+      .returning();
+    return result;
+  }
+
+  async getVerificationByToken(token: string): Promise<Verification | undefined> {
+    const [verification] = await db
+      .select()
+      .from(verifications)
+      .where(eq(verifications.token, token));
+    return verification;
+  }
+
+  async deleteVerification(token: string): Promise<void> {
+    await db.delete(verifications).where(eq(verifications.token, token));
+  }
+
+  // Clients methods
   async getClients(): Promise<Client[]> {
-    return db.select().from(clients).orderBy(clients.name);
+    return await db.select().from(clients);
   }
 
   async getClient(id: number): Promise<Client | undefined> {
@@ -23,8 +84,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createClient(client: InsertClient): Promise<Client> {
-    const [newClient] = await db.insert(clients).values(client).returning();
-    return newClient;
+    const [result] = await db.insert(clients).values(client).returning();
+    return result;
   }
 
   async updateClient(id: number, client: Partial<InsertClient>): Promise<Client | undefined> {
@@ -37,37 +98,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteClient(id: number): Promise<boolean> {
-    const [deletedClient] = await db
-      .delete(clients)
-      .where(eq(clients.id, id))
-      .returning({ id: clients.id });
-    return !!deletedClient;
+    const result = await db.delete(clients).where(eq(clients.id, id));
+    return result.rowCount > 0;
   }
 
-  // Projects
+  // Projects methods
   async getProjects(): Promise<Project[]> {
-    return db.select().from(projects).orderBy(projects.name);
+    return await db.select().from(projects);
   }
 
   async getProjectsByClient(clientId: number): Promise<Project[]> {
-    return db
+    return await db
       .select()
       .from(projects)
-      .where(eq(projects.clientId, clientId))
-      .orderBy(projects.name);
+      .where(eq(projects.clientId, clientId));
   }
 
   async getProject(id: number): Promise<Project | undefined> {
-    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, id));
     return project;
   }
 
   async createProject(project: InsertProject): Promise<Project> {
-    const [newProject] = await db.insert(projects).values(project).returning();
-    return newProject;
+    const [result] = await db.insert(projects).values(project).returning();
+    return result;
   }
 
-  async updateProject(id: number, project: Partial<InsertProject>): Promise<Project | undefined> {
+  async updateProject(
+    id: number,
+    project: Partial<InsertProject>
+  ): Promise<Project | undefined> {
     const [updatedProject] = await db
       .update(projects)
       .set(project)
@@ -77,229 +140,151 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProject(id: number): Promise<boolean> {
-    const [deletedProject] = await db
-      .delete(projects)
-      .where(eq(projects.id, id))
-      .returning({ id: projects.id });
-    return !!deletedProject;
+    const result = await db.delete(projects).where(eq(projects.id, id));
+    return result.rowCount > 0;
   }
 
-  // Time Entries
+  // Time Entries methods
   async getTimeEntries(): Promise<TimeEntry[]> {
-    return db
-      .select()
-      .from(timeEntries)
-      .orderBy(desc(timeEntries.date), desc(timeEntries.startTime));
+    return await db.select().from(timeEntries).orderBy(desc(timeEntries.date));
   }
 
   async getTimeEntriesByProject(projectId: number): Promise<TimeEntry[]> {
-    return db
+    return await db
       .select()
       .from(timeEntries)
       .where(eq(timeEntries.projectId, projectId))
-      .orderBy(desc(timeEntries.date), desc(timeEntries.startTime));
+      .orderBy(desc(timeEntries.date));
   }
 
-  async getTimeEntriesByDateRange(startDate: string, endDate: string): Promise<TimeEntry[]> {
-    return db
+  async getTimeEntriesByDateRange(
+    startDate: string,
+    endDate: string
+  ): Promise<TimeEntry[]> {
+    return await db
       .select()
       .from(timeEntries)
       .where(
         and(
-          gte(timeEntries.date, startDate),
-          lte(timeEntries.date, endDate)
+          sql`${timeEntries.date} >= ${startDate}`,
+          sql`${timeEntries.date} <= ${endDate}`
         )
       )
-      .orderBy(asc(timeEntries.date), asc(timeEntries.startTime));
+      .orderBy(desc(timeEntries.date));
   }
 
   async getTimeEntriesByFilters(filters: ReportFilters): Promise<TimeEntry[]> {
-    const conditions = [];
-    
-    // Add date range if provided
+    let query = db.select().from(timeEntries);
+
+    if (filters.clientId) {
+      // To filter by client, we need to join with projects
+      query = db
+        .select({ timeEntries })
+        .from(timeEntries)
+        .innerJoin(projects, eq(timeEntries.projectId, projects.id))
+        .where(eq(projects.clientId, filters.clientId))
+        .orderBy(desc(timeEntries.date)) as any;
+    } else if (filters.projectId) {
+      query = query.where(eq(timeEntries.projectId, filters.projectId));
+    }
+
     if (filters.startDate && filters.endDate) {
-      conditions.push(
+      query = query.where(
         and(
-          gte(timeEntries.date, filters.startDate),
-          lte(timeEntries.date, filters.endDate)
+          sql`${timeEntries.date} >= ${filters.startDate}`,
+          sql`${timeEntries.date} <= ${filters.endDate}`
         )
       );
     }
-    
-    // Add project filter if provided
-    if (filters.projectId) {
-      conditions.push(eq(timeEntries.projectId, filters.projectId));
-    } else if (filters.clientId) {
-      // If client filter provided but not project filter, get entries for all client's projects
-      const clientProjects = await this.getProjectsByClient(filters.clientId);
-      const projectIds = clientProjects.map(p => p.id);
-      
-      // Only add condition if the client has projects
-      if (projectIds.length > 0) {
-        // Unfortunately, drizzle-orm doesn't have a simple "in" operator for numeric arrays
-        // so we need to construct it manually with OR conditions
-        const projectConditions = projectIds.map(id => eq(timeEntries.projectId, id));
-        if (projectConditions.length === 1) {
-          conditions.push(projectConditions[0]);
-        } else if (projectConditions.length > 1) {
-          // or(...projectConditions) would be ideal but we need to manually implement this
-          // For now, we'll query without this filter and filter in memory
-          // (This is sub-optimal but works for the demo)
-        }
-      }
-    }
-    
-    // Combine conditions if there are any
-    let query = db.select().from(timeEntries);
-    if (conditions.length === 1) {
-      query = query.where(conditions[0]);
-    } else if (conditions.length > 1) {
-      query = query.where(and(...conditions));
-    }
-    
-    // Get entries
-    let entries = await query.orderBy(asc(timeEntries.date), asc(timeEntries.startTime));
-    
-    // Additional client filter if we couldn't do it in the query
-    if (filters.clientId && !filters.projectId) {
-      const clientProjects = await this.getProjectsByClient(filters.clientId);
-      const projectIds = clientProjects.map(p => p.id);
-      entries = entries.filter(entry => projectIds.includes(entry.projectId));
-    }
-    
-    return entries;
+
+    // Only get non-invoiced entries
+    query = query.where(sql`${timeEntries.invoiceId} IS NULL`);
+
+    return await query.orderBy(desc(timeEntries.date));
   }
 
   async getTimeEntry(id: number): Promise<TimeEntry | undefined> {
-    const [entry] = await db.select().from(timeEntries).where(eq(timeEntries.id, id));
+    const [entry] = await db
+      .select()
+      .from(timeEntries)
+      .where(eq(timeEntries.id, id));
     return entry;
   }
 
-  async createTimeEntry(timeEntryData: InsertTimeEntry): Promise<TimeEntry> {
-    // Create a properly typed entry with all required fields and defaults for optional ones
-    const entryDate = parseISO(timeEntryData.date);
-    const year = getYear(entryDate);
-    const month = format(entryDate, 'MMM'); // Just the month name
-    const weekOfMonth = getWeekOfMonth(entryDate);
+  async createTimeEntry(entryData: InsertTimeEntry): Promise<TimeEntry> {
+    // Ensure date is in YYYY-MM-DD format
+    const date = entryData.date;
+    const parsedDate = parseISO(date);
     
-    const weekStart = format(startOfWeek(entryDate), 'MMM d');
-    const weekEnd = format(endOfWeek(entryDate), 'MMM d');
-    const weekLabel = `Week ${weekOfMonth} (${weekStart} - ${weekEnd})`;
-    
-    // Calculate exact duration with no minimum value
-    let duration = "0.00";
-    
-    // If we have start/end times, calculate exact duration to the second
-    if (timeEntryData.startTime && timeEntryData.endTime) {
-      // Calculate precise time difference in milliseconds
-      const diffMs = timeEntryData.endTime.getTime() - timeEntryData.startTime.getTime();
-      
-      // Convert to hours with higher precision (6 decimal places)
-      const diffHours = diffMs / (1000 * 60 * 60);
-      
-      // Store exact duration value (4 decimal places to capture seconds)
-      duration = diffHours.toFixed(4);
-    } 
-    // If client sent a duration directly, use it
-    else if (timeEntryData.duration) {
-      duration = timeEntryData.duration;
-    }
-    
-    console.log(`Database using exact duration: ${duration} hours (no minimum value)`);
-    
-    
-    const billable = timeEntryData.billable !== undefined ? timeEntryData.billable : true;
-    
-    console.log("Creating time entry with data:", {
-      description: timeEntryData.description,
-      projectId: timeEntryData.projectId,
-      startTime: timeEntryData.startTime,
-      endTime: timeEntryData.endTime,
-      duration,
-      date: timeEntryData.date,
-      weekNumber: weekOfMonth,
+    // Calculate week-related fields
+    const weekStart = startOfWeek(parsedDate, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(parsedDate, { weekStartsOn: 1 });
+    const weekNumber = getWeekOfMonth(parsedDate);
+    const weekLabel = `Week ${weekNumber} (${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')})`;
+    const month = format(parsedDate, 'yyyy-MM');
+    const year = getYear(parsedDate);
+
+    const newEntry = {
+      ...entryData,
+      weekNumber,
       weekLabel,
       month,
       year,
-      billable,
-      invoiceId: null
-    });
-    
-    try {
-      // Insert the properly structured entry
-      const [newEntry] = await db.insert(timeEntries).values({
-        description: timeEntryData.description,
-        projectId: timeEntryData.projectId,
-        startTime: timeEntryData.startTime,
-        endTime: timeEntryData.endTime,
-        duration,
-        date: timeEntryData.date,
-        weekNumber: weekOfMonth,
-        weekLabel,
-        month,
-        year,
-        billable,
-        invoiceId: null
-      }).returning();
-      
-      console.log("Successfully created time entry:", newEntry);
-      return newEntry;
-    } catch (error) {
-      console.error("Database error creating time entry:", error);
-      throw error;
-    }
+    };
+
+    const [result] = await db.insert(timeEntries).values(newEntry).returning();
+    return result;
   }
 
-  async updateTimeEntry(id: number, timeEntryData: Partial<InsertTimeEntry>): Promise<TimeEntry | undefined> {
-    // If date is updated, recalculate week-related fields
-    let updateData: Record<string, any> = { ...timeEntryData };
-    
-    if (timeEntryData.date) {
-      const entryDate = parseISO(timeEntryData.date);
-      const year = getYear(entryDate);
-      const month = format(entryDate, 'yyyy-MM');
-      const weekOfMonth = getWeekOfMonth(entryDate);
+  async updateTimeEntry(
+    id: number,
+    entryData: Partial<InsertTimeEntry>
+  ): Promise<TimeEntry | undefined> {
+    // Handle date change if it's present
+    if (entryData.date) {
+      const date = entryData.date;
+      const parsedDate = parseISO(date);
       
-      const weekStart = format(startOfWeek(entryDate), 'MMM d');
-      const weekEnd = format(endOfWeek(entryDate), 'MMM d');
-      const weekLabel = `Week ${weekOfMonth} (${weekStart} - ${weekEnd})`;
-      
-      updateData = {
-        ...updateData,
-        weekNumber: weekOfMonth,
+      // Recalculate week-related fields
+      const weekStart = startOfWeek(parsedDate, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(parsedDate, { weekStartsOn: 1 });
+      const weekNumber = getWeekOfMonth(parsedDate);
+      const weekLabel = `Week ${weekNumber} (${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')})`;
+      const month = format(parsedDate, 'yyyy-MM');
+      const year = getYear(parsedDate);
+
+      entryData = {
+        ...entryData,
+        weekNumber,
         weekLabel,
         month,
         year,
       };
     }
-    
+
     const [updatedEntry] = await db
       .update(timeEntries)
-      .set(updateData)
+      .set(entryData)
       .where(eq(timeEntries.id, id))
       .returning();
-    
     return updatedEntry;
   }
 
   async deleteTimeEntry(id: number): Promise<boolean> {
-    const [deletedEntry] = await db
-      .delete(timeEntries)
-      .where(eq(timeEntries.id, id))
-      .returning({ id: timeEntries.id });
-    return !!deletedEntry;
+    const result = await db.delete(timeEntries).where(eq(timeEntries.id, id));
+    return result.rowCount > 0;
   }
 
-  // Invoices
+  // Invoices methods
   async getInvoices(): Promise<Invoice[]> {
-    return db
-      .select()
-      .from(invoices)
-      .orderBy(desc(invoices.issueDate));
+    return await db.select().from(invoices).orderBy(desc(invoices.issueDate));
   }
 
   async getInvoice(id: number): Promise<Invoice | undefined> {
-    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    const [invoice] = await db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.id, id));
     return invoice;
   }
 
@@ -312,20 +297,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
-    const [newInvoice] = await db.insert(invoices).values(invoice).returning();
-    
-    // Update the next invoice number in settings
-    const settingsData = await this.getSettings();
-    if (settingsData && settingsData.nextInvoiceNumber) {
-      await this.updateSettings({
-        nextInvoiceNumber: settingsData.nextInvoiceNumber + 1
-      });
+    const [result] = await db.insert(invoices).values(invoice).returning();
+
+    // If time entries are associated with this invoice, update them
+    if (invoice.id && typeof invoice.id === 'number') {
+      await db
+        .update(timeEntries)
+        .set({ invoiceId: result.id })
+        .where(eq(timeEntries.invoiceId, invoice.id));
     }
     
-    return newInvoice;
+    return result;
   }
 
-  async updateInvoice(id: number, invoice: Partial<InsertInvoice>): Promise<Invoice | undefined> {
+  async updateInvoice(
+    id: number,
+    invoice: Partial<InsertInvoice>
+  ): Promise<Invoice | undefined> {
     const [updatedInvoice] = await db
       .update(invoices)
       .set(invoice)
@@ -335,140 +323,96 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteInvoice(id: number): Promise<boolean> {
-    // First, remove invoice ID from associated time entries
+    // Clear invoice reference from time entries
     await db
       .update(timeEntries)
       .set({ invoiceId: null })
       .where(eq(timeEntries.invoiceId, id));
-    
-    const [deletedInvoice] = await db
-      .delete(invoices)
-      .where(eq(invoices.id, id))
-      .returning({ id: invoices.id });
-    return !!deletedInvoice;
+      
+    const result = await db.delete(invoices).where(eq(invoices.id, id));
+    return result.rowCount > 0;
   }
 
   async getNextInvoiceNumber(): Promise<string> {
     const settingsData = await this.getSettings();
     if (!settingsData) {
-      return "INV-1001";
+      // Create default settings if none exist
+      const settings = await this.createDefaultSettings();
+      return settings.nextInvoiceNumber.toString().padStart(4, '0');
     }
     
     const nextNumber = settingsData.nextInvoiceNumber;
-    return `INV-${nextNumber}`;
+    
+    // Increment the invoice number in settings
+    await db
+      .update(settings)
+      .set({ nextInvoiceNumber: nextNumber + 1 })
+      .where(eq(settings.id, settingsData.id));
+      
+    return nextNumber.toString().padStart(4, '0');
   }
 
-  // Settings
+  // Settings methods
   async getSettings(): Promise<Settings | undefined> {
-    try {
-      // Debug the query
-      console.log("Attempting to fetch settings from database");
-      
-      const result = await db.select().from(settings);
-      console.log("Settings query result:", result);
-      
-      if (!result || result.length === 0) {
-        console.log("No settings found, creating default settings");
-        return this.createDefaultSettings();
-      }
-      
-      console.log("Retrieved settings successfully");
-      return result[0];
-    } catch (error) {
-      console.error("Error in getSettings:", error);
-      // Create default settings if there's an error
+    const [settingsData] = await db.select().from(settings);
+    
+    if (!settingsData) {
       return this.createDefaultSettings();
     }
+    
+    return settingsData;
   }
 
-  async updateSettings(settingsData: Partial<InsertSettings>): Promise<Settings> {
-    try {
-      console.log("Updating settings with data:", settingsData);
-      
-      // Get existing settings or create default
-      const existingSettings = await this.getSettings();
-      
-      if (!existingSettings) {
-        console.log("No existing settings found, creating new settings");
-        // Create with new data
-        const defaultSettings = this.getDefaultSettings();
-        const newSettings = { ...defaultSettings, ...settingsData };
-        console.log("Creating new settings with:", newSettings);
-        const result = await db.insert(settings).values(newSettings).returning();
-        console.log("Created settings result:", result);
-        return result[0];
-      }
-      
-      console.log("Updating existing settings with ID:", existingSettings.id);
-      
-      // Convert numeric string values to numbers if needed
-      const processedData: any = { ...settingsData };
-      if (processedData.nextInvoiceNumber && typeof processedData.nextInvoiceNumber === 'string') {
-        processedData.nextInvoiceNumber = parseInt(processedData.nextInvoiceNumber, 10);
-      }
-      
-      // Update existing settings
-      const result = await db
-        .update(settings)
-        .set(processedData)
-        .where(eq(settings.id, existingSettings.id))
-        .returning();
-      
-      console.log("Settings update result:", result);
-      
-      if (!result || result.length === 0) {
-        throw new Error("Failed to update settings: No rows returned");
-      }
-      
-      return result[0];
-    } catch (error) {
-      console.error("Error updating settings:", error);
-      throw error;
+  async updateSettings(
+    settingsData: Partial<InsertSettings>
+  ): Promise<Settings> {
+    // Get current settings or create default if none exist
+    const currentSettings = await this.getSettings();
+    
+    if (!currentSettings) {
+      return this.createDefaultSettings();
     }
+    
+    const [updatedSettings] = await db
+      .update(settings)
+      .set(settingsData)
+      .where(eq(settings.id, currentSettings.id))
+      .returning();
+      
+    return updatedSettings;
   }
-  
-  // Helper to create default settings if none exist
+
   private async createDefaultSettings(): Promise<Settings> {
-    try {
-      console.log("Creating default settings");
-      const defaultSettings = this.getDefaultSettings();
-      console.log("Default settings object:", defaultSettings);
-      
-      const result = await db.insert(settings).values(defaultSettings).returning();
-      console.log("Default settings creation result:", result);
-      
-      if (!result || result.length === 0) {
-        throw new Error("Failed to create default settings: No rows returned");
-      }
-      
-      return result[0];
-    } catch (error) {
-      console.error("Error creating default settings:", error);
-      throw error;
-    }
+    const defaultSettings = this.getDefaultSettings();
+    const [settings] = await db
+      .insert(settings)
+      .values(defaultSettings)
+      .returning();
+    return settings;
   }
-  
-  // Default settings
+
   private getDefaultSettings(): InsertSettings {
     return {
-      businessName: "Your Business Name",
-      businessAddress: "123 Your Street",
-      businessCity: "Your City",
-      businessState: "ST",
+      businessName: "Your Business",
+      businessAddress: "123 Business St",
+      businessCity: "Business City",
+      businessState: "BS",
       businessZipCode: "12345",
-      businessCountry: "USA",
-      businessPhone: "+1 (123) 456-7890",
-      businessEmail: "your.email@example.com",
-      businessTaxId: "12-3456789",
-      bankName: "First National Bank",
-      bankAccountName: "Your Business Name",
-      bankAccountNumber: "XXXX-XXXX-1234",
+      businessCountry: "United States",
+      businessPhone: "+1 (555) 123-4567",
+      businessEmail: "contact@yourbusiness.com",
+      businessTaxId: "123-45-6789",
+      bankName: "Business Bank",
+      bankAccountName: "Your Business",
+      bankAccountNumber: "1234567890",
+      bankSortCode: "123456",
       nextInvoiceNumber: 1001,
       defaultTimeFormat: "decimal",
       defaultCurrency: "USD",
       displayCurrency: "USD",
-      enableTax: false,
       defaultTaxRate: "0",
+      enableTax: false,
+      showDueDate: true,
     };
   }
 }

@@ -64,6 +64,75 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    return this.usersData.get(id);
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return Array.from(this.usersData.values()).find(
+      (user) => user.username.toLowerCase() === username.toLowerCase()
+    );
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.usersData.values()).find(
+      (user) => user.email.toLowerCase() === email.toLowerCase()
+    );
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    const id = this.userId++;
+    const newUser: User = {
+      id,
+      ...userData,
+      role: userData.role || "user",
+      status: userData.status || "pending",
+      verificationToken: null,
+      resetPasswordToken: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.usersData.set(id, newUser);
+    return newUser;
+  }
+
+  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
+    const existingUser = this.usersData.get(id);
+    if (!existingUser) return undefined;
+
+    const updatedUser: User = {
+      ...existingUser,
+      ...userData,
+      updatedAt: new Date(),
+    };
+    this.usersData.set(id, updatedUser);
+    return updatedUser;
+  }
+
+  async deleteUser(id: number): Promise<boolean> {
+    return this.usersData.delete(id);
+  }
+
+  // Verification methods
+  async createVerification(verification: Omit<Verification, "id">): Promise<Verification> {
+    const id = this.verificationId++;
+    const newVerification: Verification = {
+      id,
+      ...verification,
+      createdAt: new Date(),
+    };
+    this.verificationsData.set(verification.token, newVerification);
+    return newVerification;
+  }
+
+  async getVerificationByToken(token: string): Promise<Verification | undefined> {
+    return this.verificationsData.get(token);
+  }
+
+  async deleteVerification(token: string): Promise<void> {
+    this.verificationsData.delete(token);
+  }
   private clientsData: Map<number, Client>;
   private projectsData: Map<number, Project>;
   private timeEntriesData: Map<number, TimeEntry>;
