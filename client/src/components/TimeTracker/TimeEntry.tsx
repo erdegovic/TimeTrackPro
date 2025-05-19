@@ -46,24 +46,38 @@ export default function TimeEntryRow({
 
   const handleEdit = async () => {
     try {
+      // First, validate the duration is a valid number
+      const newDuration = parseFloat(editedEntry.duration || '0');
+      if (isNaN(newDuration)) {
+        throw new Error("Duration must be a valid number");
+      }
+      
+      console.log("Updating time entry with new duration:", newDuration, "hours");
+      
       // Calculate new end time based on the duration
-      let newDuration = parseFloat(editedEntry.duration || '0');
       const startTime = new Date(entry.startTime);
       const durationMs = newDuration * 60 * 60 * 1000; // Convert hours to milliseconds
       const newEndTime = new Date(startTime.getTime() + durationMs);
-      
-      console.log("Updating time entry with new duration:", newDuration, "hours");
       console.log("New end time calculated:", newEndTime.toISOString());
       
-      // Send all the updated fields, including the recalculated endTime
-      await apiRequest("PUT", `/api/time-entries/${entry.id}`, {
+      // Store duration as decimal string with 2 decimal places
+      const formattedDuration = newDuration.toFixed(2);
+      console.log("Formatted duration:", formattedDuration);
+      
+      // Prepare update data payload
+      const updateData = {
         description: editedEntry.description,
-        projectId: editedEntry.projectId,
-        duration: editedEntry.duration,
-        endTime: newEndTime.toISOString(), // This ensures the time is properly updated
-        date: editedEntry.date,
-        billable: editedEntry.billable
-      });
+        projectId: Number(editedEntry.projectId),
+        duration: formattedDuration,
+        endTime: newEndTime.toISOString(),
+        billable: editedEntry.billable || true
+      };
+      
+      console.log("Sending update data:", updateData);
+      
+      // Send the update request with direct values (not the entire editedEntry object)
+      const response = await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
+      console.log("Update response:", response);
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
@@ -71,13 +85,13 @@ export default function TimeEntryRow({
       setIsEditing(false);
       toast({
         title: "Time entry updated",
-        description: "Your time entry has been updated successfully.",
+        description: `Duration updated to ${formattedDuration} hours.`,
       });
     } catch (error) {
       console.error("Failed to update time entry:", error);
       toast({
         title: "Error",
-        description: "Failed to update time entry. Please try again.",
+        description: typeof error === 'string' ? error : "Failed to update time entry. Please try again.",
         variant: "destructive",
       });
     }
