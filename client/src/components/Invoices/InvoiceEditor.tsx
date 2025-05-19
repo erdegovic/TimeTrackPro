@@ -41,9 +41,10 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
   // Fetch invoice data when an existing invoice is loaded
   useEffect(() => {
     if (invoice && invoice.id) {
+      console.log("Loading invoice data for:", invoice.id);
       fetchInvoiceData();
     }
-  }, [invoice]);
+  }, [invoice?.id]);
   
   // Fetch the invoice's time entries and related data
   const fetchInvoiceData = async () => {
@@ -51,10 +52,12 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
     
     try {
       setIsLoading(true);
+      console.log("Fetching data for invoice ID:", invoice.id);
       
-      // Fetch time entries for this invoice
+      // Fetch the full invoice data
       const res = await fetch(`/api/invoices/${invoice.id}`);
       const invoiceData = await res.json();
+      console.log("Loaded invoice data:", invoiceData);
       
       // Parse additional items from notes if they exist
       let notes = invoiceData.notes || "";
@@ -65,6 +68,7 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         notes = parts[0].trim();
         try {
           items = JSON.parse(parts[1].trim());
+          console.log("Parsed additional items:", items);
         } catch (e) {
           console.error("Failed to parse additional items:", e);
         }
@@ -74,8 +78,18 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
       setAdditionalItems(items || []);
       setDueDate(invoiceData.dueDate);
       
-      // Need to get the time entries for this invoice to display in preview
-      const timeEntries = await fetch(`/api/time-entries?invoiceId=${invoice.id}`).then(r => r.json());
+      // Get all time entries and filter by those with matching invoiceId
+      const allTimeEntries = await fetch(`/api/time-entries`).then(r => r.json());
+      const timeEntries = allTimeEntries.filter((entry: any) => entry.invoiceId === invoice.id);
+      
+      console.log("Found time entries for invoice:", timeEntries.length);
+      
+      if (timeEntries.length === 0) {
+        toast({
+          title: "Warning",
+          description: "No time entries found for this invoice.",
+        });
+      }
       
       // Format the report data for the preview
       setReportData({

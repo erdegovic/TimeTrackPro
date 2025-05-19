@@ -279,17 +279,30 @@ export default function TimeEntryRow({
                     value={formatDuration(editedEntry.duration || "0")}
                     onChange={(e) => {
                       const timeValue = e.target.value;
-                      // Allow time format input (HH:MM:SS or HH:MM)
-                      if (/^(\d{1,2}):(\d{1,2})(:(\d{1,2}))?$/.test(timeValue) || timeValue === "") {
-                        // Parse time to decimal hours
-                        const parts = timeValue.split(":");
-                        const hours = parseInt(parts[0]) || 0;
-                        const minutes = parts.length > 1 ? (parseInt(parts[1]) || 0) / 60 : 0;
-                        const seconds = parts.length > 2 ? (parseInt(parts[2]) || 0) / 3600 : 0;
-                        const decimalHours = (hours + minutes + seconds).toFixed(2);
-                        
-                        console.log("Setting new duration from time:", timeValue, "to decimal:", decimalHours);
-                        setEditedEntry({ ...editedEntry, duration: decimalHours });
+                      
+                      // Allow time format input with loose validation to make editing easier
+                      if (timeValue === "" || /^[0-9:]*$/.test(timeValue)) { 
+                        // Only try to parse as time if it has a colon
+                        if (timeValue.includes(':')) {
+                          try {
+                            // Parse time to decimal hours
+                            const parts = timeValue.split(":");
+                            const hours = parseInt(parts[0]) || 0;
+                            const minutes = (parts.length > 1 && parts[1]) ? parseInt(parts[1]) / 60 : 0;
+                            const seconds = (parts.length > 2 && parts[2]) ? parseInt(parts[2]) / 3600 : 0;
+                            const decimalHours = (hours + minutes + seconds).toFixed(2);
+                            
+                            console.log("Setting new duration from time:", timeValue, "to decimal:", decimalHours);
+                            setEditedEntry({ ...editedEntry, duration: decimalHours });
+                          } catch (e) {
+                            // Just store the current value if parsing fails, to allow incomplete entry
+                            // This keeps the input responsive during typing
+                            console.log("Partial time input:", timeValue);
+                          }
+                        } else {
+                          // If no colon yet, keep current input to allow user to type freely
+                          console.log("Partial time input (no colons yet):", timeValue); 
+                        }
                       }
                     }}
                     className="font-mono"
