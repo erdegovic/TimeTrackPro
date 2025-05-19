@@ -306,16 +306,15 @@ export default function TimeEntryRow({
                   // Time format (HH:MM:SS)
                   <Input
                     type="text"
-                    value={formatDuration(editedEntry.duration || "0")}
+                    value={formatDuration(editedEntry.duration || "0").replace('h', '')}
                     onChange={(e) => {
-                      const timeValue = e.target.value;
+                      const inputValue = e.target.value;
                       
                       // Allow only time format input with loose validation
-                      if (timeValue === "" || /^[0-9:]*$/.test(timeValue)) { 
+                      if (inputValue === "" || /^[0-9:]*$/.test(inputValue)) { 
                         try {
-                          // Parse what we have so far
-                          if (timeValue.includes(':')) {
-                            const parts = timeValue.split(':');
+                          if (inputValue.includes(':')) {
+                            const parts = inputValue.split(':');
                             
                             // Get hours, minutes, seconds from parts
                             let hours = parts[0] ? parseInt(parts[0]) : 0;
@@ -323,23 +322,26 @@ export default function TimeEntryRow({
                             let seconds = (parts.length > 2 && parts[2]) ? parseInt(parts[2]) : 0;
                             
                             // Safety bounds check
-                            if (minutes >= 60) minutes = 59;
-                            if (seconds >= 60) seconds = 59;
+                            if (isNaN(hours)) hours = 0;
+                            if (isNaN(minutes) || minutes >= 60) minutes = 0;
+                            if (isNaN(seconds) || seconds >= 60) seconds = 0;
                             
                             // Calculate decimal hours
                             const totalMinutes = (hours * 60) + minutes + (seconds / 60);
                             const decimalHours = (totalMinutes / 60).toFixed(2);
                             
-                            console.log("Setting new duration from time:", timeValue, "to decimal:", decimalHours);
+                            console.log("Setting new duration from time:", inputValue, "to decimal:", decimalHours);
                             
                             // Update the duration field with the decimal value
                             setEditedEntry({
                               ...editedEntry,
                               duration: decimalHours
                             });
-                          } else {
-                            // If just typing hours with no colons yet, don't convert
-                            console.log("Partial time input, waiting for user to finish typing");
+                          } else if (inputValue === "") {
+                            setEditedEntry({
+                              ...editedEntry,
+                              duration: "0.00"
+                            });
                           }
                         } catch (e) {
                           console.error("Error parsing time input:", e);
