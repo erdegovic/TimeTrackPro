@@ -106,7 +106,11 @@ export async function register(req: Request, res: Response) {
  */
 export async function verifyEmail(req: Request, res: Response) {
   try {
-    const { token } = req.params;
+    const token = req.query.token as string;
+    
+    if (!token) {
+      return res.status(400).json({ message: 'Verification token is required.' });
+    }
     
     // Find verification entry
     const verification = await storage.getVerificationByToken(token);

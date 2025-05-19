@@ -201,7 +201,7 @@ export type InvoiceTemplate = {
 
 // User related types
 export const insertUserSchema = createInsertSchema(users)
-  .omit({ id: true, verificationToken: true, resetPasswordToken: true, createdAt: true, updatedAt: true });
+  .omit({ id: true, createdAt: true, updatedAt: true });
 
 export const userLoginSchema = z.object({
   username: z.string().min(1, "Username is required"),
