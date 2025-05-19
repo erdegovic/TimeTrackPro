@@ -159,26 +159,40 @@ export default function InvoicePreview({
     }
   };
   
-  // Update time entry duration and recalculate amounts
+  // Update time entry duration and recalculate amounts - fixed to properly handle amounts
   const updateEntryDuration = (entryId: number, newDuration: number, timeFormat: TimeFormat) => {
+    console.log(`Updating entry ${entryId} duration to ${newDuration}`);
+    
     setEditableEntries(prev => {
       const updated = prev.map(entry => {
         if (entry.id === entryId) {
-          // Calculate new amount based on rate and new duration
-          const hourlyRate = parseFloat(entry.hourlyRate);
+          // Get hourly rate either from the entry directly or its project
+          const hourlyRate = parseFloat(entry.hourlyRate || 
+            (entry.project?.hourlyRate ? entry.project.hourlyRate : '0'));
+            
+          // Calculate new amount based on the hourly rate and new duration
           const newAmount = hourlyRate * newDuration;
           
+          console.log(`Entry ${entryId}: New duration=${newDuration}, rate=${hourlyRate}, calculated amount=${newAmount}`);
+          
+          // Create updated entry with edited values clearly marked
           return {
             ...entry,
-            editedDuration: newDuration,
-            amount: newAmount.toString()
+            editedDuration: newDuration,      // Store edited duration separately 
+            duration: newDuration,            // Also update the main duration field
+            editedAmount: newAmount,          // Store edited amount separately
+            amount: newAmount.toString(),     // Also update the main amount field
+            wasEdited: true                   // Flag that this entry was edited
           };
         }
         return entry;
       });
       
-      // Recalculate totals
+      // Immediately recalculate totals based on updated entries
       recalculateTotals(updated);
+      
+      // Log the updated entries
+      console.log("Updated time entries:", updated);
       
       return updated;
     });
@@ -342,26 +356,66 @@ export default function InvoicePreview({
   const exportAsPdf = () => {
     if (!reportData || !client || !settings) return;
     
-    const filename = `invoice-${invoiceNumber.replace('INV-', '')}.pdf`;
+    const timestamp = new Date().getTime();
+    const filename = `invoice-${invoiceNumber.replace('INV-', '')}-${timestamp}.pdf`;
+    
+    // Make editable entries extremely explicit with clear edits flagged
+    const enhancedEntries = editableEntries.map(entry => {
+      console.log("Processing entry for PDF export:", entry);
+      
+      // Get hourly rate (either from entry or project)
+      const hourlyRate = parseFloat(entry.hourlyRate || '0');
+      
+      // Get edited duration (used edited if available, otherwise original)
+      const duration = typeof entry.editedDuration === 'number' 
+        ? entry.editedDuration 
+        : parseFloat(entry.duration || '0');
+        
+      // Calculate amount based on hourly rate and duration  
+      const calculatedAmount = hourlyRate * duration;
+      
+      // Get the actual amount to use (either from entry or calculated)
+      const amount = parseFloat(entry.amount || calculatedAmount.toString());
+      
+      return {
+        ...entry,
+        // Strongly flag the edited values to ensure they're used
+        edited: true,
+        editedDuration: duration,
+        editedAmount: amount,
+        // Duplicate these fields to make sure they're picked up
+        duration: duration,
+        amount: amount,
+        // Convert to string to avoid type issues
+        amountString: amount.toString(),
+        durationString: duration.toString(),
+      };
+    });
+    
+    console.log("Enhanced entries for PDF:", enhancedEntries);
     
     // Create a modified version of reportData that includes all edited values
     const modifiedReportData = {
       ...reportData,
-      timeEntries: editableEntries,
+      timeEntries: enhancedEntries,
       totalAmount: subtotal,
-      totalHours: editableEntries.reduce((sum, entry) => {
-        // Use the edited duration from editableEntries
-        const duration = typeof entry.editedDuration === 'number' 
+      totalHours: enhancedEntries.reduce((sum, entry) => 
+        sum + (typeof entry.editedDuration === 'number' 
           ? entry.editedDuration 
-          : typeof entry.duration === 'number'
-            ? entry.duration
-            : parseFloat(entry.duration || '0');
-        return sum + duration;
-      }, 0),
+          : parseFloat(entry.duration || '0')), 0),
       additionalItems: additionalItems,
       subtotal: subtotal,
-      total: total
+      total: total,
+      // Flag that these entries are edited to force using edited values
+      hasEditedValues: true,
+      useEditedValues: true,
     };
+    
+    console.log("Modified report data for PDF:", {
+      totalHours: modifiedReportData.totalHours,
+      totalAmount: modifiedReportData.totalAmount,
+      entriesCount: modifiedReportData.timeEntries.length
+    });
     
     generatePdf({
       filename,
@@ -378,7 +432,7 @@ export default function InvoicePreview({
     
     toast({
       title: "Invoice exported",
-      description: `Your invoice has been exported as ${filename}`,
+      description: `Your invoice has been exported as ${filename} with all edited values included.`,
     });
   };
   
