@@ -308,19 +308,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/time-entries/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      const entryData = insertTimeEntrySchema.partial().parse(req.body);
+      console.log("Time entry update data:", req.body);
+      
+      // Clean up and prepare the data
+      const data = {...req.body};
+      
+      // If duration is being updated directly
+      if (data.duration !== undefined) {
+        // Ensure duration is stored as a string
+        data.duration = String(data.duration);
+        console.log("Updating duration to:", data.duration);
+      }
+      
+      // Parse to ensure it matches the schema
+      const entryData = insertTimeEntrySchema.partial().parse(data);
       const entry = await storage.updateTimeEntry(id, entryData);
       
       if (!entry) {
         return res.status(404).json({ message: "Time entry not found" });
       }
       
+      console.log("Updated time entry:", entry);
       res.json(entry);
     } catch (error) {
+      console.error("Error updating time entry:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid time entry data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to update time entry" });
+      res.status(500).json({ 
+        message: "Failed to update time entry", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
     }
   });
 
