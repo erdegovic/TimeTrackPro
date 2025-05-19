@@ -28,7 +28,7 @@ type PdfOptions = {
  * Generates a PDF file for reports or invoices
  * @param options - Options for PDF generation
  */
-export async function generatePdf(options: PdfOptions): Promise<void> {
+export async function generatePdf(options: PdfOptions & { showDueDate?: boolean }): Promise<void> {
   // Dynamically import jspdf and jspdf-autotable to reduce bundle size
   const { jsPDF } = await import("jspdf");
   const autoTable = await import("jspdf-autotable").then(m => m.default);

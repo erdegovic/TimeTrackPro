@@ -335,7 +335,7 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
       dueDate,
       notes,
       type: "invoice",
-      showDueDate: settings.showDueDate
+      showDueDate: showDueDate
     });
     
     toast({
