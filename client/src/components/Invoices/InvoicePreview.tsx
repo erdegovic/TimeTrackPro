@@ -377,10 +377,12 @@ export default function InvoicePreview({
       // Get the actual amount to use (either from entry or calculated)
       const amount = parseFloat(entry.amount || calculatedAmount.toString());
       
+      // Create a new object with explicit edited values
       return {
         ...entry,
         // Strongly flag the edited values to ensure they're used
         edited: true,
+        wasEdited: true,
         editedDuration: duration,
         editedAmount: amount,
         // Duplicate these fields to make sure they're picked up
@@ -389,15 +391,30 @@ export default function InvoicePreview({
         // Convert to string to avoid type issues
         amountString: amount.toString(),
         durationString: duration.toString(),
+        // Original values for reference
+        originalDuration: entry.originalDuration || entry.duration,
+        originalAmount: entry.originalAmount || entry.amount,
       };
     });
     
     console.log("Enhanced entries for PDF:", enhancedEntries);
     
+    // Calculate the correct total hours and amount from the enhanced entries
+    const totalHours = enhancedEntries.reduce((sum, entry) => sum + parseFloat(entry.duration.toString()), 0);
+    const totalAmount = enhancedEntries.reduce((sum, entry) => sum + parseFloat(entry.amount.toString()), 0);
+    
+    console.log(`Modified report data for PDF:`, {
+      totalHours,
+      totalAmount,
+      entriesCount: enhancedEntries.length
+    });
+    
     // Create a modified version of reportData that includes all edited values
     const modifiedReportData = {
       ...reportData,
       timeEntries: enhancedEntries,
+      totalHours: totalHours,
+      totalAmount: totalAmount,
       totalAmount: subtotal,
       totalHours: enhancedEntries.reduce((sum, entry) => 
         sum + (typeof entry.editedDuration === 'number' 
