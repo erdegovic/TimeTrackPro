@@ -9,7 +9,8 @@ import {
   insertSettingsSchema,
   timeFormatEnum,
   roundingTypeEnum,
-  timeEntries
+  timeEntries,
+  timeEntryUpdateSchema
 } from "@shared/schema";
 import { z } from "zod";
 import { addDays, format } from "date-fns";

@@ -472,7 +472,11 @@ export default function InvoicePreview({
                       client && entry.client && entry.client.id === client.id
                     )
                     .map((entry: any, index: number) => (
-                      <tr key={`entry-${entry.id}-${index}`}>
+                      <tr 
+                        key={`entry-${entry.id}-${index}`}
+                        data-entry-id={entry.id}
+                        data-edited-duration={editableEntries.find(e => e.id === entry.id)?.editedDuration || entry.duration}
+                        data-edited-amount={editableEntries.find(e => e.id === entry.id)?.amount || entry.amount}>
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 border-r">
                           Week {weekData.weekNumber}
                         </td>

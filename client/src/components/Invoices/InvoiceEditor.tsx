@@ -253,6 +253,47 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         clientCurrency: clientCurrency
       };
       
+      // CRITICAL FIX: Add a direct observer to get updated entries from the UI
+      // Get all entries that might have been edited in the UI
+      const timeEntryRows = document.querySelectorAll('[data-entry-id]');
+      console.log(`Found ${timeEntryRows.length} time entries in the DOM`);
+      
+      // Create a map to store the edited values by entry ID
+      const editedValues = new Map();
+      
+      // Extract information from DOM elements
+      timeEntryRows.forEach(row => {
+        const entryId = row.getAttribute('data-entry-id');
+        const duration = row.getAttribute('data-edited-duration');
+        const amount = row.getAttribute('data-edited-amount');
+        
+        if (entryId && (duration || amount)) {
+          editedValues.set(Number(entryId), {
+            id: Number(entryId),
+            duration: duration ? parseFloat(duration) : undefined,
+            amount: amount ? parseFloat(amount) : undefined
+          });
+        }
+      });
+      
+      // Update the time entries with the edited values from the DOM
+      if (editedValues.size > 0) {
+        enhancedReportData.timeEntries = enhancedReportData.timeEntries.map(entry => {
+          const edits = editedValues.get(entry.id);
+          if (edits) {
+            console.log(`Applying edits to entry ${entry.id}:`, edits);
+            return {
+              ...entry,
+              duration: edits.duration !== undefined ? edits.duration : entry.duration,
+              editedDuration: edits.duration !== undefined ? edits.duration : entry.duration,
+              amount: edits.amount !== undefined ? edits.amount : entry.amount,
+              editedAmount: edits.amount !== undefined ? edits.amount : entry.amount
+            };
+          }
+          return entry;
+        });
+      }
+      
       generatePdf({
         filename,
         type: "invoice",
