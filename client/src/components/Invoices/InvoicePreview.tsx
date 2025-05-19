@@ -112,11 +112,13 @@ export default function InvoicePreview({
       amount += entryAmount;
     });
     
-    // Add additional items
-    const additionalAmount = additionalItems.reduce(
-      (sum, item) => sum + parseFloat(String(item.amount || 0)), 
-      0
-    );
+    // Add additional items (safely)
+    const additionalAmount = additionalItems && Array.isArray(additionalItems) 
+      ? additionalItems.reduce(
+          (sum, item) => sum + parseFloat(String(item?.amount || 0)), 
+          0
+        )
+      : 0;
     
     setTotalDuration(duration);
     setSubtotal(amount);
