@@ -34,6 +34,19 @@ type PdfOptions = {
 export async function generatePdf(options: PdfOptions): Promise<void> {
   const doc = new jsPDF();
   
+  console.log("PDF Generation - Starting with options:", JSON.stringify({
+    type: options.type,
+    filename: options.filename,
+    hasInvoice: !!options.type === 'invoice' && !!(options as any).invoice,
+    hasReportData: !!options.reportData,
+    timeEntriesCount: options.reportData?.timeEntries?.length || 0
+  }));
+  
+  if (options.reportData?.timeEntries) {
+    console.log("PDF Generation - First few time entries sample:", 
+      JSON.stringify(options.reportData.timeEntries.slice(0, 2), null, 2));
+  }
+  
   if (options.type === "report") {
     generateReportPdf(doc, autoTable, options.reportData, options.filters);
   } else {
