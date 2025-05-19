@@ -83,8 +83,21 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
       <div className="max-w-full">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col md:flex-row md:items-center gap-2.5 w-full">
-            {/* Removed duplicate "What are you working on?" field */}
-          
+            <div className="flex-1 mb-2 md:mb-0">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 opacity-70"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="M6 8h.001"></path><path d="M10 8h.001"></path><path d="M14 8h.001"></path><path d="M18 8h.001"></path><path d="M8 12h.001"></path><path d="M12 12h.001"></path><path d="M16 12h.001"></path><path d="M7 16h10"></path></svg>
+                </span>
+                <Input
+                  type="text"
+                  placeholder="What are you working on?"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full pl-10"
+                />
+              </div>
+            </div>
+            
             <div className="flex flex-wrap gap-2.5 md:flex-nowrap w-full md:w-auto">
               <Select 
                 value={selectedClientId?.toString()} 

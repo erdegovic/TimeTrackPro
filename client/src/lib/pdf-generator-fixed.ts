@@ -376,17 +376,7 @@ function generateInvoicePdf(options: {
       });
     }
     
-    // Include additional items if they exist
-    if (reportData.additionalItems && reportData.additionalItems.length > 0) {
-      reportData.additionalItems.forEach((item: any) => {
-        tableContent.push([
-          item.description,
-          '',
-          '',
-          formatCurrency(parseFloat(item.amount), currency)
-        ]);
-      });
-    }
+    // Additional items will be added after the subtotal calculation
     
     // Use the calculated total from report data if available
     if (typeof reportData.subtotal === 'number') {
@@ -444,6 +434,23 @@ function generateInvoicePdf(options: {
       styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] }
     }
   ]);
+  
+  // Include additional items after subtotal
+  if (reportData && reportData.additionalItems && reportData.additionalItems.length > 0) {
+    reportData.additionalItems.forEach((item: any) => {
+      tableContent.push([
+        {
+          content: item.description,
+          colSpan: 3,
+          styles: { fillColor: [255, 255, 255] }
+        },
+        {
+          content: formatCurrency(parseFloat(item.amount), currency),
+          styles: { halign: 'right', fillColor: [255, 255, 255] }
+        }
+      ]);
+    });
+  }
   
   // Only show tax row if tax is enabled or there's a tax amount
   if (taxRate > 0 || tax > 0) {
