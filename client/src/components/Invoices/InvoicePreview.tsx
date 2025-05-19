@@ -1,672 +1,553 @@
-import { useState, useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { Plus, Minus, Edit2, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit, FileSpreadsheet, File, Plus, Minus } from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { generatePdf } from "@/lib/pdf-generator-fixed-new";
-import { formatTime, formatCurrency, parseTime } from "@/lib/utils/timeUtils";
-import { Client, Settings, TimeFormat } from "@shared/schema";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Client, Project, TimeEntry, Settings } from "@shared/schema";
+import { formatTime, formatCurrency } from "@/lib/utils/timeUtils";
 
 interface InvoicePreviewProps {
+  clientId: number;
   reportData: any;
-  clientId?: number;
-  client?: Client;
-  settings?: Settings;
-  invoiceNumber?: string;
-  issueDate?: string;
-  dueDate?: string;
-  setDueDate?: (date: string) => void;
-  additionalItems?: any[];
-  setAdditionalItems?: (items: any[]) => void;
-  notes?: string;
-  setNotes?: (notes: string) => void;
+  additionalItems: any[];
+  setAdditionalItems: (items: any[]) => void;
+  notes: string;
+  setNotes: (notes: string) => void;
   showDueDate?: boolean;
   setShowDueDate?: (show: boolean) => void;
-  onEditInvoice?: () => void;
+  dueDate?: string;
+  setDueDate?: (date: string) => void;
+  invoiceNumber?: string;
+  issueDate?: string;
 }
 
-export default function InvoicePreview({ 
-  reportData,
+export default function InvoicePreview({
   clientId,
-  client: propClient,
-  settings: propSettings,
-  invoiceNumber: propInvoiceNumber,
-  issueDate: propIssueDate,
-  dueDate: propDueDate,
+  reportData,
+  additionalItems,
+  setAdditionalItems,
+  notes,
+  setNotes,
+  showDueDate = true,
+  setShowDueDate,
+  dueDate,
   setDueDate,
-  additionalItems: propAdditionalItems,
-  setAdditionalItems: propSetAdditionalItems, 
-  notes: propNotes,
-  setNotes: propSetNotes,
-  showDueDate: propShowDueDate,
-  setShowDueDate: propSetShowDueDate,
-  onEditInvoice
+  invoiceNumber,
+  issueDate
 }: InvoicePreviewProps) {
-  const { toast } = useToast();
-  const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
-  const [editableEntries, setEditableEntries] = useState<any[]>([]);
-  const [additionalItems, setAdditionalItems] = useState<{
-    description: string;
-    amount: number;
-    id: number;
-  }[]>(propAdditionalItems || []);
-  const [subtotal, setSubtotal] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [notes, setNotes] = useState(propNotes || "");
-  const [showDueDate, setShowDueDate] = useState(propShowDueDate !== undefined ? propShowDueDate : true);
-  
-  // Fetch next invoice number
-  const { data: invoiceNumberData } = useQuery({
-    queryKey: ["/api/next-invoice-number"],
-    queryFn: async () => {
-      const response = await fetch("/api/next-invoice-number");
-      if (!response.ok) throw new Error("Failed to fetch next invoice number");
-      return response.json();
-    }
-  });
-  
-  // Set invoice number when data is available
-  useEffect(() => {
-    if (invoiceNumberData?.invoiceNumber) {
-      setInvoiceNumber(invoiceNumberData.invoiceNumber);
-    }
-  }, [invoiceNumberData]);
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  const [editedItem, setEditedItem] = useState<{ description: string; amount: string }>({ description: "", amount: "0" });
+  const [editingEntryIndex, setEditingEntryIndex] = useState<number | null>(null);
+  const [editedEntry, setEditedEntry] = useState<any>(null);
   
   // Fetch client data
-  const { data: client } = useQuery<Client>({
-    queryKey: ["/api/clients", clientId],
-    queryFn: async () => {
-      const res = await fetch(`/api/clients/${clientId}`);
-      if (!res.ok) throw new Error("Failed to fetch client");
-      return res.json();
-    },
-    enabled: !!clientId
+  const { data: clients = [] } = useQuery<Client[]>({
+    queryKey: ["/api/clients"],
   });
   
-  // Fetch business settings
+  // Fetch settings
   const { data: settings } = useQuery<Settings>({
     queryKey: ["/api/settings"],
   });
   
-  // Note: notes state is already defined above with propNotes
-  const [taxRate, setTaxRate] = useState(0);
-  const [enableTax, setEnableTax] = useState(false);
-  // showDueDate is already defined above
+  // Get selected client
+  const client = clients.find(c => c.id === clientId);
   
-  // Get tax settings from business settings
-  useEffect(() => {
-    if (settings) {
-      const taxEnabled = typeof settings.enableTax === 'boolean' ? settings.enableTax : false;
-      const rate = typeof settings.defaultTaxRate === 'number' 
-        ? settings.defaultTaxRate 
-        : parseFloat(settings.defaultTaxRate?.toString() || '0');
-      
-      setEnableTax(taxEnabled);
-      setTaxRate(rate);
-      
-      // Check if showDueDate setting exists and set it
-      if (typeof settings.showDueDate === 'boolean') {
-        setShowDueDate(settings.showDueDate);
-      }
-    }
-  }, [settings]);
+  // Get currency from client or settings
+  const currency = client?.currency || settings?.defaultCurrency || "USD";
   
-  const issueDate = format(new Date(), "MMMM d, yyyy");
-  const dueDate = format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), "MMMM d, yyyy");
+  // Format time entries and calculate totals
+  const [timeEntries, setTimeEntries] = useState<any[]>([]);
+  const [subtotal, setSubtotal] = useState(0);
+  const [totalDuration, setTotalDuration] = useState(0);
+  const [totalAmount, setTotalAmount] = useState(0);
   
-  // Initialize editable entries when report data changes
+  // Update time entries when reportData changes
   useEffect(() => {
     if (reportData && reportData.timeEntries) {
-      // Create a deep copy of time entries with additional editing properties
-      const editableData = reportData.timeEntries.map((entry: any) => ({
-        ...entry,
-        originalDuration: entry.adjustedDuration || entry.duration,
-        editedDuration: entry.adjustedDuration || entry.duration,
-        originalAmount: parseFloat(entry.amount)
-      }));
+      console.log("Setting time entries from reportData:", reportData.timeEntries.length);
       
-      setEditableEntries(editableData);
-      
-      // Set initial subtotal
-      setSubtotal(reportData.totalAmount);
-      
-      // Calculate initial total
-      const initialTax = enableTax ? reportData.totalAmount * (taxRate / 100) : 0;
-      setTotal(reportData.totalAmount + initialTax);
-    }
-  }, [reportData, enableTax, taxRate]);
-  
-  // Handle toggling edit mode
-  const handleToggleEdit = () => {
-    if (!isEditing) {
-      setIsEditing(true);
-    } else {
-      // Exit edit mode and reset entries if needed
-      setIsEditing(false);
-      // If you want to discard changes when exiting, uncomment:
-      // if (reportData && reportData.timeEntries) {
-      //   const resetData = reportData.timeEntries.map((entry: any) => ({
-      //     ...entry,
-      //     editedDuration: entry.adjustedDuration || entry.duration,
-      //   }));
-      //   setEditableEntries(resetData);
-      // }
-    }
-  };
-  
-  // Update time entry duration and recalculate amounts
-  const updateEntryDuration = (entryId: number, newDuration: number, timeFormat: TimeFormat) => {
-    setEditableEntries(prev => {
-      const updated = prev.map(entry => {
-        if (entry.id === entryId) {
-          // Calculate new amount based on rate and new duration
-          const hourlyRate = parseFloat(entry.hourlyRate);
-          const newAmount = hourlyRate * newDuration;
-          
-          return {
-            ...entry,
-            editedDuration: newDuration,
-            amount: newAmount.toString()
-          };
-        }
-        return entry;
+      // Apply any editable properties that might have been added during editing
+      const enrichedEntries = reportData.timeEntries.map((entry: any) => {
+        // Make sure each entry has these properties for editing
+        return {
+          ...entry,
+          editedDuration: entry.editedDuration !== undefined ? entry.editedDuration : null,
+          editedAmount: entry.editedAmount !== undefined ? entry.editedAmount : null,
+        };
       });
       
-      // Recalculate totals
-      recalculateTotals(updated);
+      setTimeEntries(enrichedEntries);
       
-      return updated;
+      // Calculate total duration and amount
+      calculateTotals(enrichedEntries);
+    }
+  }, [reportData]);
+  
+  // Calculate totals when time entries or additional items change
+  const calculateTotals = (entries: any[]) => {
+    // Calculate duration and base amount from entries
+    let duration = 0;
+    let amount = 0;
+    
+    entries.forEach(entry => {
+      // Use edited duration if available, otherwise use regular duration
+      const entryDuration = entry.editedDuration !== undefined && entry.editedDuration !== null
+        ? parseFloat(String(entry.editedDuration))
+        : parseFloat(String(entry.duration || 0));
+      
+      duration += entryDuration;
+      
+      // Use edited amount if available, otherwise calculate from duration and rate
+      const entryAmount = entry.editedAmount !== undefined && entry.editedAmount !== null
+        ? parseFloat(String(entry.editedAmount))
+        : entry.project && entry.project.hourlyRate
+          ? entryDuration * parseFloat(String(entry.project.hourlyRate))
+          : 0;
+      
+      amount += entryAmount;
     });
+    
+    // Add additional items
+    const additionalAmount = additionalItems.reduce(
+      (sum, item) => sum + parseFloat(String(item.amount || 0)), 
+      0
+    );
+    
+    setTotalDuration(duration);
+    setSubtotal(amount);
+    setTotalAmount(amount + additionalAmount);
   };
   
-  // Calculate additional items total
-  const getAdditionalItemsTotal = () => {
-    return additionalItems.reduce((sum, item) => sum + item.amount, 0);
-  };
-  
-  // Recalculate subtotal and total based on current entries and additional items
-  const recalculateTotals = (entries = editableEntries) => {
-    // Sum up all entry amounts (subtotal only includes time entries)
-    const entriesTotal = entries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
-    
-    // Set new subtotal (without additional items)
-    setSubtotal(entriesTotal);
-    
-    // Calculate additional items total separately
-    const additionalTotal = getAdditionalItemsTotal();
-    
-    // Calculate tax based on subtotal only
-    const tax = enableTax ? entriesTotal * (taxRate / 100) : 0;
-    
-    // Set total (subtotal + additional items + tax)
-    setTotal(entriesTotal + additionalTotal + tax);
-  };
+  // Update totals when additional items change
+  useEffect(() => {
+    calculateTotals(timeEntries);
+  }, [additionalItems]);
   
   // Add a new additional item
-  const addItem = () => {
-    const newItems = [
-      ...additionalItems, 
-      { 
-        id: Date.now(), 
-        description: "Additional Item", 
-        amount: 0 
-      }
-    ];
+  const handleAddItem = () => {
+    const newItems = [...additionalItems, { description: "Additional Item", amount: "0" }];
     setAdditionalItems(newItems);
-    
-    // Force recalculation immediately after adding an item
-    setTimeout(() => {
-      recalculateTotals(editableEntries);
-    }, 0);
-  };
-  
-  // Update an additional item
-  const updateAdditionalItem = (id: number, field: 'description' | 'amount', value: string) => {
-    // First update the item data
-    const updatedItems = additionalItems.map(item => {
-      if (item.id === id) {
-        if (field === 'amount') {
-          return { ...item, [field]: parseFloat(value) || 0 };
-        }
-        return { ...item, [field]: value };
-      }
-      return item;
-    });
-    
-    // Set the updated items state
-    setAdditionalItems(updatedItems);
-    
-    // Immediately recalculate totals with the new data
-    const additionalTotal = updatedItems.reduce((sum, item) => sum + item.amount, 0);
-    const entriesTotal = editableEntries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
-    const tax = enableTax ? entriesTotal * (taxRate / 100) : 0;
-    
-    setSubtotal(entriesTotal);
-    setTotal(entriesTotal + additionalTotal + tax);
+    setEditingItemIndex(newItems.length - 1);
+    setEditedItem({ description: "Additional Item", amount: "0" });
   };
   
   // Remove an additional item
-  const removeItem = (id: number) => {
-    // Filter out the item to be removed
-    const filteredItems = additionalItems.filter(item => item.id !== id);
-    
-    // Update the state
-    setAdditionalItems(filteredItems);
-    
-    // Immediately recalculate totals with the updated data
-    const additionalTotal = filteredItems.reduce((sum, item) => sum + item.amount, 0);
-    const entriesTotal = editableEntries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
-    const tax = enableTax ? entriesTotal * (taxRate / 100) : 0;
-    
-    setSubtotal(entriesTotal);
-    setTotal(entriesTotal + additionalTotal + tax);
-  };
-  
-  const handleCreateInvoice = async () => {
-    if (!reportData || !client) {
-      toast({
-        title: "Error",
-        description: "Missing client or report data",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      console.log("Creating invoice with report data:", reportData);
-      
-      // Get time entry IDs for marking as invoiced
-      const timeEntryIds = reportData.timeEntries.map((entry: any) => entry.id);
-      
-      // Calculate tax and total
-      const subtotal = reportData.totalAmount;
-      const tax = enableTax ? subtotal * (taxRate / 100) : 0;
-      const total = subtotal + tax;
-      
-      // Create invoice with all necessary fields, using the edited values
-      const invoiceData = {
-        clientId: client.id,
-        amount: total, // Use the calculated total with all edited amounts and additional items
-        subtotal: subtotal,
-        tax: tax,
-        taxRate: String(enableTax ? taxRate : 0), // Send as string to match database schema
-        totalHours: editableEntries.reduce((sum, entry) => {
-          // Use the edited duration
-          const duration = typeof entry.editedDuration === 'number' 
-            ? entry.editedDuration 
-            : typeof entry.duration === 'number'
-              ? entry.duration
-              : parseFloat(entry.duration || '0');
-          return sum + duration;
-        }, 0),
-        notes,
-        timeEntryIds,
-        currency: client.currency || 'USD', // Include currency
-        issueDate: format(new Date(issueDate), 'yyyy-MM-dd'),
-        dueDate: format(new Date(dueDate), 'yyyy-MM-dd'),
-        invoiceNumber: invoiceNumber,
-        status: 'draft',
-        // Include additional items as JSON string
-        additionalItems: JSON.stringify(additionalItems)
-      };
-      
-      console.log("Sending invoice data to server:", invoiceData);
-      
-      const response = await apiRequest("POST", "/api/invoices", invoiceData);
-      console.log("Invoice creation response:", response);
-      
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-      
-      toast({
-        title: "Invoice created",
-        description: "Your invoice has been created successfully.",
-      });
-      
-    } catch (error) {
-      console.error("Error creating invoice:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create invoice. Please try again.",
-        variant: "destructive",
-      });
+  const handleRemoveItem = (index: number) => {
+    const newItems = [...additionalItems];
+    newItems.splice(index, 1);
+    setAdditionalItems(newItems);
+    if (editingItemIndex === index) {
+      setEditingItemIndex(null);
     }
   };
   
-  const exportAsPdf = () => {
-    if (!reportData || !client || !settings) return;
+  // Start editing an additional item
+  const handleEditItem = (index: number) => {
+    setEditingItemIndex(index);
+    setEditedItem({ ...additionalItems[index] });
+  };
+  
+  // Save edited additional item
+  const handleSaveItem = () => {
+    if (editingItemIndex === null) return;
     
-    const filename = `invoice-${invoiceNumber.replace('INV-', '')}.pdf`;
-    
-    // Create a modified version of reportData that includes all edited values
-    const modifiedReportData = {
-      ...reportData,
-      timeEntries: editableEntries,
-      totalAmount: subtotal,
-      totalHours: editableEntries.reduce((sum, entry) => {
-        // Use the edited duration from editableEntries
-        const duration = typeof entry.editedDuration === 'number' 
-          ? entry.editedDuration 
-          : typeof entry.duration === 'number'
-            ? entry.duration
-            : parseFloat(entry.duration || '0');
-        return sum + duration;
-      }, 0),
-      additionalItems: additionalItems,
-      subtotal: subtotal,
-      total: total
+    const newItems = [...additionalItems];
+    newItems[editingItemIndex] = { 
+      description: editedItem.description,
+      amount: editedItem.amount
     };
     
-    generatePdf({
-      filename,
-      reportData: modifiedReportData,
-      client,
-      settings,
-      invoiceNumber,
-      issueDate,
-      dueDate,
-      notes,
-      type: "invoice",
-      showDueDate: showDueDate
-    });
-    
-    toast({
-      title: "Invoice exported",
-      description: `Your invoice has been exported as ${filename}`,
+    setAdditionalItems(newItems);
+    setEditingItemIndex(null);
+  };
+  
+  // Cancel editing additional item
+  const handleCancelEditItem = () => {
+    setEditingItemIndex(null);
+  };
+  
+  // Start editing a time entry
+  const handleEditEntry = (index: number) => {
+    setEditingEntryIndex(index);
+    setEditedEntry({
+      ...timeEntries[index],
+      editedDuration: timeEntries[index].editedDuration !== undefined && timeEntries[index].editedDuration !== null
+        ? timeEntries[index].editedDuration
+        : parseFloat(String(timeEntries[index].duration || 0)),
+      editedAmount: timeEntries[index].editedAmount !== undefined && timeEntries[index].editedAmount !== null
+        ? timeEntries[index].editedAmount
+        : timeEntries[index].project && timeEntries[index].project.hourlyRate
+          ? parseFloat(String(timeEntries[index].duration || 0)) * parseFloat(String(timeEntries[index].project.hourlyRate))
+          : 0
     });
   };
   
-  if (!reportData || !client || !settings) {
-    return (
-      <div className="flex justify-center items-center h-40">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  // Save edited time entry
+  const handleSaveEntry = () => {
+    if (editingEntryIndex === null || !editedEntry) return;
+    
+    const newEntries = [...timeEntries];
+    newEntries[editingEntryIndex] = {
+      ...newEntries[editingEntryIndex],
+      editedDuration: parseFloat(String(editedEntry.editedDuration || 0)),
+      editedAmount: parseFloat(String(editedEntry.editedAmount || 0))
+    };
+    
+    setTimeEntries(newEntries);
+    calculateTotals(newEntries);
+    setEditingEntryIndex(null);
+    setEditedEntry(null);
+    
+    // Update the reportData if needed
+    if (reportData) {
+      reportData.timeEntries = newEntries;
+      reportData.totalAmount = totalAmount;
+    }
+  };
+  
+  // Cancel editing time entry
+  const handleCancelEditEntry = () => {
+    setEditingEntryIndex(null);
+    setEditedEntry(null);
+  };
+  
+  // Format durations based on time format
+  const formatDuration = (duration: number) => {
+    return formatTime(duration, reportData?.timeFormat || "decimal");
+  };
+  
+  // Format currency 
+  const formatAmount = (amount: number) => {
+    return formatCurrency(amount, currency);
+  };
+  
+  // Toggle showing due date
+  const handleToggleDueDate = (value: boolean) => {
+    if (setShowDueDate) {
+      setShowDueDate(value);
+    }
+  };
   
   return (
-    <div className="bg-white shadow rounded-lg mb-6">
-      <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-        <h2 className="text-lg font-medium text-gray-900">Invoice Preview</h2>
-        <p className="mt-1 text-sm text-gray-500">{invoiceNumber}</p>
+    <div className="space-y-6">
+      {/* Invoice header */}
+      <div className="flex justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">INVOICE</h2>
+          <p className="text-lg">{invoiceNumber || "DRAFT"}</p>
+        </div>
+        <div className="text-right">
+          <p className="font-semibold">Issue Date</p>
+          <p>{issueDate ? format(new Date(issueDate), "MMMM d, yyyy") : format(new Date(), "MMMM d, yyyy")}</p>
+          
+          {/* Due date section with toggle */}
+          {setShowDueDate && (
+            <div className="mt-2 flex items-center justify-end space-x-2">
+              <Switch 
+                id="show-due-date" 
+                checked={showDueDate}
+                onCheckedChange={handleToggleDueDate}
+              />
+              <Label htmlFor="show-due-date">Show Due Date</Label>
+            </div>
+          )}
+          
+          {showDueDate && (
+            <>
+              <p className="font-semibold mt-2">Due Date</p>
+              {setDueDate ? (
+                <Input 
+                  type="date" 
+                  value={dueDate} 
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="text-right"
+                />
+              ) : (
+                <p>{dueDate ? format(new Date(dueDate), "MMMM d, yyyy") : "Not Set"}</p>
+              )}
+            </>
+          )}
+        </div>
       </div>
       
-      <div className="p-6">
-        <div className="mb-8 flex justify-between">
-          <div>
-            <div className="text-gray-900 font-medium">From</div>
-            <div className="text-sm text-gray-600 mt-2">
-              <p>{settings.businessName}</p>
-              <p>{settings.businessAddress}</p>
-              <p>{settings.businessCity}, {settings.businessState} {settings.businessZipCode}</p>
-              <p>{settings.businessEmail}</p>
-              <p>Tax ID: {settings.businessTaxId}</p>
-            </div>
-          </div>
-          
-          <div className="text-right">
-            <div className="text-gray-900 font-medium">To</div>
-            <div className="text-sm text-gray-600 mt-2">
-              <p>{client.name}</p>
-              <p>{client.address}</p>
-              <p>{client.city}, {client.state} {client.zipCode}</p>
-              <p>{client.email}</p>
-              {client.taxId && <p>Tax ID: {client.taxId}</p>}
-            </div>
+      {/* From/To section */}
+      <div className="grid grid-cols-2 gap-8">
+        <div>
+          <h3 className="font-semibold text-sm uppercase text-gray-500">From</h3>
+          <div className="mt-1">
+            <p className="font-semibold">{settings?.businessName || "Your Business"}</p>
+            <p>{settings?.businessAddress || "123 Business Street"}</p>
+            <p>{settings?.businessCity || "City"}, {settings?.businessState || "State"} {settings?.businessZipCode || "12345"}</p>
+            <p>{settings?.businessCountry || "Country"}</p>
+            <p>{settings?.businessEmail || "email@example.com"}</p>
+            <p>Tax ID: {settings?.businessTaxId || "N/A"}</p>
           </div>
         </div>
-        
-        <div className="mb-8 flex justify-between">
-          <div>
-            <div className="text-gray-900 font-medium">Invoice Details</div>
-            <div className="text-sm text-gray-600 mt-2">
-              <p><span className="text-gray-500">Invoice Number:</span> {invoiceNumber}</p>
-              <p><span className="text-gray-500">Issue Date:</span> {issueDate}</p>
-              {showDueDate && <p><span className="text-gray-500">Due Date:</span> {dueDate}</p>}
-            </div>
-          </div>
-          
-          <div className="text-right">
-            <div className="text-gray-900 font-medium">Payment Details</div>
-            <div className="text-sm text-gray-600 mt-2">
-              <p><span className="text-gray-500">Bank Name:</span> {settings.bankName}</p>
-              <p><span className="text-gray-500">Account Name:</span> {settings.bankAccountName}</p>
-              <p><span className="text-gray-500">Account Number:</span> {settings.bankAccountNumber}</p>
-            </div>
+        <div>
+          <h3 className="font-semibold text-sm uppercase text-gray-500">To</h3>
+          <div className="mt-1">
+            <p className="font-semibold">{client?.name || "Client Name"}</p>
+            <p>{client?.address || ""}</p>
+            <p>
+              {client?.city || ""}{client?.city && client?.state ? ", " : ""}{client?.state || ""}
+              {(client?.city || client?.state) && client?.zipCode ? " " : ""}
+              {client?.zipCode || ""}
+            </p>
+            <p>{client?.country || ""}</p>
+            <p>{client?.email || ""}</p>
+            {client?.taxId && <p>Tax ID: {client.taxId}</p>}
           </div>
         </div>
+      </div>
+      
+      {/* Time entries table */}
+      <div className="mt-8">
+        <div className="bg-gray-100 p-4 rounded-t-md flex font-semibold">
+          <div className="flex-1">Description</div>
+          <div className="w-24 text-right">Hours</div>
+          <div className="w-24 text-right">Rate</div>
+          <div className="w-24 text-right">Amount</div>
+          <div className="w-16"></div>
+        </div>
         
-        <div className="overflow-x-auto mb-8">
-          <table className="min-w-full divide-y divide-gray-200 border">
-            <thead>
-              <tr className="bg-gray-50">
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r">Week</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r">Description</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r">Hours</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r">Rate</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {reportData.weeklyData.map((weekData: any) => (
-                <>
-                  <tr key={`week-${weekData.weekNumber}`} className="bg-gray-50 font-medium">
-                    <td colSpan={4} className="px-6 py-2 text-sm text-gray-900 border-r">
-                      {weekData.weekLabel}
-                    </td>
-                    <td className="px-6 py-2 text-sm text-gray-900 text-right">
-                      {client?.currency 
-                        ? formatCurrency(weekData.totalAmount, client.currency)
-                        : `$${weekData.totalAmount.toFixed(2)}`}
-                    </td>
-                  </tr>
-                  
-                  {weekData.entries
-                    .filter((entry: any) => 
-                      client && entry.client && entry.client.id === client.id
-                    )
-                    .map((entry: any, index: number) => (
-                      <tr key={`entry-${entry.id}-${index}`}>
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 border-r">
-                          Week {weekData.weekNumber}
-                        </td>
-                        <td className="px-6 py-3 text-sm text-gray-900 border-r">
-                          {entry.description} ({format(new Date(entry.date), "MMM d")})
-                        </td>
-                        <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900 border-r">
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              className="w-24 h-8 p-1 text-sm font-mono border rounded"
-                              defaultValue={formatTime(
-                                 editableEntries.find(e => e.id === entry.id)?.editedDuration || 
-                                 (typeof entry.adjustedDuration === 'number' 
-                                   ? entry.adjustedDuration 
-                                   : typeof entry.duration === 'number' 
-                                      ? entry.duration 
-                                      : parseFloat(entry.duration || '0')),
-                                 reportData.timeFormat as TimeFormat
-                              )}
-                              onBlur={(e) => {
-                                const timeValue = e.target.value;
-                                const durationInHours = parseTime(timeValue, reportData.timeFormat as TimeFormat);
-                                updateEntryDuration(entry.id, durationInHours, reportData.timeFormat as TimeFormat);
-                              }}
-                            />
-                          ) : (
-                            formatTime(
-                              editableEntries.find(e => e.id === entry.id)?.editedDuration ||
-                              (typeof entry.adjustedDuration === 'number' 
-                                ? entry.adjustedDuration 
-                                : typeof entry.duration === 'number' 
-                                   ? entry.duration 
-                                   : parseFloat(entry.duration || '0')), 
-                              reportData.timeFormat as TimeFormat
-                            )
-                          )}
-                        </td>
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 border-r">
-                          {client?.currency 
-                            ? formatCurrency(parseFloat(entry.hourlyRate), client.currency)
-                            : `$${parseFloat(entry.hourlyRate).toFixed(2)}`}
-                        </td>
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {client?.currency 
-                            ? formatCurrency(
-                                editableEntries.find(e => e.id === entry.id)?.amount
-                                  ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
-                                  : parseFloat(entry.amount),
-                                client.currency
-                              )
-                            : `$${(
-                                editableEntries.find(e => e.id === entry.id)?.amount
-                                  ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
-                                  : parseFloat(entry.amount)
-                              ).toFixed(2)}`}
-                        </td>
-                      </tr>
-                    ))
-                  }
-                </>
-              ))}
-              
-              <tr className="bg-gray-100 font-medium">
-                <td colSpan={2} className="px-6 py-3 text-sm text-gray-900 border-r">Subtotal</td>
-                <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900 border-r">
-                  {formatTime(
-                    typeof reportData.totalHours === 'number' 
-                      ? reportData.totalHours 
-                      : parseFloat(reportData.totalHours || '0'), 
-                    reportData.timeFormat as TimeFormat
-                  )}
-                </td>
-                <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900 border-r"></td>
-                <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                  {client?.currency
-                    ? formatCurrency(subtotal > 0 ? subtotal : reportData.totalAmount, client.currency)
-                    : `$${(subtotal > 0 ? subtotal : reportData.totalAmount).toFixed(2)}`}
-                </td>
-              </tr>
-              
-              {/* Additional items */}
-              {additionalItems.map(item => (
-                <tr key={`additional-${item.id}`}>
-                  <td colSpan={2} className={`px-6 py-3 text-sm ${isEditing ? "text-blue-600" : "text-gray-900"} border-r`}>
-                    {isEditing ? (
-                      <Input
-                        type="text"
-                        className="w-full h-8 p-1 text-sm"
-                        value={item.description}
-                        onChange={(e) => updateAdditionalItem(item.id, 'description', e.target.value)}
+        <div className="border-x border-b rounded-b-md">
+          {timeEntries.length > 0 ? (
+            timeEntries.map((entry, index) => (
+              <div key={entry.id} className="flex p-3 border-b items-center">
+                {editingEntryIndex === index ? (
+                  // Editing mode for time entry
+                  <>
+                    <div className="flex-1">
+                      <p className="font-medium">{entry.description}</p>
+                      <p className="text-sm text-gray-500">
+                        {entry.project?.name && `Project: ${entry.project.name}`}
+                      </p>
+                    </div>
+                    <div className="w-24">
+                      <Input 
+                        type="number" 
+                        value={editedEntry.editedDuration} 
+                        onChange={(e) => setEditedEntry({
+                          ...editedEntry,
+                          editedDuration: parseFloat(e.target.value)
+                        })}
+                        step="0.01"
+                        className="text-right"
                       />
-                    ) : (
-                      item.description
-                    )}
-                  </td>
-                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900 border-r"></td>
-                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900 border-r">
-                    {isEditing && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeItem(item.id)}
-                        className="h-6 w-6 p-0"
+                    </div>
+                    <div className="w-24 text-right">
+                      {formatAmount(entry.project?.hourlyRate || 0)}
+                    </div>
+                    <div className="w-24">
+                      <Input 
+                        type="number" 
+                        value={editedEntry.editedAmount} 
+                        onChange={(e) => setEditedEntry({
+                          ...editedEntry,
+                          editedAmount: parseFloat(e.target.value)
+                        })}
+                        step="0.01"
+                        className="text-right"
+                      />
+                    </div>
+                    <div className="w-16 flex justify-end space-x-1">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={handleSaveEntry}
+                        className="h-8 w-8"
                       >
-                        <Minus className="h-4 w-4 text-red-600" />
+                        <Save className="h-4 w-4" />
                       </Button>
-                    )}
-                  </td>
-                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        className="w-24 h-8 p-1 text-sm text-right border rounded"
-                        defaultValue={item.amount.toString()}
-                        onBlur={(e) => updateAdditionalItem(item.id, 'amount', e.target.value)}
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={handleCancelEditEntry}
+                        className="h-8 w-8"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  // Display mode for time entry
+                  <>
+                    <div className="flex-1">
+                      <p className="font-medium">{entry.description}</p>
+                      <p className="text-sm text-gray-500">
+                        {entry.project?.name && `Project: ${entry.project.name}`}
+                      </p>
+                    </div>
+                    <div className="w-24 text-right">
+                      {formatDuration(
+                        entry.editedDuration !== undefined && entry.editedDuration !== null
+                          ? entry.editedDuration
+                          : parseFloat(String(entry.duration || 0))
+                      )}
+                    </div>
+                    <div className="w-24 text-right">
+                      {formatAmount(entry.project?.hourlyRate || 0)}
+                    </div>
+                    <div className="w-24 text-right">
+                      {formatAmount(
+                        entry.editedAmount !== undefined && entry.editedAmount !== null
+                          ? entry.editedAmount
+                          : entry.project?.hourlyRate
+                            ? parseFloat(String(entry.duration || 0)) * parseFloat(String(entry.project.hourlyRate))
+                            : 0
+                      )}
+                    </div>
+                    <div className="w-16 text-right">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleEditEntry(index)}
+                        className="h-8 w-8"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="p-4 text-center text-gray-500">No time entries found for this invoice.</div>
+          )}
+        </div>
+      </div>
+      
+      {/* Additional items section */}
+      <div className="mt-4">
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="font-medium">Additional Items</h3>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleAddItem}
+            className="h-8"
+          >
+            <Plus className="h-4 w-4 mr-1" /> Add Item
+          </Button>
+        </div>
+        
+        {additionalItems.length > 0 ? (
+          <div className="space-y-2">
+            {additionalItems.map((item, index) => (
+              <div key={index} className="flex items-center border p-2 rounded">
+                {editingItemIndex === index ? (
+                  // Editing mode for additional item
+                  <>
+                    <div className="flex-1 mr-2">
+                      <Input 
+                        value={editedItem.description} 
+                        onChange={(e) => setEditedItem({ ...editedItem, description: e.target.value })}
+                        placeholder="Description"
                       />
-                    ) : (
-                      client?.currency
-                        ? formatCurrency(item.amount, client.currency)
-                        : `$${item.amount.toFixed(2)}`
-                    )}
-                  </td>
-                </tr>
-              ))}
-              
-              {/* Add item button (only visible in edit mode) */}
-              {isEditing && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-2 text-center border-t border-dashed">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={addItem}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      <Plus className="mr-1 h-4 w-4" />
-                      Add Item
-                    </Button>
-                  </td>
-                </tr>
-              )}
-              {/* Only show tax if it's enabled */}
-              {enableTax && (
-                <tr>
-                  <td colSpan={4} className="px-6 py-3 text-sm text-gray-900 text-right border-r">
-                    Tax ({taxRate}%)
-                  </td>
-                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                    {client?.currency
-                      ? formatCurrency(reportData.totalAmount * (taxRate / 100), client.currency)
-                      : `$${(reportData.totalAmount * (taxRate / 100)).toFixed(2)}`}
-                  </td>
-                </tr>
-              )}
-              <tr className="bg-primary font-semibold">
-                <td colSpan={4} className="px-6 py-3 text-sm text-white text-right border-r">Total Due</td>
-                <td className="px-6 py-3 whitespace-nowrap text-sm text-white">
-                  {client?.currency
-                    ? formatCurrency(total, client.currency)
-                    : `$${total.toFixed(2)}`}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                    </div>
+                    <div className="w-32 mr-2">
+                      <Input 
+                        type="number" 
+                        value={editedItem.amount} 
+                        onChange={(e) => setEditedItem({ ...editedItem, amount: e.target.value })}
+                        step="0.01"
+                        className="text-right"
+                      />
+                    </div>
+                    <div className="flex space-x-1">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={handleSaveItem}
+                        className="h-8 w-8"
+                      >
+                        <Save className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={handleCancelEditItem}
+                        className="h-8 w-8"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  // Display mode for additional item
+                  <>
+                    <div className="flex-1">{item.description}</div>
+                    <div className="w-32 text-right">{formatAmount(parseFloat(String(item.amount)))}</div>
+                    <div className="flex space-x-1 ml-2">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleEditItem(index)}
+                        className="h-8 w-8"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleRemoveItem(index)}
+                        className="h-8 w-8 text-red-500 hover:text-red-600"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-gray-500 text-center p-4 border rounded">No additional items</div>
+        )}
+      </div>
+      
+      {/* Totals section */}
+      <div className="mt-6 flex justify-end">
+        <div className="w-64 space-y-2">
+          <div className="flex justify-between">
+            <span>Subtotal:</span>
+            <span>{formatAmount(subtotal)}</span>
+          </div>
+          
+          {additionalItems.map((item, index) => (
+            <div key={index} className="flex justify-between text-sm">
+              <span>{item.description}:</span>
+              <span>{formatAmount(parseFloat(String(item.amount)))}</span>
+            </div>
+          ))}
+          
+          <div className="flex justify-between font-bold text-lg pt-2 border-t">
+            <span>Total:</span>
+            <span>{formatAmount(totalAmount)}</span>
+          </div>
         </div>
-        
-        <div className="mb-6">
-          <div className="text-gray-900 font-medium mb-2">Notes</div>
-          <Textarea
-            value={notes}
+      </div>
+      
+      {/* Notes section */}
+      <div className="mt-6">
+        <label className="block font-medium mb-1">Notes</label>
+        {setNotes ? (
+          <Textarea 
+            value={notes} 
             onChange={(e) => setNotes(e.target.value)}
-            className="text-sm text-gray-600 bg-gray-50 p-4 rounded-md h-24"
+            placeholder="Enter notes for this invoice..."
+            rows={4}
           />
-        </div>
-        
-        <div className="flex justify-between">
-          <div>
-            <Button variant="outline" onClick={isEditing ? handleToggleEdit : handleToggleEdit}>
-              <Edit className="mr-2 h-4 w-4" />
-              {isEditing ? "Done Editing" : "Edit Invoice"}
-            </Button>
+        ) : (
+          <div className="p-4 border rounded">
+            {notes || "No notes"}
           </div>
-          <div className="space-x-2">
-            <Button variant="outline" onClick={handleCreateInvoice}>
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Save Invoice
-            </Button>
-            <Button onClick={exportAsPdf}>
-              <File className="mr-2 h-4 w-4" />
-              PDF
-            </Button>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

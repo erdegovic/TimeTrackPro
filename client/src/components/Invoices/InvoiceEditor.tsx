@@ -8,7 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 import InvoicePreview from "./InvoicePreview";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { generatePdf } from "@/lib/pdf-generator-fixed-new";
+import { generatePdf } from "@/lib/pdf-simple";
 
 interface InvoiceEditorProps {
   invoice: Invoice | null;
@@ -64,7 +64,7 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
       
       // Check if settings have showDueDate preference
       if (settings) {
-        setShowDueDate(settings.showDueDate || true);
+        setShowDueDate(settings.showDueDate !== null ? settings.showDueDate : true);
       }
       
       // Parse additional items from notes if they exist
@@ -101,7 +101,7 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
       
       // Enrich time entries with client and project data
       const enrichedEntries = await Promise.all(timeEntries.map(async (entry: any) => {
-        if (!entry.project) {
+        if (!entry.project && entry.projectId) {
           try {
             // Get project data
             const projectRes = await fetch(`/api/projects/${entry.projectId}`);
@@ -112,6 +112,12 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
             console.error("Failed to fetch project for entry:", err);
           }
         }
+        
+        // Assign the client data
+        if (!entry.client && client) {
+          entry.client = client;
+        }
+        
         return entry;
       }));
       
@@ -121,7 +127,8 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         additionalItems: items,
         totalHours: enrichedEntries.reduce((sum: number, entry: any) => sum + parseFloat(entry.duration || 0), 0),
         totalAmount: Number(invoiceData.total),
-        timeFormat: settings?.defaultTimeFormat || 'decimal'
+        timeFormat: settings?.defaultTimeFormat || 'decimal',
+        clientCurrency: client?.currency || settings?.defaultCurrency || 'USD'
       });
       
       setIsLoading(false);
@@ -197,12 +204,20 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         return entry;
       });
       
-      // Create the enhanced report data
+      // Create the enhanced report data with weeklyData to avoid PDF generation errors
       const enhancedReportData = {
         ...reportData,
         timeEntries: enrichedTimeEntries,
         additionalItems: additionalItems,
-        clientCurrency: clientCurrency
+        clientCurrency: clientCurrency,
+        // Explicitly add weeklyData structure for safety
+        weeklyData: [{
+          weekLabel: 'All Entries',
+          entries: enrichedTimeEntries,
+          totalDuration: enrichedTimeEntries.reduce((sum: number, entry: any) => 
+            sum + parseFloat(String(entry.duration || 0)), 0),
+          totalAmount: Number(invoice.total || 0)
+        }]
       };
       
       generatePdf({
@@ -232,11 +247,13 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
   };
   
   if (!invoice || !client || !settings) {
-    return <div>Loading...</div>;
+    return <div className="p-8 flex justify-center items-center">
+      <div className="animate-pulse">Loading invoice data...</div>
+    </div>;
   }
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Edit Invoice #{invoice.invoiceNumber}</h2>
         <div className="space-x-2">
@@ -252,16 +269,11 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         </div>
       </div>
       
-      {reportData && (
+      {reportData ? (
         <Card>
           <CardContent className="p-6">
             <InvoicePreview 
-              client={client}
-              settings={settings}
-              invoiceNumber={invoice.invoiceNumber}
-              issueDate={invoice.issueDate}
-              dueDate={dueDate}
-              setDueDate={setDueDate}
+              clientId={client.id}
               reportData={reportData}
               additionalItems={additionalItems}
               setAdditionalItems={setAdditionalItems}
@@ -269,9 +281,17 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
               setNotes={setInvoiceNotes}
               showDueDate={showDueDate}
               setShowDueDate={setShowDueDate}
+              dueDate={dueDate}
+              setDueDate={setDueDate}
+              invoiceNumber={invoice.invoiceNumber}
+              issueDate={invoice.issueDate}
             />
           </CardContent>
         </Card>
+      ) : (
+        <div className="flex justify-center p-10">
+          <div className="animate-pulse">Loading invoice data...</div>
+        </div>
       )}
     </div>
   );

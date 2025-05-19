@@ -36,7 +36,19 @@ export default function TimeEntryRow({
 }: TimeEntryRowProps) {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
-  const [editedEntry, setEditedEntry] = useState<any>({ 
+  // Define interface for edited entry to include timeInput
+  interface EditedTimeEntry {
+    id: number;
+    description: string;
+    projectId: number;
+    duration: string | null;
+    startTime: Date;
+    endTime: Date | null;
+    timeInput?: string; // Optional for storing raw time input
+    [key: string]: any; // Allow other properties
+  }
+  
+  const [editedEntry, setEditedEntry] = useState<EditedTimeEntry>({ 
     ...entry,
     timeInput: undefined // Add timeInput field to store the raw time input
   });
@@ -330,7 +342,7 @@ export default function TimeEntryRow({
                             console.log("Parsed time:", timeValue, "to decimal hours:", decimalHours);
                             
                             // Only update decimal value, keeping the timeInput for display
-                            setEditedEntry(prev => ({
+                            setEditedEntry((prev: EditedTimeEntry) => ({
                               ...prev,
                               duration: decimalHours.toFixed(2)
                             }));
