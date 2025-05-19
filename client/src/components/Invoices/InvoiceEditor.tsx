@@ -108,21 +108,24 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         });
       }
       
-      // Enrich time entries with client and project data
-      const enrichedEntries = await Promise.all(timeEntries.map(async (entry: any) => {
-        if (!entry.project) {
-          try {
-            // Get project data
-            const projectRes = await fetch(`/api/projects/${entry.projectId}`);
-            if (projectRes.ok) {
-              entry.project = await projectRes.json();
-            }
-          } catch (err) {
-            console.error("Failed to fetch project for entry:", err);
-          }
+      // Get all projects in one request instead of making individual calls
+      const projectsRes = await fetch('/api/projects');
+      const allProjects = await projectsRes.json();
+      
+      // Create a map for quick access to projects by ID
+      const projectsMap = new Map();
+      allProjects.forEach((project: any) => {
+        projectsMap.set(project.id, project);
+      });
+      
+      // Enrich time entries with project data from our cached map
+      const enrichedEntries = timeEntries.map((entry: any) => {
+        // Use project from the map instead of making individual API calls
+        if (!entry.project && entry.projectId) {
+          entry.project = projectsMap.get(entry.projectId);
         }
         return entry;
-      }));
+      });
       
       // Try to extract edited entries from the invoice notes
       let editedEntries = enrichedEntries;
