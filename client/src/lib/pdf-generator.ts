@@ -5,6 +5,7 @@ import { format } from "date-fns";
 type PdfOptions = {
   filename: string;
   type: "report" | "invoice";
+  showDueDate?: boolean;
 } & (
   | {
       type: "report";
@@ -204,7 +205,8 @@ function generateInvoicePdf(options: {
     invoiceNumber, 
     issueDate, 
     dueDate, 
-    notes 
+    notes,
+    showDueDate
   } = options;
   // Use either the invoice data or the provided parameters
   const invNumber = invoice?.invoiceNumber || invoiceNumber || "DRAFT";
