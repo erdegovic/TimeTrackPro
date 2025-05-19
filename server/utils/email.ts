@@ -79,7 +79,11 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
  * Sends a verification email to a new user
  */
 export async function sendVerificationEmail(email: string, username: string, token: string): Promise<boolean> {
-  const verificationUrl = `${process.env.APP_URL || 'http://localhost:3000'}/verify-email/${token}`;
+  // Create a verification URL with the token
+  const baseUrl = process.env.APP_URL || `https://${process.env.REPLIT_DOMAINS?.split(",")[0] || "localhost:5000"}`;
+  const verificationUrl = `${baseUrl}/verify-email?token=${token}`;
+  
+  console.log(`Sending verification email to ${email} with URL: ${verificationUrl}`);
   
   const subject = 'Verify your Time Tracker account';
   const htmlContent = `
@@ -130,7 +134,11 @@ export async function sendVerificationEmail(email: string, username: string, tok
  * Sends a password reset email to a user
  */
 export async function sendPasswordResetEmail(email: string, username: string, token: string): Promise<boolean> {
-  const resetUrl = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password/${token}`;
+  // Create a reset URL with the token
+  const baseUrl = process.env.APP_URL || `https://${process.env.REPLIT_DOMAINS?.split(",")[0] || "localhost:5000"}`;
+  const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+  
+  console.log(`Sending password reset email to ${email} with URL: ${resetUrl}`);
   
   const subject = 'Reset your Time Tracker password';
   const htmlContent = `

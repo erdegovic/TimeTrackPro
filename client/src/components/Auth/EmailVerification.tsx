@@ -3,7 +3,6 @@ import { useLocation } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Spinner } from '@/components/ui/spinner';
 
 interface EmailVerificationProps {
   token: string;
@@ -67,7 +66,7 @@ export default function EmailVerification({ token }: EmailVerificationProps) {
       <CardContent className="text-center">
         {isVerifying ? (
           <div className="flex justify-center py-6">
-            <Spinner size="lg" />
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
           </div>
         ) : isSuccess ? (
           <div className="py-6">

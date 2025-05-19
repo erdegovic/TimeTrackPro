@@ -1,28 +1,41 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import { useEffect } from "react";
 
 export function useAuth() {
-  const [_, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   
-  // Query for the current user, with error handling for unauthorized cases
-  const { data: user, isLoading, error } = useQuery({
+  // Query for the current user
+  const { 
+    data: user, 
+    isLoading, 
+    error, 
+    isError 
+  } = useQuery({
     queryKey: ["/api/auth/user"],
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: true,
-    onError: () => {
-      // Don't redirect if on login or register pages
-      const currentPath = window.location.pathname;
-      if (currentPath !== "/login" && 
-          currentPath !== "/register" && 
-          currentPath !== "/verify-email" && 
-          currentPath !== "/forgot-password" && 
-          currentPath !== "/reset-password") {
+    refetchOnWindowFocus: true
+  });
+
+  // Handle navigation based on authentication status
+  useEffect(() => {
+    if (isError) {
+      // Don't redirect if on public pages
+      const publicPaths = [
+        "/login", 
+        "/register", 
+        "/verify-email", 
+        "/forgot-password", 
+        "/reset-password"
+      ];
+      
+      if (!publicPaths.some(path => location.startsWith(path))) {
         navigate("/login");
       }
     }
-  });
+  }, [isError, location, navigate]);
 
   // Function to log the user out
   const logout = async () => {
