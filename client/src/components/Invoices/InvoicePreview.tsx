@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Edit, FileSpreadsheet, File, Plus, Minus } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { generatePdf } from "@/lib/pdf-generator";
+import { generatePdf } from "@/lib/pdf-generator-fixed";
 import { formatTime, formatCurrency, parseTime } from "@/lib/utils/timeUtils";
 import { Client, Settings, TimeFormat } from "@shared/schema";
 

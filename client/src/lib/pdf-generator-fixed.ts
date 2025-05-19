@@ -50,7 +50,7 @@ export async function generatePdf(options: PdfOptions): Promise<void> {
       issueDate: options.issueDate,
       dueDate: options.dueDate,
       notes: options.notes,
-      showDueDate: options.showDueDate
+      showDueDateOption: options.showDueDate
     });
   }
   
@@ -193,7 +193,7 @@ function generateInvoicePdf(options: {
   issueDate?: string;
   dueDate?: string;
   notes?: string;
-  showDueDate?: boolean;
+  showDueDateOption?: boolean;
 }) {
   const { 
     doc, 
@@ -206,8 +206,9 @@ function generateInvoicePdf(options: {
     issueDate, 
     dueDate, 
     notes,
-    showDueDate
+    showDueDateOption
   } = options;
+  
   // Use either the invoice data or the provided parameters
   const invNumber = invoice?.invoiceNumber || invoiceNumber || "DRAFT";
   const invIssueDate = invoice?.issueDate || issueDate || format(new Date(), 'yyyy-MM-dd');
@@ -277,8 +278,8 @@ function generateInvoicePdf(options: {
   doc.text(`Issue Date: ${format(new Date(invIssueDate), 'MMMM d, yyyy')}`, 14, detailsY);
   detailsY += 6;
   
-  // Only show due date if it's enabled in settings
-  if (showDueDate !== false) {
+  // Only show due date if it's enabled
+  if (showDueDateOption !== false) {
     doc.text(`Due Date: ${format(new Date(invDueDate), 'MMMM d, yyyy')}`, 14, detailsY);
     detailsY += 6;
   }
@@ -304,40 +305,68 @@ function generateInvoicePdf(options: {
   
   if (reportData) {
     // Use report data for generating invoice
-    reportData.weeklyData.forEach((weekData: any) => {
-      // Add week header
-      tableContent.push([
-        {
-          content: weekData.weekLabel,
-          colSpan: 4,
-          styles: { fillColor: [240, 240, 240], fontStyle: 'bold' }
-        },
-        {
-          content: formatCurrency(weekData.totalAmount, currency),
-          styles: { halign: 'right', fillColor: [240, 240, 240], fontStyle: 'bold' }
-        }
-      ]);
-      
-      // Add time entries for this week (only for selected client)
-      const clientEntries = weekData.entries.filter((entry: any) => 
-        entry.client && entry.client.id === client.id
-      );
-      
-      clientEntries.forEach((entry: any) => {
-        // Convert duration from string to number if needed
-        const duration = typeof entry.adjustedDuration === 'number' 
-          ? entry.adjustedDuration 
+    if (reportData.weeklyData) {
+      reportData.weeklyData.forEach((weekData: any) => {
+        // Add week header
+        tableContent.push([
+          {
+            content: weekData.weekLabel,
+            colSpan: 3,
+            styles: { fillColor: [240, 240, 240], fontStyle: 'bold' }
+          },
+          {
+            content: formatCurrency(weekData.totalAmount, currency),
+            styles: { halign: 'right', fillColor: [240, 240, 240], fontStyle: 'bold' }
+          }
+        ]);
+        
+        // Add time entries for this week (only for selected client)
+        const clientEntries = weekData.entries.filter((entry: any) => 
+          entry.client && entry.client.id === client.id
+        );
+        
+        clientEntries.forEach((entry: any) => {
+          // Use edited duration if available
+          const duration = typeof entry.editedDuration === 'number' 
+            ? entry.editedDuration 
+            : typeof entry.adjustedDuration === 'number' 
+              ? entry.adjustedDuration 
+              : typeof entry.duration === 'number' 
+                ? entry.duration 
+                : parseFloat(entry.duration || '0');
+          
+          // Format hourly rate and amount in client's currency
+          const hourlyRate = parseFloat(entry.hourlyRate);
+          const amount = parseFloat(entry.editedAmount || entry.amount);
+          
+          tableContent.push([
+            entry.description,
+            formatTime(duration, reportData.timeFormat),
+            formatCurrency(hourlyRate, currency),
+            formatCurrency(amount, currency)
+          ]);
+          
+          subtotal += amount;
+          totalHours += duration;
+        });
+      });
+    } else if (reportData.timeEntries) {
+      // Directly use time entries without weekly grouping
+      reportData.timeEntries.forEach((entry: any) => {
+        // Use edited duration if available
+        const duration = typeof entry.editedDuration === 'number' 
+          ? entry.editedDuration 
           : typeof entry.duration === 'number' 
             ? entry.duration 
             : parseFloat(entry.duration || '0');
         
         // Format hourly rate and amount in client's currency
-        const hourlyRate = parseFloat(entry.hourlyRate);
-        const amount = parseFloat(entry.amount);
+        const hourlyRate = parseFloat(entry.hourlyRate || client.hourlyRate || 0);
+        const amount = parseFloat(entry.editedAmount || entry.amount || 0);
         
         tableContent.push([
           entry.description,
-          formatTime(duration, reportData.timeFormat),
+          formatTime(duration, reportData.timeFormat || 'decimal'),
           formatCurrency(hourlyRate, currency),
           formatCurrency(amount, currency)
         ]);
@@ -345,7 +374,25 @@ function generateInvoicePdf(options: {
         subtotal += amount;
         totalHours += duration;
       });
-    });
+    }
+    
+    // Include additional items if they exist
+    if (reportData.additionalItems && reportData.additionalItems.length > 0) {
+      reportData.additionalItems.forEach((item: any) => {
+        tableContent.push([
+          item.description,
+          '',
+          '',
+          formatCurrency(parseFloat(item.amount), currency)
+        ]);
+      });
+    }
+    
+    // Use the calculated total from report data if available
+    if (typeof reportData.subtotal === 'number') {
+      subtotal = reportData.subtotal;
+    }
+    
   } else if (invoice) {
     // Use invoice data directly
     subtotal = Number(invoice.subtotal);
@@ -381,8 +428,10 @@ function generateInvoicePdf(options: {
     tax = subtotal * (taxRate / 100);
   }
   
-  // Calculate total
-  const total = invoice ? Number(invoice.total) : (subtotal + tax);
+  // If reportData has a calculated total, use that
+  const total = reportData && typeof reportData.total === 'number' 
+    ? reportData.total 
+    : invoice ? Number(invoice.total) : (subtotal + tax);
   
   tableContent.push([
     {
