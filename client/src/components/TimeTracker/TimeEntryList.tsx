@@ -73,21 +73,26 @@ export default function TimeEntryList() {
     queryKey: ["/api/projects"],
   });
 
-  // Enhanced time entries with client and project data and accurate time calculations
+  // Enhanced time entries with client and project data and ALWAYS use the 
+  // stored duration value to ensure edited values are used
   const enhancedEntries = timeEntries.map(entry => {
     const project = projects.find(p => p.id === entry.projectId);
     const client = project ? clients.find(c => c.id === project.clientId) : undefined;
     
-    // Calculate exact duration from timestamps if available
-    let exactDuration = Number(entry.duration || 0);
-    if (entry.startTime && entry.endTime) {
-      const startTime = new Date(entry.startTime);
-      const endTime = new Date(entry.endTime);
-      const diffMs = endTime.getTime() - startTime.getTime();
-      exactDuration = diffMs / (1000 * 60 * 60); // Convert to hours for consistency
-    }
+    // ALWAYS use the stored duration field as the source of truth
+    // This ensures that manually edited durations are reflected in totals
+    const duration = Number(entry.duration || 0);
     
-    return { ...entry, project, client, exactDuration };
+    // Log the entry details for debugging
+    console.log(`Entry ${entry.id}: using stored duration ${duration} hours`);
+    
+    return { 
+      ...entry, 
+      project, 
+      client, 
+      // Store the duration in a consistent field
+      exactDuration: duration 
+    };
   });
 
   // Group entries by date, project, or client
