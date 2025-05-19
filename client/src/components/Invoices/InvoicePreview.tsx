@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit, FileSpreadsheet, File } from "lucide-react";
+import { Edit, FileSpreadsheet, File, Plus, Minus } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { generatePdf } from "@/lib/pdf-generator";
-import { formatTime, formatCurrency } from "@/lib/utils/timeUtils";
+import { formatTime, formatCurrency, parseTime } from "@/lib/utils/timeUtils";
 import { Client, Settings, TimeFormat } from "@shared/schema";
 
 interface InvoicePreviewProps {
@@ -19,6 +20,15 @@ interface InvoicePreviewProps {
 export default function InvoicePreview({ reportData, clientId, onEditInvoice }: InvoicePreviewProps) {
   const { toast } = useToast();
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableEntries, setEditableEntries] = useState<any[]>([]);
+  const [additionalItems, setAdditionalItems] = useState<{
+    description: string;
+    amount: number;
+    id: number;
+  }[]>([]);
+  const [subtotal, setSubtotal] = useState(0);
+  const [total, setTotal] = useState(0);
   
   // Fetch next invoice number
   const { data: invoiceNumberData } = useQuery({
@@ -58,6 +68,7 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
   );
   const [taxRate, setTaxRate] = useState(0);
   const [enableTax, setEnableTax] = useState(false);
+  const [showDueDate, setShowDueDate] = useState(true);
   
   // Get tax settings from business settings
   useEffect(() => {
@@ -69,11 +80,147 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
       
       setEnableTax(taxEnabled);
       setTaxRate(rate);
+      
+      // Check if showDueDate setting exists and set it
+      if (typeof settings.showDueDate === 'boolean') {
+        setShowDueDate(settings.showDueDate);
+      }
     }
   }, [settings]);
   
   const issueDate = format(new Date(), "MMMM d, yyyy");
   const dueDate = format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), "MMMM d, yyyy");
+  
+  // Initialize editable entries when report data changes
+  useEffect(() => {
+    if (reportData && reportData.timeEntries) {
+      // Create a deep copy of time entries with additional editing properties
+      const editableData = reportData.timeEntries.map((entry: any) => ({
+        ...entry,
+        originalDuration: entry.adjustedDuration || entry.duration,
+        editedDuration: entry.adjustedDuration || entry.duration,
+        originalAmount: parseFloat(entry.amount)
+      }));
+      
+      setEditableEntries(editableData);
+      
+      // Set initial subtotal
+      setSubtotal(reportData.totalAmount);
+      
+      // Calculate initial total
+      const initialTax = enableTax ? reportData.totalAmount * (taxRate / 100) : 0;
+      setTotal(reportData.totalAmount + initialTax);
+    }
+  }, [reportData, enableTax, taxRate]);
+  
+  // Handle toggling edit mode
+  const handleToggleEdit = () => {
+    if (!isEditing) {
+      setIsEditing(true);
+    } else {
+      // Exit edit mode and reset entries if needed
+      setIsEditing(false);
+      // If you want to discard changes when exiting, uncomment:
+      // if (reportData && reportData.timeEntries) {
+      //   const resetData = reportData.timeEntries.map((entry: any) => ({
+      //     ...entry,
+      //     editedDuration: entry.adjustedDuration || entry.duration,
+      //   }));
+      //   setEditableEntries(resetData);
+      // }
+    }
+  };
+  
+  // Update time entry duration and recalculate amounts
+  const updateEntryDuration = (entryId: number, newDuration: number, timeFormat: TimeFormat) => {
+    setEditableEntries(prev => {
+      const updated = prev.map(entry => {
+        if (entry.id === entryId) {
+          // Calculate new amount based on rate and new duration
+          const hourlyRate = parseFloat(entry.hourlyRate);
+          const newAmount = hourlyRate * newDuration;
+          
+          return {
+            ...entry,
+            editedDuration: newDuration,
+            amount: newAmount.toString()
+          };
+        }
+        return entry;
+      });
+      
+      // Recalculate totals
+      recalculateTotals(updated);
+      
+      return updated;
+    });
+  };
+  
+  // Calculate additional items total
+  const getAdditionalItemsTotal = () => {
+    return additionalItems.reduce((sum, item) => sum + item.amount, 0);
+  };
+  
+  // Recalculate subtotal and total based on current entries and additional items
+  const recalculateTotals = (entries = editableEntries) => {
+    // Sum up all entry amounts
+    const entriesTotal = entries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
+    
+    // Add additional items
+    const additionalTotal = getAdditionalItemsTotal();
+    
+    // Set new subtotal
+    const newSubtotal = entriesTotal + additionalTotal;
+    setSubtotal(newSubtotal);
+    
+    // Calculate tax and total
+    const tax = enableTax ? newSubtotal * (taxRate / 100) : 0;
+    setTotal(newSubtotal + tax);
+  };
+  
+  // Add a new additional item
+  const addItem = () => {
+    setAdditionalItems(prev => [
+      ...prev, 
+      { 
+        id: Date.now(), 
+        description: "Additional Item", 
+        amount: 0 
+      }
+    ]);
+  };
+  
+  // Update an additional item
+  const updateAdditionalItem = (id: number, field: 'description' | 'amount', value: string) => {
+    setAdditionalItems(prev => {
+      const updated = prev.map(item => {
+        if (item.id === id) {
+          if (field === 'amount') {
+            return { ...item, [field]: parseFloat(value) || 0 };
+          }
+          return { ...item, [field]: value };
+        }
+        return item;
+      });
+      
+      // Recalculate totals after updating
+      setTimeout(() => recalculateTotals(), 0);
+      
+      return updated;
+    });
+  };
+  
+  // Remove an additional item
+  const removeItem = (id: number) => {
+    setAdditionalItems(prev => {
+      const filtered = prev.filter(item => item.id !== id);
+      
+      // Recalculate totals after removing
+      setTimeout(() => recalculateTotals(), 0);
+      
+      return filtered;
+    });
+  };
   
   const handleCreateInvoice = async () => {
     if (!reportData || !client) {
@@ -258,13 +405,38 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
                           {entry.description} ({format(new Date(entry.date), "MMM d")})
                         </td>
                         <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900 border-r">
-                          {formatTime(
-                            typeof entry.adjustedDuration === 'number' 
-                              ? entry.adjustedDuration 
-                              : typeof entry.duration === 'number' 
-                                ? entry.duration 
-                                : parseFloat(entry.duration || '0'), 
-                            reportData.timeFormat as TimeFormat
+                          {isEditing ? (
+                            <Input
+                              type="text"
+                              className="w-24 h-8 p-1 text-sm font-mono"
+                              value={formatTime(
+                                 editableEntries.find(e => e.id === entry.id)?.editedDuration || 
+                                 (typeof entry.adjustedDuration === 'number' 
+                                   ? entry.adjustedDuration 
+                                   : typeof entry.duration === 'number' 
+                                      ? entry.duration 
+                                      : parseFloat(entry.duration || '0')),
+                                 reportData.timeFormat as TimeFormat
+                              )}
+                              onChange={(e) => {
+                                const timeValue = e.target.value;
+                                const durationInHours = parseTime(timeValue, reportData.timeFormat as TimeFormat);
+                                const entryToUpdate = editableEntries.find(e => e.id === entry.id);
+                                if (entryToUpdate) {
+                                  updateEntryDuration(entry.id, durationInHours, reportData.timeFormat as TimeFormat);
+                                }
+                              }}
+                            />
+                          ) : (
+                            formatTime(
+                              editableEntries.find(e => e.id === entry.id)?.editedDuration ||
+                              (typeof entry.adjustedDuration === 'number' 
+                                ? entry.adjustedDuration 
+                                : typeof entry.duration === 'number' 
+                                   ? entry.duration 
+                                   : parseFloat(entry.duration || '0')), 
+                              reportData.timeFormat as TimeFormat
+                            )
                           )}
                         </td>
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 border-r">
@@ -274,8 +446,17 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
                         </td>
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                           {client?.currency 
-                            ? formatCurrency(parseFloat(entry.amount), client.currency)
-                            : `$${parseFloat(entry.amount).toFixed(2)}`}
+                            ? formatCurrency(
+                                editableEntries.find(e => e.id === entry.id)?.amount
+                                  ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
+                                  : parseFloat(entry.amount),
+                                client.currency
+                              )
+                            : `$${(
+                                editableEntries.find(e => e.id === entry.id)?.amount
+                                  ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
+                                  : parseFloat(entry.amount)
+                              ).toFixed(2)}`}
                         </td>
                       </tr>
                     ))

@@ -124,6 +124,30 @@ export function roundTime(
 }
 
 /**
+ * Parse a time string (HH:MM:SS or decimal) to hours in decimal
+ * @param timeStr Time string in format "HH:MM:SS" or decimal string
+ * @returns Hours in decimal format
+ */
+export function parseTime(timeStr: string, format: 'decimal' | 'time' = 'time'): number {
+  if (format === 'decimal') {
+    return parseFloat(timeStr) || 0;
+  }
+  
+  // Try to parse HH:MM:SS format
+  const timeParts = timeStr.split(':');
+  if (timeParts.length === 3) {
+    const hours = parseInt(timeParts[0], 10) || 0;
+    const minutes = parseInt(timeParts[1], 10) || 0;
+    const seconds = parseInt(timeParts[2], 10) || 0;
+    
+    return hours + (minutes / 60) + (seconds / 3600);
+  }
+  
+  // Fallback - try to parse as decimal
+  return parseFloat(timeStr) || 0;
+}
+
+/**
  * Convert between currencies using accurate exchange rates
  */
 export function convertCurrency(amount: number, fromCurrency: string, toCurrency: string): number {
