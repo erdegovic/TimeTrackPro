@@ -519,6 +519,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process data to ensure types match schema
       const data = {...req.body};
       
+      console.log("Received invoice data:", {
+        clientId: data.clientId,
+        invoiceNumber: data.invoiceNumber,
+        subtotal: data.subtotal,
+        total: data.amount,
+        totalHours: data.totalHours,
+        hasEditedData: !!data.editedEntries
+      });
+      
       // Ensure taxRate is a string
       if (data.taxRate && typeof data.taxRate !== 'string') {
         data.taxRate = String(data.taxRate);
@@ -530,9 +539,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const additionalItemsTag = `\n\nADDITIONAL_ITEMS:${data.additionalItems}`;
         notes += additionalItemsTag;
       }
+      
+      // Store edited entries data if present
+      if (data.editedEntries) {
+        const editedEntriesTag = `\n\nEDITED_ENTRIES:${data.editedEntries}`;
+        notes += editedEntriesTag;
+      }
+      
+      // Remove additional data fields that aren't part of the schema
       delete data.additionalItems;
+      delete data.editedEntries;
       
       // Convert all numeric values to strings to pass validation
+      // IMPORTANT: Use the edited values that were calculated from the edited time entries
       const subtotal = String(data.subtotal || '0');
       const tax = String(data.tax || '0');
       const taxRate = String(data.taxRate || '0');

@@ -297,10 +297,41 @@ export default function InvoicePreview({
       // Get time entry IDs for marking as invoiced
       const timeEntryIds = reportData.timeEntries.map((entry: any) => entry.id);
       
-      // Calculate tax and total
-      const subtotal = reportData.totalAmount;
+      // Calculate correct totals based on edited entries
+      // Calculate the total hours from all edited entries
+      const totalHours = editableEntries.reduce((sum, entry) => {
+        // Always use the edited duration value
+        const duration = typeof entry.editedDuration === 'number' 
+          ? entry.editedDuration 
+          : typeof entry.duration === 'number'
+            ? entry.duration
+            : parseFloat(entry.duration || '0');
+        return sum + duration;
+      }, 0);
+      
+      // Calculate the subtotal from all edited entries amounts
+      const entriesSubtotal = editableEntries.reduce((sum, entry) => {
+        return sum + parseFloat(entry.amount.toString());
+      }, 0);
+      
+      // Add additional items to the total
+      const additionalItemsTotal = additionalItems.reduce((sum, item) => {
+        return sum + (item.amount || 0);
+      }, 0);
+      
+      // Calculate final subtotal and total
+      const subtotal = entriesSubtotal;
       const tax = enableTax ? subtotal * (taxRate / 100) : 0;
-      const total = subtotal + tax;
+      const total = subtotal + additionalItemsTotal + tax;
+      
+      console.log("Invoice calculated values:", {
+        totalHours,
+        entriesSubtotal,
+        additionalItemsTotal,
+        subtotal,
+        tax,
+        total
+      });
       
       // Create invoice with all necessary fields, using the edited values
       const invoiceData = {
@@ -309,15 +340,7 @@ export default function InvoicePreview({
         subtotal: subtotal,
         tax: tax,
         taxRate: String(enableTax ? taxRate : 0), // Send as string to match database schema
-        totalHours: editableEntries.reduce((sum, entry) => {
-          // Use the edited duration
-          const duration = typeof entry.editedDuration === 'number' 
-            ? entry.editedDuration 
-            : typeof entry.duration === 'number'
-              ? entry.duration
-              : parseFloat(entry.duration || '0');
-          return sum + duration;
-        }, 0),
+        totalHours: totalHours, // Use calculated total hours
         notes,
         timeEntryIds,
         currency: client.currency || 'USD', // Include currency
@@ -326,7 +349,9 @@ export default function InvoicePreview({
         invoiceNumber: invoiceNumber,
         status: 'draft',
         // Include additional items as JSON string
-        additionalItems: JSON.stringify(additionalItems)
+        additionalItems: JSON.stringify(additionalItems),
+        // Include edited time entries data to preserve edits
+        editedEntries: JSON.stringify(editableEntries)
       };
       
       console.log("Sending invoice data to server:", invoiceData);
