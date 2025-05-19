@@ -558,15 +558,8 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
                 <td colSpan={4} className="px-6 py-3 text-sm text-white text-right border-r">Total Due</td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-white">
                   {client?.currency
-                    ? formatCurrency(
-                        enableTax 
-                          ? reportData.totalAmount * (1 + taxRate / 100) 
-                          : reportData.totalAmount, 
-                        client.currency
-                      )
-                    : `$${(enableTax 
-                        ? reportData.totalAmount * (1 + taxRate / 100) 
-                        : reportData.totalAmount).toFixed(2)}`}
+                    ? formatCurrency(total, client.currency)
+                    : `$${total.toFixed(2)}`}
                 </td>
               </tr>
             </tbody>

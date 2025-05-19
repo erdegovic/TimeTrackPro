@@ -32,6 +32,7 @@ export default function TimeEntryRow({
   projects,
   timeFormat,
   onDelete,
+  isNew = false
 }: TimeEntryRowProps) {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
@@ -136,9 +137,14 @@ export default function TimeEntryRow({
     }
   };
 
+  // Add CSS class for new entries with animation
+  const newEntryClass = isNew 
+    ? "bg-green-100 transition-colors duration-3000 animate-highlight" 
+    : "";
+
   return (
     <>
-      <tr>
+      <tr className={newEntryClass}>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.description}</td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.client?.name || "—"}</td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.project?.name || "—"}</td>

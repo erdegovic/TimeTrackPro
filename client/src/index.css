@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes highlightFade {
+  0% { background-color: rgba(167, 243, 208, 0.8); }
+  100% { background-color: transparent; }
+}
+
+.animate-highlight {
+  animation: highlightFade 3s ease-out forwards;
+}
+
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 47.4% 11.2%;
