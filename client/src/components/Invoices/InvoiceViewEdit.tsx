@@ -648,14 +648,14 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
               </tr>
             ))}
             
-            {/* Add item button row */}
+            {/* Add item button row - centered */}
             <tr>
-              <td colSpan={5} className="p-3">
+              <td colSpan={5} className="p-3 text-center">
                 <button 
                   onClick={handleAddItem} 
-                  className="text-sm text-blue-500 hover:text-blue-700 flex items-center"
+                  className="text-sm text-blue-500 hover:text-blue-700 inline-flex items-center"
                 >
-                  + Add Item
+                  <span className="mr-1">+</span> Add Item
                 </button>
               </td>
             </tr>
