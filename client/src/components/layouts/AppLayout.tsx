@@ -1,5 +1,5 @@
 import { ReactNode, useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useNavigate } from "wouter";
 import { Logo } from "@/components/ui/logo";
 import { 
   Clock, 
@@ -41,6 +41,7 @@ type AppLayoutProps = {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const [location] = useLocation();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [hasActiveTimer, setHasActiveTimer] = useState(false);
@@ -52,6 +53,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
   } | null>(null);
 
   const closeSidebar = () => setSidebarOpen(false);
+  
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // Clear any user state/data if needed
+    localStorage.removeItem('user');
+    // Redirect to login page
+    navigate('/login?logout=true');
+  };
   
   // Check for active timer
   useEffect(() => {
@@ -227,12 +236,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
               variant="ghost" 
               size="sm" 
               className="w-full justify-start text-gray-600 hover:text-red-600 mt-1"
-              asChild
+              onClick={handleLogout}
             >
-              <Link href="/login">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Logout</span>
-              </Link>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Logout</span>
             </Button>
           </div>
         </div>

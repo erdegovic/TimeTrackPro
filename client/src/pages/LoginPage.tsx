@@ -25,6 +25,15 @@ export default function LoginPage() {
       });
     }
     
+    // Check for logout
+    if (searchParams.get('logout') === 'true') {
+      setStatusMessage({
+        type: 'success',
+        title: 'Logged Out',
+        message: 'You have been successfully logged out.'
+      });
+    }
+    
     // Check for verification error
     const error = searchParams.get('error');
     if (error) {
