@@ -8,7 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 import InvoicePreview from "./InvoicePreview";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { generatePdf } from "@/lib/pdf-generator-fixed";
+import { generatePdf } from "@/lib/pdf-generator-fixed-new";
 
 interface InvoiceEditorProps {
   invoice: Invoice | null;

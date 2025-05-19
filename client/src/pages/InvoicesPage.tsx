@@ -71,8 +71,39 @@ export default function InvoicesPage() {
     
     // Fetch invoice data
     try {
-      const res = await fetch(`/api/invoices/${invoice.id}`);
-      const invoiceData = await res.json();
+      // Get the full invoice data
+      const invoiceRes = await fetch(`/api/invoices/${invoice.id}`);
+      const invoiceData = await invoiceRes.json();
+      
+      // Get all time entries and filter by those with matching invoiceId
+      const entriesRes = await fetch(`/api/time-entries`);
+      const allTimeEntries = await entriesRes.json();
+      const invoiceEntries = allTimeEntries.filter((entry: any) => entry.invoiceId === invoice.id);
+      
+      console.log(`Found ${invoiceEntries.length} time entries for invoice ${invoice.id}`);
+      
+      // Parse additional items from notes if they exist
+      let notes = invoiceData.notes || "";
+      let additionalItems = [];
+      
+      if (notes.includes("ADDITIONAL_ITEMS:")) {
+        const parts = notes.split("ADDITIONAL_ITEMS:");
+        notes = parts[0].trim();
+        try {
+          additionalItems = JSON.parse(parts[1].trim());
+          console.log("Found additional items in invoice notes:", additionalItems);
+        } catch (e) {
+          console.error("Failed to parse additional items:", e);
+        }
+      }
+      
+      // Create report data
+      const reportData = {
+        timeEntries: invoiceEntries,
+        additionalItems,
+        totalHours: invoiceEntries.reduce((sum: number, entry: any) => sum + parseFloat(entry.duration || 0), 0),
+        totalAmount: Number(invoiceData.total)
+      };
       
       // Generate PDF
       const filename = `invoice-${invoice.invoiceNumber.replace('INV-', '')}.pdf`;
@@ -82,6 +113,7 @@ export default function InvoicesPage() {
         invoice: invoiceData,
         client,
         settings,
+        reportData, // Include report data with time entries
         type: "invoice"
       });
       
@@ -90,6 +122,7 @@ export default function InvoicesPage() {
         description: `Your invoice has been exported as ${filename}`,
       });
     } catch (error) {
+      console.error("Error exporting invoice:", error);
       toast({
         title: "Error",
         description: "Failed to export invoice. Please try again.",
@@ -135,7 +168,17 @@ export default function InvoicesPage() {
     },
     {
       header: "Amount",
-      accessorKey: (row: Invoice) => `$${Number(row.total).toFixed(2)}`,
+      accessorKey: (row: Invoice) => {
+        // Get client's currency
+        const client = clients.find(c => c.id === row.clientId);
+        const currency = client?.currency || 'USD';
+        
+        // Get the currency symbol
+        const symbol = currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : currency === 'RSD' ? 'RSD' : '$';
+        
+        // Format the amount with the correct currency symbol
+        return `${symbol}${Number(row.total).toFixed(2)}`;
+      },
       className: "text-right",
     },
     {

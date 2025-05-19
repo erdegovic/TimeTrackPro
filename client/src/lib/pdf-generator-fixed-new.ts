@@ -1,6 +1,8 @@
 import { TimeEntry, Client, Settings, Invoice } from "@shared/schema";
 import { formatTime, formatCurrency, convertCurrency } from "@/lib/utils/timeUtils";
 import { format } from "date-fns";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type PdfOptions = {
   filename: string;
@@ -30,31 +32,40 @@ type PdfOptions = {
  * @param options - Options for PDF generation
  */
 export async function generatePdf(options: PdfOptions): Promise<void> {
-  // Dynamically import jspdf and jspdf-autotable to reduce bundle size
-  const { jsPDF } = await import("jspdf");
-  const autoTable = await import("jspdf-autotable").then(m => m.default);
-  
   const doc = new jsPDF();
   
   if (options.type === "report") {
     generateReportPdf(doc, autoTable, options.reportData, options.filters);
   } else {
+    // Extract necessary information from options
+    const {
+      invoice,
+      client,
+      settings,
+      reportData,
+      invoiceNumber,
+      issueDate,
+      dueDate,
+      notes,
+      showDueDate
+    } = options;
+
     generateInvoicePdf({
-      doc, 
-      autoTable, 
-      client: options.client, 
-      settings: options.settings,
-      invoice: options.invoice,
-      reportData: options.reportData,
-      invoiceNumber: options.invoiceNumber,
-      issueDate: options.issueDate,
-      dueDate: options.dueDate,
-      notes: options.notes,
-      showDueDateOption: options.showDueDate
+      doc,
+      autoTable,
+      client,
+      settings,
+      invoice,
+      reportData,
+      invoiceNumber,
+      issueDate,
+      dueDate,
+      notes,
+      showDueDateOption: showDueDate
     });
   }
-  
-  // Save the PDF
+
+  // Save the document
   doc.save(options.filename);
 }
 
@@ -62,49 +73,61 @@ export async function generatePdf(options: PdfOptions): Promise<void> {
  * Generates a report PDF
  */
 function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: any) {
-  // Add title
-  doc.setFontSize(20);
+  // Set up document
+  doc.setFontSize(18);
   doc.text("Time Tracking Report", 14, 20);
   
-  // Add report date range
-  doc.setFontSize(12);
-  doc.text(`Period: ${filters.startDate} to ${filters.endDate}`, 14, 30);
+  // Add report details
+  doc.setFontSize(10);
+  doc.setTextColor(100);
   
-  // Add client and project filter info if applied
-  let yPos = 35;
-  if (filters.clientId) {
-    const client = reportData.timeEntries.find((e: any) => e.client?.id === filters.clientId)?.client;
-    if (client) {
-      doc.text(`Client: ${client.name}`, 14, yPos);
+  let yPos = 30;
+  
+  // Add filter information
+  if (filters) {
+    const startDate = filters.startDate ? format(new Date(filters.startDate), 'MMMM d, yyyy') : 'All time';
+    const endDate = filters.endDate ? format(new Date(filters.endDate), 'MMMM d, yyyy') : 'Present';
+    
+    doc.text(`Date Range: ${startDate} - ${endDate}`, 14, yPos);
+    yPos += 5;
+    
+    if (filters.clientId) {
+      const clientName = reportData.timeEntries[0]?.client?.name || 'Unknown Client';
+      doc.text(`Client: ${clientName}`, 14, yPos);
+      yPos += 5;
+    }
+    
+    if (filters.projectId) {
+      const projectName = reportData.timeEntries[0]?.project?.name || 'Unknown Project';
+      doc.text(`Project: ${projectName}`, 14, yPos);
+      yPos += 5;
+    }
+    
+    doc.text(`Time Format: ${filters.timeFormat === 'decimal' ? 'Decimal' : 'HH:MM:SS'}`, 14, yPos);
+    yPos += 5;
+    
+    if (filters.roundingType !== 'none') {
+      const roundingTypes: Record<string, string> = {
+        nearest_tenth: 'Nearest Tenth',
+        nearest_quarter: 'Nearest Quarter',
+        nearest_half: 'Nearest Half'
+      };
+      doc.text(`Rounding: ${roundingTypes[filters.roundingType] || filters.roundingType}`, 14, yPos);
+      yPos += 5;
+    }
+    
+    if (filters.timeAdjustment && filters.timeAdjustment.percentage > 0) {
+      doc.text(`Time Adjustment: ${filters.timeAdjustment.increaseByPercentage ? '+' : '-'}${filters.timeAdjustment.percentage}%`, 14, yPos);
       yPos += 5;
     }
   }
   
-  if (filters.projectId) {
-    const project = reportData.timeEntries.find((e: any) => e.project?.id === filters.projectId)?.project;
-    if (project) {
-      doc.text(`Project: ${project.name}`, 14, yPos);
-      yPos += 5;
-    }
-  }
-  
-  // Add time format and rounding info
-  doc.text(`Time Format: ${filters.timeFormat === 'decimal' ? 'Decimal' : 'Hours:Minutes:Seconds'}`, 14, yPos);
   yPos += 5;
   
-  const roundingLabels: Record<string, string> = {
-    'none': 'No rounding',
-    'nearest_tenth': 'Nearest 0.1 hour',
-    'nearest_quarter': 'Nearest 0.25 hour',
-    'nearest_half': 'Nearest 0.5 hour'
-  };
-  
-  doc.text(`Rounding: ${roundingLabels[filters.roundingType]}`, 14, yPos);
-  yPos += 10;
-  
-  // Generate table content
+  // Table content
   const tableContent: any[] = [];
   
+  // Add weekly data
   reportData.weeklyData.forEach((weekData: any) => {
     // Add week header
     tableContent.push([
@@ -114,21 +137,23 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
         styles: { fillColor: [240, 240, 240], fontStyle: 'bold' }
       },
       {
-        content: formatCurrency(weekData.totalAmount, 
-          filters.clientId && weekData.entries[0]?.client?.currency || 'USD'),
-        styles: { halign: 'right', fillColor: [240, 240, 240], fontStyle: 'bold' }
+        content: formatTime(weekData.totalDuration, filters.timeFormat),
+        styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
       }
     ]);
     
     // Add time entries for this week
     weekData.entries.forEach((entry: any) => {
+      // Get the client currency or use USD as fallback
+      const clientCurrency = entry.client?.currency || 'USD';
+      
       tableContent.push([
         format(new Date(entry.date), 'MMM d, yyyy'),
         entry.description,
         entry.client?.name || '—',
         entry.project?.name || '—',
         formatTime(entry.adjustedDuration || entry.duration, filters.timeFormat),
-        formatCurrency(parseFloat(entry.amount), entry.client?.currency || 'USD')
+        formatCurrency(parseFloat(entry.amount), clientCurrency)
       ]);
     });
   });
@@ -150,7 +175,11 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
       styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
     },
     {
-      content: formatCurrency(reportData.totalAmount, filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD'),
+      // Use the client's currency if filtering by client
+      content: formatCurrency(
+        reportData.totalAmount, 
+        filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD'
+      ),
       styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
     }
   ]);
@@ -216,7 +245,7 @@ function generateInvoicePdf(options: {
   
   // Parse the notes to extract additional items if present
   let invNotes = invoice?.notes || notes || "Thank you for your business.";
-  let additionalItems = [];
+  let additionalItems: any[] = [];
   
   // Extract additional items from notes if present
   if (invNotes.includes("ADDITIONAL_ITEMS:")) {
@@ -234,7 +263,8 @@ function generateInvoicePdf(options: {
   }
   
   // Determine which currency to use - client currency takes precedence
-  const invoiceCurrency = client.currency || 'USD';
+  const currencyToUse = client.currency || 'USD';
+  console.log("Using currency for PDF generation:", currencyToUse);
   
   // Add title and invoice number
   doc.setFontSize(24);
@@ -273,10 +303,11 @@ function generateInvoicePdf(options: {
   const toLines = [
     client.name,
     client.address,
-    `${client.city}, ${client.state} ${client.zipCode}`,
+    client.city && client.state ? `${client.city}, ${client.state} ${client.zipCode || ''}` : 
+      (client.city ? client.city : (client.state ? client.state : null)),
     client.country,
     client.email,
-    client.taxId ? `Tax ID: ${client.taxId}` : ''
+    client.taxId ? `Tax ID: ${client.taxId}` : null
   ].filter(Boolean);
   
   toLines.forEach(line => {
@@ -286,16 +317,13 @@ function generateInvoicePdf(options: {
     }
   });
   
-  // Invoice details section
+  // Add invoice details
   const detailsYStart = Math.max(fromY, toY) + 10;
+  let detailsY = detailsYStart;
   
-  doc.setFont(undefined, 'bold');
-  doc.text("Invoice Details:", 14, detailsYStart);
-  doc.text("Payment Details:", doc.internal.pageSize.width / 2 + 10, detailsYStart);
-  doc.setFont(undefined, 'normal');
+  doc.text(`Invoice #: ${invNumber}`, 14, detailsY);
+  detailsY += 6;
   
-  // Invoice details
-  let detailsY = detailsYStart + 8;
   doc.text(`Issue Date: ${format(new Date(invIssueDate), 'MMMM d, yyyy')}`, 14, detailsY);
   detailsY += 6;
   
@@ -312,16 +340,22 @@ function generateInvoicePdf(options: {
   doc.text(`Account Name: ${settings.bankAccountName || ''}`, doc.internal.pageSize.width / 2 + 10, paymentY);
   paymentY += 6;
   doc.text(`Account Number: ${settings.bankAccountNumber || ''}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+  paymentY += 6;
   
-  // Generate table content
+  if (settings.bankSortCode) {
+    doc.text(`Sort Code: ${settings.bankSortCode}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+    paymentY += 6;
+  }
+  
+  // Table for time entries
   const tableContent: any[] = [];
   const tableStartY = Math.max(detailsY, paymentY) + 15;
   
   let subtotal = 0;
   let totalHours = 0;
   
-  // Set the invoiceCurrency for use throughout the function
-  const usedCurrency = invoiceCurrency;
+  // Get the currency symbol for the used currency
+  const currencySymbol = currencyToUse === 'GBP' ? '£' : currencyToUse === 'EUR' ? '€' : '$';
   
   if (reportData) {
     // Use report data for generating invoice
@@ -335,7 +369,7 @@ function generateInvoicePdf(options: {
             styles: { fillColor: [240, 240, 240], fontStyle: 'bold' }
           },
           {
-            content: formatCurrency(weekData.totalAmount, usedCurrency),
+            content: formatCurrency(weekData.totalAmount, currencyToUse),
             styles: { halign: 'right', fillColor: [240, 240, 240], fontStyle: 'bold' }
           }
         ]);
@@ -365,9 +399,9 @@ function generateInvoicePdf(options: {
           
           tableContent.push([
             entry.description,
-            formatTime(duration, reportData.timeFormat),
-            formatCurrency(hourlyRate, usedCurrency),
-            formatCurrency(amount, usedCurrency)
+            formatTime(duration, reportData.timeFormat || 'decimal'),
+            formatCurrency(hourlyRate, currencyToUse),
+            formatCurrency(amount, currencyToUse)
           ]);
           
           subtotal += amount;
@@ -400,45 +434,14 @@ function generateInvoicePdf(options: {
         tableContent.push([
           entry.description,
           formatTime(duration, reportData.timeFormat || 'decimal'),
-          formatCurrency(hourlyRate, currency),
-          formatCurrency(amount, currency)
+          formatCurrency(hourlyRate, currencyToUse),
+          formatCurrency(amount, currencyToUse)
         ]);
         
         subtotal += amount;
         totalHours += duration;
       });
     }
-    
-    // Additional items will be added after the subtotal calculation
-    
-    // Use the calculated total from report data if available
-    if (typeof reportData.subtotal === 'number') {
-      subtotal = reportData.subtotal;
-    }
-    
-  } else if (invoice) {
-    // Use invoice data directly
-    subtotal = Number(invoice.subtotal);
-    
-    // TODO: Implement fetching time entries for this invoice if needed
-    tableContent.push([
-      {
-        content: 'Services rendered',
-        styles: {}
-      },
-      {
-        content: 'See attached details',
-        styles: {}
-      },
-      {
-        content: '',
-        styles: {}
-      },
-      {
-        content: formatCurrency(subtotal, currency),
-        styles: { halign: 'right' }
-      }
-    ]);
   }
   
   // Calculate tax based on settings
@@ -456,63 +459,6 @@ function generateInvoicePdf(options: {
     ? reportData.total 
     : invoice ? Number(invoice.total) : (subtotal + tax);
   
-  tableContent.push([
-    {
-      content: 'Subtotal',
-      colSpan: 3,
-      styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
-    },
-    {
-      content: formatCurrency(subtotal, currency),
-      styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] }
-    }
-  ]);
-  
-  // Include additional items after subtotal
-  if (reportData && reportData.additionalItems && reportData.additionalItems.length > 0) {
-    reportData.additionalItems.forEach((item: any) => {
-      tableContent.push([
-        {
-          content: item.description,
-          colSpan: 3,
-          styles: { fillColor: [255, 255, 255] }
-        },
-        {
-          content: formatCurrency(parseFloat(item.amount), currency),
-          styles: { halign: 'right', fillColor: [255, 255, 255] }
-        }
-      ]);
-    });
-  }
-  
-  // Only show tax row if tax is enabled or there's a tax amount
-  if (taxRate > 0 || tax > 0) {
-    tableContent.push([
-      {
-        content: `Tax (${taxRate}%)`,
-        colSpan: 3,
-        styles: { fillColor: [255, 255, 255] }
-      },
-      {
-        content: formatCurrency(tax, currency),
-        styles: { halign: 'right', fillColor: [255, 255, 255] }
-      }
-    ]);
-  }
-  
-  tableContent.push([
-    {
-      content: 'Total Due',
-      colSpan: 3,
-      styles: { fontStyle: 'bold', fillColor: [0, 165, 228], textColor: [255, 255, 255] }
-    },
-    {
-      content: formatCurrency(total, currency),
-      styles: { halign: 'right', fontStyle: 'bold', fillColor: [0, 165, 228], textColor: [255, 255, 255] }
-    }
-  ]);
-  
-  // Add table to document
   autoTable(doc, {
     startY: tableStartY,
     head: [['Description', 'Hours', 'Rate', 'Amount']],
@@ -525,31 +471,73 @@ function generateInvoicePdf(options: {
     },
     columnStyles: {
       3: { halign: 'right' }
-    }
+    },
+    styles: {
+      overflow: 'linebreak',
+      cellWidth: 'wrap',
+      cellPadding: 5
+    },
+    margin: { top: 10 }
   });
   
-  // Add notes section
-  try {
-    // Safe access to finalY - handle case where previousAutoTable might be undefined
-    const finalY = doc.previousAutoTable && doc.previousAutoTable.finalY 
-      ? doc.previousAutoTable.finalY + 15
-      : tableStartY + 100; // Fallback position
-      
-    doc.setFont(undefined, 'bold');
-    doc.text("Notes:", 14, finalY);
-    doc.setFont(undefined, 'normal');
-    doc.text(invNotes || '', 14, finalY + 8, { maxWidth: doc.internal.pageSize.width - 28 });
-  } catch (error) {
-    console.error("Error adding notes section to PDF:", error);
-    // Continue PDF generation even if notes section fails
+  // Add totals section
+  const finalY = (doc as any).lastAutoTable.finalY || tableStartY + 50;
+  
+  // Start with subtitle
+  let totalY = finalY + 15;
+  
+  // Add subtotal row
+  doc.setFontSize(10);
+  doc.text('Subtotal:', doc.internal.pageSize.width - 60, totalY);
+  doc.text(formatCurrency(subtotal, currencyToUse), doc.internal.pageSize.width - 15, totalY, { align: 'right' });
+  totalY += 6;
+  
+  // Add additional items if present (from reportData or extracted from notes)
+  const itemsToDisplay = reportData?.additionalItems || additionalItems;
+  if (itemsToDisplay && itemsToDisplay.length > 0) {
+    itemsToDisplay.forEach((item: any) => {
+      doc.text(item.description + ':', doc.internal.pageSize.width - 60, totalY);
+      doc.text(formatCurrency(Number(item.amount), currencyToUse), doc.internal.pageSize.width - 15, totalY, { align: 'right' });
+      totalY += 6;
+    });
   }
   
-  // Add footer with page numbers
+  // Add tax if applicable
+  if (tax > 0) {
+    doc.text(`Tax (${taxRate}%):`, doc.internal.pageSize.width - 60, totalY);
+    doc.text(formatCurrency(tax, currencyToUse), doc.internal.pageSize.width - 15, totalY, { align: 'right' });
+    totalY += 6;
+  }
+  
+  // Add total due
+  totalY += 2; // Add a bit more space
+  doc.setFillColor(0, 165, 228); // Light blue
+  doc.rect(doc.internal.pageSize.width - 100, totalY - 5, 100, 8, 'F');
+  doc.setTextColor(255); // White text
+  doc.setFontSize(12);
+  doc.text('Total Due:', doc.internal.pageSize.width - 60, totalY);
+  doc.text(formatCurrency(total, currencyToUse), doc.internal.pageSize.width - 15, totalY, { align: 'right' });
+  doc.setTextColor(0); // Reset to black
+  doc.setFontSize(10);
+  totalY += 15;
+  
+  // Add notes
+  if (invNotes) {
+    doc.setFontSize(11);
+    doc.text('Notes:', 14, totalY);
+    totalY += 6;
+    
+    // Split notes into lines
+    const notesLines = doc.splitTextToSize(invNotes, 180);
+    notesLines.forEach((line: string) => {
+      doc.text(line, 14, totalY);
+      totalY += 5;
+    });
+  }
+  
+  // Add page number
   const pageCount = doc.internal.getNumberOfPages();
   doc.setFontSize(10);
   doc.setTextColor(100);
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
-  }
+  doc.text(`Page ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
 }
