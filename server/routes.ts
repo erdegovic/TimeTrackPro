@@ -319,6 +319,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Ensure duration is stored as a string
         data.duration = String(data.duration);
         console.log("Updating duration to:", data.duration);
+        
+        // Get the original entry to calculate the amount
+        const originalEntry = await storage.getTimeEntry(id);
+        if (originalEntry && originalEntry.hourlyRate) {
+          const hourlyRate = parseFloat(originalEntry.hourlyRate);
+          const newDuration = parseFloat(data.duration);
+          if (!isNaN(hourlyRate) && !isNaN(newDuration)) {
+            // Calculate new amount based on hourly rate and duration
+            data.amount = String(hourlyRate * newDuration);
+            console.log(`Recalculated amount: ${data.amount} based on rate: ${hourlyRate} and duration: ${newDuration}`);
+          }
+        }
       }
       
       // For time entry updates, we'll use a simpler approach - completely avoid date fields
