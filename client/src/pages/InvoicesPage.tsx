@@ -329,22 +329,23 @@ export default function InvoicesPage() {
           </DialogHeader>
           
           {editingInvoice && (
-            <InvoicePreview 
-              reportData={{
-                timeEntries: [],
-                weeklyData: [], 
-                totalHours: 0,
-                totalAmount: 0,
-                timeFormat: 'decimal'
-              }} 
-              invoice={editingInvoice}
-              clientId={editingInvoice.clientId}
-              onEditInvoice={() => {
-                setIsEditDialogOpen(false);
-                setEditingInvoice(null);
-              }}
-              isEditing={true}
-            />
+            <div className="space-y-4">
+              <InvoicePreview 
+                reportData={{
+                  timeEntries: [],
+                  weeklyData: [], 
+                  totalHours: 0,
+                  totalAmount: 0,
+                  timeFormat: 'decimal'
+                }} 
+                clientId={editingInvoice.clientId}
+                onEditInvoice={() => {
+                  setIsEditDialogOpen(false);
+                  setEditingInvoice(null);
+                  queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+                }}
+              />
+            </div>
           )}
         </DialogContent>
       </Dialog>

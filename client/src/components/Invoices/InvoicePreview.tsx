@@ -52,7 +52,6 @@ export default function InvoicePreview({
 }: InvoicePreviewProps) {
   const { toast } = useToast();
   const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [editMode, setEditMode] = useState(isEditing);
   const [editableEntries, setEditableEntries] = useState<any[]>([]);
   const [additionalItems, setAdditionalItems] = useState<{
     description: string;
