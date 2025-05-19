@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ReportFilters from "@/components/Reports/ReportFilters";
 import ReportTable from "@/components/Reports/ReportTable";
@@ -11,6 +12,10 @@ export default function ReportsPage() {
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any>(null);
   const [selectedClientId, setSelectedClientId] = useState<number | undefined>(undefined);
+  const [additionalItems, setAdditionalItems] = useState<any[]>([]);
+  const [invoiceNotes, setInvoiceNotes] = useState("");
+  const [invoiceDueDate, setInvoiceDueDate] = useState("");
+  const [invoiceShowDueDate, setInvoiceShowDueDate] = useState(true);
 
   const handleApplyFilters = (filters: ReportFiltersType) => {
     setCurrentFilters(filters);
@@ -91,7 +96,21 @@ export default function ReportsPage() {
             <InvoicePreview 
               reportData={invoiceData} 
               clientId={selectedClientId}
-              onEditInvoice={() => setShowInvoicePreview(false)}
+              additionalItems={additionalItems}
+              setAdditionalItems={setAdditionalItems}
+              notes={invoiceNotes}
+              setNotes={setInvoiceNotes}
+              dueDate={invoiceDueDate}
+              setDueDate={setInvoiceDueDate}
+              showDueDate={invoiceShowDueDate}
+              setShowDueDate={setInvoiceShowDueDate}
+              invoiceNumber={`INV-${new Date().getTime().toString().slice(-6)}`}
+              issueDate={format(new Date(), 'yyyy-MM-dd')}
+              onEditInvoice={() => {
+                // Go to create invoice page with data
+                console.log("Edit invoice clicked - would go to edit page");
+                setShowInvoicePreview(false);
+              }}
             />
           )}
         </DialogContent>
