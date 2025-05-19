@@ -1,206 +1,219 @@
+import { TimeFormat } from "@shared/schema";
+
 /**
- * Format time value into a string
- * Handles formatting in either decimal format or HH:MM:SS format
- * Can accept either seconds or decimal hours as input
+ * Formats a time in decimal hours to either decimal or HH:MM:SS format
+ * @param hours Time in decimal hours
+ * @param format The format to display (decimal or time)
+ * @returns A formatted string representation of the time
  */
-export function formatTime(value: number, format: 'decimal' | 'time' = 'time'): string {
-  // Check if the value is already in hours (anything less than 100 is likely hours, not seconds)
-  // This handles cases where the duration is stored in decimal hours instead of seconds
-  const isValueInHours = value < 100;
+export function formatTime(hours: number, format: TimeFormat = "decimal"): string {
+  if (isNaN(hours)) {
+    console.error("Invalid hours value:", hours);
+    return "0";
+  }
   
-  // Convert everything to seconds for consistent processing
-  const seconds = isValueInHours ? value * 3600 : value;
-  
-  if (format === 'decimal') {
-    // Convert to hours with 2 decimal places
-    return (seconds / 3600).toFixed(2);
+  if (format === "decimal") {
+    // Format as decimal with 2 decimal places
+    return Number(hours).toFixed(2);
   } else {
     // Format as HH:MM:SS
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
+    const totalMinutes = Math.floor(hours * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = Math.floor(totalMinutes % 60);
+    const s = Math.floor((hours * 3600) % 60);
     
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
 }
 
 /**
- * Convert a decimal hours value to a time string (HH:MM:SS)
+ * Converts a time string in the format HH:MM:SS to decimal hours
+ * @param timeString A string in HH:MM:SS format
+ * @returns Decimal hours
  */
-export function formatTimeFromDecimal(decimalHours: number): string {
-  // Convert to seconds first
-  const totalSeconds = Math.round(decimalHours * 3600);
-  return formatTime(totalSeconds);
-}
-
-/**
- * Calculate duration between two timestamps in hours (decimal)
- */
-export function calculateDuration(startTime: number, endTime: number): number {
-  const diffMs = endTime - startTime;
-  const diffHours = diffMs / (1000 * 60 * 60);
-  return parseFloat(diffHours.toFixed(4)); // Keep 4 decimal places for precision
-}
-
-/**
- * Format currency value based on the provided currency code
- */
-export function formatCurrency(amount: number, currencyCode: string = 'USD'): string {
-  const currencySymbols: {[key: string]: string} = {
-    'USD': '$',
-    'EUR': '€',
-    'GBP': '£',
-    'JPY': '¥',
-    'CAD': 'CA$',
-    'AUD': 'A$',
-    'INR': '₹',
-    'CNY': '¥',
-    'BRL': 'R$',
-    'ZAR': 'R',
-    'RSD': 'RSD'
-  };
-  
-  const symbol = currencySymbols[currencyCode] || currencyCode;
-  
-  // Format with 2 decimal places
-  const formattedAmount = amount.toFixed(2);
-  
-  // For most currencies, the symbol comes before the amount
-  if (['RSD', 'SEK', 'DKK', 'NOK'].includes(currencyCode)) {
-    return `${formattedAmount} ${symbol}`;
-  } else {
-    return `${symbol}${formattedAmount}`;
+export function timeStringToDecimal(timeString: string): number {
+  // Handle empty string
+  if (!timeString || timeString.trim() === '') {
+    return 0;
   }
-}
-
-/**
- * Get client currency from a client ID using cached client data
- */
-export function getClientCurrency(clientId: number): string {
+  
   try {
-    const cachedClients = localStorage.getItem("cachedClients");
-    if (cachedClients) {
-      const clients = JSON.parse(cachedClients);
-      const client = clients.find((c: any) => c.id === clientId);
-      return client?.currency || 'USD';
+    // Split the time string by ":"
+    const parts = timeString.split(':');
+    
+    if (parts.length === 3) {
+      // Format is HH:MM:SS
+      const hours = parseInt(parts[0], 10);
+      const minutes = parseInt(parts[1], 10) / 60;
+      const seconds = parseInt(parts[2], 10) / 3600;
+      
+      return hours + minutes + seconds;
+    } else if (parts.length === 2) {
+      // Format is HH:MM
+      const hours = parseInt(parts[0], 10);
+      const minutes = parseInt(parts[1], 10) / 60;
+      
+      return hours + minutes;
+    } else {
+      // Assume it's just hours
+      return parseFloat(timeString);
     }
   } catch (error) {
-    console.error("Error getting client currency:", error);
+    console.error("Error parsing time string:", error);
+    return 0;
   }
-  return 'USD'; // Default to USD if client not found
 }
 
 /**
- * Adjust time by a percentage increase
- * @param duration Duration in hours (decimal)
- * @param percentage Percentage to increase by
- * @returns Adjusted duration in hours
+ * Formats a currency value according to a currency code
+ * @param amount The monetary amount
+ * @param currencyCode The ISO currency code (e.g., USD, EUR)
+ * @returns A formatted currency string
  */
-export function adjustTime(duration: number, percentage: number): number {
-  return duration * (1 + percentage / 100);
+export function formatCurrency(amount: number, currencyCode: string = 'USD'): string {
+  if (isNaN(amount)) {
+    console.error("Invalid amount value:", amount);
+    return "0.00";
+  }
+  
+  // Use Intl.NumberFormat for proper currency formatting
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currencyCode,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount);
 }
 
 /**
- * Round time according to the specified rounding type
- * @param duration Duration in hours (decimal)
+ * Rounds a decimal hours value according to the specified rounding type
+ * @param hours Decimal hours to round
  * @param roundingType Type of rounding to apply
- * @returns Rounded duration in hours
+ * @returns Rounded decimal hours
  */
-export function roundTime(
-  duration: number, 
-  roundingType: 'none' | 'nearest_tenth' | 'nearest_quarter' | 'nearest_half'
-): number {
+export function roundTime(hours: number, roundingType: string): number {
+  if (isNaN(hours)) {
+    console.error("Invalid hours value for rounding:", hours);
+    return 0;
+  }
+  
   switch (roundingType) {
     case 'nearest_tenth':
-      return Math.round(duration * 10) / 10;
+      return Math.round(hours * 10) / 10;
     case 'nearest_quarter':
-      return Math.round(duration * 4) / 4;
+      return Math.round(hours * 4) / 4;
     case 'nearest_half':
-      return Math.round(duration * 2) / 2;
+      return Math.round(hours * 2) / 2;
     case 'none':
     default:
-      return duration;
+      return hours;
   }
 }
 
 /**
- * Parse a time string (HH:MM:SS or decimal) to hours in decimal
- * @param timeStr Time string in format "HH:MM:SS" or decimal string
- * @returns Hours in decimal format
+ * Adjusts time by a percentage (increase or decrease)
+ * @param hours Original hours
+ * @param percentage Percentage to adjust by
+ * @param increaseByPercentage Whether to increase (true) or decrease (false)
+ * @returns Adjusted time
  */
-export function parseTime(timeStr: string, format: 'decimal' | 'time' = 'time'): number {
-  if (format === 'decimal') {
-    return parseFloat(timeStr) || 0;
+export function adjustTime(
+  hours: number,
+  percentage: number,
+  increaseByPercentage: boolean = true
+): number {
+  if (isNaN(hours)) {
+    console.error("Invalid hours value for adjustment:", hours);
+    return 0;
   }
   
-  // Try to parse HH:MM:SS format
-  const timeParts = timeStr.split(':');
-  if (timeParts.length === 3) {
-    const hours = parseInt(timeParts[0], 10) || 0;
-    const minutes = parseInt(timeParts[1], 10) || 0;
-    const seconds = parseInt(timeParts[2], 10) || 0;
-    
-    return hours + (minutes / 60) + (seconds / 3600);
+  if (isNaN(percentage) || percentage < 0) {
+    console.error("Invalid percentage value:", percentage);
+    return hours;
   }
   
-  // Fallback - try to parse as decimal
-  return parseFloat(timeStr) || 0;
+  const factor = percentage / 100;
+  
+  return increaseByPercentage
+    ? hours * (1 + factor)  // Increase
+    : hours * (1 - factor); // Decrease
 }
 
 /**
- * Convert between currencies using accurate exchange rates
+ * Converts an amount from one currency to another using a conversion rate
+ * @param amount Amount to convert
+ * @param fromCurrency Source currency code
+ * @param toCurrency Target currency code
+ * @param conversionRates Optional conversion rate map
+ * @returns Converted amount
  */
-export function convertCurrency(amount: number, fromCurrency: string, toCurrency: string): number {
+export function convertCurrency(
+  amount: number,
+  fromCurrency: string,
+  toCurrency: string,
+  conversionRates?: Record<string, Record<string, number>>
+): number {
   // If currencies are the same, no conversion needed
-  if (fromCurrency === toCurrency) return amount;
+  if (fromCurrency === toCurrency) {
+    return amount;
+  }
   
-  // Define exchange rates (as of May 2025)
-  // Using accurate rates where 12.8 USD = 9.64 GBP
-  const rates: {[key: string]: {[key: string]: number}} = {
+  // Default conversion rates (very simplified)
+  // In a real app, these would come from an API
+  const defaultRates: Record<string, Record<string, number>> = {
     'USD': {
-      'EUR': 0.9125,
-      'GBP': 0.7531,  // Fixed: 12.8 USD = 9.64 GBP (0.7531 rate)
-      'CAD': 1.3584,
-      'RSD': 109.52
+      'EUR': 0.92,
+      'GBP': 0.78,
+      'CAD': 1.36,
+      'AUD': 1.51,
+      'JPY': 150.29,
+      'CNY': 7.25,
+      'RSD': 108.55
     },
     'EUR': {
-      'USD': 1.0959,
-      'GBP': 0.8253,
-      'CAD': 1.4887,
-      'RSD': 120.02
+      'USD': 1.09,
+      'GBP': 0.85,
+      'CAD': 1.48,
+      'AUD': 1.64,
+      'JPY': 163.61,
+      'CNY': 7.88,
+      'RSD': 117.34
     },
     'GBP': {
-      'USD': 1.3279,  // Fixed: Inverse of USD to GBP
-      'EUR': 1.2117,
-      'CAD': 1.8038,
-      'RSD': 145.43
-    },
-    'CAD': {
-      'USD': 0.7362,
-      'EUR': 0.6718,
-      'GBP': 0.5544,
-      'RSD': 80.63
+      'USD': 1.28,
+      'EUR': 1.18,
+      'CAD': 1.74,
+      'AUD': 1.94,
+      'JPY': 193.43,
+      'CNY': 9.31,
+      'RSD': 139.18
     },
     'RSD': {
-      'USD': 0.00913,
-      'EUR': 0.00833,
-      'GBP': 0.00688,
-      'CAD': 0.01240
+      'USD': 0.0092,
+      'EUR': 0.0085,
+      'GBP': 0.0072,
+      'CAD': 0.0126,
+      'AUD': 0.0139,
+      'JPY': 1.39
     }
   };
   
-  // Perform conversion
+  // Use provided rates or default to our simplified set
+  const rates = conversionRates || defaultRates;
+  
+  // Get the conversion rate
   if (rates[fromCurrency] && rates[fromCurrency][toCurrency]) {
-    return parseFloat((amount * rates[fromCurrency][toCurrency]).toFixed(4));
+    return amount * rates[fromCurrency][toCurrency];
   }
   
-  // If no direct conversion rate, convert via USD
-  if (fromCurrency !== 'USD' && toCurrency !== 'USD') {
-    const toUSD = convertCurrency(amount, fromCurrency, 'USD');
-    return convertCurrency(toUSD, 'USD', toCurrency);
+  // If direct conversion not available, try via USD as a bridge
+  if (fromCurrency !== 'USD' && rates[fromCurrency] && rates[fromCurrency]['USD'] &&
+      rates['USD'] && rates['USD'][toCurrency]) {
+    const usdAmount = amount * rates[fromCurrency]['USD'];
+    return usdAmount * rates['USD'][toCurrency];
   }
   
-  // Default: return original amount if no conversion possible
-  console.error(`No conversion rate available for ${fromCurrency} to ${toCurrency}`);
+  // If no conversion rate available, return original amount
+  console.warn(`No conversion rate available from ${fromCurrency} to ${toCurrency}`);
   return amount;
 }

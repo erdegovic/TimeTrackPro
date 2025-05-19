@@ -13,6 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TimeEntry, Client, Project } from "@shared/schema";
+import { formatTime, timeStringToDecimal } from "@/lib/utils/timeUtils";
 
 interface TimeEntryRowProps {
   entry: TimeEntry & { 
