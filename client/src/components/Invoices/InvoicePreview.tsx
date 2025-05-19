@@ -146,19 +146,8 @@ export default function InvoicePreview({
   
   // Handle toggling edit mode
   const handleToggleEdit = () => {
-    if (!isEditing) {
-      setIsEditing(true);
-    } else {
-      // Exit edit mode and reset entries if needed
-      setIsEditing(false);
-      // If you want to discard changes when exiting, uncomment:
-      // if (reportData && reportData.timeEntries) {
-      //   const resetData = reportData.timeEntries.map((entry: any) => ({
-      //     ...entry,
-      //     editedDuration: entry.adjustedDuration || entry.duration,
-      //   }));
-      //   setEditableEntries(resetData);
-      // }
+    if (onEditInvoice) {
+      onEditInvoice();
     }
   };
   
@@ -769,9 +758,9 @@ export default function InvoicePreview({
         
         <div className="flex justify-between">
           <div>
-            <Button variant="outline" onClick={isEditing ? handleToggleEdit : handleToggleEdit}>
+            <Button variant="outline" onClick={handleToggleEdit}>
               <Edit className="mr-2 h-4 w-4" />
-              {isEditing ? "Done Editing" : "Edit Invoice"}
+              Edit Invoice
             </Button>
           </div>
           <div className="space-x-2">
