@@ -446,11 +446,14 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
         totalAmount: totalAmount
       });
       
-      // Generate PDF
+      // Generate PDF - pass current notes instead of relying on invoice.notes which has metadata
       await generatePdf({
         filename,
         type: "invoice",
-        invoice,
+        invoice: {
+          ...invoice,
+          notes: notes // Use the clean notes from the form
+        },
         client,
         settings,
         reportData: exportData,
