@@ -18,7 +18,6 @@ interface InvoiceViewEditProps {
 export default function InvoiceViewEdit({ invoice, onClose, onSave }: InvoiceViewEditProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
   const [notes, setNotes] = useState("");
   const [timeEntries, setTimeEntries] = useState<any[]>([]);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
@@ -51,6 +50,7 @@ export default function InvoiceViewEdit({ invoice, onClose, onSave }: InvoiceVie
   const loadInvoiceData = async () => {
     try {
       setIsLoading(true);
+      console.log("Loading invoice data for editing:", invoice);
       
       // Parse notes and additional items
       let invoiceNotes = invoice.notes || "";
@@ -120,20 +120,34 @@ export default function InvoiceViewEdit({ invoice, onClose, onSave }: InvoiceVie
         projectsMap.set(project.id, project);
       });
 
-      // Enhance time entries with project data
+      // Enhance time entries with project data and calculate amounts
       const enhancedEntries = invoiceEntries.map((entry: any) => {
         // Add project data if missing
         const project = entry.project || projectsMap.get(entry.projectId);
         
+        // Get hourly rate from project
+        const hourlyRate = parseFloat(project?.hourlyRate || "0");
+        
         // Get edited values if they exist
         const editedEntry = editedEntriesList.find((e: any) => e.id === entry.id);
+        
+        // Calculate or use existing values
         const duration = editedEntry ? editedEntry.duration : entry.duration;
-        const amount = editedEntry ? editedEntry.amount : (parseFloat(project?.hourlyRate || 0) * parseFloat(duration || 0)).toFixed(2);
+        let amount;
+        
+        if (editedEntry) {
+          // Use the edited amount if available
+          amount = editedEntry.amount;
+        } else {
+          // Otherwise calculate it from duration and hourly rate
+          const durationValue = parseFloat(duration || "0");
+          amount = (hourlyRate * durationValue).toFixed(2);
+        }
         
         return {
           ...entry,
           project,
-          hourlyRate: project?.hourlyRate || 0,
+          hourlyRate,
           duration,
           amount,
           wasEdited: !!editedEntry
@@ -482,33 +496,22 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
       {/* Notes Section */}
       <div className="mb-8">
         <h3 className="font-medium mb-2">Notes</h3>
-        {isEditing ? (
-          <Textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={4}
-            className="w-full"
-          />
-        ) : (
-          <div className="border p-3 rounded-md min-h-24 text-sm text-gray-700">
-            {notes}
-          </div>
-        )}
+        <Textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={4}
+          className="w-full"
+        />
       </div>
       
       {/* Action Buttons */}
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setIsEditing(!isEditing)}>
-          <Edit className="h-4 w-4 mr-2" /> Edit Invoice
+      <div className="flex justify-end space-x-2">
+        <Button variant="outline" onClick={handleSaveInvoice}>
+          Save Invoice
         </Button>
-        <div className="space-x-2">
-          <Button variant="outline" onClick={handleSaveInvoice}>
-            Save Invoice
-          </Button>
-          <Button onClick={handleExportPdf}>
-            <FileText className="h-4 w-4 mr-2" /> PDF
-          </Button>
-        </div>
+        <Button onClick={handleExportPdf}>
+          <FileText className="h-4 w-4 mr-2" /> PDF
+        </Button>
       </div>
     </div>
   );
