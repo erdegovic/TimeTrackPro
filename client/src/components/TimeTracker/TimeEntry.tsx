@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Edit, Copy, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -13,6 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TimeEntry, Client, Project } from "@shared/schema";
+import { formatDecimalToTime, parseTimeToDecimal, formatDurationDisplay } from "./TimeEntryFormats";
 
 interface TimeEntryRowProps {
   entry: TimeEntry & { 
@@ -38,6 +39,14 @@ export default function TimeEntryRow({
   const [isEditing, setIsEditing] = useState(false);
   const [editedEntry, setEditedEntry] = useState({ ...entry });
   const [editedClientId, setEditedClientId] = useState(entry.project?.clientId?.toString() || "");
+  const [timeInputValue, setTimeInputValue] = useState("");
+  
+  // Set initial time input value when dialog opens
+  useEffect(() => {
+    if (isEditing && timeFormat === "time") {
+      setTimeInputValue(formatDecimalToTime(editedEntry.duration || "0"));
+    }
+  }, [isEditing, timeFormat, editedEntry.duration]);
 
   // Filtered projects for the selected client
   const clientProjects = editedClientId 
@@ -46,30 +55,12 @@ export default function TimeEntryRow({
 
   const handleEdit = async () => {
     try {
-      // Get duration value, ensuring it's a valid number
-      let newDuration = 0;
-      
-      // Check if we're using time format
-      if (timeFormat === "time") {
-        // For time format, try to parse the current display value
-        const timeValue = formatDuration(editedEntry.duration || "0");
-        if (timeValue.includes(':')) {
-          const parts = timeValue.split(':');
-          const hours = parseInt(parts[0]) || 0;
-          const minutes = parts.length > 1 ? parseInt(parts[1]) / 60 : 0;
-          const seconds = parts.length > 2 ? parseInt(parts[2]) / 3600 : 0;
-          newDuration = hours + minutes + seconds;
-        }
-      } 
-      
-      // If no valid time input or not using time format, parse the duration directly
-      if (isNaN(newDuration) || newDuration === 0) {
-        newDuration = parseFloat(String(editedEntry.duration || '0'));
-      }
+      // Get the duration directly from our edited entry state which holds the correct decimal value
+      let newDuration = parseFloat(editedEntry.duration || "0");
       
       // Final safety check
       if (isNaN(newDuration)) {
-        throw new Error("Duration must be a valid number or time format");
+        throw new Error("Duration must be a valid number");
       }
       
       console.log("Updating time entry with new duration:", newDuration, "hours");
@@ -79,7 +70,7 @@ export default function TimeEntryRow({
       const durationMs = newDuration * 60 * 60 * 1000; // Convert hours to milliseconds
       const newEndTime = new Date(startTime.getTime() + durationMs);
       
-      // Store duration as decimal string with 2 decimal places
+      // Store duration as decimal string with 2 decimal places to ensure consistency
       const formattedDuration = newDuration.toFixed(2);
       
       // Build update object with all necessary fields
@@ -135,6 +126,7 @@ export default function TimeEntryRow({
   };
 
   // Format duration with precise time conversion - using the start and end times directly
+  // Format duration for display in the table
   const formatDuration = (duration: string | number) => {
     // If we have start and end times in the entry, calculate the exact duration from those
     if (entry.startTime && entry.endTime) {
@@ -160,7 +152,7 @@ export default function TimeEntryRow({
       }
     }
     
-    // Fallback to using the duration field if no start/end times
+    // Fallback to using the duration field directly if no start/end times
     let durationNum = 0;
     try {
       if (typeof duration === "string") {
@@ -169,32 +161,10 @@ export default function TimeEntryRow({
         durationNum = duration;
       }
       
-      if (timeFormat === "decimal") {
-        return `${durationNum.toFixed(2)}h`;
-      } else {
-        // Convert hours to HH:MM:SS with proper handling of edge cases
-        const hours = Math.floor(durationNum);
-        const minutesDecimal = (durationNum - hours) * 60;
-        const minutes = Math.floor(minutesDecimal);
-        
-        // Calculate seconds, ensuring we don't get 60 seconds due to floating point imprecision
-        let seconds = Math.round((minutesDecimal - minutes) * 60);
-        
-        // Handle cases where seconds rounds to 60
-        if (seconds === 60) {
-          seconds = 0;
-          const adjustedMinutes = minutes + 1;
-          
-          // Handle cases where minutes becomes 60
-          if (adjustedMinutes === 60) {
-            return `${(hours + 1).toString().padStart(2, '0')}:00:00`;
-          } else {
-            return `${hours.toString().padStart(2, '0')}:${adjustedMinutes.toString().padStart(2, '0')}:00`;
-          }
-        }
-        
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      }
+      // Use our utility functions for consistent formatting
+      return timeFormat === "decimal" 
+        ? `${durationNum.toFixed(2)}h` 
+        : formatDecimalToTime(durationNum);
     } catch (e) {
       console.error("Error formatting duration:", e, duration);
       return timeFormat === "decimal" ? "0.00h" : "00:00:00";
@@ -306,41 +276,33 @@ export default function TimeEntryRow({
                   // Time format (HH:MM:SS)
                   <Input
                     type="text"
-                    value={formatDuration(editedEntry.duration || "0").replace('h', '')}
+                    value={timeInputValue}
                     onChange={(e) => {
-                      const inputValue = e.target.value;
+                      const value = e.target.value;
                       
-                      // Allow only time format input with loose validation
-                      if (inputValue === "" || /^[0-9:]*$/.test(inputValue)) { 
+                      // Only allow proper time format characters
+                      if (value === "" || /^[0-9:]*$/.test(value)) {
+                        // First, update the visible input value for immediate feedback
+                        setTimeInputValue(value);
+                        
                         try {
-                          if (inputValue.includes(':')) {
-                            const parts = inputValue.split(':');
+                          // If it has colons, try to parse it as time format
+                          if (value.includes(':')) {
+                            // Convert the time format to decimal hours
+                            const decimalValue = parseTimeToDecimal(value);
                             
-                            // Get hours, minutes, seconds from parts
-                            let hours = parts[0] ? parseInt(parts[0]) : 0;
-                            let minutes = (parts.length > 1 && parts[1]) ? parseInt(parts[1]) : 0;
-                            let seconds = (parts.length > 2 && parts[2]) ? parseInt(parts[2]) : 0;
+                            console.log("Parsed time", value, "to decimal:", decimalValue);
                             
-                            // Safety bounds check
-                            if (isNaN(hours)) hours = 0;
-                            if (isNaN(minutes) || minutes >= 60) minutes = 0;
-                            if (isNaN(seconds) || seconds >= 60) seconds = 0;
-                            
-                            // Calculate decimal hours
-                            const totalMinutes = (hours * 60) + minutes + (seconds / 60);
-                            const decimalHours = (totalMinutes / 60).toFixed(2);
-                            
-                            console.log("Setting new duration from time:", inputValue, "to decimal:", decimalHours);
-                            
-                            // Update the duration field with the decimal value
+                            // Update the decimal value in the entry
                             setEditedEntry({
                               ...editedEntry,
-                              duration: decimalHours
+                              duration: decimalValue.toString()
                             });
-                          } else if (inputValue === "") {
+                          } else if (value === "") {
+                            // Empty input = zero
                             setEditedEntry({
                               ...editedEntry,
-                              duration: "0.00"
+                              duration: "0"
                             });
                           }
                         } catch (e) {
