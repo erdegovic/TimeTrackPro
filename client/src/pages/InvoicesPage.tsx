@@ -12,7 +12,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { generatePdf } from "@/lib/pdf-generator";
 import { Invoice, Client, Settings } from "@shared/schema";
-import InvoiceEditor from "@/components/Invoices/InvoiceEditor";
+// Make sure to use relative path for imports
+import InvoiceEditor from "../components/Invoices/InvoiceEditor";
 
 export default function InvoicesPage() {
   const { toast } = useToast();
@@ -227,8 +228,22 @@ export default function InvoicesPage() {
             variant="ghost" 
             size="icon" 
             onClick={() => {
-              setEditingInvoice(row);
-              setIsEditDialogOpen(true);
+              // When clicking edit, fetch the full invoice data first
+              fetch(`/api/invoices/${row.id}`)
+                .then(res => res.json())
+                .then(fullInvoiceData => {
+                  console.log("Fetched full invoice data for editing:", fullInvoiceData);
+                  setEditingInvoice(fullInvoiceData);
+                  setIsEditDialogOpen(true);
+                })
+                .catch(err => {
+                  console.error("Error fetching invoice data:", err);
+                  toast({
+                    title: "Error",
+                    description: "Failed to load invoice data for editing.",
+                    variant: "destructive",
+                  });
+                });
             }}
             className="h-8 w-8"
             title="Edit Invoice"

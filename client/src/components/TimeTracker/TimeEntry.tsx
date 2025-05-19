@@ -49,10 +49,10 @@ export default function TimeEntryRow({
       // Get duration value, ensuring it's a valid number
       let newDuration = 0;
       
-      // Check if we're using time format and we have a raw time input
-      if (timeFormat === "time" && editedEntry._timeInput) {
-        // Parse from the raw time input the user entered
-        const timeValue = editedEntry._timeInput;
+      // Check if we're using time format
+      if (timeFormat === "time") {
+        // For time format, try to parse the current display value
+        const timeValue = formatDuration(editedEntry.duration || "0");
         if (timeValue.includes(':')) {
           const parts = timeValue.split(':');
           const hours = parseInt(parts[0]) || 0;
@@ -290,11 +290,7 @@ export default function TimeEntryRow({
                       
                       // Allow time format input with loose validation to make editing easier
                       if (timeValue === "" || /^[0-9:]*$/.test(timeValue)) { 
-                        // Store the raw time value directly in a temporary field so we can track what the user is typing
-                        setEditedEntry({ 
-                          ...editedEntry, 
-                          _timeInput: timeValue 
-                        });
+                        // We'll just try to parse it and update the duration directly
                         
                         // Only try to parse as time if it has a colon
                         if (timeValue.includes(':')) {
@@ -309,8 +305,7 @@ export default function TimeEntryRow({
                             console.log("Setting new duration from time:", timeValue, "to decimal:", decimalHours);
                             setEditedEntry({ 
                               ...editedEntry, 
-                              duration: decimalHours,
-                              _timeInput: timeValue
+                              duration: decimalHours
                             });
                           } catch (e) {
                             // If parsing fails, we still save the input but don't update the duration yet
