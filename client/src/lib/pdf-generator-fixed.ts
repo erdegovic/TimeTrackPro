@@ -364,9 +364,18 @@ function generateInvoicePdf(options: {
             ? entry.duration 
             : parseFloat(entry.duration || '0');
         
-        // Format hourly rate and amount in client's currency
-        const hourlyRate = parseFloat(entry.hourlyRate || client.hourlyRate || 0);
-        const amount = parseFloat(entry.editedAmount || entry.amount || 0);
+        // Get the hourly rate safely - handle the type issue
+        let hourlyRate = 0;
+        if (entry.project && typeof entry.project === 'object') {
+          // Access hourlyRate from project safely
+          const projectData = entry.project as any;
+          hourlyRate = parseFloat(String(projectData.hourlyRate || '0'));
+        }
+        
+        // Use the edited amount if available, otherwise calculate from duration and hourly rate
+        const amount = typeof entry.editedAmount !== 'undefined' 
+          ? parseFloat(String(entry.editedAmount)) 
+          : duration * hourlyRate;
         
         tableContent.push([
           entry.description,
