@@ -87,7 +87,31 @@ export default function TimeEntryRow({
         amount: amount
       };
       
+      // Create a local optimistically updated entry for immediate UI update
+      // This avoids the need for a page refresh
+      const optimisticEntry = {
+        ...entry,
+        ...updateData,
+        // Make sure we include any fields needed for display
+        project: project || entry.project,
+        client: entry.client
+      };
+      
+      // Close dialog immediately for better UX
+      setIsEditing(false);
+      
       console.log("Sending update with data:", updateData);
+      
+      // Update the UI optimistically with our edited entry
+      const prevEntries = queryClient.getQueryData(["/api/time-entries"]) || [];
+      
+      // Update cache optimistically
+      queryClient.setQueryData(["/api/time-entries"], (oldData: any) => {
+        if (!Array.isArray(oldData)) return oldData;
+        return oldData.map((item: any) => 
+          item.id === entry.id ? optimisticEntry : item
+        );
+      });
       
       // Send the update request
       const response = await fetch(`/api/time-entries/${entry.id}`, {
@@ -99,27 +123,22 @@ export default function TimeEntryRow({
       });
       
       if (!response.ok) {
+        // If the server request failed, revert to previous data
+        queryClient.setQueryData(["/api/time-entries"], prevEntries);
         throw new Error(`Server returned ${response.status}`);
       }
       
       const updatedEntry = await response.json();
       console.log('TimeEntry updated successfully:', updatedEntry);
       
-      // Clear all query cache to ensure everything gets refreshed
-      queryClient.clear();
+      // Invalidate queries to ensure data stays fresh, but don't clear the entire cache
+      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
       
       // Let the user know it worked
       toast({
         title: "Time entry updated",
         description: `Duration updated to ${formattedDuration} hours.`,
       });
-      
-      // Close dialog
-      setIsEditing(false);
-      
-      // Force a page refresh to ensure all data is fresh
-      window.location.href = window.location.href;
-      
     } catch (error) {
       console.error("Failed to update time entry:", error);
       toast({
@@ -306,24 +325,39 @@ export default function TimeEntryRow({
                     placeholder="0.00"
                   />
                 ) : (
-                  // Time format (HH:MM:SS)
+                  // Simplified Time format input (HH:MM:SS)
                   <Input
                     type="text"
                     value={timeInputValue}
                     onChange={(e) => {
                       const value = e.target.value;
                       
-                      // Only allow proper time format characters
+                      // Only allow numbers and colons
                       if (value === "" || /^[0-9:]*$/.test(value)) {
-                        // First, update the visible input value for immediate feedback
+                        // Update the visible input value for immediate feedback
                         setTimeInputValue(value);
                         
                         try {
-                          // If it has colons, try to parse it as time format
-                          if (value.includes(':')) {
+                          // Handle direct minute entry (just a number)
+                          if (value !== "" && !value.includes(':')) {
+                            // If user just enters a number, treat it as minutes
+                            const minutes = parseInt(value, 10);
+                            if (!isNaN(minutes)) {
+                              // Convert minutes to decimal hours
+                              const decimalValue = minutes / 60;
+                              console.log(`Converting ${minutes} minutes to ${decimalValue} hours`);
+                              
+                              // Update the decimal value in the entry
+                              setEditedEntry({
+                                ...editedEntry,
+                                duration: decimalValue.toString()
+                              });
+                            }
+                          }
+                          // Handle time format with colons
+                          else if (value.includes(':')) {
                             // Convert the time format to decimal hours
                             const decimalValue = parseTimeToDecimal(value);
-                            
                             console.log("Parsed time", value, "to decimal:", decimalValue);
                             
                             // Update the decimal value in the entry
@@ -331,7 +365,8 @@ export default function TimeEntryRow({
                               ...editedEntry,
                               duration: decimalValue.toString()
                             });
-                          } else if (value === "") {
+                          } 
+                          else if (value === "") {
                             // Empty input = zero
                             setEditedEntry({
                               ...editedEntry,
