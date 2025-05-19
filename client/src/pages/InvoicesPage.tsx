@@ -21,9 +21,10 @@ export default function InvoicesPage() {
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
-  // Fetch invoices
+  // Fetch invoices with a shorter cache time to ensure data is fresh
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/invoices"],
+    staleTime: 5000, // 5 seconds stale time to ensure more frequent refreshes
   });
   
   // Fetch clients for invoice data

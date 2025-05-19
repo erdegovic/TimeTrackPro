@@ -162,20 +162,42 @@ export default function TimeEntryRow({
     
     // Fallback to using the duration field if no start/end times
     let durationNum = 0;
-    if (typeof duration === "string") {
-      durationNum = parseFloat(duration) || 0;
-    } else if (typeof duration === "number") {
-      durationNum = duration;
-    }
-    
-    if (timeFormat === "decimal") {
-      return `${durationNum.toFixed(2)}h`;
-    } else {
-      // Convert hours to HH:MM:SS
-      const hours = Math.floor(durationNum);
-      const minutes = Math.floor((durationNum - hours) * 60);
-      const seconds = Math.round(((durationNum - hours) * 60 - minutes) * 60);
-      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    try {
+      if (typeof duration === "string") {
+        durationNum = parseFloat(duration) || 0;
+      } else if (typeof duration === "number") {
+        durationNum = duration;
+      }
+      
+      if (timeFormat === "decimal") {
+        return `${durationNum.toFixed(2)}h`;
+      } else {
+        // Convert hours to HH:MM:SS with proper handling of edge cases
+        const hours = Math.floor(durationNum);
+        const minutesDecimal = (durationNum - hours) * 60;
+        const minutes = Math.floor(minutesDecimal);
+        
+        // Calculate seconds, ensuring we don't get 60 seconds due to floating point imprecision
+        let seconds = Math.round((minutesDecimal - minutes) * 60);
+        
+        // Handle cases where seconds rounds to 60
+        if (seconds === 60) {
+          seconds = 0;
+          const adjustedMinutes = minutes + 1;
+          
+          // Handle cases where minutes becomes 60
+          if (adjustedMinutes === 60) {
+            return `${(hours + 1).toString().padStart(2, '0')}:00:00`;
+          } else {
+            return `${hours.toString().padStart(2, '0')}:${adjustedMinutes.toString().padStart(2, '0')}:00`;
+          }
+        }
+        
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      }
+    } catch (e) {
+      console.error("Error formatting duration:", e, duration);
+      return timeFormat === "decimal" ? "0.00h" : "00:00:00";
     }
   };
 
@@ -288,29 +310,39 @@ export default function TimeEntryRow({
                     onChange={(e) => {
                       const timeValue = e.target.value;
                       
-                      // Allow time format input with loose validation to make editing easier
+                      // Allow only time format input with loose validation
                       if (timeValue === "" || /^[0-9:]*$/.test(timeValue)) { 
-                        // We'll just try to parse it and update the duration directly
-                        
-                        // Only try to parse as time if it has a colon
-                        if (timeValue.includes(':')) {
-                          try {
-                            // Parse time to decimal hours
-                            const parts = timeValue.split(":");
-                            const hours = parseInt(parts[0]) || 0;
-                            const minutes = (parts.length > 1 && parts[1]) ? parseInt(parts[1]) / 60 : 0;
-                            const seconds = (parts.length > 2 && parts[2]) ? parseInt(parts[2]) / 3600 : 0;
-                            const decimalHours = (hours + minutes + seconds).toFixed(2);
+                        try {
+                          // Parse what we have so far
+                          if (timeValue.includes(':')) {
+                            const parts = timeValue.split(':');
+                            
+                            // Get hours, minutes, seconds from parts
+                            let hours = parts[0] ? parseInt(parts[0]) : 0;
+                            let minutes = (parts.length > 1 && parts[1]) ? parseInt(parts[1]) : 0;
+                            let seconds = (parts.length > 2 && parts[2]) ? parseInt(parts[2]) : 0;
+                            
+                            // Safety bounds check
+                            if (minutes >= 60) minutes = 59;
+                            if (seconds >= 60) seconds = 59;
+                            
+                            // Calculate decimal hours
+                            const totalMinutes = (hours * 60) + minutes + (seconds / 60);
+                            const decimalHours = (totalMinutes / 60).toFixed(2);
                             
                             console.log("Setting new duration from time:", timeValue, "to decimal:", decimalHours);
-                            setEditedEntry({ 
-                              ...editedEntry, 
+                            
+                            // Update the duration field with the decimal value
+                            setEditedEntry({
+                              ...editedEntry,
                               duration: decimalHours
                             });
-                          } catch (e) {
-                            // If parsing fails, we still save the input but don't update the duration yet
-                            console.log("Partial time input:", timeValue);
+                          } else {
+                            // If just typing hours with no colons yet, don't convert
+                            console.log("Partial time input, waiting for user to finish typing");
                           }
+                        } catch (e) {
+                          console.error("Error parsing time input:", e);
                         }
                       }
                     }}
