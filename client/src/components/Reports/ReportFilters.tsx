@@ -234,15 +234,6 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
             </div>
           </div>
           
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleApplyFilters}
-            disabled={!filters.timeAdjustment?.increaseByPercentage}
-          >
-            Apply
-          </Button>
-          
           <div className="flex items-center space-x-2 ml-0 md:ml-4">
             <Checkbox 
               id="round-tenths" 
@@ -259,6 +250,15 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
             />
             <label htmlFor="round-tenths" className="text-sm text-gray-700">Round to nearest tenth</label>
           </div>
+          
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleApplyFilters}
+            disabled={!filters.timeAdjustment?.increaseByPercentage && !filters.timeAdjustment?.roundToNearestTenth}
+          >
+            Apply
+          </Button>
         </div>
       </div>
     </>

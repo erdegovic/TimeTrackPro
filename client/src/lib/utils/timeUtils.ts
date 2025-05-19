@@ -112,7 +112,8 @@ export function roundTime(
 ): number {
   switch (roundingType) {
     case 'nearest_tenth':
-      return Math.round(duration * 10) / 10;
+      // Always round up to the nearest tenth
+      return Math.ceil(duration * 10) / 10;
     case 'nearest_quarter':
       return Math.round(duration * 4) / 4;
     case 'nearest_half':
