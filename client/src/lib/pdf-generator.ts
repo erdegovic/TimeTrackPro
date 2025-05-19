@@ -406,11 +406,11 @@ function generateInvoicePdf(options: {
     {
       content: 'Total Due',
       colSpan: 3,
-      styles: { fontStyle: 'bold', fillColor: [0, 45, 91], textColor: [255, 255, 255] }
+      styles: { fontStyle: 'bold', fillColor: [0, 165, 228], textColor: [255, 255, 255] }
     },
     {
       content: formatCurrency(total, currency),
-      styles: { halign: 'right', fontStyle: 'bold', fillColor: [0, 45, 91], textColor: [255, 255, 255] }
+      styles: { halign: 'right', fontStyle: 'bold', fillColor: [0, 165, 228], textColor: [255, 255, 255] }
     }
   ]);
   
