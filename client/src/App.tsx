@@ -12,6 +12,7 @@ import InvoicesPage from "./pages/InvoicesPage";
 import ClientsPage from "./pages/ClientsPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import SettingsPage from "./pages/SettingsPage";
+import AccountPage from "./pages/AccountPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
@@ -57,6 +58,7 @@ function Router() {
             <Route path="/clients" component={ClientsPage} />
             <Route path="/projects" component={ProjectsPage} />
             <Route path="/settings" component={SettingsPage} />
+            <Route path="/account" component={AccountPage} />
             <Route component={NotFound} />
           </Switch>
         </AppLayout>
