@@ -12,12 +12,18 @@ export default function ReportsPage() {
   const [invoiceData, setInvoiceData] = useState<any>(null);
   const [selectedClientId, setSelectedClientId] = useState<number | undefined>(undefined);
   const [isEditing, setIsEditing] = useState(false);
+  const [reportNotes, setReportNotes] = useState<string>("");
 
   const handleApplyFilters = (filters: ReportFiltersType) => {
     setCurrentFilters(filters);
   };
 
-  const handleGenerateInvoice = (reportData: any) => {
+  const handleGenerateInvoice = (reportData: any, notes?: string) => {
+    // Update notes if provided
+    if (notes) {
+      setReportNotes(notes);
+    }
+    
     // Check if we have a specific client selected or need to prompt for one
     if (currentFilters?.clientId) {
       setSelectedClientId(currentFilters.clientId);
@@ -94,6 +100,7 @@ export default function ReportsPage() {
               clientId={selectedClientId}
               onEditInvoice={() => setIsEditing(true)}
               isEditing={isEditing}
+              notes={reportNotes}
             />
           )}
         </DialogContent>
