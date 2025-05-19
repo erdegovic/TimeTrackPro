@@ -13,8 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generatePdf } from "@/lib/pdf-generator";
 import { Invoice, Client, Settings } from "@shared/schema";
 // Make sure to use relative path for imports
-import InvoiceEditor from "../components/Invoices/ReportInvoiceEditor";
-import InvoicePreview from "../components/Invoices/InvoicePreview";
+import InvoiceEditView from "../components/Invoices/InvoiceEditView";
 
 export default function InvoicesPage() {
   const { toast } = useToast();
@@ -329,23 +328,18 @@ export default function InvoicesPage() {
           </DialogHeader>
           
           {editingInvoice && (
-            <div className="space-y-4">
-              <InvoicePreview 
-                reportData={{
-                  timeEntries: [],
-                  weeklyData: [], 
-                  totalHours: 0,
-                  totalAmount: 0,
-                  timeFormat: 'decimal'
-                }} 
-                clientId={editingInvoice.clientId}
-                onEditInvoice={() => {
-                  setIsEditDialogOpen(false);
-                  setEditingInvoice(null);
-                  queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
-                }}
-              />
-            </div>
+            <InvoiceEditView 
+              invoice={editingInvoice}
+              onSave={() => {
+                setIsEditDialogOpen(false);
+                setEditingInvoice(null);
+                queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+              }}
+              onCancel={() => {
+                setIsEditDialogOpen(false);
+                setEditingInvoice(null);
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>
