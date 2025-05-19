@@ -145,7 +145,7 @@ export default function InvoicesPage() {
         settings,
         reportData, // Include enhanced report data with time entries
         type: "invoice",
-        showDueDate: settings.showDueDate
+        showDueDate: settings.showDueDate === null ? undefined : !!settings.showDueDate
       });
       
       toast({

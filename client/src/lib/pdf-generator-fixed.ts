@@ -464,7 +464,7 @@ function generateInvoicePdf(options: {
       styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
     },
     {
-      content: formatCurrency(subtotal, currency),
+      content: formatCurrency(subtotal, usedCurrency),
       styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] }
     }
   ]);
@@ -479,7 +479,7 @@ function generateInvoicePdf(options: {
           styles: { fillColor: [255, 255, 255] }
         },
         {
-          content: formatCurrency(parseFloat(item.amount), currency),
+          content: formatCurrency(parseFloat(item.amount), usedCurrency),
           styles: { halign: 'right', fillColor: [255, 255, 255] }
         }
       ]);
@@ -495,7 +495,7 @@ function generateInvoicePdf(options: {
         styles: { fillColor: [255, 255, 255] }
       },
       {
-        content: formatCurrency(tax, currency),
+        content: formatCurrency(tax, usedCurrency),
         styles: { halign: 'right', fillColor: [255, 255, 255] }
       }
     ]);
@@ -508,7 +508,7 @@ function generateInvoicePdf(options: {
       styles: { fontStyle: 'bold', fillColor: [0, 165, 228], textColor: [255, 255, 255] }
     },
     {
-      content: formatCurrency(total, currency),
+      content: formatCurrency(total, usedCurrency),
       styles: { halign: 'right', fontStyle: 'bold', fillColor: [0, 165, 228], textColor: [255, 255, 255] }
     }
   ]);
