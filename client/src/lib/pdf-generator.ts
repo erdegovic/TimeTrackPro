@@ -1,6 +1,8 @@
 import { TimeEntry, Client, Settings, Invoice } from "@shared/schema";
-import { formatTime, formatCurrency, convertCurrency } from "@/lib/utils/timeUtils";
+import { formatTime, formatCurrency } from "@/lib/utils/timeUtils";
 import { format } from "date-fns";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type PdfOptions = {
   filename: string;
@@ -29,31 +31,265 @@ type PdfOptions = {
  * Generates a PDF file for reports or invoices
  * @param options - Options for PDF generation
  */
-export async function generatePdf(options: PdfOptions): Promise<void> {
-  // Dynamically import jspdf and jspdf-autotable to reduce bundle size
-  const { jsPDF } = await import("jspdf");
-  const autoTable = await import("jspdf-autotable").then(m => m.default);
-  
+export function generatePdf(options: PdfOptions): void {
   const doc = new jsPDF();
   
   if (options.type === "report") {
     generateReportPdf(doc, autoTable, options.reportData, options.filters);
   } else {
-    generateInvoicePdf({
-      doc, 
-      autoTable, 
-      client: options.client, 
-      settings: options.settings,
-      invoice: options.invoice,
-      reportData: options.reportData,
-      invoiceNumber: options.invoiceNumber,
-      issueDate: options.issueDate,
-      dueDate: options.dueDate,
-      notes: options.notes,
-      showDueDate: options.showDueDate
+    // Extract necessary information for invoice generation
+    const {
+      client,
+      settings,
+      invoice,
+      reportData,
+      invoiceNumber,
+      issueDate,
+      dueDate,
+      notes,
+      showDueDate
+    } = options;
+
+    // Use either the invoice data or the provided parameters
+    const invNumber = invoice?.invoiceNumber || invoiceNumber || "DRAFT";
+    const invIssueDate = invoice?.issueDate || issueDate || format(new Date(), 'yyyy-MM-dd');
+    const invDueDate = invoice?.dueDate || dueDate || format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
+    const invNotes = invoice?.notes || notes || "";
+    
+    // Parse additional items if they're in the notes
+    let additionalItems: any[] = [];
+    let cleanNotes = invNotes;
+    
+    // If reportData has additionalItems directly, use those
+    if (reportData && Array.isArray(reportData.additionalItems)) {
+      additionalItems = reportData.additionalItems;
+    }
+    // Otherwise try to extract from notes
+    else if (invNotes && invNotes.includes("ADDITIONAL_ITEMS:")) {
+      try {
+        const parts = invNotes.split("ADDITIONAL_ITEMS:");
+        cleanNotes = parts[0].trim();
+        additionalItems = JSON.parse(parts[1].trim());
+      } catch (e) {
+        console.error("Failed to parse additional items from notes:", e);
+      }
+    }
+    
+    // Determine currency to use throughout the document
+    const currency = client.currency || settings.defaultCurrency || 'USD';
+    
+    // Document Header
+    doc.setFontSize(20);
+    doc.text("INVOICE", 14, 20);
+    
+    doc.setFontSize(14);
+    doc.text(invNumber, 14, 28);
+    
+    // Business/Client Information
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text("From:", 14, 40);
+    doc.text("To:", doc.internal.pageSize.width / 2 + 10, 40);
+    doc.setFont(undefined, 'normal');
+    
+    // From section (business details)
+    let fromY = 48;
+    const fromLines = [
+      settings.businessName,
+      settings.businessAddress,
+      `${settings.businessCity}, ${settings.businessState} ${settings.businessZipCode}`,
+      settings.businessCountry,
+      settings.businessEmail,
+      `Tax ID: ${settings.businessTaxId}`
+    ].filter(Boolean);
+    
+    fromLines.forEach(line => {
+      if (line) {
+        doc.text(line, 14, fromY);
+        fromY += 6;
+      }
     });
+    
+    // To section (client details)
+    let toY = 48;
+    const toLines = [
+      client.name,
+      client.address,
+      `${client.city || ''}, ${client.state || ''} ${client.zipCode || ''}`.trim().replace(/^,\s*/, ''),
+      client.country,
+      client.email,
+      client.taxId ? `Tax ID: ${client.taxId}` : ''
+    ].filter(Boolean);
+    
+    toLines.forEach(line => {
+      if (line) {
+        doc.text(line, doc.internal.pageSize.width / 2 + 10, toY);
+        toY += 6;
+      }
+    });
+    
+    // Invoice details section
+    const detailsYStart = Math.max(fromY, toY) + 10;
+    let detailsY = detailsYStart;
+    
+    doc.text(`Invoice #: ${invNumber}`, 14, detailsY);
+    detailsY += 6;
+    
+    doc.text(`Issue Date: ${format(new Date(invIssueDate), 'MMMM d, yyyy')}`, 14, detailsY);
+    detailsY += 6;
+    
+    // Only show due date if specified
+    if (showDueDate !== false) {
+      doc.text(`Due Date: ${format(new Date(invDueDate), 'MMMM d, yyyy')}`, 14, detailsY);
+      detailsY += 6;
+    }
+    
+    // Payment information
+    let paymentY = detailsYStart;
+    doc.text(`Bank Name: ${settings.bankName || ''}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+    paymentY += 6;
+    
+    doc.text(`Account Name: ${settings.bankAccountName || ''}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+    paymentY += 6;
+    
+    doc.text(`Account Number: ${settings.bankAccountNumber || ''}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+    paymentY += 6;
+    
+    if (settings.bankSortCode) {
+      doc.text(`Sort Code: ${settings.bankSortCode}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+      paymentY += 6;
+    }
+    
+    // Table for time entries
+    const tableContent: any[] = [];
+    const tableStartY = Math.max(detailsY, paymentY) + 15;
+    
+    let subtotal = 0;
+    
+    // Determine if we have time entries and how to format them
+    const timeEntries = reportData?.timeEntries || [];
+    
+    // Add each time entry
+    timeEntries.forEach((entry: any) => {
+      // Use edited duration if available, otherwise use normal duration
+      const duration = typeof entry.editedDuration === 'number' 
+        ? entry.editedDuration 
+        : parseFloat(String(entry.duration || 0));
+      
+      // Get rate from project
+      let hourlyRate = 0;
+      if (entry.project && entry.project.hourlyRate) {
+        hourlyRate = parseFloat(String(entry.project.hourlyRate));
+      }
+      
+      // Calculate amount or use edited amount
+      let amount = entry.editedAmount !== undefined 
+        ? parseFloat(String(entry.editedAmount))
+        : duration * hourlyRate;
+      
+      // Add to table
+      tableContent.push([
+        entry.description,
+        formatTime(duration, settings.defaultTimeFormat || 'decimal'),
+        formatCurrency(hourlyRate, currency),
+        formatCurrency(amount, currency)
+      ]);
+      
+      subtotal += amount;
+    });
+    
+    // If we don't have any time entries, add a placeholder row
+    if (tableContent.length === 0) {
+      tableContent.push(["No time entries", "", "", ""]);
+    }
+    
+    // Add the table to the document
+    autoTable(doc, {
+      head: [['Description', 'Hours', 'Rate', 'Amount']],
+      body: tableContent,
+      startY: tableStartY,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold'
+      }
+    });
+    
+    // Determine total with tax and additional items
+    const finalY = (doc as any).lastAutoTable.finalY;
+    let totalY = finalY + 15;
+    
+    // Add subtotal
+    doc.setFontSize(10);
+    doc.text('Subtotal:', doc.internal.pageSize.width - 60, totalY);
+    doc.text(formatCurrency(subtotal, currency), doc.internal.pageSize.width - 15, totalY, { align: 'right' });
+    totalY += 6;
+    
+    // Add additional items if any
+    if (additionalItems && additionalItems.length > 0) {
+      additionalItems.forEach(item => {
+        doc.text(`${item.description}:`, doc.internal.pageSize.width - 60, totalY);
+        doc.text(formatCurrency(parseFloat(String(item.amount || 0)), currency), doc.internal.pageSize.width - 15, totalY, { align: 'right' });
+        totalY += 6;
+      });
+    }
+    
+    // Add tax if applicable
+    let tax = 0;
+    let taxRate = 0;
+    
+    if (invoice) {
+      // Use invoice tax values if available
+      tax = parseFloat(String(invoice.tax || 0));
+      taxRate = parseFloat(String(invoice.taxRate || 0));
+    } else if (settings.enableTax) {
+      // Otherwise calculate from settings
+      taxRate = parseFloat(String(settings.defaultTaxRate || 0));
+      tax = subtotal * (taxRate / 100);
+    }
+    
+    if (tax > 0) {
+      doc.text(`Tax (${taxRate}%):`, doc.internal.pageSize.width - 60, totalY);
+      doc.text(formatCurrency(tax, currency), doc.internal.pageSize.width - 15, totalY, { align: 'right' });
+      totalY += 6;
+    }
+    
+    // Add total amount
+    const totalAmount = subtotal + tax + 
+      (additionalItems && additionalItems.length > 0 
+        ? additionalItems.reduce((sum, item) => sum + parseFloat(String(item.amount || 0)), 0) 
+        : 0);
+    
+    totalY += 2;
+    doc.setFillColor(59, 130, 246);
+    doc.rect(doc.internal.pageSize.width - 80, totalY - 5, 80, 8, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.text('Total Due:', doc.internal.pageSize.width - 60, totalY);
+    doc.text(formatCurrency(totalAmount, currency), doc.internal.pageSize.width - 15, totalY, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+    totalY += 15;
+    
+    // Add notes if present
+    if (cleanNotes) {
+      doc.setFontSize(10);
+      doc.text('Notes:', 14, totalY);
+      totalY += 6;
+      
+      const notesLines = doc.splitTextToSize(cleanNotes, doc.internal.pageSize.width - 30);
+      notesLines.forEach((line: string) => {
+        doc.text(line, 14, totalY);
+        totalY += 5;
+      });
+    }
+    
+    // Add page number
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(`Page 1 of 1`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
   }
-  
+
   // Save the PDF
   doc.save(options.filename);
 }
@@ -62,76 +298,117 @@ export async function generatePdf(options: PdfOptions): Promise<void> {
  * Generates a report PDF
  */
 function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: any) {
-  // Add title
+  // Set up document
   doc.setFontSize(20);
   doc.text("Time Tracking Report", 14, 20);
   
-  // Add report date range
-  doc.setFontSize(12);
-  doc.text(`Period: ${filters.startDate} to ${filters.endDate}`, 14, 30);
+  // Add filter information
+  doc.setFontSize(10);
+  doc.setTextColor(100);
   
-  // Add client and project filter info if applied
-  let yPos = 35;
-  if (filters.clientId) {
-    const client = reportData.timeEntries.find((e: any) => e.client?.id === filters.clientId)?.client;
-    if (client) {
-      doc.text(`Client: ${client.name}`, 14, yPos);
+  let yPos = 30;
+  
+  // Date range
+  if (filters) {
+    const startDate = filters.startDate ? format(new Date(filters.startDate), 'MMMM d, yyyy') : 'All time';
+    const endDate = filters.endDate ? format(new Date(filters.endDate), 'MMMM d, yyyy') : 'Present';
+    
+    doc.text(`Date Range: ${startDate} - ${endDate}`, 14, yPos);
+    yPos += 5;
+    
+    // Client
+    if (filters.clientId) {
+      const clientName = reportData.timeEntries?.[0]?.client?.name || 'Unknown Client';
+      doc.text(`Client: ${clientName}`, 14, yPos);
+      yPos += 5;
+    }
+    
+    // Project
+    if (filters.projectId) {
+      const projectName = reportData.timeEntries?.[0]?.project?.name || 'Unknown Project';
+      doc.text(`Project: ${projectName}`, 14, yPos);
+      yPos += 5;
+    }
+    
+    // Time format
+    doc.text(`Time Format: ${filters.timeFormat === 'decimal' ? 'Decimal' : 'HH:MM:SS'}`, 14, yPos);
+    yPos += 5;
+    
+    // Rounding type
+    if (filters.roundingType !== 'none') {
+      const roundingTypes: Record<string, string> = {
+        nearest_tenth: 'Nearest Tenth',
+        nearest_quarter: 'Nearest Quarter',
+        nearest_half: 'Nearest Half'
+      };
+      doc.text(`Rounding: ${roundingTypes[filters.roundingType] || filters.roundingType}`, 14, yPos);
+      yPos += 5;
+    }
+    
+    // Time adjustment
+    if (filters.timeAdjustment && filters.timeAdjustment.percentage > 0) {
+      doc.text(`Time Adjustment: ${filters.timeAdjustment.increaseByPercentage ? '+' : '-'}${filters.timeAdjustment.percentage}%`, 14, yPos);
       yPos += 5;
     }
   }
   
-  if (filters.projectId) {
-    const project = reportData.timeEntries.find((e: any) => e.project?.id === filters.projectId)?.project;
-    if (project) {
-      doc.text(`Project: ${project.name}`, 14, yPos);
-      yPos += 5;
-    }
-  }
-  
-  // Add time format and rounding info
-  doc.text(`Time Format: ${filters.timeFormat === 'decimal' ? 'Decimal' : 'Hours:Minutes:Seconds'}`, 14, yPos);
-  yPos += 5;
-  
-  const roundingLabels: Record<string, string> = {
-    'none': 'No rounding',
-    'nearest_tenth': 'Nearest 0.1 hour',
-    'nearest_quarter': 'Nearest 0.25 hour',
-    'nearest_half': 'Nearest 0.5 hour'
-  };
-  
-  doc.text(`Rounding: ${roundingLabels[filters.roundingType]}`, 14, yPos);
   yPos += 10;
   
-  // Generate table content
+  // Table content
   const tableContent: any[] = [];
   
-  reportData.weeklyData.forEach((weekData: any) => {
-    // Add week header
-    tableContent.push([
-      {
-        content: weekData.weekLabel,
-        colSpan: 5,
-        styles: { fillColor: [240, 240, 240], fontStyle: 'bold' }
-      },
-      {
-        content: formatCurrency(weekData.totalAmount, 
-          filters.clientId && weekData.entries[0]?.client?.currency || 'USD'),
-        styles: { halign: 'right', fillColor: [240, 240, 240], fontStyle: 'bold' }
-      }
-    ]);
-    
-    // Add time entries for this week
-    weekData.entries.forEach((entry: any) => {
+  // Determine the currency to use for the report
+  const currency = filters.clientId && reportData.timeEntries?.length > 0 && reportData.timeEntries[0].client
+    ? reportData.timeEntries[0].client.currency
+    : 'USD';
+  
+  // Add entries
+  if (reportData.weeklyData && reportData.weeklyData.length > 0) {
+    // Group by week
+    reportData.weeklyData.forEach((weekData: any) => {
+      // Add week header
       tableContent.push([
-        format(new Date(entry.date), 'MMM d, yyyy'),
+        {
+          content: weekData.weekLabel,
+          colSpan: 5,
+          styles: { fillColor: [240, 240, 240], fontStyle: 'bold' }
+        },
+        {
+          content: formatTime(weekData.totalDuration, filters.timeFormat),
+          styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
+        }
+      ]);
+      
+      // Add time entries for this week
+      if (weekData.entries && weekData.entries.length > 0) {
+        weekData.entries.forEach((entry: any) => {
+          tableContent.push([
+            format(new Date(entry.date), 'MMM d, yyyy'),
+            entry.description,
+            entry.client?.name || '—',
+            entry.project?.name || '—',
+            formatTime(entry.adjustedDuration || entry.duration, filters.timeFormat),
+            formatCurrency(parseFloat(entry.amount || '0'), currency)
+          ]);
+        });
+      }
+    });
+  } else if (reportData.timeEntries && reportData.timeEntries.length > 0) {
+    // Flat list of entries
+    reportData.timeEntries.forEach((entry: any) => {
+      tableContent.push([
+        format(new Date(entry.date || entry.startTime), 'MMM d, yyyy'),
         entry.description,
         entry.client?.name || '—',
-        entry.project?.name || '—',
+        entry.project?.name || '—', 
         formatTime(entry.adjustedDuration || entry.duration, filters.timeFormat),
-        formatCurrency(parseFloat(entry.amount), entry.client?.currency || 'USD')
+        formatCurrency(parseFloat(entry.amount || '0'), currency)
       ]);
     });
-  });
+  } else {
+    // No entries
+    tableContent.push(['No time entries found', '', '', '', '', '']);
+  }
   
   // Add total row
   tableContent.push([
@@ -141,16 +418,11 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
       styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
     },
     {
-      content: formatTime(
-        typeof reportData.totalHours === 'number' 
-          ? reportData.totalHours 
-          : parseFloat(reportData.totalHours || '0'),
-        filters.timeFormat
-      ),
+      content: formatTime(reportData.totalHours || 0, filters.timeFormat),
       styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
     },
     {
-      content: formatCurrency(reportData.totalAmount, filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD'),
+      content: formatCurrency(reportData.totalAmount || 0, currency),
       styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
     }
   ]);
@@ -162,7 +434,7 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
     body: tableContent,
     theme: 'grid',
     headStyles: {
-      fillColor: [0, 165, 228],
+      fillColor: [59, 130, 246],
       textColor: [255, 255, 255],
       fontStyle: 'bold'
     },
@@ -172,295 +444,8 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
   });
   
   // Add generation date at the bottom
-  const pageCount = doc.internal.getNumberOfPages();
   doc.setFontSize(10);
   doc.setTextColor(100);
   doc.text(`Generated on ${format(new Date(), 'MMMM d, yyyy')}`, 14, doc.internal.pageSize.height - 10);
-  doc.text(`Page ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
-}
-
-/**
- * Generates an invoice PDF
- */
-function generateInvoicePdf(options: {
-  doc: any;
-  autoTable: any;
-  client: Client;
-  settings: Settings;
-  invoice?: Invoice;
-  reportData?: any;
-  invoiceNumber?: string;
-  issueDate?: string;
-  dueDate?: string;
-  notes?: string;
-  showDueDate?: boolean;
-}) {
-  const { 
-    doc, 
-    autoTable, 
-    client, 
-    settings, 
-    invoice, 
-    reportData, 
-    invoiceNumber, 
-    issueDate, 
-    dueDate, 
-    notes,
-    showDueDate
-  } = options;
-  // Use either the invoice data or the provided parameters
-  const invNumber = invoice?.invoiceNumber || invoiceNumber || "DRAFT";
-  const invIssueDate = invoice?.issueDate || issueDate || format(new Date(), 'yyyy-MM-dd');
-  const invDueDate = invoice?.dueDate || dueDate || format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
-  const invNotes = invoice?.notes || notes || "Thank you for your business.";
-  
-  // Add title and invoice number
-  doc.setFontSize(24);
-  doc.text("INVOICE", 14, 20);
-  
-  doc.setFontSize(14);
-  doc.text(invNumber, 14, 28);
-  
-  // Add from/to sections
-  doc.setFontSize(12);
-  doc.setFont(undefined, 'bold');
-  doc.text("From:", 14, 40);
-  doc.text("To:", doc.internal.pageSize.width / 2 + 10, 40);
-  doc.setFont(undefined, 'normal');
-  
-  // From address (business)
-  let fromY = 48;
-  const fromLines = [
-    settings.businessName,
-    settings.businessAddress,
-    `${settings.businessCity}, ${settings.businessState} ${settings.businessZipCode}`,
-    settings.businessCountry,
-    settings.businessEmail,
-    `Tax ID: ${settings.businessTaxId}`
-  ].filter(Boolean);
-  
-  fromLines.forEach(line => {
-    if (line) {
-      doc.text(line, 14, fromY);
-      fromY += 6;
-    }
-  });
-  
-  // To address (client)
-  let toY = 48;
-  const toLines = [
-    client.name,
-    client.address,
-    `${client.city}, ${client.state} ${client.zipCode}`,
-    client.country,
-    client.email,
-    client.taxId ? `Tax ID: ${client.taxId}` : ''
-  ].filter(Boolean);
-  
-  toLines.forEach(line => {
-    if (line) {
-      doc.text(line, doc.internal.pageSize.width / 2 + 10, toY);
-      toY += 6;
-    }
-  });
-  
-  // Invoice details section
-  const detailsYStart = Math.max(fromY, toY) + 10;
-  
-  doc.setFont(undefined, 'bold');
-  doc.text("Invoice Details:", 14, detailsYStart);
-  doc.text("Payment Details:", doc.internal.pageSize.width / 2 + 10, detailsYStart);
-  doc.setFont(undefined, 'normal');
-  
-  // Invoice details
-  let detailsY = detailsYStart + 8;
-  doc.text(`Issue Date: ${format(new Date(invIssueDate), 'MMMM d, yyyy')}`, 14, detailsY);
-  detailsY += 6;
-  
-  // Only show due date if it's enabled in settings
-  if (showDueDate !== false) {
-    doc.text(`Due Date: ${format(new Date(invDueDate), 'MMMM d, yyyy')}`, 14, detailsY);
-    detailsY += 6;
-  }
-  
-  // Payment details
-  let paymentY = detailsYStart + 8;
-  doc.text(`Bank Name: ${settings.bankName || ''}`, doc.internal.pageSize.width / 2 + 10, paymentY);
-  paymentY += 6;
-  doc.text(`Account Name: ${settings.bankAccountName || ''}`, doc.internal.pageSize.width / 2 + 10, paymentY);
-  paymentY += 6;
-  doc.text(`Account Number: ${settings.bankAccountNumber || ''}`, doc.internal.pageSize.width / 2 + 10, paymentY);
-  
-  // Generate table content
-  const tableContent: any[] = [];
-  const tableStartY = Math.max(detailsY, paymentY) + 15;
-  
-  let subtotal = 0;
-  let totalHours = 0;
-  
-  // Get the currency for the client
-  const currency = client.currency || 'USD';
-  const currencySymbol = currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : '$';
-  
-  if (reportData) {
-    // Use report data for generating invoice
-    reportData.weeklyData.forEach((weekData: any) => {
-      // Add week header
-      tableContent.push([
-        {
-          content: weekData.weekLabel,
-          colSpan: 4,
-          styles: { fillColor: [240, 240, 240], fontStyle: 'bold' }
-        },
-        {
-          content: formatCurrency(weekData.totalAmount, currency),
-          styles: { halign: 'right', fillColor: [240, 240, 240], fontStyle: 'bold' }
-        }
-      ]);
-      
-      // Add time entries for this week (only for selected client)
-      const clientEntries = weekData.entries.filter((entry: any) => 
-        entry.client && entry.client.id === client.id
-      );
-      
-      clientEntries.forEach((entry: any) => {
-        // Convert duration from string to number if needed
-        const duration = typeof entry.adjustedDuration === 'number' 
-          ? entry.adjustedDuration 
-          : typeof entry.duration === 'number' 
-            ? entry.duration 
-            : parseFloat(entry.duration || '0');
-        
-        // Format hourly rate and amount in client's currency
-        const hourlyRate = parseFloat(entry.hourlyRate);
-        const amount = parseFloat(entry.amount);
-        
-        tableContent.push([
-          entry.description,
-          formatTime(duration, reportData.timeFormat),
-          formatCurrency(hourlyRate, currency),
-          formatCurrency(amount, currency)
-        ]);
-        
-        subtotal += amount;
-        totalHours += duration;
-      });
-    });
-  } else if (invoice) {
-    // Use invoice data directly
-    subtotal = Number(invoice.subtotal);
-    
-    // TODO: Implement fetching time entries for this invoice if needed
-    tableContent.push([
-      {
-        content: 'Services rendered',
-        styles: {}
-      },
-      {
-        content: 'See attached details',
-        styles: {}
-      },
-      {
-        content: '',
-        styles: {}
-      },
-      {
-        content: formatCurrency(subtotal, currency),
-        styles: { halign: 'right' }
-      }
-    ]);
-  }
-  
-  // Calculate tax based on settings
-  let tax = invoice ? Number(invoice.tax) : 0;
-  let taxRate = invoice ? Number(invoice.taxRate) : 0;
-  
-  // If no invoice is provided (we're generating a new one), use settings
-  if (!invoice && settings.enableTax) {
-    taxRate = Number(settings.defaultTaxRate);
-    tax = subtotal * (taxRate / 100);
-  }
-  
-  // Calculate total
-  const total = invoice ? Number(invoice.total) : (subtotal + tax);
-  
-  tableContent.push([
-    {
-      content: 'Subtotal',
-      colSpan: 3,
-      styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
-    },
-    {
-      content: formatCurrency(subtotal, currency),
-      styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] }
-    }
-  ]);
-  
-  // Only show tax row if tax is enabled or there's a tax amount
-  if (taxRate > 0 || tax > 0) {
-    tableContent.push([
-      {
-        content: `Tax (${taxRate}%)`,
-        colSpan: 3,
-        styles: { fillColor: [255, 255, 255] }
-      },
-      {
-        content: formatCurrency(tax, currency),
-        styles: { halign: 'right', fillColor: [255, 255, 255] }
-      }
-    ]);
-  }
-  
-  tableContent.push([
-    {
-      content: 'Total Due',
-      colSpan: 3,
-      styles: { fontStyle: 'bold', fillColor: [0, 165, 228], textColor: [255, 255, 255] }
-    },
-    {
-      content: formatCurrency(total, currency),
-      styles: { halign: 'right', fontStyle: 'bold', fillColor: [0, 165, 228], textColor: [255, 255, 255] }
-    }
-  ]);
-  
-  // Add table to document
-  autoTable(doc, {
-    startY: tableStartY,
-    head: [['Description', 'Hours', 'Rate', 'Amount']],
-    body: tableContent,
-    theme: 'grid',
-    headStyles: {
-      fillColor: [0, 165, 228],
-      textColor: [255, 255, 255],
-      fontStyle: 'bold'
-    },
-    columnStyles: {
-      3: { halign: 'right' }
-    }
-  });
-  
-  // Add notes section
-  try {
-    // Safe access to finalY - handle case where previousAutoTable might be undefined
-    const finalY = doc.previousAutoTable && doc.previousAutoTable.finalY 
-      ? doc.previousAutoTable.finalY + 15
-      : tableStartY + 100; // Fallback position
-      
-    doc.setFont(undefined, 'bold');
-    doc.text("Notes:", 14, finalY);
-    doc.setFont(undefined, 'normal');
-    doc.text(invNotes || '', 14, finalY + 8, { maxWidth: doc.internal.pageSize.width - 28 });
-  } catch (error) {
-    console.error("Error adding notes section to PDF:", error);
-    // Continue PDF generation even if notes section fails
-  }
-  
-  // Add footer with page numbers
-  const pageCount = doc.internal.getNumberOfPages();
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
-  }
+  doc.text(`Page 1 of 1`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
 }
