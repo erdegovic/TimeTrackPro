@@ -83,20 +83,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
       <div className="max-w-full">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col md:flex-row md:items-center gap-2.5 w-full">
-            <div className="flex-1">
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                  <Keyboard className="h-4 w-4 opacity-70" />
-                </span>
-                <Input
-                  type="text"
-                  placeholder="What are you working on?"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full pl-10"
-                />
-              </div>
-            </div>
+            {/* Removed duplicate "What are you working on?" field */}
           
             <div className="flex flex-wrap gap-2.5 md:flex-nowrap w-full md:w-auto">
               <Select 

@@ -222,7 +222,8 @@ export default function TimeEntryRow({
             
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Duration</label>
-              <Input
+              <input
+                type="text"
                 value={formatDuration(editedEntry.duration || 0)}
                 onChange={(e) => {
                   // Handle both decimal and HH:MM:SS format based on timeFormat
@@ -240,7 +241,7 @@ export default function TimeEntryRow({
                   // Store duration as a string to preserve decimal precision
                   setEditedEntry({ ...editedEntry, duration: newDuration.toString() });
                 }}
-                className="font-mono"
+                className="w-full p-2 border rounded font-mono"
               />
             </div>
             
