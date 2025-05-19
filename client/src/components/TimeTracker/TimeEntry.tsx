@@ -308,8 +308,8 @@ export default function TimeEntryRow({
             
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Duration</label>
-              <div className="flex items-center gap-2">
-                {timeFormat === "decimal" ? (
+              {timeFormat === "decimal" ? (
+                <div className="flex items-center gap-2">
                   <Input
                     type="text"
                     value={editedEntry.duration || "0.00"}
@@ -324,68 +324,68 @@ export default function TimeEntryRow({
                     className="font-mono"
                     placeholder="0.00"
                   />
-                ) : (
-                  // Simplified Time format input (HH:MM:SS)
-                  <Input
-                    type="text"
-                    value={timeInputValue}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      
-                      // Only allow numbers and colons
-                      if (value === "" || /^[0-9:]*$/.test(value)) {
-                        // Update the visible input value for immediate feedback
-                        setTimeInputValue(value);
-                        
-                        try {
-                          // Handle direct minute entry (just a number)
-                          if (value !== "" && !value.includes(':')) {
-                            // If user just enters a number, treat it as minutes
-                            const minutes = parseInt(value, 10);
-                            if (!isNaN(minutes)) {
-                              // Convert minutes to decimal hours
-                              const decimalValue = minutes / 60;
-                              console.log(`Converting ${minutes} minutes to ${decimalValue} hours`);
-                              
-                              // Update the decimal value in the entry
+                  <span className="text-xs text-gray-500">hours</span>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Simple direct minute entry - most common use case */}
+                  <div className="flex flex-col">
+                    <label className="text-xs font-medium text-gray-500">Quick Entry (Minutes)</label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="0"
+                        value={Math.round(parseFloat(editedEntry.duration || "0") * 60)}
+                        onChange={(e) => {
+                          const minutes = parseInt(e.target.value, 10) || 0;
+                          const decimalHours = minutes / 60;
+                          console.log(`Converting ${minutes} minutes to ${decimalHours.toFixed(2)} hours`);
+                          setEditedEntry({
+                            ...editedEntry,
+                            duration: decimalHours.toString()
+                          });
+                          // Also update the time display
+                          setTimeInputValue(formatDecimalToTime(decimalHours));
+                        }}
+                        className="w-24 font-mono"
+                        placeholder="0"
+                      />
+                      <span className="text-xs text-gray-500">minutes</span>
+                    </div>
+                  </div>
+                  
+                  {/* Standard HH:MM:SS format */}
+                  <div className="flex flex-col">
+                    <label className="text-xs font-medium text-gray-500">HH:MM:SS Format</label>
+                    <Input
+                      type="text" 
+                      value={timeInputValue}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Only allow valid time characters
+                        if (/^[0-9:]*$/.test(value)) {
+                          setTimeInputValue(value);
+                          
+                          try {
+                            if (value.includes(':')) {
+                              // Parse time to decimal hours
+                              const decimalValue = parseTimeToDecimal(value);
                               setEditedEntry({
                                 ...editedEntry,
                                 duration: decimalValue.toString()
                               });
                             }
+                          } catch (e) {
+                            console.error("Error parsing time:", e);
                           }
-                          // Handle time format with colons
-                          else if (value.includes(':')) {
-                            // Convert the time format to decimal hours
-                            const decimalValue = parseTimeToDecimal(value);
-                            console.log("Parsed time", value, "to decimal:", decimalValue);
-                            
-                            // Update the decimal value in the entry
-                            setEditedEntry({
-                              ...editedEntry,
-                              duration: decimalValue.toString()
-                            });
-                          } 
-                          else if (value === "") {
-                            // Empty input = zero
-                            setEditedEntry({
-                              ...editedEntry,
-                              duration: "0"
-                            });
-                          }
-                        } catch (e) {
-                          console.error("Error parsing time input:", e);
                         }
-                      }
-                    }}
-                    className="font-mono"
-                    placeholder="00:00:00"
-                  />
-                )}
-                <span className="text-xs text-gray-500">
-                  {timeFormat === "decimal" ? "hours" : "HH:MM:SS"}
-                </span>
-              </div>
+                      }}
+                      className="font-mono"
+                      placeholder="00:00:00"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             
             <div className="flex justify-end space-x-2 pt-4">
