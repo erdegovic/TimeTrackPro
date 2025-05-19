@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Edit, FileSpreadsheet, File, Plus, Minus } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { generatePdf } from "@/lib/pdf-generator-fixed";
+import { generatePdf } from "@/lib/pdf-generator-fixed-new";
 import { formatTime, formatCurrency, parseTime } from "@/lib/utils/timeUtils";
 import { Client, Settings, TimeFormat } from "@shared/schema";
 
@@ -39,7 +39,7 @@ export default function InvoicePreview({
   dueDate: propDueDate,
   setDueDate,
   additionalItems: propAdditionalItems,
-  setAdditionalItems: propSetAdditionalItems,
+  setAdditionalItems: propSetAdditionalItems, 
   notes: propNotes,
   setNotes: propSetNotes,
   showDueDate: propShowDueDate,
@@ -54,9 +54,11 @@ export default function InvoicePreview({
     description: string;
     amount: number;
     id: number;
-  }[]>([]);
+  }[]>(propAdditionalItems || []);
   const [subtotal, setSubtotal] = useState(0);
   const [total, setTotal] = useState(0);
+  const [notes, setNotes] = useState(propNotes || "");
+  const [showDueDate, setShowDueDate] = useState(propShowDueDate !== undefined ? propShowDueDate : true);
   
   // Fetch next invoice number
   const { data: invoiceNumberData } = useQuery({
@@ -91,12 +93,10 @@ export default function InvoicePreview({
     queryKey: ["/api/settings"],
   });
   
-  const [notes, setNotes] = useState(
-    "Thank you for your business. Payment is due within 15 days of invoice date.\nPlease include the invoice number in your payment reference."
-  );
+  // Note: notes state is already defined above with propNotes
   const [taxRate, setTaxRate] = useState(0);
   const [enableTax, setEnableTax] = useState(false);
-  const [showDueDate, setShowDueDate] = useState(true);
+  // showDueDate is already defined above
   
   // Get tax settings from business settings
   useEffect(() => {
