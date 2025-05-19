@@ -86,21 +86,40 @@ export default function TimeEntryRow({
       const result = await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
       const updatedEntry = await result.json();
       
-      // Force a complete refresh of all related data
-      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      
-      // Also refresh the dashboard data
-      queryClient.invalidateQueries();
-      
-      // Force re-render by updating window location
-      window.location.reload();
-      
-      setIsEditing(false);
-      toast({
-        title: "Time entry updated",
-        description: `Duration updated to ${formattedDuration} hours.`,
-      });
+      // Update the response when successful
+      if (updatedEntry) {
+        console.log('TimeEntry updated successfully:', updatedEntry);
+        
+        // Force a complete refresh of all related queries in the cache
+        queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
+        
+        // Also force a complete cache refresh
+        queryClient.invalidateQueries();
+        
+        // Update the current entry in component state to reflect the change immediately
+        // This will update the UI before the full refresh
+        setEditedEntry({
+          ...editedEntry,
+          duration: formattedDuration,
+          amount: updatedEntry.amount || editedEntry.amount
+        });
+        
+        // Close the dialog
+        setIsEditing(false);
+        
+        // Let the user know it worked
+        toast({
+          title: "Time entry updated",
+          description: `Duration updated to ${formattedDuration} hours.`,
+        });
+        
+        // Force a page refresh to ensure all data is updated
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      }
     } catch (error) {
       console.error("Failed to update time entry:", error);
       toast({

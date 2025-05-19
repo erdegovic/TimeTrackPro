@@ -424,17 +424,41 @@ function generateInvoicePdf(options: {
     } else if (reportData.timeEntries) {
       // Directly use time entries without weekly grouping
       reportData.timeEntries.forEach((entry: any) => {
+        // Log entry data to debug
+        console.log(`PDF - Processing entry ${entry.id}:`, {
+          description: entry.description,
+          duration: entry.duration,
+          editedDuration: entry.editedDuration,
+          adjustedDuration: entry.adjustedDuration,
+          amount: entry.amount,
+          editedAmount: entry.editedAmount
+        });
+        
         // Make sure we use the most up-to-date edited duration
         // Check all possible sources for edited duration in this priority order
-        const duration = 
-          // 1. Explicit editedDuration property (set by the invoice editor)
-          typeof entry.editedDuration === 'number' ? entry.editedDuration :
-          // 2. Adjusted duration from time adjustment in reports
-          typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration :
-          // 3. Regular duration as a number
-          typeof entry.duration === 'number' ? entry.duration :
-          // 4. Duration as a string that needs parsing
-          parseFloat(entry.duration || '0');
+        let duration;
+        
+        // 1. First check for explicit editedDuration property (set by the invoice editor)
+        if (entry.editedDuration !== undefined && entry.editedDuration !== null) {
+          duration = typeof entry.editedDuration === 'string' 
+            ? parseFloat(entry.editedDuration) 
+            : entry.editedDuration;
+          console.log(`PDF - Using edited duration for entry ${entry.id}: ${duration}`);
+        }
+        // 2. Check adjusted duration from time adjustment in reports
+        else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
+          duration = typeof entry.adjustedDuration === 'string' 
+            ? parseFloat(entry.adjustedDuration) 
+            : entry.adjustedDuration;
+        }
+        // 3. Check regular duration as a number
+        else if (typeof entry.duration === 'number') {
+          duration = entry.duration;
+        }
+        // 4. Check duration as a string that needs parsing
+        else {
+          duration = parseFloat(entry.duration || '0');
+        }
         
         // Get the hourly rate safely - handle the type issue
         let hourlyRate = 0;
@@ -448,13 +472,40 @@ function generateInvoicePdf(options: {
         }
         
         // Calculate the amount, prioritizing any explicitly edited amount
-        const amount = 
-          // 1. Explicit editedAmount property
-          typeof entry.editedAmount !== 'undefined' ? parseFloat(String(entry.editedAmount)) :
-          // 2. Explicit amount property
-          typeof entry.amount !== 'undefined' && entry.amount !== null ? parseFloat(String(entry.amount)) :
-          // 3. Calculate from duration and hourly rate
-          duration * hourlyRate;
+        let amount;
+        
+        // Debug info about amounts
+        console.log(`PDF - Amount options for entry ${entry.id}:`, {
+          editedAmount: entry.editedAmount,
+          originalAmount: entry.amount,
+          calculated: duration * hourlyRate
+        });
+        
+        // 1. First check for explicit editedAmount property (highest priority)
+        if (entry.editedAmount !== undefined && entry.editedAmount !== null) {
+          // Handle string or number types
+          amount = typeof entry.editedAmount === 'string' 
+            ? parseFloat(entry.editedAmount) 
+            : entry.editedAmount;
+          console.log(`PDF - Using edited amount for entry ${entry.id}: ${amount}`);
+        }
+        // 2. Check for explicit amount property
+        else if (entry.amount !== undefined && entry.amount !== null) {
+          // Handle string or number types
+          amount = typeof entry.amount === 'string' 
+            ? parseFloat(entry.amount) 
+            : entry.amount;
+        }
+        // 3. Fallback: Calculate from duration and hourly rate
+        else {
+          amount = duration * hourlyRate;
+        }
+        
+        // Final safety check to ensure we have a valid number
+        if (isNaN(amount)) {
+          console.warn(`PDF - Invalid amount for entry ${entry.id}, using fallback calculation`);
+          amount = duration * hourlyRate;
+        }
         
         tableContent.push([
           entry.description,
