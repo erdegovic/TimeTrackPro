@@ -81,6 +81,12 @@ export class MemStorage implements IStorage {
       (user) => user.email.toLowerCase() === email.toLowerCase()
     );
   }
+  
+  async getUserByResetToken(token: string): Promise<User | undefined> {
+    return Array.from(this.usersData.values()).find(
+      (user) => user.resetPasswordToken === token
+    );
+  }
 
   async createUser(userData: InsertUser): Promise<User> {
     const id = this.userId++;

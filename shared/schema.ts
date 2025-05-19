@@ -204,7 +204,7 @@ export const insertUserSchema = createInsertSchema(users)
   .omit({ id: true, verificationToken: true, resetPasswordToken: true, createdAt: true, updatedAt: true });
 
 export const userLoginSchema = z.object({
-  usernameOrEmail: z.string().min(1, "Username or email is required"),
+  username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
 });
 
