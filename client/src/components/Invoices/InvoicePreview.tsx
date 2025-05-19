@@ -199,34 +199,44 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
   
   // Update an additional item
   const updateAdditionalItem = (id: number, field: 'description' | 'amount', value: string) => {
-    setAdditionalItems(prev => {
-      const updated = prev.map(item => {
-        if (item.id === id) {
-          if (field === 'amount') {
-            return { ...item, [field]: parseFloat(value) || 0 };
-          }
-          return { ...item, [field]: value };
+    // First update the item data
+    const updatedItems = additionalItems.map(item => {
+      if (item.id === id) {
+        if (field === 'amount') {
+          return { ...item, [field]: parseFloat(value) || 0 };
         }
-        return item;
-      });
-      
-      // Recalculate totals after updating
-      setTimeout(() => recalculateTotals(), 0);
-      
-      return updated;
+        return { ...item, [field]: value };
+      }
+      return item;
     });
+    
+    // Set the updated items state
+    setAdditionalItems(updatedItems);
+    
+    // Immediately recalculate totals with the new data
+    const additionalTotal = updatedItems.reduce((sum, item) => sum + item.amount, 0);
+    const entriesTotal = editableEntries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
+    const tax = enableTax ? entriesTotal * (taxRate / 100) : 0;
+    
+    setSubtotal(entriesTotal);
+    setTotal(entriesTotal + additionalTotal + tax);
   };
   
   // Remove an additional item
   const removeItem = (id: number) => {
-    setAdditionalItems(prev => {
-      const filtered = prev.filter(item => item.id !== id);
-      
-      // Recalculate totals after removing
-      setTimeout(() => recalculateTotals(), 0);
-      
-      return filtered;
-    });
+    // Filter out the item to be removed
+    const filteredItems = additionalItems.filter(item => item.id !== id);
+    
+    // Update the state
+    setAdditionalItems(filteredItems);
+    
+    // Immediately recalculate totals with the updated data
+    const additionalTotal = filteredItems.reduce((sum, item) => sum + item.amount, 0);
+    const entriesTotal = editableEntries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
+    const tax = enableTax ? entriesTotal * (taxRate / 100) : 0;
+    
+    setSubtotal(entriesTotal);
+    setTotal(entriesTotal + additionalTotal + tax);
   };
   
   const handleCreateInvoice = async () => {

@@ -468,6 +468,31 @@ export default function SettingsPage() {
                   <Separator className="my-4" />
                   
                   <div className="space-y-4">
+                    <h3 className="text-md font-medium">Invoice Display Settings</h3>
+                    
+                    <FormField
+                      control={form.control}
+                      name="showDueDate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                          <div className="space-y-0.5">
+                            <FormLabel>Show Due Date</FormLabel>
+                            <p className="text-sm text-gray-500">
+                              Display due date on invoices
+                            </p>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <Separator className="my-4" />
+                    
                     <h3 className="text-md font-medium">Tax Settings</h3>
                     
                     <FormField
