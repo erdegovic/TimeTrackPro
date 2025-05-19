@@ -399,16 +399,41 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
       // Create filename
       const filename = `invoice-${invoice.invoiceNumber.replace("INV-", "")}.pdf`;
       
+      // Get all edited entries to ensure PDF gets most current data
+      const currentEditedEntries = Object.entries(editedEntries).map(([entryId, values]) => {
+        const entry = timeEntries.find(e => e.id === parseInt(entryId));
+        if (!entry) return null;
+        
+        return {
+          ...entry,
+          duration: values.duration,
+          amount: values.amount
+        };
+      }).filter(Boolean);
+      
+      // Replace edited entries in time entries array
+      const updatedTimeEntries = timeEntries.map(entry => {
+        const edited = currentEditedEntries.find(e => e?.id === entry.id);
+        return edited || entry;
+      });
+      
       // Prepare export data
       const exportData = {
-        timeEntries,
+        timeEntries: updatedTimeEntries, // Use updated entries with current edits
         weeklyData,
         totalHours,
         totalAmount,
         timeFormat: "decimal",
         clientCurrency: client.currency || settings.defaultCurrency || "USD",
-        additionalItems
+        additionalItems,
+        hasEditedData: Object.keys(editedEntries).length > 0
       };
+      
+      console.log("Exporting invoice with data:", {
+        entriesCount: updatedTimeEntries.length,
+        additionalItemsCount: additionalItems.length,
+        totalAmount: totalAmount
+      });
       
       // Generate PDF
       await generatePdf({
@@ -529,12 +554,15 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
                     </td>
                     <td className="p-3 text-right">
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
+                        type="text"
+                        inputMode="decimal"
                         className="w-20 text-right border rounded p-1"
                         value={parseFloat(entry.duration).toFixed(2)}
-                        onChange={(e) => handleEditDuration(entry.id, e.target.value)}
+                        onChange={(e) => {
+                          // Replace commas with dots for consistency
+                          const sanitizedValue = e.target.value.replace(',', '.');
+                          handleEditDuration(entry.id, sanitizedValue);
+                        }}
                       />
                     </td>
                     <td className="p-3 text-right text-gray-500">
@@ -570,6 +598,18 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
               <td className="p-3 text-right">{formatCurrency(totalAmount)}</td>
             </tr>
             
+            {/* Add item button row */}
+            <tr>
+              <td colSpan={5} className="p-3">
+                <button 
+                  onClick={handleAddItem} 
+                  className="text-sm text-blue-500 hover:text-blue-700 flex items-center"
+                >
+                  + Add Item
+                </button>
+              </td>
+            </tr>
+            
             {/* Add item section */}
             {additionalItems.map((item, index) => (
               <tr key={`additional-${item.id}`} className="text-sm">
@@ -585,12 +625,15 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
                 <td className="p-3 text-right flex items-center justify-end">
                   <div className="flex items-center">
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0"
+                      type="text"
+                      inputMode="decimal"
                       className="w-24 text-right border rounded p-1 mr-2"
                       value={parseFloat(String(item.amount)).toFixed(2)}
-                      onChange={(e) => handleUpdateAdditionalItem(item.id, 'amount', e.target.value)}
+                      onChange={(e) => {
+                        // Replace commas with dots for consistency
+                        const sanitizedValue = e.target.value.replace(',', '.');
+                        handleUpdateAdditionalItem(item.id, 'amount', sanitizedValue);
+                      }}
                     />
                     <button 
                       className="text-red-500 hover:text-red-700"
@@ -602,18 +645,6 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
                 </td>
               </tr>
             ))}
-            
-            {/* Add item button row */}
-            <tr>
-              <td colSpan={5} className="p-3">
-                <button 
-                  onClick={handleAddItem} 
-                  className="text-sm text-blue-500 hover:text-blue-700 flex items-center"
-                >
-                  + Add Item
-                </button>
-              </td>
-            </tr>
             
             {/* Total due row */}
             <tr className="font-bold bg-blue-500 text-white">
