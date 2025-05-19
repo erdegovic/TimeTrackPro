@@ -273,7 +273,13 @@ function generateInvoicePdf(options: {
   let detailsY = detailsYStart + 8;
   doc.text(`Issue Date: ${format(new Date(invIssueDate), 'MMMM d, yyyy')}`, 14, detailsY);
   detailsY += 6;
-  doc.text(`Due Date: ${format(new Date(invDueDate), 'MMMM d, yyyy')}`, 14, detailsY);
+  
+  // Only show due date if it's enabled in settings
+  const showDueDate = options.showDueDate !== false;
+  if (showDueDate) {
+    doc.text(`Due Date: ${format(new Date(invDueDate), 'MMMM d, yyyy')}`, 14, detailsY);
+    detailsY += 6;
+  }
   
   // Payment details
   let paymentY = detailsYStart + 8;
