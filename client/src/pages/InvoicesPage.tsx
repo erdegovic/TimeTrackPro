@@ -123,14 +123,21 @@ export default function InvoicesPage() {
       const usedCurrency = client.currency || settings.defaultCurrency || 'USD';
       console.log("Using currency for PDF export:", usedCurrency);
       
-      // Create report data
+      // Create properly structured report data with weeklyData to avoid PDF generation errors
       const reportData = {
         timeEntries: enrichedEntries,
         additionalItems,
         clientCurrency: usedCurrency,
         totalHours: enrichedEntries.reduce((sum: number, entry: any) => sum + parseFloat(entry.duration || 0), 0),
         totalAmount: Number(invoiceData.total),
-        timeFormat: settings.defaultTimeFormat || 'decimal'
+        timeFormat: settings.defaultTimeFormat || 'decimal',
+        // Explicitly add weeklyData to prevent the "Cannot read properties of undefined (reading 'forEach')" error
+        weeklyData: [{
+          weekLabel: 'All Entries',
+          entries: enrichedEntries,
+          totalDuration: enrichedEntries.reduce((sum: number, entry: any) => sum + parseFloat(entry.duration || 0), 0),
+          totalAmount: Number(invoiceData.total)
+        }]
       };
       
       // Generate PDF
@@ -143,7 +150,7 @@ export default function InvoicesPage() {
         settings,
         reportData, // Include enhanced report data with time entries
         type: "invoice",
-        showDueDate: settings.showDueDate
+        showDueDate: settings.showDueDate === null ? undefined : settings.showDueDate
       });
       
       toast({
