@@ -320,28 +320,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Updating duration to:", data.duration);
       }
       
-      // Handle date conversions for the schema validation
-      if (data.endTime && typeof data.endTime === 'string') {
-        // For date validation, we'll bypass schema validation for this field
-        delete data.endTime;
-      }
+      // For time entry updates, we'll use a simpler approach - completely avoid date fields
+      // which are causing validation issues
       
-      if (data.startTime && typeof data.startTime === 'string') {
-        // For date validation, we'll bypass schema validation for this field
-        delete data.startTime;
-      }
-      
-      // Parse the remaining data to ensure it matches the schema
-      const validatedData = insertTimeEntrySchema.partial().parse(data);
-      
-      // Now add back the original date strings if they existed
-      if (req.body.endTime && typeof req.body.endTime === 'string') {
-        validatedData.endTime = new Date(req.body.endTime);
-      }
-      
-      if (req.body.startTime && typeof req.body.startTime === 'string') {
-        validatedData.startTime = new Date(req.body.startTime);
-      }
+      // Parse using our more flexible schema
+      const validatedData = timeEntryUpdateSchema.parse(data);
       
       // Now update with the validated and processed data
       const entry = await storage.updateTimeEntry(id, validatedData);

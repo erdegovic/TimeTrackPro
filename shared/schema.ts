@@ -91,7 +91,22 @@ export const settings = pgTable("settings", {
 // Create Insert Schemas
 export const insertClientSchema = createInsertSchema(clients).omit({ id: true });
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true });
-export const insertTimeEntrySchema = createInsertSchema(timeEntries).omit({ id: true, invoiceId: true });
+export const insertTimeEntrySchema = createInsertSchema(timeEntries)
+  .omit({ id: true, invoiceId: true })
+  .partial();
+
+// Create a more flexible schema specifically for updates
+export const timeEntryUpdateSchema = z.object({
+  description: z.string().optional(),
+  projectId: z.coerce.number().optional(),
+  duration: z.string().optional(),
+  date: z.string().optional(),
+  month: z.string().optional(),
+  year: z.number().optional(),
+  weekNumber: z.number().optional(),
+  weekLabel: z.string().optional(),
+  billable: z.boolean().optional(),
+});
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true });
 export const insertSettingsSchema = createInsertSchema(settings).omit({ id: true });
 

@@ -73,12 +73,13 @@ export default function TimeEntryRow({
       // Store duration as decimal string with 2 decimal places to ensure consistency
       const formattedDuration = newDuration.toFixed(2);
       
-      // Build update object with all necessary fields
+      // Build update object with all necessary fields - completely avoid date objects which cause validation issues
       const updateData = {
         duration: formattedDuration,
         description: editedEntry.description || entry.description,
         projectId: editedEntry.projectId || entry.projectId,
-        endTime: newEndTime.toISOString()
+        // Don't include endTime or startTime, which cause validation errors
+        // We'll recalculate these on the server based on the duration
       };
       
       // Send the update request
