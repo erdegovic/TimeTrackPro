@@ -48,7 +48,8 @@ export async function generatePdf(options: PdfOptions & { showDueDate?: boolean 
       invoiceNumber: options.invoiceNumber,
       issueDate: options.issueDate,
       dueDate: options.dueDate,
-      notes: options.notes
+      notes: options.notes,
+      showDueDate: options.showDueDate
     });
   }
   

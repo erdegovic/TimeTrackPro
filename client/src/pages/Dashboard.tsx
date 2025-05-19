@@ -314,7 +314,11 @@ export default function Dashboard() {
                       paddingAngle={2}
                       dataKey="hours"
                       nameKey="name"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }) => {
+                        // Truncate long project names to fit in the chart
+                        const displayName = name.length > 15 ? name.substring(0, 12) + '...' : name;
+                        return `${displayName} ${(percent * 100).toFixed(0)}%`;
+                      }}
                       labelLine={false}
                     >
                       {projectData.map((entry, index) => (
