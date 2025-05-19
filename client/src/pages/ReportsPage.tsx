@@ -11,6 +11,7 @@ export default function ReportsPage() {
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any>(null);
   const [selectedClientId, setSelectedClientId] = useState<number | undefined>(undefined);
+  const [isEditing, setIsEditing] = useState(false);
 
   const handleApplyFilters = (filters: ReportFiltersType) => {
     setCurrentFilters(filters);
@@ -91,7 +92,8 @@ export default function ReportsPage() {
             <InvoicePreview 
               reportData={invoiceData} 
               clientId={selectedClientId}
-              onEditInvoice={() => setShowInvoicePreview(false)}
+              onEditInvoice={() => setIsEditing(true)}
+              isEditing={isEditing}
             />
           )}
         </DialogContent>
