@@ -10,7 +10,7 @@ import { useLocation } from 'wouter';
 
 // Login form schema
 const loginSchema = z.object({
-  usernameOrEmail: z.string().min(1, "Username or email is required"),
+  username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
 });
 
@@ -28,7 +28,7 @@ export default function LoginForm() {
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      usernameOrEmail: '',
+      username: '',
       password: '',
     }
   });
@@ -83,14 +83,14 @@ export default function LoginForm() {
       
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="usernameOrEmail">Username or Email</Label>
+          <Label htmlFor="username">Username</Label>
           <Input
-            id="usernameOrEmail"
-            {...register("usernameOrEmail")}
-            placeholder="Your username or email"
+            id="username"
+            {...register("username")}
+            placeholder="Your username"
           />
-          {errors.usernameOrEmail && (
-            <p className="text-sm text-red-500">{errors.usernameOrEmail.message}</p>
+          {errors.username && (
+            <p className="text-sm text-red-500">{errors.username.message}</p>
           )}
         </div>
         
