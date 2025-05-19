@@ -197,10 +197,47 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         return entry;
       });
       
-      // Create the enhanced report data
+      // Get the current state of time entries from the InvoicePreview component
+      // Extract any edited values from the time entries (duration, amount) 
+      const timeEntriesWithEdits = reportData.timeEntries.map((entry: any) => {
+        // Find any edited values that might be in the DOM (via the InvoicePreview component)
+        const editedEntry = document.querySelector(`[data-entry-id="${entry.id}"]`);
+        let duration = entry.duration;
+        let amount = entry.amount;
+        
+        // If we have edited values from the DOM, use those
+        if (editedEntry) {
+          const editedDuration = editedEntry.getAttribute('data-edited-duration');
+          const editedAmount = editedEntry.getAttribute('data-edited-amount');
+          
+          if (editedDuration) {
+            duration = parseFloat(editedDuration);
+          }
+          
+          if (editedAmount) {
+            amount = parseFloat(editedAmount);
+          }
+        }
+        
+        // Ensure each entry has client info for currency
+        if (!entry.client && client) {
+          entry.client = client;
+        }
+        
+        return {
+          ...entry,
+          duration: duration,
+          editedDuration: duration, // Explicitly set the edited duration
+          amount: amount,
+          editedAmount: amount, // Explicitly set the edited amount
+          client: entry.client || client
+        };
+      });
+      
+      // Create the enhanced report data with all edits included
       const enhancedReportData = {
         ...reportData,
-        timeEntries: enrichedTimeEntries,
+        timeEntries: timeEntriesWithEdits,
         additionalItems: additionalItems,
         clientCurrency: clientCurrency
       };
