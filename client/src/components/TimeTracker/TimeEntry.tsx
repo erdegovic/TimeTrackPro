@@ -46,10 +46,23 @@ export default function TimeEntryRow({
 
   const handleEdit = async () => {
     try {
+      // Calculate new end time based on the duration
+      let newDuration = parseFloat(editedEntry.duration || '0');
+      const startTime = new Date(entry.startTime);
+      const durationMs = newDuration * 60 * 60 * 1000; // Convert hours to milliseconds
+      const newEndTime = new Date(startTime.getTime() + durationMs);
+      
+      console.log("Updating time entry with new duration:", newDuration, "hours");
+      console.log("New end time calculated:", newEndTime.toISOString());
+      
+      // Send all the updated fields, including the recalculated endTime
       await apiRequest("PUT", `/api/time-entries/${entry.id}`, {
         description: editedEntry.description,
         projectId: editedEntry.projectId,
-        // Other fields that might have changed
+        duration: editedEntry.duration,
+        endTime: newEndTime.toISOString(), // This ensures the time is properly updated
+        date: editedEntry.date,
+        billable: editedEntry.billable
       });
       
       // Invalidate queries to refresh data
@@ -61,6 +74,7 @@ export default function TimeEntryRow({
         description: "Your time entry has been updated successfully.",
       });
     } catch (error) {
+      console.error("Failed to update time entry:", error);
       toast({
         title: "Error",
         description: "Failed to update time entry. Please try again.",

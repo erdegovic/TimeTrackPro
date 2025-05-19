@@ -279,8 +279,8 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
         notes,
         timeEntryIds,
         currency: client.currency || 'USD', // Include currency
-        issueDate: issueDate,
-        dueDate: dueDate,
+        issueDate: format(new Date(issueDate), 'yyyy-MM-dd'),
+        dueDate: format(new Date(dueDate), 'yyyy-MM-dd'),
         invoiceNumber: invoiceNumber,
         status: 'draft',
         // Include additional items as JSON string
