@@ -298,10 +298,12 @@ export async function logout(req: Request, res: Response) {
           return res.status(500).json({ message: 'Logout failed. Please try again.' });
         }
         res.clearCookie('connect.sid');
-        return res.status(200).json({ message: 'Logged out successfully' });
+        // Redirect to login page with logout success parameter
+        return res.redirect('/login?logout=true');
       });
     } else {
-      return res.status(200).json({ message: 'Logged out successfully' });
+      // Redirect to login page with logout success parameter
+      return res.redirect('/login?logout=true');
     }
   } catch (error) {
     console.error('Logout error:', error);
