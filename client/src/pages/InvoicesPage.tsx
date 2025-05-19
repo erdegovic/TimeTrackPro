@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generatePdf } from "@/lib/pdf-generator";
 import { Invoice, Client, Settings } from "@shared/schema";
 // Make sure to use relative path for imports
-import InvoiceEditor from "../components/Invoices/SimpleInvoiceEditor";
+import InvoiceEditor from "../components/Invoices/ReportInvoiceEditor";
 
 export default function InvoicesPage() {
   const { toast } = useToast();
