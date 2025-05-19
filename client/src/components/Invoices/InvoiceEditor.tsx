@@ -180,8 +180,30 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
     if (!invoice || !client || !settings || !reportData) return;
     
     try {
+      setIsLoading(true);
       // Generate PDF with current data
       const filename = `invoice-${invoice.invoiceNumber.replace('INV-', '')}.pdf`;
+      
+      // Make sure client has currency properly set
+      const clientCurrency = client.currency || settings.defaultCurrency || 'USD';
+      console.log("Using client currency for PDF export:", clientCurrency);
+      
+      // Prepare report data with currency information to ensure proper formatting
+      const enrichedTimeEntries = reportData.timeEntries.map((entry: any) => {
+        // Ensure each entry has client info for currency
+        if (!entry.client && client) {
+          entry.client = client;
+        }
+        return entry;
+      });
+      
+      // Create the enhanced report data
+      const enhancedReportData = {
+        ...reportData,
+        timeEntries: enrichedTimeEntries,
+        additionalItems: additionalItems,
+        clientCurrency: clientCurrency
+      };
       
       generatePdf({
         filename,
@@ -189,16 +211,18 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         invoice,
         client,
         settings,
-        reportData,
+        reportData: enhancedReportData,
         showDueDate
       });
       
+      setIsLoading(false);
       toast({
         title: "Invoice exported",
         description: `Your invoice has been exported as ${filename}`,
       });
     } catch (error) {
       console.error("Error exporting invoice:", error);
+      setIsLoading(false);
       toast({
         title: "Error",
         description: "Failed to export invoice. Please try again.",

@@ -78,15 +78,37 @@ export default function InvoicesPage() {
       // Get all time entries and filter by those with matching invoiceId
       const entriesRes = await fetch(`/api/time-entries`);
       const allTimeEntries = await entriesRes.json();
-      const invoiceEntries = allTimeEntries.filter((entry: any) => entry.invoiceId === invoice.id);
+      let invoiceEntries = allTimeEntries.filter((entry: any) => entry.invoiceId === invoice.id);
       
       console.log(`Found ${invoiceEntries.length} time entries for invoice ${invoice.id}`);
+      
+      // Enrich entries with project and client data for currency display
+      const enrichedEntries = await Promise.all(invoiceEntries.map(async (entry: any) => {
+        // Make sure each entry has project data
+        if (!entry.project && entry.projectId) {
+          try {
+            const projectRes = await fetch(`/api/projects/${entry.projectId}`);
+            if (projectRes.ok) {
+              entry.project = await projectRes.json();
+            }
+          } catch (err) {
+            console.error("Failed to fetch project for entry:", err);
+          }
+        }
+        
+        // Ensure client data is attached for currency formatting
+        if (!entry.client) {
+          entry.client = client;
+        }
+        
+        return entry;
+      }));
       
       // Parse additional items from notes if they exist
       let notes = invoiceData.notes || "";
       let additionalItems = [];
       
-      if (notes.includes("ADDITIONAL_ITEMS:")) {
+      if (notes && notes.includes("ADDITIONAL_ITEMS:")) {
         const parts = notes.split("ADDITIONAL_ITEMS:");
         notes = parts[0].trim();
         try {
@@ -97,12 +119,18 @@ export default function InvoicesPage() {
         }
       }
       
+      // Determine which currency to use (client's currency takes precedence)
+      const usedCurrency = client.currency || settings.defaultCurrency || 'USD';
+      console.log("Using currency for PDF export:", usedCurrency);
+      
       // Create report data
       const reportData = {
-        timeEntries: invoiceEntries,
+        timeEntries: enrichedEntries,
         additionalItems,
-        totalHours: invoiceEntries.reduce((sum: number, entry: any) => sum + parseFloat(entry.duration || 0), 0),
-        totalAmount: Number(invoiceData.total)
+        clientCurrency: usedCurrency,
+        totalHours: enrichedEntries.reduce((sum: number, entry: any) => sum + parseFloat(entry.duration || 0), 0),
+        totalAmount: Number(invoiceData.total),
+        timeFormat: settings.defaultTimeFormat || 'decimal'
       };
       
       // Generate PDF
@@ -113,8 +141,9 @@ export default function InvoicesPage() {
         invoice: invoiceData,
         client,
         settings,
-        reportData, // Include report data with time entries
-        type: "invoice"
+        reportData, // Include enhanced report data with time entries
+        type: "invoice",
+        showDueDate: settings.showDueDate
       });
       
       toast({
