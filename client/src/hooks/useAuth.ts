@@ -9,10 +9,16 @@ export function useAuth() {
   const { data: user, isLoading, error } = useQuery({
     queryKey: ["/api/auth/user"],
     retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: true,
     onError: () => {
       // Don't redirect if on login or register pages
       const currentPath = window.location.pathname;
-      if (currentPath !== "/login" && currentPath !== "/register") {
+      if (currentPath !== "/login" && 
+          currentPath !== "/register" && 
+          currentPath !== "/verify-email" && 
+          currentPath !== "/forgot-password" && 
+          currentPath !== "/reset-password") {
         navigate("/login");
       }
     }

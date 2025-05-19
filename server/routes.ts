@@ -16,8 +16,13 @@ import { z } from "zod";
 import { addDays, format } from "date-fns";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import authRoutes from "./routes/auth";
+import { authenticate } from "./middleware/auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Register auth routes
+  app.use('/api/auth', authRoutes);
+  
   // All API routes use /api prefix
   
   // Clients API
