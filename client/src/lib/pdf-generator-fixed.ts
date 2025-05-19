@@ -213,10 +213,28 @@ function generateInvoicePdf(options: {
   const invNumber = invoice?.invoiceNumber || invoiceNumber || "DRAFT";
   const invIssueDate = invoice?.issueDate || issueDate || format(new Date(), 'yyyy-MM-dd');
   const invDueDate = invoice?.dueDate || dueDate || format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
-  const invNotes = invoice?.notes || notes || "Thank you for your business.";
   
-  // Use client's currency or fall back to USD
-  console.log("Using client currency for invoice:", client.currency);
+  // Parse the notes to extract additional items if present
+  let invNotes = invoice?.notes || notes || "Thank you for your business.";
+  let additionalItems = [];
+  
+  // Extract additional items from notes if present
+  if (invNotes.includes("ADDITIONAL_ITEMS:")) {
+    const parts = invNotes.split("ADDITIONAL_ITEMS:");
+    invNotes = parts[0].trim(); // Extract the actual notes
+    
+    try {
+      // Try to parse additional items
+      const itemsJson = parts[1].trim();
+      additionalItems = JSON.parse(itemsJson);
+      console.log("Found additional items in notes:", additionalItems);
+    } catch (e) {
+      console.error("Failed to parse additional items:", e);
+    }
+  }
+  
+  // Determine which currency to use - client currency takes precedence
+  const invoiceCurrency = client.currency || 'USD';
   
   // Add title and invoice number
   doc.setFontSize(24);
@@ -302,9 +320,8 @@ function generateInvoicePdf(options: {
   let subtotal = 0;
   let totalHours = 0;
   
-  // Get the currency for the client
-  const currency = client.currency || 'USD';
-  const currencySymbol = currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : '$';
+  // Use the currency we determined earlier
+  const currencySymbol = invoiceCurrency === 'GBP' ? '£' : invoiceCurrency === 'EUR' ? '€' : '$';
   
   if (reportData) {
     // Use report data for generating invoice

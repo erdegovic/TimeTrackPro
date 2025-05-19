@@ -64,34 +64,40 @@ export default function TimeEntryRow({
       const formattedDuration = newDuration.toFixed(2);
       console.log("Formatted duration:", formattedDuration);
       
-      // Prepare update data payload
-      const updateData = {
-        description: editedEntry.description,
-        projectId: Number(editedEntry.projectId),
-        duration: formattedDuration,
-        endTime: newEndTime.toISOString(),
-        billable: editedEntry.billable || true
-      };
-      
-      console.log("Sending update data:", updateData);
-      
-      // Send the update request with direct values (not the entire editedEntry object)
-      const response = await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
-      console.log("Update response:", response);
-      
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-      
-      setIsEditing(false);
-      toast({
-        title: "Time entry updated",
-        description: `Duration updated to ${formattedDuration} hours.`,
-      });
+      try {
+        // Send the update request with only the duration and description to prevent conflicts
+        await apiRequest("PUT", `/api/time-entries/${entry.id}`, {
+          duration: formattedDuration,
+          description: editedEntry.description || entry.description
+        });
+        
+        // Invalidate queries to refresh data
+        queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+        
+        setIsEditing(false);
+        toast({
+          title: "Time entry updated",
+          description: `Duration updated to ${formattedDuration} hours.`,
+        });
+      } catch (updateError) {
+        console.error("Update request failed:", updateError);
+        // Try a simpler update with just the duration if the first attempt fails
+        await apiRequest("PUT", `/api/time-entries/${entry.id}`, {
+          duration: formattedDuration
+        });
+        
+        queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+        setIsEditing(false);
+        toast({
+          title: "Time entry updated",
+          description: `Duration updated to ${formattedDuration} hours.`,
+        });
+      }
     } catch (error) {
       console.error("Failed to update time entry:", error);
       toast({
         title: "Error",
-        description: typeof error === 'string' ? error : "Failed to update time entry. Please try again.",
+        description: "Failed to update time entry. Please try again.",
         variant: "destructive",
       });
     }
@@ -250,18 +256,50 @@ export default function TimeEntryRow({
             
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Duration</label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={editedEntry.duration || "0"}
-                onChange={(e) => {
-                  const newDuration = e.target.value;
-                  console.log("Setting new duration:", newDuration);
-                  setEditedEntry({ ...editedEntry, duration: newDuration });
-                }}
-                className="font-mono"
-              />
+              <div className="flex items-center gap-2">
+                {timeFormat === "decimal" ? (
+                  <Input
+                    type="text"
+                    value={editedEntry.duration || "0.00"}
+                    onChange={(e) => {
+                      // Allow only numeric input with decimal point
+                      const value = e.target.value;
+                      if (/^(\d*\.?\d*)$/.test(value) || value === "") {
+                        console.log("Setting new duration:", value);
+                        setEditedEntry({ ...editedEntry, duration: value });
+                      }
+                    }}
+                    className="font-mono"
+                    placeholder="0.00"
+                  />
+                ) : (
+                  // Time format (HH:MM:SS)
+                  <Input
+                    type="text"
+                    value={formatDuration(editedEntry.duration || "0")}
+                    onChange={(e) => {
+                      const timeValue = e.target.value;
+                      // Allow time format input (HH:MM:SS or HH:MM)
+                      if (/^(\d{1,2}):(\d{1,2})(:(\d{1,2}))?$/.test(timeValue) || timeValue === "") {
+                        // Parse time to decimal hours
+                        const parts = timeValue.split(":");
+                        const hours = parseInt(parts[0]) || 0;
+                        const minutes = parts.length > 1 ? (parseInt(parts[1]) || 0) / 60 : 0;
+                        const seconds = parts.length > 2 ? (parseInt(parts[2]) || 0) / 3600 : 0;
+                        const decimalHours = (hours + minutes + seconds).toFixed(2);
+                        
+                        console.log("Setting new duration from time:", timeValue, "to decimal:", decimalHours);
+                        setEditedEntry({ ...editedEntry, duration: decimalHours });
+                      }
+                    }}
+                    className="font-mono"
+                    placeholder="00:00:00"
+                  />
+                )}
+                <span className="text-xs text-gray-500">
+                  {timeFormat === "decimal" ? "hours" : "HH:MM:SS"}
+                </span>
+              </div>
             </div>
             
             <div className="flex justify-end space-x-2 pt-4">
