@@ -229,7 +229,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               className="w-full justify-start text-gray-600 hover:text-red-600 mt-1"
               asChild
             >
-              <Link href="/api/auth/logout">
+              <Link href="/login">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Logout</span>
               </Link>
