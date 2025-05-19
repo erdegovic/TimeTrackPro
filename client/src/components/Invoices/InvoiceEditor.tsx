@@ -74,11 +74,40 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
       if (notes && notes.includes("ADDITIONAL_ITEMS:")) {
         const parts = notes.split("ADDITIONAL_ITEMS:");
         notes = parts[0].trim();
+        
         try {
-          items = JSON.parse(parts[1].trim());
-          console.log("Parsed additional items:", items);
+          // Handle different possible formats of the additional items in the notes
+          const additionalItemsText = parts[1].trim();
+          
+          // Try parsing the whole additional items section
+          try {
+            items = JSON.parse(additionalItemsText);
+            console.log("Successfully parsed additional items:", items);
+          } catch (parseError) {
+            // If that fails, try to extract just the JSON part
+            console.log("Initial additional items parse failed, trying to extract JSON section");
+            
+            if (additionalItemsText.includes("\n\n")) {
+              // If there are multiple sections, take just the first one
+              const itemsClean = additionalItemsText.split("\n\n")[0];
+              items = JSON.parse(itemsClean);
+              console.log("Parsed additional items from first section:", items);
+            } else {
+              // Last attempt - find the closing bracket of the JSON array
+              const lastBracketIndex = additionalItemsText.lastIndexOf("]");
+              if (lastBracketIndex > 0) {
+                const itemsClean = additionalItemsText.substring(0, lastBracketIndex + 1);
+                items = JSON.parse(itemsClean);
+                console.log("Parsed additional items by finding closing bracket:", items);
+              } else {
+                throw new Error("Could not find valid JSON data for additional items");
+              }
+            }
+          }
         } catch (e) {
           console.error("Failed to parse additional items:", e);
+          // Use empty array as fallback
+          items = [];
         }
       }
       
@@ -123,10 +152,32 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
           const editedEntriesParts = notes.split("EDITED_ENTRIES:");
           const editedEntriesJson = editedEntriesParts[1].trim();
           
-          // If there's another section after EDITED_ENTRIES, take only until that section
-          if (editedEntriesJson.includes("\n\n")) {
-            const editedEntriesClean = editedEntriesJson.split("\n\n")[0];
-            const parsedEditedEntries = JSON.parse(editedEntriesClean);
+          // Handle different possible formats in the notes
+          let parsedEditedEntries;
+          try {
+            // Try parsing the whole thing first
+            parsedEditedEntries = JSON.parse(editedEntriesJson);
+            console.log("Successfully parsed edited entries JSON");
+          } catch (parseError) {
+            // If that fails, try to extract just the JSON part
+            console.log("Initial parse failed, trying to extract JSON section");
+            if (editedEntriesJson.includes("\n\n")) {
+              // If there are multiple sections, take just the first one
+              const editedEntriesClean = editedEntriesJson.split("\n\n")[0];
+              parsedEditedEntries = JSON.parse(editedEntriesClean);
+            } else {
+              // Last attempt - find the closing bracket of the JSON array
+              const lastBracketIndex = editedEntriesJson.lastIndexOf("]");
+              if (lastBracketIndex > 0) {
+                const editedEntriesClean = editedEntriesJson.substring(0, lastBracketIndex + 1);
+                parsedEditedEntries = JSON.parse(editedEntriesClean);
+              } else {
+                throw new Error("Could not find valid JSON data");
+              }
+            }
+          }
+          
+          if (parsedEditedEntries && Array.isArray(parsedEditedEntries)) {
             console.log("Found edited entries data:", parsedEditedEntries.length);
             
             // Create a map for quick lookup
@@ -150,9 +201,13 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
               }
               return entry;
             });
+          } else {
+            console.warn("Parsed data is not an array or is empty");
           }
         } catch (error) {
           console.error("Error parsing edited entries data:", error);
+          // Fall back to using the original entries without edits
+          console.log("Using non-edited entries as fallback");
         }
       }
       
@@ -180,15 +235,42 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
       // Convert to array and sort by week number
       const weeklyData = Object.values(entriesByWeek).sort((a: any, b: any) => a.weekNumber - b.weekNumber);
       
-      // Format the report data for the preview
-      setReportData({
-        timeEntries: editedEntries,
-        weeklyData,
-        additionalItems: items,
-        totalHours: editedEntries.reduce((sum: number, entry: any) => sum + parseFloat(entry.duration || 0), 0),
-        totalAmount: Number(invoiceData.total),
-        timeFormat: settings?.defaultTimeFormat || 'decimal'
-      });
+      // Make sure weekly data is correctly constructed
+      if (!weeklyData || weeklyData.length === 0) {
+        console.log("No weekly data could be calculated, using a default structure");
+        
+        // If no weekly data, create a simple structure with all entries in one week
+        const singleWeek = {
+          weekNumber: 1, 
+          weekLabel: 'All Items',
+          entries: editedEntries,
+          totalAmount: editedEntries.reduce((sum: number, entry: any) => 
+            sum + parseFloat(String(entry.amount || '0')), 0)
+        };
+        
+        // Format the report data with this simple structure
+        setReportData({
+          timeEntries: editedEntries,
+          weeklyData: [singleWeek],
+          additionalItems: items,
+          totalHours: editedEntries.reduce((sum: number, entry: any) => 
+            sum + parseFloat(String(entry.duration || '0')), 0),
+          totalAmount: Number(invoiceData.total),
+          timeFormat: settings?.defaultTimeFormat || 'decimal'
+        });
+      } else {
+        // Normal case - format the report data with the calculated weekly data
+        console.log("Using calculated weekly data:", weeklyData.length, "weeks");
+        setReportData({
+          timeEntries: editedEntries,
+          weeklyData,
+          additionalItems: items,
+          totalHours: editedEntries.reduce((sum: number, entry: any) => 
+            sum + parseFloat(String(entry.duration || '0')), 0),
+          totalAmount: Number(invoiceData.total),
+          timeFormat: settings?.defaultTimeFormat || 'decimal'
+        });
+      }
       
       setIsLoading(false);
     } catch (error) {
