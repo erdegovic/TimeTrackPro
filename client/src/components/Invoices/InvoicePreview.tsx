@@ -13,11 +13,39 @@ import { Client, Settings, TimeFormat } from "@shared/schema";
 
 interface InvoicePreviewProps {
   reportData: any;
-  clientId: number;
+  clientId?: number;
+  client?: Client;
+  settings?: Settings;
+  invoiceNumber?: string;
+  issueDate?: string;
+  dueDate?: string;
+  setDueDate?: (date: string) => void;
+  additionalItems?: any[];
+  setAdditionalItems?: (items: any[]) => void;
+  notes?: string;
+  setNotes?: (notes: string) => void;
+  showDueDate?: boolean;
+  setShowDueDate?: (show: boolean) => void;
   onEditInvoice?: () => void;
 }
 
-export default function InvoicePreview({ reportData, clientId, onEditInvoice }: InvoicePreviewProps) {
+export default function InvoicePreview({ 
+  reportData,
+  clientId,
+  client: propClient,
+  settings: propSettings,
+  invoiceNumber: propInvoiceNumber,
+  issueDate: propIssueDate,
+  dueDate: propDueDate,
+  setDueDate,
+  additionalItems: propAdditionalItems,
+  setAdditionalItems: propSetAdditionalItems,
+  notes: propNotes,
+  setNotes: propSetNotes,
+  showDueDate: propShowDueDate,
+  setShowDueDate: propSetShowDueDate,
+  onEditInvoice
+}: InvoicePreviewProps) {
   const { toast } = useToast();
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [isEditing, setIsEditing] = useState(false);
