@@ -72,6 +72,14 @@ export class DatabaseStorage implements IStorage {
   async deleteVerification(token: string): Promise<void> {
     await db.delete(verifications).where(eq(verifications.token, token));
   }
+  
+  async getUserByResetToken(token: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.resetPasswordToken, token));
+    return user;
+  }
 
   // Clients methods
   async getClients(): Promise<Client[]> {
