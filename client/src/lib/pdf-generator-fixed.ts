@@ -336,8 +336,12 @@ function generateInvoicePdf(options: {
                 : parseFloat(entry.duration || '0');
           
           // Format hourly rate and amount in client's currency
-          const hourlyRate = parseFloat(entry.hourlyRate);
-          const amount = parseFloat(entry.editedAmount || entry.amount);
+          // Just use the hourly rate value that is passed with the entry or a default
+          const hourlyRate = typeof entry.hourlyRate === 'number' 
+            ? entry.hourlyRate 
+            : parseFloat(String(entry.hourlyRate || '0'));
+          // Use the edited amount if available
+          const amount = parseFloat(String(entry.editedAmount || entry.amount || '0'));
           
           tableContent.push([
             entry.description,

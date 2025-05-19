@@ -260,21 +260,31 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
       const tax = enableTax ? subtotal * (taxRate / 100) : 0;
       const total = subtotal + tax;
       
-      // Create invoice with all necessary fields
+      // Create invoice with all necessary fields, using the edited values
       const invoiceData = {
         clientId: client.id,
-        amount: total, // Use the total amount including tax
+        amount: total, // Use the calculated total with all edited amounts and additional items
         subtotal: subtotal,
         tax: tax,
         taxRate: String(enableTax ? taxRate : 0), // Send as string to match database schema
-        totalHours: reportData.totalHours,
+        totalHours: editableEntries.reduce((sum, entry) => {
+          // Use the edited duration
+          const duration = typeof entry.editedDuration === 'number' 
+            ? entry.editedDuration 
+            : typeof entry.duration === 'number'
+              ? entry.duration
+              : parseFloat(entry.duration || '0');
+          return sum + duration;
+        }, 0),
         notes,
         timeEntryIds,
         currency: client.currency || 'USD', // Include currency
-        issueDate: format(new Date(), 'yyyy-MM-dd'),
-        dueDate: format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
+        issueDate: issueDate,
+        dueDate: dueDate,
         invoiceNumber: invoiceNumber,
-        status: 'draft'
+        status: 'draft',
+        // Include additional items as JSON string
+        additionalItems: JSON.stringify(additionalItems)
       };
       
       console.log("Sending invoice data to server:", invoiceData);
