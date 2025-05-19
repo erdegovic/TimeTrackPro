@@ -96,6 +96,23 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
   
   let yPos = 30;
   
+  // If there are notes in the report data, add them at the top
+  if (reportData.notes) {
+    doc.setFontSize(11);
+    doc.text('Notes:', 14, yPos);
+    yPos += 6;
+    
+    // Split notes into lines
+    const notesLines = doc.splitTextToSize(reportData.notes, 180);
+    doc.setFontSize(10);
+    notesLines.forEach((line: string) => {
+      doc.text(line, 14, yPos);
+      yPos += 5;
+    });
+    
+    yPos += 5; // Add more space after notes
+  }
+  
   // Add filter information
   if (filters) {
     const startDate = filters.startDate ? format(new Date(filters.startDate), 'MMMM d, yyyy') : 'All time';

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
@@ -5,9 +6,11 @@ import { Download, File } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { generatePdf } from "@/lib/pdf-generator";
+import { generatePdf } from "@/lib/pdf-generator-fixed-new";
 import { formatTime, adjustTime, roundTime, formatCurrency } from "@/lib/utils/timeUtils";
 import { ReportFilters, Client, TimeEntry, Project, TimeFormat, RoundingType } from "@shared/schema";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ReportTableProps {
   filters: ReportFilters;
@@ -62,13 +65,23 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
     }
   });
 
+  // Add state for report notes
+  const [reportNotes, setReportNotes] = useState<string>("");
+  
   const exportReport = () => {
     if (!reportData) return;
 
     const filename = `timetrackpro-report-${format(new Date(), "yyyy-MM-dd")}.pdf`;
+    
+    // Add notes to report data for PDF
+    const reportDataWithNotes = {
+      ...reportData,
+      notes: reportNotes // Include notes in the report data
+    };
+    
     generatePdf({
       filename,
-      reportData,
+      reportData: reportDataWithNotes,
       filters,
       type: "report"
     });
@@ -193,6 +206,20 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
         </div>
       </div>
       
+      {/* Notes section */}
+      <div className="mb-6">
+        <Label htmlFor="report-notes" className="block text-sm font-medium mb-2">
+          Notes for PDF Export
+        </Label>
+        <Textarea 
+          id="report-notes"
+          value={reportNotes}
+          onChange={(e) => setReportNotes(e.target.value)}
+          placeholder="Add notes that will appear in the exported PDF"
+          className="w-full min-h-[100px]"
+        />
+      </div>
+      
       <div className="flex justify-between">
         <div>
           <Button variant="outline" onClick={exportReport}>
@@ -201,7 +228,13 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
           </Button>
         </div>
         <div>
-          <Button onClick={() => onGenerateInvoice(reportData)}>
+          <Button onClick={() => {
+            // Pass report data with notes to invoice generator
+            onGenerateInvoice({
+              ...reportData,
+              notes: reportNotes
+            });
+          }}>
             <File className="mr-2 h-4 w-4" />
             Generate Invoice
           </Button>
