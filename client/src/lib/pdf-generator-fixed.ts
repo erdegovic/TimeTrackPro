@@ -321,7 +321,8 @@ function generateInvoicePdf(options: {
   let totalHours = 0;
   
   // Set the invoiceCurrency for use throughout the function
-  const usedCurrency = invoiceCurrency;
+  // Use client's currency if available, otherwise use the provided invoice currency or default to USD
+  const usedCurrency = client?.currency || invoiceCurrency || 'USD';
   
   if (reportData) {
     // Use report data for generating invoice
@@ -400,8 +401,8 @@ function generateInvoicePdf(options: {
         tableContent.push([
           entry.description,
           formatTime(duration, reportData.timeFormat || 'decimal'),
-          formatCurrency(hourlyRate, currency),
-          formatCurrency(amount, currency)
+          formatCurrency(hourlyRate, usedCurrency),
+          formatCurrency(amount, usedCurrency)
         ]);
         
         subtotal += amount;
@@ -435,7 +436,7 @@ function generateInvoicePdf(options: {
         styles: {}
       },
       {
-        content: formatCurrency(subtotal, currency),
+        content: formatCurrency(subtotal, usedCurrency),
         styles: { halign: 'right' }
       }
     ]);
