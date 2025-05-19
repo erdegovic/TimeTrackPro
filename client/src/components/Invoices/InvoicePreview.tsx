@@ -353,7 +353,7 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
             <div className="text-sm text-gray-600 mt-2">
               <p><span className="text-gray-500">Invoice Number:</span> {invoiceNumber}</p>
               <p><span className="text-gray-500">Issue Date:</span> {issueDate}</p>
-              <p><span className="text-gray-500">Due Date:</span> {dueDate}</p>
+              {showDueDate && <p><span className="text-gray-500">Due Date:</span> {dueDate}</p>}
             </div>
           </div>
           
@@ -477,10 +477,72 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900 border-r"></td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                   {client?.currency
-                    ? formatCurrency(reportData.totalAmount, client.currency)
-                    : `$${reportData.totalAmount.toFixed(2)}`}
+                    ? formatCurrency(subtotal > 0 ? subtotal : reportData.totalAmount, client.currency)
+                    : `$${(subtotal > 0 ? subtotal : reportData.totalAmount).toFixed(2)}`}
                 </td>
               </tr>
+              
+              {/* Additional items */}
+              {additionalItems.map(item => (
+                <tr key={`additional-${item.id}`}>
+                  <td colSpan={2} className={`px-6 py-3 text-sm ${isEditing ? "text-blue-600" : "text-gray-900"} border-r`}>
+                    {isEditing ? (
+                      <Input
+                        type="text"
+                        className="w-full h-8 p-1 text-sm"
+                        value={item.description}
+                        onChange={(e) => updateAdditionalItem(item.id, 'description', e.target.value)}
+                      />
+                    ) : (
+                      item.description
+                    )}
+                  </td>
+                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900 border-r"></td>
+                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900 border-r">
+                    {isEditing && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeItem(item.id)}
+                        className="h-6 w-6 p-0"
+                      >
+                        <Minus className="h-4 w-4 text-red-600" />
+                      </Button>
+                    )}
+                  </td>
+                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                    {isEditing ? (
+                      <Input
+                        type="number"
+                        className="w-24 h-8 p-1 text-sm text-right"
+                        value={item.amount.toString()}
+                        onChange={(e) => updateAdditionalItem(item.id, 'amount', e.target.value)}
+                      />
+                    ) : (
+                      client?.currency
+                        ? formatCurrency(item.amount, client.currency)
+                        : `$${item.amount.toFixed(2)}`
+                    )}
+                  </td>
+                </tr>
+              ))}
+              
+              {/* Add item button (only visible in edit mode) */}
+              {isEditing && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-2 text-center border-t border-dashed">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={addItem}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <Plus className="mr-1 h-4 w-4" />
+                      Add Item
+                    </Button>
+                  </td>
+                </tr>
+              )}
               {/* Only show tax if it's enabled */}
               {enableTax && (
                 <tr>
@@ -524,9 +586,9 @@ export default function InvoicePreview({ reportData, clientId, onEditInvoice }: 
         
         <div className="flex justify-between">
           <div>
-            <Button variant="outline" onClick={onEditInvoice}>
+            <Button variant="outline" onClick={isEditing ? handleToggleEdit : handleToggleEdit}>
               <Edit className="mr-2 h-4 w-4" />
-              Edit Invoice
+              {isEditing ? "Done Editing" : "Edit Invoice"}
             </Button>
           </div>
           <div className="space-x-2">

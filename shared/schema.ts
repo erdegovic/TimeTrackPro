@@ -85,6 +85,7 @@ export const settings = pgTable("settings", {
   displayCurrency: text("display_currency").default("USD"),
   defaultTaxRate: numeric("default_tax_rate", { precision: 5, scale: 2 }).default("0"),
   enableTax: boolean("enable_tax").default(false),
+  showDueDate: boolean("show_due_date").default(true),
 });
 
 // Create Insert Schemas
