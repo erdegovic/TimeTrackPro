@@ -256,9 +256,10 @@ function generateInvoicePdf(options: {
   const invIssueDate = invoice?.issueDate || issueDate || format(new Date(), 'yyyy-MM-dd');
   const invDueDate = invoice?.dueDate || dueDate || format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
   
-  // Parse the notes to extract additional items if present
+  // Parse the notes to extract additional items and edited entries if present
   let invNotes = invoice?.notes || notes || "Thank you for your business.";
   let additionalItems: any[] = [];
+  let editedEntries: any[] = [];
   
   // Extract additional items from notes if present
   if (invNotes.includes("ADDITIONAL_ITEMS:")) {
@@ -267,11 +268,25 @@ function generateInvoicePdf(options: {
     
     try {
       // Try to parse additional items
-      const itemsJson = parts[1].trim();
+      const itemsJson = parts[1].split("EDITED_ENTRIES:")[0].trim();
       additionalItems = JSON.parse(itemsJson);
       console.log("Found additional items in notes:", additionalItems);
     } catch (e) {
       console.error("Failed to parse additional items:", e);
+    }
+  }
+  
+  // Extract edited entries from notes if present
+  if (invNotes.includes("EDITED_ENTRIES:")) {
+    const parts = invNotes.split("EDITED_ENTRIES:");
+    
+    try {
+      // Try to parse edited entries
+      const editedJson = parts[1].trim();
+      editedEntries = JSON.parse(editedJson);
+      console.log("Found edited entries in notes:", editedEntries);
+    } catch (e) {
+      console.error("Failed to parse edited entries:", e);
     }
   }
   
@@ -372,8 +387,11 @@ function generateInvoicePdf(options: {
   
   if (reportData) {
     // Use report data for generating invoice
-    if (reportData.weeklyData) {
+    if (reportData.weeklyData && reportData.weeklyData.length > 0) {
+      // Group entries by week using weeklyData
       reportData.weeklyData.forEach((weekData: any) => {
+        if (!weekData.entries || weekData.entries.length === 0) return; // Skip empty weeks
+        
         // Add week header
         tableContent.push([
           {
@@ -387,28 +405,38 @@ function generateInvoicePdf(options: {
           }
         ]);
         
-        // Add time entries for this week (only for selected client)
-        const clientEntries = weekData.entries.filter((entry: any) => 
-          entry.client && entry.client.id === client.id
-        );
+        // Apply any edited entries from the invoice notes
+        let weekEntries = [...weekData.entries];
         
-        clientEntries.forEach((entry: any) => {
+        // Check if we have edited entries to incorporate
+        if (editedEntries && editedEntries.length > 0) {
+          // Replace entries with their edited versions if available
+          weekEntries = weekEntries.map((entry: any) => {
+            const edited = editedEntries.find((e: any) => e.id === entry.id);
+            return edited || entry;
+          });
+        }
+        
+        // Process each entry in this week
+        weekEntries.forEach((entry: any) => {
           // Use edited duration if available
           const duration = typeof entry.editedDuration === 'number' 
             ? entry.editedDuration 
-            : typeof entry.adjustedDuration === 'number' 
-              ? entry.adjustedDuration 
-              : typeof entry.duration === 'number' 
-                ? entry.duration 
-                : parseFloat(entry.duration || '0');
+            : typeof entry.duration === 'number' 
+              ? entry.duration 
+              : parseFloat(entry.duration || '0');
           
           // Format hourly rate and amount in client's currency
-          // Just use the hourly rate value that is passed with the entry or a default
           const hourlyRate = typeof entry.hourlyRate === 'number' 
             ? entry.hourlyRate 
-            : parseFloat(String(entry.hourlyRate || '0'));
+            : parseFloat(String(entry.hourlyRate || entry.project?.hourlyRate || '0'));
+          
           // Use the edited amount if available
-          const amount = parseFloat(String(entry.editedAmount || entry.amount || '0'));
+          const amount = typeof entry.editedAmount !== 'undefined' 
+            ? parseFloat(String(entry.editedAmount)) 
+            : typeof entry.amount !== 'undefined' 
+              ? parseFloat(String(entry.amount)) 
+              : duration * hourlyRate;
           
           tableContent.push([
             entry.description,
@@ -587,10 +615,12 @@ function generateInvoicePdf(options: {
   doc.setFontSize(10);
   doc.text('Subtotal:', doc.internal.pageSize.width - 60, totalY);
   doc.text(formatCurrency(subtotal, currencyToUse), doc.internal.pageSize.width - 15, totalY, { align: 'right' });
-  totalY += 6;
+  totalY += 10; // Add more space after subtotal
   
   // Add additional items if present (from reportData or extracted from notes)
   const itemsToDisplay = reportData?.additionalItems || additionalItems;
+  let additionalItemsTotal = 0;
+  
   if (itemsToDisplay && itemsToDisplay.length > 0) {
     console.log("PDF - Adding additional items to invoice:", itemsToDisplay);
     
@@ -605,8 +635,11 @@ function generateInvoicePdf(options: {
     doc.setFontSize(10);
     
     itemsToDisplay.forEach((item: any) => {
+      const itemAmount = Number(typeof item.amount === 'string' ? parseFloat(item.amount) : item.amount);
+      additionalItemsTotal += itemAmount;
+      
       doc.text(item.description + ':', doc.internal.pageSize.width - 60, totalY);
-      doc.text(formatCurrency(Number(item.amount), currencyToUse), doc.internal.pageSize.width - 15, totalY, { align: 'right' });
+      doc.text(formatCurrency(itemAmount, currencyToUse), doc.internal.pageSize.width - 15, totalY, { align: 'right' });
       totalY += 6;
     });
     
@@ -621,14 +654,18 @@ function generateInvoicePdf(options: {
     totalY += 6;
   }
   
-  // Add total due
+  // Add total due (including subtotal, additional items, and tax)
   totalY += 2; // Add a bit more space
+  
+  // Calculate final total including additional items
+  const finalTotal = subtotal + additionalItemsTotal + tax;
+  
   doc.setFillColor(0, 165, 228); // Light blue
   doc.rect(doc.internal.pageSize.width - 100, totalY - 5, 100, 8, 'F');
   doc.setTextColor(255); // White text
   doc.setFontSize(12);
   doc.text('Total Due:', doc.internal.pageSize.width - 60, totalY);
-  doc.text(formatCurrency(total, currencyToUse), doc.internal.pageSize.width - 15, totalY, { align: 'right' });
+  doc.text(formatCurrency(finalTotal, currencyToUse), doc.internal.pageSize.width - 15, totalY, { align: 'right' });
   doc.setTextColor(0); // Reset to black
   doc.setFontSize(10);
   totalY += 15;
