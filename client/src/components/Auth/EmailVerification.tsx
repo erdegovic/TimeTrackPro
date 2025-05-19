@@ -18,6 +18,12 @@ export default function EmailVerification({ token }: EmailVerificationProps) {
   useEffect(() => {
     const verifyEmail = async () => {
       try {
+        if (!token) {
+          setErrorMessage("Missing verification token.");
+          setIsVerifying(false);
+          return;
+        }
+
         const response = await fetch(`/api/auth/verify-email?token=${token}`);
         const data = await response.json();
 
@@ -27,6 +33,11 @@ export default function EmailVerification({ token }: EmailVerificationProps) {
             title: "Success",
             description: "Your email has been verified successfully!",
           });
+          
+          // Redirect to login page with success message after a short delay
+          setTimeout(() => {
+            navigate("/login?verified=true");
+          }, 2000);
         } else {
           setErrorMessage(data.message || "Email verification failed. Please try again.");
           toast({
@@ -52,8 +63,13 @@ export default function EmailVerification({ token }: EmailVerificationProps) {
     } else {
       setIsVerifying(false);
       setErrorMessage("Invalid verification token.");
+      toast({
+        title: "Error",
+        description: "Missing verification token.",
+        variant: "destructive",
+      });
     }
-  }, [token, toast]);
+  }, [token, toast, navigate]);
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -74,6 +90,7 @@ export default function EmailVerification({ token }: EmailVerificationProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <p className="mt-4 text-gray-600">Your account is now active and you can sign in.</p>
+            <p className="mt-2 text-gray-500 text-sm">Redirecting to login page...</p>
           </div>
         ) : (
           <div className="py-6">

@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
@@ -24,28 +24,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register auth routes
   app.use('/api/auth', authRoutes);
   
-  // Handle frontend verification route - redirects to API route
-  app.get('/verify-email', (req: Request, res: Response) => {
-    const token = req.query.token as string;
-    if (!token) {
-      return res.redirect('/login?error=missing-token');
+  // Handle frontend verification route - serve the SPA
+  app.get('/verify-email', (req: Request, res: Response, next: NextFunction) => {
+    // If this is an API call, pass it to the next handler
+    if (req.path.startsWith('/api/')) {
+      return next();
     }
     
-    // Process verification directly
-    fetch(`http://localhost:5000/api/auth/verify-email?token=${token}`)
-      .then(response => response.json())
-      .then(data => {
-        const responseData = data as { message: string };
-        if (responseData.message === 'Email verified successfully. You can now log in.') {
-          return res.redirect('/login?verified=true');
-        } else {
-          return res.redirect(`/login?error=${encodeURIComponent(responseData.message || 'Verification failed')}`);
-        }
-      })
-      .catch(error => {
-        console.error('Error during verification redirect:', error);
-        return res.redirect('/login?error=verification-error');
-      });
+    // Otherwise serve the SPA - let the React app handle verification
+    return next();
   });
   
   // All API routes use /api prefix
