@@ -188,56 +188,67 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
       const clientCurrency = client.currency || settings.defaultCurrency || 'USD';
       console.log("Using client currency for PDF export:", clientCurrency);
       
-      // Prepare report data with currency information to ensure proper formatting
-      const enrichedTimeEntries = reportData.timeEntries.map((entry: any) => {
-        // Ensure each entry has client info for currency
-        if (!entry.client && client) {
-          entry.client = client;
-        }
-        return entry;
-      });
+      // We need to get all edited values from the InvoicePreview component
+      // Get the preview element 
+      const previewElement = document.querySelector('.invoice-preview');
+      let editedTimeEntries = [];
       
-      // Get the current state of time entries from the InvoicePreview component
-      // Extract any edited values from the time entries (duration, amount) 
-      const timeEntriesWithEdits = reportData.timeEntries.map((entry: any) => {
-        // Find any edited values that might be in the DOM (via the InvoicePreview component)
-        const editedEntry = document.querySelector(`[data-entry-id="${entry.id}"]`);
-        let duration = entry.duration;
-        let amount = entry.amount;
+      // Try to find any edited time entries from the preview component
+      if (previewElement) {
+        // Find all time entry rows with data attributes
+        const entryElements = previewElement.querySelectorAll('[data-entry-id]');
+        console.log(`Found ${entryElements.length} edited entries in the preview`);
         
-        // If we have edited values from the DOM, use those
-        if (editedEntry) {
-          const editedDuration = editedEntry.getAttribute('data-edited-duration');
-          const editedAmount = editedEntry.getAttribute('data-edited-amount');
+        // Build a map of edited values
+        const editedEntriesMap = new Map();
+        entryElements.forEach(element => {
+          const entryId = element.getAttribute('data-entry-id');
+          const editedDuration = element.getAttribute('data-edited-duration');
+          const editedAmount = element.getAttribute('data-edited-amount');
           
-          if (editedDuration) {
-            duration = parseFloat(editedDuration);
+          if (entryId && (editedDuration || editedAmount)) {
+            editedEntriesMap.set(Number(entryId), {
+              id: Number(entryId),
+              duration: editedDuration ? parseFloat(editedDuration) : undefined,
+              amount: editedAmount ? parseFloat(editedAmount) : undefined
+            });
           }
+        });
+        
+        // Apply edits to the time entries
+        editedTimeEntries = reportData.timeEntries.map((entry: any) => {
+          const edits = editedEntriesMap.get(entry.id);
           
-          if (editedAmount) {
-            amount = parseFloat(editedAmount);
-          }
-        }
+          // Create a new entry with edits applied
+          return {
+            ...entry,
+            // Use edited duration if available, otherwise use original
+            duration: edits?.duration !== undefined ? edits.duration : entry.duration,
+            // Explicitly flag as edited and store the edited value
+            editedDuration: edits?.duration !== undefined ? edits.duration : entry.duration,
+            // Use edited amount if available, otherwise use original
+            amount: edits?.amount !== undefined ? edits.amount : entry.amount,
+            // Explicitly flag as edited and store the edited value
+            editedAmount: edits?.amount !== undefined ? edits.amount : entry.amount,
+            // Ensure client info is available
+            client: entry.client || client
+          };
+        });
         
-        // Ensure each entry has client info for currency
-        if (!entry.client && client) {
-          entry.client = client;
-        }
-        
-        return {
+        console.log("Prepared edited entries for PDF:", editedTimeEntries.length);
+      } else {
+        // If we can't find the preview element, use the original entries
+        console.log("Could not find invoice preview element, using original entries");
+        editedTimeEntries = reportData.timeEntries.map((entry: any) => ({
           ...entry,
-          duration: duration,
-          editedDuration: duration, // Explicitly set the edited duration
-          amount: amount,
-          editedAmount: amount, // Explicitly set the edited amount
           client: entry.client || client
-        };
-      });
+        }));
+      }
       
       // Create the enhanced report data with all edits included
       const enhancedReportData = {
         ...reportData,
-        timeEntries: timeEntriesWithEdits,
+        timeEntries: editedTimeEntries,
         additionalItems: additionalItems,
         clientCurrency: clientCurrency
       };
