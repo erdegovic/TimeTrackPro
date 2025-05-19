@@ -115,11 +115,77 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         return entry;
       }));
       
+      // Check for edited entries in the stored notes
+      let editedEntries = enrichedEntries;
+      if (notes && notes.includes("EDITED_ENTRIES:")) {
+        try {
+          // Extract the edited entries section
+          const editedEntriesParts = notes.split("EDITED_ENTRIES:");
+          const editedEntriesJson = editedEntriesParts[1].trim();
+          
+          // If there's another section after EDITED_ENTRIES, take only until that section
+          if (editedEntriesJson.includes("\n\n")) {
+            const editedEntriesClean = editedEntriesJson.split("\n\n")[0];
+            const parsedEditedEntries = JSON.parse(editedEntriesClean);
+            console.log("Found edited entries data:", parsedEditedEntries.length);
+            
+            // Create a map for quick lookup
+            const editedEntriesMap = new Map();
+            parsedEditedEntries.forEach((edited: any) => {
+              editedEntriesMap.set(edited.id, edited);
+            });
+            
+            // Apply edited values to our entries
+            editedEntries = enrichedEntries.map((entry: any) => {
+              const editedVersion = editedEntriesMap.get(entry.id);
+              if (editedVersion) {
+                return {
+                  ...entry,
+                  duration: editedVersion.duration,
+                  amount: editedVersion.amount,
+                  editedDuration: editedVersion.duration,
+                  editedAmount: editedVersion.amount,
+                  wasEdited: true
+                };
+              }
+              return entry;
+            });
+          }
+        } catch (error) {
+          console.error("Error parsing edited entries data:", error);
+        }
+      }
+      
+      // Calculate weekly data from the entries
+      // Group entries by week
+      const entriesByWeek = editedEntries.reduce((acc: any, entry: any) => {
+        const weekLabel = entry.weekLabel || 'Unknown Week';
+        const weekNumber = entry.weekNumber || 0;
+        
+        if (!acc[weekLabel]) {
+          acc[weekLabel] = {
+            weekNumber,
+            weekLabel,
+            entries: [],
+            totalAmount: 0
+          };
+        }
+        
+        acc[weekLabel].entries.push(entry);
+        acc[weekLabel].totalAmount += parseFloat(entry.amount || 0);
+        
+        return acc;
+      }, {});
+      
+      // Convert to array and sort by week number
+      const weeklyData = Object.values(entriesByWeek).sort((a: any, b: any) => a.weekNumber - b.weekNumber);
+      
       // Format the report data for the preview
       setReportData({
-        timeEntries: enrichedEntries,
+        timeEntries: editedEntries,
+        weeklyData,
         additionalItems: items,
-        totalHours: enrichedEntries.reduce((sum: number, entry: any) => sum + parseFloat(entry.duration || 0), 0),
+        totalHours: editedEntries.reduce((sum: number, entry: any) => sum + parseFloat(entry.duration || 0), 0),
         totalAmount: Number(invoiceData.total),
         timeFormat: settings?.defaultTimeFormat || 'decimal'
       });
