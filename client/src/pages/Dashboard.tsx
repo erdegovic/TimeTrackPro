@@ -74,29 +74,17 @@ export default function Dashboard() {
     }
   }, [settings]);
 
-  // Calculate total hours for this week using exact duration from timestamps
+  // Calculate total hours for this week - ALWAYS use duration field for edited entries
   const weeklyHours = weekEntries.reduce((total, entry) => {
-    // If we have start and end times, calculate exact duration
-    if (entry.startTime && entry.endTime) {
-      const startTime = new Date(entry.startTime);
-      const endTime = new Date(entry.endTime);
-      const diffMs = endTime.getTime() - startTime.getTime();
-      return total + (diffMs / (1000 * 60 * 60)); // Convert to hours
-    }
-    // Fallback to stored duration
+    // Always prioritize the stored duration value, which contains any edits
+    // This ensures consistency with the time tracker view
     return total + Number(entry.duration || 0);
   }, 0);
 
-  // Calculate total hours for this month using exact duration from timestamps
+  // Calculate total hours for this month - ALWAYS use duration field for edited entries
   const monthlyHours = monthEntries.reduce((total, entry) => {
-    // If we have start and end times, calculate exact duration
-    if (entry.startTime && entry.endTime) {
-      const startTime = new Date(entry.startTime);
-      const endTime = new Date(entry.endTime);
-      const diffMs = endTime.getTime() - startTime.getTime();
-      return total + (diffMs / (1000 * 60 * 60)); // Convert to hours
-    }
-    // Fallback to stored duration
+    // Always prioritize the stored duration value, which contains any edits
+    // This ensures consistency with the time tracker view
     return total + Number(entry.duration || 0);
   }, 0);
 
