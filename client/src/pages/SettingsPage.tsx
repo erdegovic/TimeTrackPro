@@ -41,6 +41,7 @@ const settingsSchema = z.object({
     (val) => (typeof val === 'number' ? val.toString() : val),
     z.string().transform((val) => (val === '' ? '0' : val))
   ),
+  showDueDate: z.boolean().default(true),
 });
 
 export default function SettingsPage() {
@@ -76,6 +77,7 @@ export default function SettingsPage() {
       displayCurrency: "USD",
       enableTax: false,
       defaultTaxRate: "0", // Tax rate must be a string to match schema
+      showDueDate: true
     },
   });
   
@@ -102,6 +104,7 @@ export default function SettingsPage() {
         displayCurrency: settings.displayCurrency || "USD",
         enableTax: typeof settings.enableTax === 'boolean' ? settings.enableTax : false,
         defaultTaxRate: settings.defaultTaxRate?.toString() || "0",
+        showDueDate: typeof settings.showDueDate === 'boolean' ? settings.showDueDate : true,
       });
     }
   }, [settings, form]);
