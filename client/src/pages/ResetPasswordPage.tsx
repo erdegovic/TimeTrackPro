@@ -1,11 +1,12 @@
-import { useParams } from 'wouter';
+import { useLocation } from 'wouter';
 import ResetPasswordForm from "../components/Auth/ResetPasswordForm";
 import AuthLayout from "../components/layouts/AuthLayout";
 
 export default function ResetPasswordPage() {
-  // Get token from URL parameters
-  const params = useParams<{ token: string }>();
-  const token = params?.token || '';
+  // Get token from URL query parameters
+  const [location] = useLocation();
+  const searchParams = new URLSearchParams(location.split('?')[1]);
+  const token = searchParams.get('token') || '';
 
   return (
     <AuthLayout>

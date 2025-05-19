@@ -36,13 +36,13 @@ function Router() {
       <Route path="/register">
         <RegisterPage />
       </Route>
-      <Route path="/verify-email/:token">
+      <Route path="/verify-email">
         <VerifyEmailPage />
       </Route>
       <Route path="/forgot-password">
         <ForgotPasswordPage />
       </Route>
-      <Route path="/reset-password/:token">
+      <Route path="/reset-password">
         <ResetPasswordPage />
       </Route>
       
