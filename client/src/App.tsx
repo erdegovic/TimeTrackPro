@@ -18,6 +18,7 @@ import RegisterPage from "./pages/RegisterPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import RegistrationSuccessPage from "./pages/RegistrationSuccessPage";
 
 function Router() {
   // Public routes (no layout)
@@ -45,6 +46,9 @@ function Router() {
       </Route>
       <Route path="/reset-password">
         <ResetPasswordPage />
+      </Route>
+      <Route path="/registration-success">
+        <RegistrationSuccessPage />
       </Route>
       
       {/* Protected routes with app layout */}

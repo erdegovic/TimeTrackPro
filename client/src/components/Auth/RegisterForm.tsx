@@ -74,13 +74,10 @@ export default function RegisterForm() {
       const result = await response.json();
       
       if (response.ok) {
-        toast({
-          title: "Registration successful",
-          description: "Please check your email to verify your account."
-        });
-        
+        // Instead of showing a toast, redirect to the success page with the email
         reset();
         setCaptchaToken(null);
+        navigate(`/registration-success?email=${encodeURIComponent(data.email)}`);
       } else {
         toast({
           title: "Registration failed",
