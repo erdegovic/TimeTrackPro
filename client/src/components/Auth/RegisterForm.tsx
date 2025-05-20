@@ -74,10 +74,20 @@ export default function RegisterForm() {
       const result = await response.json();
       
       if (response.ok) {
-        // Instead of showing a toast, redirect to the success page with the email
+        // Reset form state
         reset();
         setCaptchaToken(null);
-        navigate(`/registration-success?email=${encodeURIComponent(data.email)}`);
+        
+        // Check if we received developer verification info (for testing only)
+        if (result._devInfo && result._devInfo.verificationUrl) {
+          // Auto-verify in development mode by navigating directly to the verification URL
+          // This is only for testing - in production, users would check their email
+          console.log('Development testing mode - auto-verifying account');
+          window.location.href = result._devInfo.verificationUrl;
+        } else {
+          // Standard flow - redirect to success page
+          navigate(`/registration-success?email=${encodeURIComponent(data.email)}`);
+        }
       } else {
         toast({
           title: "Registration failed",

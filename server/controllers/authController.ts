@@ -94,10 +94,27 @@ export async function register(req: Request, res: Response) {
       }
     }
 
-    return res.status(201).json({ 
+    // In development mode, include verification token in response for easier testing
+    const responseData = {
       message: 'Registration successful! Please verify your email to activate your account.',
-      userId: user.id 
-    });
+      userId: user.id
+    };
+    
+    if (process.env.NODE_ENV === 'development') {
+      // For development testing only - never do this in production
+      const baseUrl = process.env.APP_URL || `https://${process.env.REPLIT_DOMAINS?.split(",")[0] || "localhost:5000"}`;
+      const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
+      
+      // Add testing info to response
+      Object.assign(responseData, {
+        _devInfo: {
+          verificationToken: verificationToken,
+          verificationUrl: verificationUrl
+        }
+      });
+    }
+    
+    return res.status(201).json(responseData);
 
   } catch (error) {
     if (error instanceof z.ZodError) {
