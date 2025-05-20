@@ -72,17 +72,24 @@ const updateProfile = async (req: Request, res: Response) => {
       
       // Send verification email
       try {
-        const { sendEmail, getEmailVerificationContent } = await import('../utils/email');
+        const { sendEmail, getEmailVerificationContent } = await import('../utils/brevo');
         const baseUrl = `${req.protocol}://${req.hostname}`;
         const htmlContent = getEmailVerificationContent(token, baseUrl, email);
         
-        await sendEmail({
+        const emailSent = await sendEmail({
           to: email,
           subject: 'Verify your email address change',
           htmlContent
         });
         
-        // Also log the link in development mode
+        // Log the result
+        if (emailSent) {
+          console.log(`Verification email sent successfully to ${email}`);
+        } else {
+          console.error(`Failed to send verification email to ${email}`);
+        }
+        
+        // Always log the link for testing purposes
         console.log(`[DEV MODE] Email verification link: ${baseUrl}/verify-email-change?token=${token}`);
       } catch (error) {
         console.error('Failed to send verification email:', error);
@@ -294,7 +301,7 @@ const resendVerification = async (req: Request, res: Response) => {
     const verificationUrl = `${baseUrl}/verify-email-change?token=${pendingEmailChange.token}`;
     
     // Import email utilities and send email
-    const { sendEmail, getEmailVerificationContent } = await import('../utils/email');
+    const { sendEmail, getEmailVerificationContent } = await import('../utils/brevo');
     
     // Send email
     const htmlContent = getEmailVerificationContent(
@@ -303,11 +310,17 @@ const resendVerification = async (req: Request, res: Response) => {
       pendingEmailChange.newEmail
     );
     
-    await sendEmail({
+    const emailSent = await sendEmail({
       to: pendingEmailChange.newEmail,
       subject: 'Verify your email address change',
       htmlContent
     });
+    
+    if (emailSent) {
+      console.log(`Verification email resent successfully to ${pendingEmailChange.newEmail}`);
+    } else {
+      console.error(`Failed to resend verification email to ${pendingEmailChange.newEmail}`);
+    }
     
     // Log the link in development mode for testing
     console.log(`[DEV MODE] Resent verification email. Link: ${verificationUrl}`);
