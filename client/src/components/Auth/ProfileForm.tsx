@@ -57,41 +57,71 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     try {
       setIsSubmitting(true); // Show loading state while checking
       
+      // First invalidate the user data cache to force a fresh fetch
+      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      
+      // Then check for pending verification
       const response = await fetch('/api/auth/pending-email-change', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
+        // Add cache-busting parameter
+        cache: 'no-store',
       });
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Pending email check response:', data);
+        
         if (data.pendingEmail) {
           setPendingEmail(data.pendingEmail);
           setEmailVerificationAlert(true);
           
-          // If we have a pending verification, show toast notification for clarity
-          if (!pendingEmail) {
+          toast({
+            title: "Verification status",
+            description: `Email change to ${data.pendingEmail} is still pending verification. Please check your email.`,
+            duration: 5000,
+          });
+          
+          // Resend verification email as a convenience
+          try {
+            await fetch('/api/auth/resend-verification', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ email: data.pendingEmail }),
+            });
+            
             toast({
-              title: "Email verification pending",
-              description: `Please check ${data.pendingEmail} for your verification link.`,
+              title: "Verification email resent",
+              description: `A new verification email has been sent to ${data.pendingEmail}`,
               duration: 5000,
             });
+          } catch (resendError) {
+            console.error('Error resending verification:', resendError);
           }
         } else {
-          // If we previously had a pending email but now it's gone, 
-          // it might have been verified or expired
+          // No pending email change
+          setPendingEmail(null);
+          setEmailVerificationAlert(false);
+          
+          toast({
+            title: "Status updated",
+            description: pendingEmail 
+              ? "Your email has been successfully verified!" 
+              : "No pending email verification found.",
+            duration: 3000,
+          });
+          
+          // If we had a pending email before but not anymore, it was verified
           if (pendingEmail) {
-            setPendingEmail(null);
-            setEmailVerificationAlert(false);
-            
-            // Update user data from server
-            queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
-            
-            toast({
-              title: "Status updated",
-              description: "No pending email verification found.",
-              duration: 3000,
+            // Refresh the form with updated user data
+            form.reset({
+              firstName: user?.firstName || '',
+              lastName: user?.lastName || '',
+              email: user?.email || '',
             });
           }
         }

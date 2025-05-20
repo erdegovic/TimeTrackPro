@@ -268,6 +268,57 @@ const getCurrentUser = async (req: Request, res: Response) => {
   }
 };
 
+// Resend verification email
+const resendVerification = async (req: Request, res: Response) => {
+  try {
+    // Get user ID from session
+    const userId = req.session?.userId;
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    // Get verifications for this user
+    const verifications = await storage.getVerificationsByUser(userId);
+    const pendingEmailChange = verifications.find(v => 
+      v.type === 'email_change' && 
+      v.expiresAt > new Date() && 
+      v.newEmail
+    );
+
+    if (!pendingEmailChange || !pendingEmailChange.newEmail) {
+      return res.status(404).json({ message: 'No pending email verification found' });
+    }
+
+    // Generate verification URL
+    const baseUrl = `${req.protocol}://${req.hostname}`;
+    const verificationUrl = `${baseUrl}/verify-email-change?token=${pendingEmailChange.token}`;
+    
+    // Import email utilities and send email
+    const { sendEmail, getEmailVerificationContent } = await import('../utils/email');
+    
+    // Send email
+    const htmlContent = getEmailVerificationContent(
+      pendingEmailChange.token, 
+      baseUrl, 
+      pendingEmailChange.newEmail
+    );
+    
+    await sendEmail({
+      to: pendingEmailChange.newEmail,
+      subject: 'Verify your email address change',
+      htmlContent
+    });
+    
+    // Log the link in development mode for testing
+    console.log(`[DEV MODE] Resent verification email. Link: ${verificationUrl}`);
+    
+    return res.status(200).json({ message: 'Verification email resent' });
+  } catch (error) {
+    console.error('Error resending verification email:', error);
+    return res.status(500).json({ message: 'Failed to resend verification email' });
+  }
+};
+
 // Register routes
 router.get('/pending-email-change', getPendingEmailChange);
 router.put('/profile', updateProfile);
@@ -276,5 +327,6 @@ router.get('/verify-email-change', verifyEmailChange);
 router.put('/password', updatePassword);
 router.post('/avatar', updateAvatar);
 router.get('/user', getCurrentUser);
+router.post('/resend-verification', resendVerification);
 
 export default router;

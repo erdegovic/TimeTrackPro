@@ -40,15 +40,11 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     sendSmtpEmail.htmlContent = options.htmlContent;
     sendSmtpEmail.sender = options.sender || DEFAULT_SENDER;
 
-    // Skip actual sending in development mode
-    if (process.env.NODE_ENV === 'development') {
-      console.log('=== DEV MODE EMAIL ===');
-      console.log(`To: ${options.to}`);
-      console.log(`Subject: ${options.subject}`);
-      console.log(`Content: ${options.htmlContent}`);
-      console.log('=== END DEV MODE EMAIL ===');
-      return true;
-    }
+    // In development mode, log the email but still try to send it
+    console.log('=== EMAIL DETAILS ===');
+    console.log(`To: ${options.to}`);
+    console.log(`Subject: ${options.subject}`);
+    console.log('=== END EMAIL DETAILS ===');
     
     await apiInstance.sendTransacEmail(sendSmtpEmail);
     return true;
