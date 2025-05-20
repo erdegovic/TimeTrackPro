@@ -70,8 +70,23 @@ const updateProfile = async (req: Request, res: Response) => {
         createdAt: new Date()
       });
       
-      // Send verification email (in development mode, just log the link)
-      console.log(`[DEV MODE] Email verification link: ${req.protocol}://${req.hostname}/verify-email-change?token=${token}`);
+      // Send verification email
+      try {
+        const { sendEmail, getEmailVerificationContent } = await import('../utils/email');
+        const baseUrl = `${req.protocol}://${req.hostname}`;
+        const htmlContent = getEmailVerificationContent(token, baseUrl, email);
+        
+        await sendEmail({
+          to: email,
+          subject: 'Verify your email address change',
+          htmlContent
+        });
+        
+        // Also log the link in development mode
+        console.log(`[DEV MODE] Email verification link: ${baseUrl}/verify-email-change?token=${token}`);
+      } catch (error) {
+        console.error('Failed to send verification email:', error);
+      }
       
       // Update first/last name only, not email yet
       const updatedUser = await storage.updateUser(userId, { 

@@ -55,6 +55,8 @@ export default function ProfileForm({ user }: ProfileFormProps) {
   // Function to check if there's a pending email change
   const checkPendingEmailChange = async () => {
     try {
+      setIsSubmitting(true); // Show loading state while checking
+      
       const response = await fetch('/api/auth/pending-email-change', {
         method: 'GET',
         headers: {
@@ -67,10 +69,42 @@ export default function ProfileForm({ user }: ProfileFormProps) {
         if (data.pendingEmail) {
           setPendingEmail(data.pendingEmail);
           setEmailVerificationAlert(true);
+          
+          // If we have a pending verification, show toast notification for clarity
+          if (!pendingEmail) {
+            toast({
+              title: "Email verification pending",
+              description: `Please check ${data.pendingEmail} for your verification link.`,
+              duration: 5000,
+            });
+          }
+        } else {
+          // If we previously had a pending email but now it's gone, 
+          // it might have been verified or expired
+          if (pendingEmail) {
+            setPendingEmail(null);
+            setEmailVerificationAlert(false);
+            
+            // Update user data from server
+            queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+            
+            toast({
+              title: "Status updated",
+              description: "No pending email verification found.",
+              duration: 3000,
+            });
+          }
         }
       }
     } catch (error) {
       console.error('Error checking pending email change:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to check verification status. Please try again.',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
