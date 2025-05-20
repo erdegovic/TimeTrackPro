@@ -51,10 +51,18 @@ export async function updatePassword(req: Request, res: Response) {
     // Hash new password
     const hashedPassword = await hashPassword(newPassword);
     
+    console.log(`Updating password for user ${userId} (${user.email})`);
+    
     // Update user with new password
-    await storage.updateUser(userId, { 
+    const updatedUser = await storage.updateUser(userId, { 
       password: hashedPassword
     });
+    
+    if (!updatedUser) {
+      throw new Error('Failed to update user password in database');
+    }
+    
+    console.log('Password updated successfully in database');
     
     return res.status(200).json({ 
       message: 'Password updated successfully'
@@ -86,14 +94,19 @@ export async function updateProfile(req: Request, res: Response) {
     
     const userId = req.user.id;
     
+    // Log profile update attempt
+    console.log(`Profile update request for user ${userId}:`, profileData);
+    
     // Get user from database
     const user = await storage.getUser(userId);
     if (!user) {
+      console.error(`User not found in database: ${userId}`);
       return res.status(404).json({ message: 'User not found' });
     }
     
     // Check if email is changing and already exists
     if (profileData.email !== user.email) {
+      console.log(`Email change detected from ${user.email} to ${profileData.email}`);
       const emailExists = await storage.getUserByEmail(profileData.email);
       if (emailExists && emailExists.id !== userId) {
         return res.status(409).json({ message: 'Email already in use by another account' });
@@ -102,23 +115,34 @@ export async function updateProfile(req: Request, res: Response) {
     
     // Check if username is changing and already exists
     if (profileData.username !== user.username) {
+      console.log(`Username change detected from ${user.username} to ${profileData.username}`);
       const usernameExists = await storage.getUserByUsername(profileData.username);
       if (usernameExists && usernameExists.id !== userId) {
         return res.status(409).json({ message: 'Username already taken by another account' });
       }
     }
     
-    // Update user profile
+    // Update user profile in the database
+    console.log(`Attempting to save profile updates to database for user ${userId}`);
     const updatedUser = await storage.updateUser(userId, profileData);
     
     // Return updated user data (without password)
     if (updatedUser) {
+      console.log(`Profile updated successfully for user ${userId}`);
+      console.log('Updated profile data:', {
+        username: updatedUser.username,
+        email: updatedUser.email,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName
+      });
+      
       const { password, ...userData } = updatedUser;
       return res.status(200).json({
         message: 'Profile updated successfully',
         user: userData
       });
     } else {
+      console.error(`Failed to update profile for user ${userId} in database`);
       return res.status(500).json({ message: 'Failed to update profile' });
     }
     
@@ -148,20 +172,30 @@ export async function updateAvatar(req: Request, res: Response) {
     
     const userId = req.user.id;
     
+    console.log(`Avatar update request for user ${userId} with URL: ${avatarUrl}`);
+    
     // Get user from database
     const user = await storage.getUser(userId);
     if (!user) {
+      console.error(`User not found in database: ${userId}`);
       return res.status(404).json({ message: 'User not found' });
     }
     
     // Update user avatar
-    await storage.updateUser(userId, { 
+    const updatedUser = await storage.updateUser(userId, { 
       profileImageUrl: avatarUrl
     });
     
+    if (!updatedUser) {
+      console.error(`Failed to update avatar for user ${userId}`);
+      return res.status(500).json({ message: 'Failed to update avatar' });
+    }
+    
+    console.log(`Avatar successfully updated for user ${userId}`);
+    
     return res.status(200).json({ 
       message: 'Avatar updated successfully',
-      profileImageUrl: avatarUrl
+      profileImageUrl: updatedUser.profileImageUrl
     });
     
   } catch (error) {
