@@ -198,20 +198,31 @@ export default function AccountPage() {
         }
       });
       
-      // Force a refresh of the profile card data
-      const displayName = `${data.firstName} ${data.lastName}`;
-      
-      // Dispatch a custom event to notify the layout about profile changes
-      // No need to pass details as we now force refresh from the database
-      window.dispatchEvent(new CustomEvent('profile-updated', {}));
-      
-      // Force a refresh of the auth data
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      
-      toast({
-        title: "Profile updated",
-        description: "Your profile information has been updated successfully and saved to the database.",
-      });
+      // Handle email verification case specially
+      if (result.emailChangeRequested) {
+        // Don't update the email field since it requires verification
+        toast({
+          title: "Profile partially updated",
+          description: "Your profile has been updated. Please check your new email address to verify the change.",
+        });
+        
+        // Reset the email field to the current email from the user object
+        profileForm.setValue('email', user?.email || '');
+      } else {
+        // Force a refresh of the profile card data
+        const displayName = `${data.firstName} ${data.lastName}`;
+        
+        // Dispatch a custom event to notify the layout about profile changes
+        window.dispatchEvent(new CustomEvent('profile-updated', {}));
+        
+        // Force a refresh of the auth data
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        
+        toast({
+          title: "Profile updated",
+          description: "Your profile information has been updated successfully.",
+        });
+      }
     } catch (error) {
       console.error('Profile update error:', error);
       toast({
