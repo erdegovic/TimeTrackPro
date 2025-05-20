@@ -94,6 +94,15 @@ export default function LoginForm() {
         <p className="text-gray-600 mt-2">Sign in to your account</p>
       </div>
       
+      {verificationStatus && (
+        <Alert className="bg-green-50 border-green-200">
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-700">
+            {verificationStatus}
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="username">Username</Label>
