@@ -19,7 +19,83 @@ router.use(authenticate);
 // Protected profile routes
 router.put('/password', updatePassword);
 router.put('/update', updateProfile);
-router.put('/profile', updateProfile); // Add this route for /api/auth/profile
+// Override the profile route with our custom implementation
+router.put('/profile', async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    
+    const { email, ...otherProfileData } = req.body;
+
+    // Get the current user
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Process email change if needed
+    if (email && email !== user.email) {
+      console.log(`Email change detected from ${user.email} to ${email}`);
+      
+      // Check if new email already exists
+      const emailExists = await storage.getUserByEmail(email);
+      if (emailExists) {
+        return res.status(409).json({ message: 'Email already in use by another account' });
+      }
+      
+      // Generate a verification token
+      const token = require('crypto').randomBytes(32).toString('hex');
+      const expiration = new Date();
+      expiration.setHours(expiration.getHours() + 24); // 24 hour expiration
+      
+      // Store verification request in database
+      await storage.createVerification({
+        userId: userId,
+        token,
+        newEmail: email,
+        type: 'email_change',
+        expiresAt: expiration
+      });
+      
+      // Send verification email
+      console.log(`[DEV MODE] Verification link: ${req.protocol}://${req.hostname}/verify-email-change?token=${token}`);
+      
+      // Update other profile data without email
+      const updatedUser = await storage.updateUser(userId, otherProfileData);
+      
+      if (updatedUser) {
+        const { password, ...userData } = updatedUser;
+        
+        return res.status(200).json({
+          message: 'Profile updated. Please check your new email address to verify the change.',
+          emailChangeRequested: true,
+          pendingEmail: email,
+          user: userData
+        });
+      } else {
+        return res.status(500).json({ message: 'Failed to update profile' });
+      }
+    } else {
+      // Just update the normal profile data (no email change)
+      const updatedUser = await storage.updateUser(userId, req.body);
+      
+      if (updatedUser) {
+        const { password, ...userData } = updatedUser;
+        return res.status(200).json({
+          message: 'Profile updated successfully',
+          user: userData
+        });
+      } else {
+        return res.status(500).json({ message: 'Failed to update profile' });
+      }
+    }
+  } catch (error) {
+    console.error('Profile update error:', error);
+    return res.status(500).json({ message: 'Failed to update profile' });
+  }
+});
 router.post('/avatar', updateAvatar);
 
 // Add endpoint to check for pending email changes
