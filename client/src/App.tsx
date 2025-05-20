@@ -16,6 +16,7 @@ import AccountPage from "./pages/AccountPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
+import VerifyEmailChangePage from "./pages/VerifyEmailChangePage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import RegistrationSuccessPage from "./pages/RegistrationSuccessPage";
@@ -26,6 +27,7 @@ function Router() {
     return path === '/login' || 
            path === '/register' || 
            path.startsWith('/verify-email') || 
+           path.startsWith('/verify-email-change') ||
            path === '/forgot-password' || 
            path.startsWith('/reset-password');
   };
@@ -40,6 +42,9 @@ function Router() {
       </Route>
       <Route path="/verify-email">
         <VerifyEmailPage />
+      </Route>
+      <Route path="/verify-email-change">
+        <VerifyEmailChangePage />
       </Route>
       <Route path="/forgot-password">
         <ForgotPasswordPage />
