@@ -141,17 +141,24 @@ export async function updateProfile(req: Request, res: Response) {
       await storage.createVerification(verificationData);
       
       // Send verification email to new address
+      console.log(`Attempting to send verification email to: ${profileData.email}`);
       const emailSent = await sendEmailChangeVerification(
         profileData.email,
         user.firstName || user.username || 'User',
         token
       );
       
+      console.log(`Email send result: ${emailSent ? 'SUCCESS' : 'FAILED'}`);
+      
       if (!emailSent) {
+        console.error(`Failed to send verification email to ${profileData.email}`);
         return res.status(500).json({ 
           message: 'Failed to send verification email. Please try again later.'
         });
       }
+      
+      console.log(`Verification email successfully sent to ${profileData.email}`);
+      
       
       // Log the email verification URL in development mode
       if (!process.env.BREVO_API_KEY) {
