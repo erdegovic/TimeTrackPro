@@ -182,9 +182,11 @@ export async function updateProfile(req: Request, res: Response) {
         // Remove sensitive data
         const { password, ...userData } = responseUser;
         
+        // Important: Make sure we explicitly mark this as an email change request with the pending email
+        // This signals the UI to show the email verification interface
         return res.status(200).json({
           message: 'Profile updated. Please check your new email address to verify the change.',
-          emailChangeRequested: true,
+          emailChangeRequested: true, // This flag tells the UI to show the verification state
           pendingEmail: profileData.email, // Include the pending email for UI reference
           user: userData
         });
