@@ -23,6 +23,7 @@ export interface IStorage {
   // Verifications
   createVerification(verification: Omit<Verification, "id">): Promise<Verification>;
   getVerificationByToken(token: string): Promise<Verification | undefined>;
+  getVerificationsByUser(userId: number): Promise<Verification[]>;
   deleteVerification(token: string): Promise<void>;
 
   // Clients

@@ -10,14 +10,16 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from '@/hooks/use-toast';
-import { Lock, User, Mail, Key, Save, Upload } from 'lucide-react';
+import { Lock, User, Mail, Key, Save, Upload, AlertCircle, RefreshCw } from 'lucide-react';
 import { useAuth, UserProfile } from '../hooks/useAuth';
 import { queryClient } from '@/lib/queryClient';
 
@@ -43,6 +45,8 @@ type PasswordFormValues = z.infer<typeof passwordSchema>;
 export default function AccountPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>("https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80");
+  const [pendingEmailChange, setPendingEmailChange] = useState<string | null>(null);
+  const [emailFieldDisabled, setEmailFieldDisabled] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   
@@ -56,7 +60,7 @@ export default function AccountPage() {
     },
   });
   
-  // Load saved profile data from localStorage on component mount
+  // Load saved profile data from API on component mount
   useEffect(() => {
     if (user) {
       // Use user data from API if available
@@ -70,6 +74,25 @@ export default function AccountPage() {
       if (user.profileImageUrl) {
         setAvatarUrl(user.profileImageUrl);
       }
+      
+      // Check for any pending email verifications
+      const checkPendingEmailChange = async () => {
+        try {
+          const response = await fetch('/api/auth/pending-email-change');
+          if (response.ok) {
+            const data = await response.json();
+            if (data.pendingEmail) {
+              setPendingEmailChange(data.pendingEmail);
+              setEmailFieldDisabled(true);
+              profileForm.setValue('email', data.pendingEmail);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to check pending email verifications:', error);
+        }
+      };
+      
+      checkPendingEmailChange();
     }
   }, [user, profileForm]);
   
@@ -200,21 +223,28 @@ export default function AccountPage() {
       
       // Handle email verification case specially
       if (result.emailChangeRequested) {
-        // Show verification message with pending email
+        // Get the pending email from the response
         const pendingEmail = result.pendingEmail || data.email;
+        
+        // Store pending email in state
+        setPendingEmailChange(pendingEmail);
+        
+        // Disable the email field
+        setEmailFieldDisabled(true);
+        
         toast({
-          title: "Email verification required",
-          description: `Your profile has been updated. We've sent a verification link to ${pendingEmail}. Please check your inbox and click the link to confirm your new email address.`,
+          title: "Verification email sent",
+          description: `We've sent a verification link to ${pendingEmail}. Please check your inbox to confirm your new email address.`,
           duration: 7000, // Show for longer since this is important
         });
         
-        // Reset the email field to the current email from the user object
-        profileForm.setValue('email', user?.email || '');
+        // Reset the email field to show the pending email greyed out
+        profileForm.setValue('email', pendingEmail);
         
         // Show pending email information in UI
         const emailElement = document.querySelector('.user-profile-email');
         if (emailElement) {
-          emailElement.textContent = `${user?.email || ''} (pending change to ${pendingEmail})`;
+          emailElement.textContent = user?.email || '';
         }
         
         // Dispatch a custom event to notify layout (just for name changes)
@@ -417,12 +447,38 @@ export default function AccountPage() {
                           <FormItem>
                             <FormLabel>Email</FormLabel>
                             <FormControl>
-                              <div className="flex">
+                              <div className="flex items-center">
                                 <Mail className="mr-2 h-4 w-4 opacity-50 self-center" />
-                                <Input placeholder="Email" {...field} />
+                                {emailFieldDisabled ? (
+                                  <div className="flex-1 flex flex-col">
+                                    <div className="text-gray-500 border border-gray-200 rounded-md px-3 py-2 bg-gray-50">
+                                      {pendingEmailChange}
+                                    </div>
+                                    <p className="text-sm text-amber-600 flex items-center mt-1">
+                                      <AlertCircle className="h-3 w-3 mr-1" />
+                                      Verification pending. Please check your inbox.
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <Input placeholder="Email" {...field} />
+                                )}
+                                {emailFieldDisabled && (
+                                  <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    className="ml-2" 
+                                    onClick={() => {
+                                      setEmailFieldDisabled(false);
+                                      setPendingEmailChange(null);
+                                      profileForm.setValue('email', user?.email || '');
+                                    }}
+                                  >
+                                    <RefreshCw className="h-4 w-4 mr-1" /> Reset
+                                  </Button>
+                                )}
                               </div>
                             </FormControl>
-                            <FormMessage />
+                            {!emailFieldDisabled && <FormMessage />}
                           </FormItem>
                         )}
                       />
