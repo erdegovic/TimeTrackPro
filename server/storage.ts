@@ -21,7 +21,7 @@ export interface IStorage {
   deleteUser(id: number): Promise<boolean>;
 
   // Verifications
-  createVerification(verification: InsertVerification): Promise<Verification>;
+  createVerification(verification: Omit<Verification, "id">): Promise<Verification>;
   getVerificationByToken(token: string): Promise<Verification | undefined>;
   deleteVerification(token: string): Promise<void>;
 

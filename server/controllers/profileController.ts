@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { storage } from '../storage';
 import { comparePassword, hashPassword, generateVerificationToken } from '../utils/auth';
 import { sendEmailChangeVerification } from '../utils/email';
-import { InsertVerification } from '@shared/schema';
+import { Verification } from '@shared/schema';
 import { z } from 'zod';
 import { add } from 'date-fns';
 
@@ -130,7 +130,7 @@ export async function updateProfile(req: Request, res: Response) {
       const expiration = add(new Date(), { hours: 24 });
       
       // Store verification request in database
-      const verificationData: InsertVerification = {
+      const verificationData: Omit<Verification, "id" | "createdAt"> = {
         userId: user.id,
         token,
         newEmail: profileData.email,
