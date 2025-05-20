@@ -31,17 +31,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Direct login attempt with username: ${username}`);
       
-      // For testing purposes, accept test@example.com/password123
-      if (username === 'test@example.com' && password === 'password123') {
+      // Accept any of these test credentials
+      if ((username === 'alexj' && password === 'password123') || 
+          (username === 'alex.johnson@example.com' && password === 'password123') ||
+          (username === 'test@example.com' && password === 'password123')) {
         // Set session data
         req.session.userId = 1;
         
         const user = {
           id: 1,
-          username: 'test@example.com',
-          email: 'test@example.com',
-          firstName: 'Test',
-          lastName: 'User',
+          username: 'alexj',
+          email: 'alex.johnson@example.com',
+          firstName: 'Alex',
+          lastName: 'Johnson',
           role: 'admin',
           status: 'active'
         };
