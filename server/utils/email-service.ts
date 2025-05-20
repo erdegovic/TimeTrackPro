@@ -1,22 +1,17 @@
-// Simplified implementation without dependency on the Brevo SDK
-// This ensures better compatibility and easier debugging
+import fetch from 'node-fetch';
 
 // Configure API key flag
 let apiKeyConfigured = false;
 
-try {
-  // Check if API key is available
-  if (process.env.BREVO_API_KEY) {
-    apiKeyConfigured = true;
-    console.log('Brevo API key is available');
-  } else {
-    console.warn('BREVO_API_KEY not found in environment, email functionality will be simulated');
-  }
-} catch (error) {
-  console.error('Failed to check Brevo API key:', error);
+// Check if API key is available
+if (process.env.BREVO_API_KEY) {
+  apiKeyConfigured = true;
+  console.log('Brevo API key is available - Email service initialized');
+} else {
+  console.warn('BREVO_API_KEY not found in environment, email functionality will be simulated');
 }
 
-// Get sender email configuration
+// Sender configuration
 const SENDER_EMAIL = process.env.SENDER_EMAIL || 'noreply@timetracker.com';
 const SENDER_NAME = 'Time Tracker App';
 
@@ -28,13 +23,13 @@ export interface EmailOptions {
 }
 
 /**
- * Send an email using Brevo API (or simulate in dev mode)
+ * Send an email using Brevo API (or simulate it in development)
  */
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
     console.log(`Preparing to send email to ${options.to} with subject "${options.subject}"`);
     
-    // Always log the verification URL in development mode for easy testing
+    // Extract and log the verification URL for easy testing
     const urlMatch = options.htmlContent.match(/href="([^"]+)"/);
     if (urlMatch && urlMatch[1]) {
       console.log('============== EMAIL DETAILS ==============');
@@ -50,7 +45,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       return true;
     }
     
-    // In production with API key configured, use node-fetch to call Brevo API
+    // For production with API key configured
     try {
       const response = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
@@ -59,33 +54,35 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
           'api-key': process.env.BREVO_API_KEY || ''
         },
         body: JSON.stringify({
-          sender: {
-            name: SENDER_NAME,
-            email: SENDER_EMAIL
-          },
+          sender: { name: SENDER_NAME, email: SENDER_EMAIL },
           to: [{ email: options.to }],
           subject: options.subject,
-          htmlContent: options.htmlContent
+          htmlContent: options.htmlContent,
+          textContent: options.textContent
         })
       });
       
       if (!response.ok) {
         const responseText = await response.text();
-        throw new Error(`Brevo API error: ${response.status} - ${responseText}`);
+        throw new Error(`API error: ${response.status} - ${responseText}`);
       }
       
-      console.log('Email sent successfully via Brevo API');
+      console.log('Email sent successfully via API');
       return true;
     } catch (apiError) {
-      console.error('Failed to send email via Brevo API:', apiError);
-      // Fall back to dev mode in case of API errors
-      console.log('Falling back to dev mode due to API error');
-      return true;
+      console.error('Email API error:', apiError);
+      
+      // For development, we'll still consider it a success so we can test the flow
+      if (process.env.NODE_ENV === 'development') {
+        console.log('DEV MODE - Considering email sent despite API error');
+        return true;
+      }
+      
+      return false;
     }
   } catch (error) {
-    console.error('Unexpected error in email sending:', error);
-    // Return success in development to allow testing the flow
-    return !apiKeyConfigured;
+    console.error('Unexpected error in email service:', error);
+    return process.env.NODE_ENV === 'development';
   }
 }
 

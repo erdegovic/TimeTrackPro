@@ -301,7 +301,7 @@ const resendVerification = async (req: Request, res: Response) => {
     const verificationUrl = `${baseUrl}/verify-email-change?token=${pendingEmailChange.token}`;
     
     // Import email utilities and send email
-    const { sendEmail, getEmailVerificationContent } = await import('../utils/brevo');
+    const { sendEmail, getEmailVerificationContent } = await import('../utils/email-service');
     
     // Send email
     const htmlContent = getEmailVerificationContent(

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { storage } from '../storage';
 import { comparePassword, hashPassword, generateVerificationToken } from '../utils/auth';
-import { sendEmail, getEmailVerificationContent } from '../utils/brevo';
+import { sendEmail, getEmailVerificationContent } from '../utils/email-service';
 import { Verification } from '@shared/schema';
 import { z } from 'zod';
 import { add } from 'date-fns';
