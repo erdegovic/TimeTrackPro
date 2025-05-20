@@ -175,20 +175,20 @@ export async function verifyEmail(req: Request, res: Response) {
  */
 export async function login(req: Request, res: Response) {
   try {
-    const { username, password } = userLoginSchema.parse(req.body);
+    const { email, password } = userLoginSchema.parse(req.body);
     
     // Debug info
-    console.log(`Login attempt with username: ${username}`);
+    console.log(`Login attempt with email: ${email}`);
     
-    // Find user
-    const user = await storage.getUserByUsername(username);
+    // Find user by email
+    const user = await storage.getUserByEmail(email);
     
     if (!user) {
       console.log('User not found');
-      return res.status(401).json({ message: 'Invalid username or password.' });
+      return res.status(401).json({ message: 'Invalid email or password.' });
     }
     
-    console.log(`User found: ${user.username}, id: ${user.id}, status: ${user.status}`);
+    console.log(`User found: ${user.email}, id: ${user.id}, status: ${user.status}`);
     
     // Check user status
     if (user.status === 'pending') {
@@ -206,7 +206,7 @@ export async function login(req: Request, res: Response) {
     console.log(`Password validation result: ${isValidPassword}`);
     
     if (!isValidPassword) {
-      return res.status(401).json({ message: 'Invalid username or password.' });
+      return res.status(401).json({ message: 'Invalid email or password.' });
     }
     
     // Set up session
@@ -260,7 +260,7 @@ export async function forgotPassword(req: Request, res: Response) {
     // Send password reset email
     const emailSent = await sendPasswordResetEmail(
       email,
-      user.username,
+      user.email,
       token
     );
     
