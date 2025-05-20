@@ -196,11 +196,27 @@ export default function AccountPage() {
       // Save profile data to localStorage to persist between tab changes
       localStorage.setItem('userProfile', JSON.stringify(data));
       
-      // Update the profile name in the UI
-      const profileNameElement = document.querySelector('.user-profile-name');
-      if (profileNameElement) {
-        profileNameElement.textContent = `${data.firstName} ${data.lastName}`;
-      }
+      // Update profile name in the sidebar, personal information section, and profile box
+      const profileNameElements = document.querySelectorAll('.user-profile-name');
+      profileNameElements.forEach(element => {
+        if (element) {
+          element.textContent = `${data.firstName} ${data.lastName}`;
+        }
+      });
+      
+      // Force a refresh of the profile card data
+      const displayName = `${data.firstName} ${data.lastName}`;
+      
+      // Dispatch a custom event to notify the layout about profile changes
+      window.dispatchEvent(new CustomEvent('profile-updated', { 
+        detail: { 
+          name: displayName,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email,
+          username: data.username
+        }
+      }));
       
       toast({
         title: "Profile updated",

@@ -57,21 +57,49 @@ export default function AppLayout({ children }: AppLayoutProps) {
   
   // Load user profile data from localStorage if available
   useEffect(() => {
-    const savedProfile = localStorage.getItem('userProfile');
-    const savedAvatar = localStorage.getItem('userAvatarUrl');
-    
-    if (savedProfile) {
-      try {
-        const profileData = JSON.parse(savedProfile);
-        setUserName(`${profileData.firstName} ${profileData.lastName}`);
-      } catch (error) {
-        console.error('Error parsing saved profile data:', error);
+    const loadProfileData = () => {
+      const savedProfile = localStorage.getItem('userProfile');
+      const savedAvatar = localStorage.getItem('userAvatarUrl');
+      
+      if (savedProfile) {
+        try {
+          const profileData = JSON.parse(savedProfile);
+          setUserName(`${profileData.firstName} ${profileData.lastName}`);
+        } catch (error) {
+          console.error('Error parsing saved profile data:', error);
+        }
       }
-    }
+      
+      if (savedAvatar) {
+        setUserAvatar(savedAvatar);
+      }
+    };
     
-    if (savedAvatar) {
-      setUserAvatar(savedAvatar);
-    }
+    // Load initial profile data
+    loadProfileData();
+    
+    // Listen for profile updates from the account page
+    const handleProfileUpdate = (event: CustomEvent) => {
+      const { name, avatar } = event.detail;
+      if (name) setUserName(name);
+      if (avatar) setUserAvatar(avatar);
+      
+      // Refresh all user-profile-name elements to be sure they're updated
+      const profileNameElements = document.querySelectorAll('.user-profile-name');
+      profileNameElements.forEach(element => {
+        if (element && name) {
+          element.textContent = name;
+        }
+      });
+    };
+    
+    // Add event listener for profile updates
+    window.addEventListener('profile-updated', handleProfileUpdate as EventListener);
+    
+    // Clean up event listener on component unmount
+    return () => {
+      window.removeEventListener('profile-updated', handleProfileUpdate as EventListener);
+    };
   }, []);
 
   const closeSidebar = () => setSidebarOpen(false);
