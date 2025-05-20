@@ -26,7 +26,6 @@ const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Invalid email address'),
-  username: z.string().min(3, 'Username must be at least 3 characters'),
 });
 
 const passwordSchema = z.object({
@@ -54,7 +53,6 @@ export default function AccountPage() {
       firstName: user?.firstName || 'Alex',
       lastName: user?.lastName || 'Johnson',
       email: user?.email || 'alex.johnson@example.com',
-      username: user?.username || 'alexj',
     },
   });
   
@@ -66,7 +64,6 @@ export default function AccountPage() {
         firstName: user.firstName || 'Alex',
         lastName: user.lastName || 'Johnson',
         email: user.email || 'alex.johnson@example.com',
-        username: user.username || 'alexj',
       });
       
       // Use profile image from database if available
@@ -183,7 +180,6 @@ export default function AccountPage() {
           firstName: data.firstName,
           lastName: data.lastName,
           email: data.email,
-          username: data.username,
         }),
       });
       
@@ -406,22 +402,7 @@ export default function AccountPage() {
                         )}
                       />
                       
-                      <FormField
-                        control={profileForm.control}
-                        name="username"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Username</FormLabel>
-                            <FormControl>
-                              <div className="flex">
-                                <User className="mr-2 h-4 w-4 opacity-50 self-center" />
-                                <Input placeholder="Username" {...field} />
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+
                       
                       <Button 
                         type="submit" 
