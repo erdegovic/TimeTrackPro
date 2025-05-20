@@ -467,10 +467,34 @@ export default function AccountPage() {
                                     type="button" 
                                     variant="outline" 
                                     className="ml-2" 
-                                    onClick={() => {
-                                      setEmailFieldDisabled(false);
-                                      setPendingEmailChange(null);
-                                      profileForm.setValue('email', user?.email || '');
+                                    onClick={async () => {
+                                      try {
+                                        // Call the API to cancel the pending email change
+                                        const response = await fetch('/api/auth/cancel-email-change', {
+                                          method: 'DELETE',
+                                        });
+                                        
+                                        if (!response.ok) {
+                                          throw new Error('Failed to cancel email change');
+                                        }
+                                        
+                                        // Reset UI state
+                                        setEmailFieldDisabled(false);
+                                        setPendingEmailChange(null);
+                                        profileForm.setValue('email', user?.email || '');
+                                        
+                                        toast({
+                                          title: "Email change cancelled",
+                                          description: "Your pending email change has been cancelled successfully.",
+                                        });
+                                      } catch (error) {
+                                        console.error('Failed to cancel email change:', error);
+                                        toast({
+                                          title: "Error cancelling email change",
+                                          description: "There was a problem cancelling your email change. Please try again.",
+                                          variant: "destructive",
+                                        });
+                                      }
                                     }}
                                   >
                                     <RefreshCw className="h-4 w-4 mr-1" /> Reset
