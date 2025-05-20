@@ -4,10 +4,10 @@ import fetch from 'node-fetch';
 // Get API key from environment variable
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 
-// Default sender details
+// Default sender details - this should be a verified sender in your Brevo account
 const DEFAULT_SENDER = {
   name: 'Time Tracker Support',
-  email: 'support@timetracker.com'
+  email: process.env.SENDER_EMAIL || 'support@timetracker.com' // Use environment variable if available
 };
 
 if (BREVO_API_KEY) {

@@ -82,6 +82,16 @@ export async function register(req: Request, res: Response) {
     if (!emailSent) {
       console.warn(`Failed to send verification email to ${email}`);
       // Continue, don't return error - user can request a new verification email
+      
+      // For easier testing, add verification link to response in development environment
+      if (process.env.NODE_ENV === 'development') {
+        const baseUrl = process.env.APP_URL || `https://${process.env.REPLIT_DOMAINS?.split(",")[0] || "localhost:5000"}`;
+        const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
+        console.log('==============================================================');
+        console.log('DEVELOPMENT MODE: Use this verification link to verify account:');
+        console.log(verificationUrl);
+        console.log('==============================================================');
+      }
     }
 
     return res.status(201).json({ 
