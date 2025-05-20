@@ -18,17 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
 import { Lock, User, Mail, Key, Save, Upload } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
-
-// Define user interface for TypeScript type safety
-interface UserProfile {
-  id: number;
-  firstName?: string | null;
-  lastName?: string | null;
-  email: string;
-  username: string;
-  profileImageUrl?: string | null;
-}
+import { useAuth, UserProfile } from '../hooks/useAuth';
+import { queryClient } from '@/lib/queryClient';
 
 // Form schemas
 const profileSchema = z.object({
@@ -127,9 +118,6 @@ export default function AccountPage() {
             // Set the avatar first to give immediate feedback
             setAvatarUrl(result);
             
-            // Save to localStorage as a backup
-            localStorage.setItem('userAvatarUrl', result);
-            
             // Send to server to save permanently
             const response = await fetch('/api/auth/avatar', {
               method: 'POST',
@@ -149,15 +137,18 @@ export default function AccountPage() {
             const responseData = await response.json();
             console.log('Avatar upload response:', responseData);
             
+            // Force a refresh of the auth data to update profile info
+            queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+            
             toast({
               title: "Avatar updated",
-              description: "Your profile picture has been updated successfully.",
+              description: "Your profile picture has been updated successfully and saved to the database.",
             });
           } catch (error) {
             console.error('Avatar upload error:', error);
             toast({
-              title: "Server update failed",
-              description: "Your profile picture was saved locally but couldn't be stored on the server.",
+              title: "Update failed",
+              description: "There was a problem saving your profile picture to the database.",
               variant: "destructive",
             });
           } finally {
@@ -203,9 +194,6 @@ export default function AccountPage() {
       const result = await response.json();
       console.log('Profile update response:', result);
       
-      // Also save to localStorage for immediate UI updates
-      localStorage.setItem('userProfile', JSON.stringify(data));
-      
       // Update UI elements showing the user's name
       const profileNameElements = document.querySelectorAll('.user-profile-name');
       profileNameElements.forEach(element => {
@@ -228,9 +216,12 @@ export default function AccountPage() {
         }
       }));
       
+      // Force a refresh of the auth data
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      
       toast({
         title: "Profile updated",
-        description: "Your profile information has been updated successfully.",
+        description: "Your profile information has been updated successfully and saved to the database.",
       });
     } catch (error) {
       console.error('Profile update error:', error);

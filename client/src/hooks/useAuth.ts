@@ -3,18 +3,27 @@ import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 
+// Define user type for TypeScript
+export interface UserProfile {
+  id: number;
+  firstName?: string | null;
+  lastName?: string | null;
+  email: string;
+  username: string;
+  profileImageUrl?: string | null;
+  status?: string;
+  role?: string;
+}
+
 export function useAuth() {
   const [location, navigate] = useLocation();
-  
-  // This hook now prioritizes server data over localStorage
-  // Only use localStorage as fallback for better UX
 
   const { 
     data: user, 
     isLoading, 
     error, 
     isError 
-  } = useQuery({
+  } = useQuery<UserProfile>({
     queryKey: ["/api/auth/user"],
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
