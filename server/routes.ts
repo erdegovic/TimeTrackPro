@@ -25,6 +25,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register auth routes
   app.use('/api/auth', authRoutes);
   
+  // Register profile routes (password, profile, and avatar updates)
+  app.use('/api/auth', profileRoutes);
+  
   // Direct login endpoint for testing
   app.post('/api/login', async (req: Request, res: Response) => {
     try {
