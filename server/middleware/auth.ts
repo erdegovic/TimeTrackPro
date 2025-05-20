@@ -46,6 +46,6 @@ export const handleVerificationRedirect = (req: Request, res: Response) => {
     return res.redirect('/login?error=missing-token');
   }
   
-  // Redirect to API endpoint while preserving the token
-  return res.redirect(`/api/auth/verify-email?token=${token}`);
+  // Redirect to frontend verification page
+  return res.redirect(`/verify-email-change?token=${token}`);
 };

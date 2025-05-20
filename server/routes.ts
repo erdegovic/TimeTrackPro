@@ -27,6 +27,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register profile routes (password, profile, and avatar updates)
   app.use('/api/auth', profileRoutes);
   
+  // Add handler for verify-email-change to redirect to frontend
+  app.get('/verify-email-change', handleVerificationRedirect);
+  
   // Direct login endpoint for testing
   app.post('/api/login', async (req: Request, res: Response) => {
     try {
