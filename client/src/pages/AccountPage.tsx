@@ -200,17 +200,31 @@ export default function AccountPage() {
       
       // Handle email verification case specially
       if (result.emailChangeRequested) {
-        // Don't update the email field since it requires verification
+        // Show verification message with pending email
+        const pendingEmail = result.pendingEmail || data.email;
         toast({
-          title: "Profile partially updated",
-          description: "Your profile has been updated. Please check your new email address to verify the change.",
+          title: "Email verification required",
+          description: `Your profile has been updated. We've sent a verification link to ${pendingEmail}. Please check your inbox and click the link to confirm your new email address.`,
+          duration: 7000, // Show for longer since this is important
         });
         
         // Reset the email field to the current email from the user object
         profileForm.setValue('email', user?.email || '');
+        
+        // Show pending email information in UI
+        const emailElement = document.querySelector('.user-profile-email');
+        if (emailElement) {
+          emailElement.textContent = `${user?.email || ''} (pending change to ${pendingEmail})`;
+        }
+        
+        // Dispatch a custom event to notify layout (just for name changes)
+        window.dispatchEvent(new CustomEvent('profile-updated', {}));
+        
+        // Force a refresh of the auth data for other changes (name, etc.)
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        
       } else {
-        // Force a refresh of the profile card data
-        const displayName = `${data.firstName} ${data.lastName}`;
+        // Standard profile update (no email change)
         
         // Dispatch a custom event to notify the layout about profile changes
         window.dispatchEvent(new CustomEvent('profile-updated', {}));

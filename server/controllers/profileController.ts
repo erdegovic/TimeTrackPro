@@ -121,7 +121,7 @@ export async function updateProfile(req: Request, res: Response) {
       
       // Check if new email already exists
       const emailExists = await storage.getUserByEmail(profileData.email);
-      if (emailExists && emailExists.id !== userId) {
+      if (emailExists) {
         return res.status(409).json({ message: 'Email already in use by another account' });
       }
       
@@ -173,10 +173,19 @@ export async function updateProfile(req: Request, res: Response) {
       const updatedUser = await storage.updateUser(userId, otherProfileData);
       
       if (updatedUser) {
-        const { password, ...userData } = updatedUser;
+        // Create response data with old email to prevent UI from updating prematurely
+        const responseUser = {
+          ...updatedUser,
+          email: user.email // Keep the old email in the response
+        };
+        
+        // Remove sensitive data
+        const { password, ...userData } = responseUser;
+        
         return res.status(200).json({
           message: 'Profile updated. Please check your new email address to verify the change.',
           emailChangeRequested: true,
+          pendingEmail: profileData.email, // Include the pending email for UI reference
           user: userData
         });
       } else {
