@@ -57,9 +57,25 @@ export default function AccountPage() {
     },
   });
   
-  // Update form values when user data is loaded
+  // Load saved profile data from localStorage on component mount
   useEffect(() => {
-    if (user) {
+    // Try to load saved profile data from localStorage
+    const savedProfile = localStorage.getItem('userProfile');
+    if (savedProfile) {
+      try {
+        const profileData = JSON.parse(savedProfile);
+        profileForm.reset(profileData);
+        
+        // If there's a saved avatar URL, use it
+        const savedAvatarUrl = localStorage.getItem('userAvatarUrl');
+        if (savedAvatarUrl) {
+          setAvatarUrl(savedAvatarUrl);
+        }
+      } catch (error) {
+        console.error('Error parsing saved profile data:', error);
+      }
+    } else if (user) {
+      // Use user data from API if available
       profileForm.reset({
         firstName: user.firstName || 'Alex',
         lastName: user.lastName || 'Johnson',
@@ -144,7 +160,7 @@ export default function AccountPage() {
   const onProfileSubmit = async (data: ProfileFormValues) => {
     setIsUpdating(true);
     try {
-      // Make an actual API call to update the user profile
+      // Make an API call to update the user profile
       const response = await fetch('/api/auth/profile', {
         method: 'PUT',
         headers: {
@@ -159,6 +175,9 @@ export default function AccountPage() {
       
       // Log the data for debugging
       console.log('Updating profile with:', data);
+      
+      // Save profile data to localStorage to persist between tab changes
+      localStorage.setItem('userProfile', JSON.stringify(data));
       
       // Update the profile name in the UI
       const profileNameElement = document.querySelector('.user-profile-name');
