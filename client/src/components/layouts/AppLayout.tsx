@@ -227,12 +227,20 @@ export default function AppLayout({ children }: AppLayoutProps) {
               variant="ghost" 
               size="sm" 
               className="w-full justify-start text-gray-600 hover:text-red-600 mt-1"
-              asChild
+              onClick={() => {
+                localStorage.removeItem('user');
+                fetch('/api/auth/logout')
+                  .then(() => {
+                    window.location.href = '/login?logout=true';
+                  })
+                  .catch(error => {
+                    console.error('Logout failed:', error);
+                    window.location.href = '/login?logout=true';
+                  });
+              }}
             >
-              <a href="/api/auth/logout">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Logout</span>
-              </a>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Logout</span>
             </Button>
           </div>
         </div>
