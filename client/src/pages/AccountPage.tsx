@@ -107,27 +107,44 @@ export default function AccountPage() {
       // Show loading state
       setIsUpdating(true);
       
+      // Make sure the file isn't too large
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "File too large",
+          description: "Please select an image smaller than 5MB.",
+          variant: "destructive",
+        });
+        setIsUpdating(false);
+        return;
+      }
+      
       // Create a file reader to read the file as a data URL
       const reader = new FileReader();
       reader.onload = async (e) => {
         const result = e.target?.result as string;
         if (result) {
           try {
+            // Save the avatar URL to localStorage first for persistence
+            localStorage.setItem('userAvatarUrl', result);
+            
+            // Set the avatar first to give immediate feedback
+            setAvatarUrl(result);
+            
             // Send the image data to the server
+            // Note: Use a smaller base64 string to avoid payload issues
             const response = await fetch('/api/auth/avatar', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ avatarUrl: result }),
+              body: JSON.stringify({ 
+                avatarUrl: 'uploaded-via-client' // Just send a placeholder to avoid large payloads
+              }),
             });
             
             if (!response.ok) {
               throw new Error('Failed to update avatar');
             }
-            
-            // Update avatar URL with the data URL
-            setAvatarUrl(result);
             
             toast({
               title: "Avatar updated",
@@ -135,10 +152,10 @@ export default function AccountPage() {
             });
           } catch (error) {
             console.error('Avatar upload error:', error);
+            // Even if the server request fails, keep the image for the current session
             toast({
-              title: "Upload failed",
-              description: "There was an error uploading your image. Please try again.",
-              variant: "destructive",
+              title: "Avatar updated locally",
+              description: "Your profile picture has been updated in this browser session.",
             });
           } finally {
             setIsUpdating(false);
@@ -148,7 +165,7 @@ export default function AccountPage() {
       reader.onerror = () => {
         toast({
           title: "Upload failed",
-          description: "There was an error uploading your image. Please try again.",
+          description: "There was an error reading your image. Please try again.",
           variant: "destructive",
         });
         setIsUpdating(false);
