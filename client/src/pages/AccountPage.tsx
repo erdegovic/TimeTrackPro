@@ -229,7 +229,7 @@ export default function AccountPage() {
         // Store pending email in state
         setPendingEmailChange(pendingEmail);
         
-        // Disable the email field
+        // Disable the email field to show pending state
         setEmailFieldDisabled(true);
         
         toast({
@@ -238,13 +238,13 @@ export default function AccountPage() {
           duration: 7000, // Show for longer since this is important
         });
         
-        // Reset the email field to show the pending email greyed out
+        // Set the email field value to be displayed in the greyed out text
         profileForm.setValue('email', pendingEmail);
         
-        // Show pending email information in UI
+        // Update the user profile email display
         const emailElement = document.querySelector('.user-profile-email');
         if (emailElement) {
-          emailElement.textContent = user?.email || '';
+          emailElement.textContent = user?.email || ''; // Keep showing the original email
         }
         
         // Dispatch a custom event to notify layout (just for name changes)
@@ -450,55 +450,55 @@ export default function AccountPage() {
                               <div className="flex items-center">
                                 <Mail className="mr-2 h-4 w-4 opacity-50 self-center" />
                                 {emailFieldDisabled ? (
-                                  <div className="flex-1 flex flex-col">
+                                  <div className="flex-1">
+                                    {/* Grey out text, not a textbox */}
                                     <div className="text-gray-500 border border-gray-200 rounded-md px-3 py-2 bg-gray-50">
                                       {pendingEmailChange}
                                     </div>
-                                    <p className="text-sm text-amber-600 flex items-center mt-1">
+                                    <p className="text-sm text-amber-600 flex items-center mt-2">
                                       <AlertCircle className="h-3 w-3 mr-1" />
-                                      Verification pending. Please check your inbox.
+                                      Please check your inbox to confirm your new email address
                                     </p>
+                                    <Button 
+                                      type="button" 
+                                      variant="outline"
+                                      size="sm"
+                                      className="mt-2" 
+                                      onClick={async () => {
+                                        try {
+                                          // Call the API to cancel the pending email change
+                                          const response = await fetch('/api/auth/cancel-email-change', {
+                                            method: 'DELETE',
+                                          });
+                                          
+                                          if (!response.ok) {
+                                            throw new Error('Failed to cancel email change');
+                                          }
+                                          
+                                          // Reset UI state
+                                          setEmailFieldDisabled(false);
+                                          setPendingEmailChange(null);
+                                          profileForm.setValue('email', user?.email || '');
+                                          
+                                          toast({
+                                            title: "Email change cancelled",
+                                            description: "Your pending email change has been cancelled successfully.",
+                                          });
+                                        } catch (error) {
+                                          console.error('Failed to cancel email change:', error);
+                                          toast({
+                                            title: "Error cancelling email change",
+                                            description: "There was a problem cancelling your email change. Please try again.",
+                                            variant: "destructive",
+                                          });
+                                        }
+                                      }}
+                                    >
+                                      <RefreshCw className="h-3 w-3 mr-1" /> Reset to {user?.email}
+                                    </Button>
                                   </div>
                                 ) : (
                                   <Input placeholder="Email" {...field} />
-                                )}
-                                {emailFieldDisabled && (
-                                  <Button 
-                                    type="button" 
-                                    variant="outline" 
-                                    className="ml-2" 
-                                    onClick={async () => {
-                                      try {
-                                        // Call the API to cancel the pending email change
-                                        const response = await fetch('/api/auth/cancel-email-change', {
-                                          method: 'DELETE',
-                                        });
-                                        
-                                        if (!response.ok) {
-                                          throw new Error('Failed to cancel email change');
-                                        }
-                                        
-                                        // Reset UI state
-                                        setEmailFieldDisabled(false);
-                                        setPendingEmailChange(null);
-                                        profileForm.setValue('email', user?.email || '');
-                                        
-                                        toast({
-                                          title: "Email change cancelled",
-                                          description: "Your pending email change has been cancelled successfully.",
-                                        });
-                                      } catch (error) {
-                                        console.error('Failed to cancel email change:', error);
-                                        toast({
-                                          title: "Error cancelling email change",
-                                          description: "There was a problem cancelling your email change. Please try again.",
-                                          variant: "destructive",
-                                        });
-                                      }
-                                    }}
-                                  >
-                                    <RefreshCw className="h-4 w-4 mr-1" /> Reset
-                                  </Button>
                                 )}
                               </div>
                             </FormControl>
