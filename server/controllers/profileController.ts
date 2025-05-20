@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import { storage } from '../storage';
-import { comparePassword, hashPassword } from '../utils/auth';
+import { comparePassword, hashPassword, generateVerificationToken } from '../utils/auth';
+import { sendEmailChangeVerification } from '../utils/email';
 import { z } from 'zod';
+import { add } from 'date-fns';
 
 // Schema for password update
 const updatePasswordSchema = z.object({
@@ -112,46 +114,106 @@ export async function updateProfile(req: Request, res: Response) {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Check if email is changing and already exists
-    if (profileData.email !== user.email) {
+    // Handle email change with verification
+    if (profileData.email && profileData.email !== user.email) {
       console.log(`Email change detected from ${user.email} to ${profileData.email}`);
+      
+      // Check if new email already exists
       const emailExists = await storage.getUserByEmail(profileData.email);
       if (emailExists && emailExists.id !== userId) {
         return res.status(409).json({ message: 'Email already in use by another account' });
       }
-    }
-    
-    // Check if username is changing and already exists
-    if (profileData.username !== user.username) {
-      console.log(`Username change detected from ${user.username} to ${profileData.username}`);
-      const usernameExists = await storage.getUserByUsername(profileData.username);
-      if (usernameExists && usernameExists.id !== userId) {
-        return res.status(409).json({ message: 'Username already taken by another account' });
-      }
-    }
-    
-    // Update user profile in the database
-    console.log(`Attempting to save profile updates to database for user ${userId}`);
-    const updatedUser = await storage.updateUser(userId, profileData);
-    
-    // Return updated user data (without password)
-    if (updatedUser) {
-      console.log(`Profile updated successfully for user ${userId}`);
-      console.log('Updated profile data:', {
-        username: updatedUser.username,
-        email: updatedUser.email,
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName
+      
+      // Generate a verification token
+      const token = generateVerificationToken();
+      const expiration = add(new Date(), { hours: 24 });
+      
+      // Store verification request
+      await storage.createVerification({
+        userId: user.id,
+        token,
+        email: profileData.email, // Store the new email
+        type: 'email',
+        expiresAt: expiration
       });
       
-      const { password, ...userData } = updatedUser;
-      return res.status(200).json({
-        message: 'Profile updated successfully',
-        user: userData
-      });
+      // Send verification email to new address
+      const emailSent = await sendEmailChangeVerification(
+        profileData.email,
+        user.firstName || user.username || 'User',
+        token
+      );
+      
+      if (!emailSent) {
+        return res.status(500).json({ 
+          message: 'Failed to send verification email. Please try again later.'
+        });
+      }
+      
+      // Remove email from profile update data - will be updated after verification
+      const { email, ...otherProfileData } = profileData;
+      
+      // Only update other profile data
+      console.log(`Email change requested - verification email sent to ${profileData.email}`);
+      console.log(`Updating other profile fields for user ${userId}`);
+      
+      // Check if username is changing and already exists (if applicable)
+      if (otherProfileData.username && otherProfileData.username !== user.username) {
+        console.log(`Username change detected from ${user.username} to ${otherProfileData.username}`);
+        const usernameExists = await storage.getUserByUsername(otherProfileData.username);
+        if (usernameExists && usernameExists.id !== userId) {
+          return res.status(409).json({ message: 'Username already taken by another account' });
+        }
+      }
+      
+      // Update user profile without email
+      const updatedUser = await storage.updateUser(userId, otherProfileData);
+      
+      if (updatedUser) {
+        const { password, ...userData } = updatedUser;
+        return res.status(200).json({
+          message: 'Profile updated. Please check your new email address to verify the change.',
+          emailChangeRequested: true,
+          user: userData
+        });
+      } else {
+        return res.status(500).json({ message: 'Failed to update profile' });
+      }
     } else {
-      console.error(`Failed to update profile for user ${userId} in database`);
-      return res.status(500).json({ message: 'Failed to update profile' });
+      // Regular profile update (no email change)
+      
+      // Check if username is changing and already exists
+      if (profileData.username && profileData.username !== user.username) {
+        console.log(`Username change detected from ${user.username} to ${profileData.username}`);
+        const usernameExists = await storage.getUserByUsername(profileData.username);
+        if (usernameExists && usernameExists.id !== userId) {
+          return res.status(409).json({ message: 'Username already taken by another account' });
+        }
+      }
+      
+      // Update user profile in the database
+      console.log(`Attempting to save profile updates to database for user ${userId}`);
+      const updatedUser = await storage.updateUser(userId, profileData);
+      
+      // Return updated user data (without password)
+      if (updatedUser) {
+        console.log(`Profile updated successfully for user ${userId}`);
+        console.log('Updated profile data:', {
+          username: updatedUser.username,
+          email: updatedUser.email,
+          firstName: updatedUser.firstName,
+          lastName: updatedUser.lastName
+        });
+        
+        const { password, ...userData } = updatedUser;
+        return res.status(200).json({
+          message: 'Profile updated successfully',
+          user: userData
+        });
+      } else {
+        console.error(`Failed to update profile for user ${userId} in database`);
+        return res.status(500).json({ message: 'Failed to update profile' });
+      }
     }
     
   } catch (error) {
@@ -169,6 +231,65 @@ export async function updateProfile(req: Request, res: Response) {
 /**
  * Update user avatar
  */
+/**
+ * Verify email change
+ */
+export async function verifyEmailChange(req: Request, res: Response) {
+  try {
+    const { token } = req.query;
+    
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ message: 'Invalid verification token' });
+    }
+    
+    // Get verification record
+    const verification = await storage.getVerificationByToken(token);
+    
+    if (!verification) {
+      return res.status(404).json({ message: 'Verification token not found or already used' });
+    }
+    
+    // Check if token is expired
+    if (new Date() > verification.expiresAt) {
+      await storage.deleteVerification(token);
+      return res.status(400).json({ message: 'Verification token has expired. Please request a new one.' });
+    }
+    
+    // Check if it's an email verification token
+    if (verification.type !== 'email') {
+      return res.status(400).json({ message: 'Invalid verification token type' });
+    }
+    
+    // Get the user
+    const user = await storage.getUser(verification.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Update the user's email
+    const updatedUser = await storage.updateUser(user.id, { 
+      email: verification.email 
+    });
+    
+    if (!updatedUser) {
+      return res.status(500).json({ message: 'Failed to update email address' });
+    }
+    
+    // Delete the verification token
+    await storage.deleteVerification(token);
+    
+    // Redirect to success page or handle directly
+    return res.status(200).json({ 
+      message: 'Email address verified successfully',
+      success: true
+    });
+    
+  } catch (error) {
+    console.error('Email verification error:', error);
+    return res.status(500).json({ message: 'Failed to verify email address' });
+  }
+}
+
 export async function updateAvatar(req: Request, res: Response) {
   try {
     const { avatarUrl } = updateAvatarSchema.parse(req.body);

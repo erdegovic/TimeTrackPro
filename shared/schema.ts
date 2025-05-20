@@ -7,7 +7,7 @@ export const timeFormatEnum = pgEnum('time_format', ['decimal', 'time']);
 export const roundingTypeEnum = pgEnum('rounding_type', ['none', 'nearest_tenth', 'nearest_quarter', 'nearest_half']);
 export const userRoleEnum = pgEnum('user_role', ['admin', 'user']);
 export const userStatusEnum = pgEnum('user_status', ['pending', 'active', 'inactive']);
-export const verificationTypeEnum = pgEnum('verification_type', ['email', 'password_reset']);
+export const verificationTypeEnum = pgEnum('verification_type', ['email', 'email_change', 'password_reset']);
 
 // Users table
 export const users = pgTable("users", {
@@ -32,6 +32,7 @@ export const verifications = pgTable("verifications", {
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   token: text("token").notNull(),
   type: verificationTypeEnum("type").notNull(),
+  newEmail: varchar("new_email", { length: 255 }),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });

@@ -141,6 +141,71 @@ export async function sendVerificationEmail(email: string, username: string, tok
 }
 
 /**
+ * Sends an email change verification email
+ */
+export async function sendEmailChangeVerification(newEmail: string, userName: string, token: string): Promise<boolean> {
+  // Create a verification URL with the token
+  const baseUrl = process.env.APP_URL || `https://${process.env.REPLIT_DOMAINS?.split(",")[0] || "localhost:5000"}`;
+  const verificationUrl = `${baseUrl}/verify-email-change?token=${token}`;
+  
+  console.log(`Sending email change verification to ${newEmail} with URL: ${verificationUrl}`);
+  
+  // Make the verification URL more prominent in logs for testing
+  if (!BREVO_API_KEY) {
+    console.log('==========================================================');
+    console.log('DEMO MODE: Use this email change verification link:');
+    console.log(verificationUrl);
+    console.log('==========================================================');
+  }
+  
+  const subject = 'Verify your new email address';
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Email Change Verification</h2>
+      <p>Hello ${userName},</p>
+      <p>We received a request to change the email address associated with your Time Tracker account.</p>
+      <p>Please click the button below to verify your new email address:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${verificationUrl}" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+          Verify New Email Address
+        </a>
+      </div>
+      <p>If the button doesn't work, you can copy and paste the following link into your browser:</p>
+      <p><a href="${verificationUrl}">${verificationUrl}</a></p>
+      <p>This verification link will expire in 24 hours.</p>
+      <p>If you did not request this change, please contact support immediately as someone may be trying to access your account.</p>
+      <p>Best regards,</p>
+      <p>Time Tracker Team</p>
+    </div>
+  `;
+  
+  const textContent = `
+    Email Change Verification
+    
+    Hello ${userName},
+    
+    We received a request to change the email address associated with your Time Tracker account.
+    Please click on the link below to verify your new email address:
+    
+    ${verificationUrl}
+    
+    This verification link will expire in 24 hours.
+    
+    If you did not request this change, please contact support immediately as someone may be trying to access your account.
+    
+    Best regards,
+    Time Tracker Team
+  `;
+  
+  return sendEmail({
+    to: newEmail,
+    subject,
+    htmlContent,
+    textContent
+  });
+}
+
+/**
  * Sends a password reset email to a user
  */
 export async function sendPasswordResetEmail(email: string, username: string, token: string): Promise<boolean> {
