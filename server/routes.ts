@@ -13,11 +13,11 @@ import {
   timeEntryUpdateSchema
 } from "@shared/schema";
 import { z } from "zod";
-import { addDays, format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import authRoutes from "./routes/auth";
-import { authenticate } from "./middleware/auth";
+import { authenticate, handleVerificationRedirect } from "./middleware/auth";
 import fetch from "node-fetch";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -37,6 +37,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
           (username === 'test@example.com' && password === 'password123')) {
         // Set session data
         req.session.userId = 1;
+        
+        // Create sample time entries if they don't already exist
+        try {
+          const entries = await storage.getTimeEntries();
+          console.log(`Found ${entries.length} existing time entries`);
+          
+          if (entries.length === 0) {
+            // Add some sample time entries
+            const projects = await storage.getProjects();
+            if (projects.length > 0) {
+              const projectId = projects[0].id;
+              
+              // Create a few sample entries with various durations 
+              const now = new Date();
+              const today = format(now, 'yyyy-MM-dd');
+              const yesterday = format(addDays(now, -1), 'yyyy-MM-dd');
+              
+              await storage.createTimeEntry({
+                projectId,
+                description: "Website Development",
+                date: today,
+                startTime: new Date(now.setHours(9, 0, 0)),
+                endTime: new Date(now.setHours(12, 30, 0)),
+                duration: "3.5",
+                billable: true,
+                month: format(now, 'MMMM'),
+                weekNumber: 1,
+                weekLabel: 'Week 1',
+                year: now.getFullYear(),
+                invoiceId: null
+              });
+              
+              await storage.createTimeEntry({
+                projectId,
+                description: "UI Design",
+                date: yesterday,
+                startTime: new Date(now.setHours(13, 0, 0)),
+                endTime: new Date(now.setHours(17, 15, 0)),
+                duration: "4.25",
+                billable: true,
+                month: format(now, 'MMMM'),
+                weekNumber: 1,
+                weekLabel: 'Week 1',
+                year: now.getFullYear(),
+                invoiceId: null
+              });
+              
+              console.log('Added sample time entries');
+            }
+          }
+        } catch (err) {
+          console.error('Error checking/creating time entries:', err);
+        }
         
         const user = {
           id: 1,
