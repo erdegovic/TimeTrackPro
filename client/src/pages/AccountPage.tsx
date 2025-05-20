@@ -120,15 +120,34 @@ export default function AccountPage() {
       
       // Create a file reader to read the file as a data URL
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const result = e.target?.result as string;
         if (result) {
           try {
-            // Save the avatar URL to localStorage for persistence
+            // Set the avatar first to give immediate feedback
+            setAvatarUrl(result);
+            
+            // Save to localStorage as a backup
             localStorage.setItem('userAvatarUrl', result);
             
-            // Set the avatar to give immediate feedback
-            setAvatarUrl(result);
+            // Send to server to save permanently
+            const response = await fetch('/api/auth/avatar', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ 
+                avatarUrl: result
+              }),
+            });
+            
+            if (!response.ok) {
+              throw new Error('Failed to update avatar on server');
+            }
+            
+            // Get the response data
+            const responseData = await response.json();
+            console.log('Avatar upload response:', responseData);
             
             toast({
               title: "Avatar updated",
@@ -137,8 +156,8 @@ export default function AccountPage() {
           } catch (error) {
             console.error('Avatar upload error:', error);
             toast({
-              title: "Upload failed",
-              description: "There was an error processing your image. Please try again.",
+              title: "Server update failed",
+              description: "Your profile picture was saved locally but couldn't be stored on the server.",
               variant: "destructive",
             });
           } finally {
@@ -161,10 +180,30 @@ export default function AccountPage() {
   const onProfileSubmit = async (data: ProfileFormValues) => {
     setIsUpdating(true);
     try {
-      // For this demo, just use localStorage to persist data
       console.log('Updating profile with:', data);
       
-      // Save profile data to localStorage
+      // Send profile update to server API
+      const response = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email,
+          username: data.username,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update profile on server');
+      }
+      
+      const result = await response.json();
+      console.log('Profile update response:', result);
+      
+      // Also save to localStorage for immediate UI updates
       localStorage.setItem('userProfile', JSON.stringify(data));
       
       // Update UI elements showing the user's name
@@ -174,16 +213,6 @@ export default function AccountPage() {
           element.textContent = `${data.firstName} ${data.lastName}`;
         }
       });
-      
-      // Save user data for authentication persistence
-      const userData = {
-        id: 1,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        username: data.username,
-      };
-      localStorage.setItem('userData', JSON.stringify(userData));
       
       // Force a refresh of the profile card data
       const displayName = `${data.firstName} ${data.lastName}`;

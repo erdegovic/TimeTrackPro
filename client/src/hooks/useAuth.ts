@@ -6,20 +6,8 @@ import { useEffect } from "react";
 export function useAuth() {
   const [location, navigate] = useLocation();
   
-  // Query for the current user
-  // Try to use stored user data from localStorage if available
-  const getUserFromStorage = () => {
-    try {
-      const userData = localStorage.getItem('userData');
-      if (userData) {
-        return JSON.parse(userData);
-      }
-      return null;
-    } catch (error) {
-      console.error('Error reading user data from storage:', error);
-      return null;
-    }
-  };
+  // This hook now prioritizes server data over localStorage
+  // Only use localStorage as fallback for better UX
 
   const { 
     data: user, 
