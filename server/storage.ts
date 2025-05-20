@@ -196,6 +196,24 @@ export class MemStorage implements IStorage {
 
   // Initialize with some sample data
   private seedData(): void {
+    // Create a test user
+    const testUser: User = {
+      id: this.userId++,
+      username: "test@example.com",
+      email: "test@example.com",
+      password: "$2a$10$J5DemHyNMkFI5HT74xvh0.5HX6xYrpJc0T67GVFoHwSDOQEDJK9tK", // password123
+      firstName: "Test",
+      lastName: "User",
+      role: "admin",
+      status: "active",
+      verificationToken: null,
+      resetPasswordToken: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    this.usersData.set(testUser.id, testUser);
+    
     // Sample clients
     const client1: Client = {
       id: this.clientId++,
