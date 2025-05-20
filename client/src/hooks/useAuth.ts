@@ -7,6 +7,20 @@ export function useAuth() {
   const [location, navigate] = useLocation();
   
   // Query for the current user
+  // Try to use stored user data from localStorage if available
+  const getUserFromStorage = () => {
+    try {
+      const userData = localStorage.getItem('userData');
+      if (userData) {
+        return JSON.parse(userData);
+      }
+      return null;
+    } catch (error) {
+      console.error('Error reading user data from storage:', error);
+      return null;
+    }
+  };
+
   const { 
     data: user, 
     isLoading, 
@@ -16,7 +30,8 @@ export function useAuth() {
     queryKey: ["/api/auth/user"],
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: true
+    refetchOnWindowFocus: true,
+    initialData: getUserFromStorage
   });
 
   // Handle navigation based on authentication status
@@ -46,6 +61,9 @@ export function useAuth() {
           "Content-Type": "application/json"
         }
       });
+      
+      // Clear stored profile data on logout
+      localStorage.removeItem('userData');
       
       // Clear all queries and redirect to login
       queryClient.clear();

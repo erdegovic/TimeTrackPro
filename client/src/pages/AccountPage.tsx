@@ -204,6 +204,16 @@ export default function AccountPage() {
         }
       });
       
+      // Store user data in localStorage to persist between logins
+      const storedUser = {
+        id: 1,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        username: data.username,
+      };
+      localStorage.setItem('userData', JSON.stringify(storedUser));
+      
       // Force a refresh of the profile card data
       const displayName = `${data.firstName} ${data.lastName}`;
       

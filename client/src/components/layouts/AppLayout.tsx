@@ -279,7 +279,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
               size="sm" 
               className="w-full justify-start text-gray-600 hover:text-red-600 mt-1"
               onClick={() => {
+                // Clear all user-related data from localStorage
                 localStorage.removeItem('user');
+                localStorage.removeItem('userData');
+                localStorage.removeItem('userProfile');
+                localStorage.removeItem('userAvatarUrl');
+                
                 fetch('/api/auth/logout')
                   .then(() => {
                     window.location.href = '/login?logout=true';

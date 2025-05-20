@@ -38,6 +38,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Set session data
         req.session.userId = 1;
         
+        // Return user data
+        res.status(200).json({
+          message: "Login successful",
+          user: {
+            id: 1,
+            username: username,
+            firstName: "Attila", 
+            lastName: "Erdeg",
+            email: "test@example.com"
+          }
+        });
+        
         // Create sample time entries if they don't already exist
         try {
           const entries = await storage.getTimeEntries();
