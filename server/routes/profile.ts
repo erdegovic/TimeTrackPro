@@ -19,6 +19,7 @@ router.use(authenticate);
 // Protected profile routes
 router.put('/password', updatePassword);
 router.put('/update', updateProfile);
+router.put('/profile', updateProfile); // Add this route for /api/auth/profile
 router.post('/avatar', updateAvatar);
 
 // Add endpoint to check for pending email changes
