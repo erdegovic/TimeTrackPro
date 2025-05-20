@@ -198,6 +198,12 @@ export async function updateProfile(req: Request, res: Response) {
         // Remove sensitive data
         const { password, ...userData } = responseUser;
         
+        // Print out the email verification URL for easy testing
+        console.log(`============= EMAIL VERIFICATION LINK =============`);
+        const baseUrl = process.env.APP_URL || `https://${process.env.REPLIT_DOMAINS?.split(",")[0] || "localhost:5000"}`;
+        console.log(`${baseUrl}/verify-email-change?token=${token}`);
+        console.log(`==================================================`);
+        
         // Return a response that clearly indicates an email change is pending
         return res.status(200).json({
           message: 'Profile updated. Please check your new email address to verify the change.',
