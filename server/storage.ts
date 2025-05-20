@@ -201,7 +201,7 @@ export class MemStorage implements IStorage {
       id: this.userId++,
       username: "test@example.com",
       email: "test@example.com",
-      password: "$2a$10$J5DemHyNMkFI5HT74xvh0.5HX6xYrpJc0T67GVFoHwSDOQEDJK9tK", // password123
+      password: "$2a$10$K4L.QF3QrsSE.KWXCCq8yutlJMBBpkj/Y4Kfk7bARnrJM0H9iy4ee", // password123
       firstName: "Test",
       lastName: "User",
       role: "admin",
