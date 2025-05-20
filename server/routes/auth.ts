@@ -31,17 +31,16 @@ router.put('/profile', authenticate, async (req, res) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
     
-    const { firstName, lastName, email, username } = req.body;
+    const { firstName, lastName, email } = req.body;
     
     // Log the incoming profile update
-    console.log(`Profile update request for user ${userId}:`, { firstName, lastName, email, username });
+    console.log(`Profile update request for user ${userId}:`, { firstName, lastName, email });
     
     // Update the user in the database
     const updatedUser = await storage.updateUser(userId, {
       firstName,
       lastName,
-      email,
-      username
+      email
     });
     
     if (!updatedUser) {
