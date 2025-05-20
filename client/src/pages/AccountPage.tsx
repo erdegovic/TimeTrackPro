@@ -231,15 +231,28 @@ export default function AccountPage() {
   const onPasswordSubmit = async (data: PasswordFormValues) => {
     setIsUpdating(true);
     try {
-      // This would normally be an API call to update password
+      // Make a real API call to update the password
       console.log('Updating password with:', data);
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch('/api/auth/password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          currentPassword: data.currentPassword,
+          newPassword: data.newPassword
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update password');
+      }
       
       toast({
         title: "Password updated",
-        description: "Your password has been changed successfully.",
+        description: "Your password has been changed successfully and saved to the database.",
       });
       
       // Reset password form
@@ -249,9 +262,12 @@ export default function AccountPage() {
         confirmPassword: '',
       });
     } catch (error) {
+      console.error('Password update error:', error);
       toast({
         title: "Update failed",
-        description: "There was a problem updating your password. Please try again.",
+        description: typeof error === 'object' && error !== null && 'message' in error
+          ? String(error.message)
+          : "There was a problem updating your password. Please try again.",
         variant: "destructive",
       });
     } finally {

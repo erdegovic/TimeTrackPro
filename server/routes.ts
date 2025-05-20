@@ -17,6 +17,7 @@ import { format, addDays } from "date-fns";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import authRoutes from "./routes/auth";
+import profileRoutes from "./routes/profile";
 import { authenticate, handleVerificationRedirect } from "./middleware/auth";
 import fetch from "node-fetch";
 
