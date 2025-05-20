@@ -93,21 +93,40 @@ export default function AccountPage() {
       
       // Create a file reader to read the file as a data URL
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const result = e.target?.result as string;
         if (result) {
-          // Update avatar URL with the data URL
-          setAvatarUrl(result);
-          
-          // Here you would typically upload the file to a server
-          // For now, we'll just simulate it with a timeout
-          setTimeout(() => {
+          try {
+            // Send the image data to the server
+            const response = await fetch('/api/auth/avatar', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ avatarUrl: result }),
+            });
+            
+            if (!response.ok) {
+              throw new Error('Failed to update avatar');
+            }
+            
+            // Update avatar URL with the data URL
+            setAvatarUrl(result);
+            
             toast({
               title: "Avatar updated",
               description: "Your profile picture has been updated successfully.",
             });
+          } catch (error) {
+            console.error('Avatar upload error:', error);
+            toast({
+              title: "Upload failed",
+              description: "There was an error uploading your image. Please try again.",
+              variant: "destructive",
+            });
+          } finally {
             setIsUpdating(false);
-          }, 1000);
+          }
         }
       };
       reader.onerror = () => {
