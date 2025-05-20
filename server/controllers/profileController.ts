@@ -142,13 +142,21 @@ export async function updateProfile(req: Request, res: Response) {
       
       await storage.createVerification(verificationData);
       
-      // Send verification email to new address
+      // Send verification email to new address using Brevo
       console.log(`Attempting to send verification email to: ${profileData.email}`);
-      const emailSent = await sendEmailChangeVerification(
-        profileData.email,
-        user.firstName || user.username || 'User',
-        token
-      );
+      
+      // Generate the base URL for verification
+      const baseUrl = process.env.APP_URL || `https://${process.env.REPLIT_DOMAINS?.split(",")[0] || req.get('host') || "localhost:5000"}`;
+      
+      // Generate email content
+      const htmlContent = getEmailVerificationContent(token, baseUrl, profileData.email);
+      
+      // Send email using Brevo
+      const emailSent = await sendEmail({
+        to: profileData.email,
+        subject: 'Verify your email address change',
+        htmlContent
+      });
       
       console.log(`Email send result: ${emailSent ? 'SUCCESS' : 'FAILED'}`);
       
