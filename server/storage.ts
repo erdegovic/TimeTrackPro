@@ -65,7 +65,8 @@ export interface IStorage {
   updateSettings(settings: Partial<InsertSettings>): Promise<Settings>;
 }
 
-export class MemStorage implements IStorage {
+// This class is no longer used, replaced by DatabaseStorage
+export class MemStorage implements Partial<IStorage> {
   // User methods
   async getUser(id: number): Promise<User | undefined> {
     return this.usersData.get(id);

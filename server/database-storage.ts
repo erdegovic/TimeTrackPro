@@ -68,6 +68,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(verifications.token, token));
     return verification;
   }
+  
+  async getVerificationsByUser(userId: number): Promise<Verification[]> {
+    return await db
+      .select()
+      .from(verifications)
+      .where(eq(verifications.userId, userId));
+  }
 
   async deleteVerification(token: string): Promise<void> {
     await db.delete(verifications).where(eq(verifications.token, token));
