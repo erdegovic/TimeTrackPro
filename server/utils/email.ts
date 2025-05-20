@@ -34,6 +34,8 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
   try {
     if (!BREVO_API_KEY) {
       console.log('Email would be sent (DEV MODE):', params);
+      console.log('IMPORTANT: For production, set BREVO_API_KEY to enable actual email delivery.');
+      console.log('In demo mode, use the verification link printed in the console logs.');
       return true; // Return success in dev mode
     }
 
@@ -84,6 +86,14 @@ export async function sendVerificationEmail(email: string, username: string, tok
   const verificationUrl = `${baseUrl}/verify-email?token=${token}`;
   
   console.log(`Sending verification email to ${email} with URL: ${verificationUrl}`);
+  
+  // Make the verification URL more prominent in logs for testing
+  if (!BREVO_API_KEY) {
+    console.log('==========================================================');
+    console.log('DEMO MODE: Use this verification link to test the process:');
+    console.log(verificationUrl);
+    console.log('==========================================================');
+  }
   
   const subject = 'Verify your Time Tracker account';
   const htmlContent = `

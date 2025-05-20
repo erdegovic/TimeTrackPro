@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useLocation } from 'wouter';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle2 } from 'lucide-react';
 
 // Login form schema
 const loginSchema = z.object({
@@ -18,8 +20,19 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginForm() {
   const { toast } = useToast();
-  const [_, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
+  
+  // Check if user just verified their email
+  useEffect(() => {
+    const params = new URLSearchParams(location.split('?')[1]);
+    const verified = params.get('verified');
+    
+    if (verified === 'true') {
+      setVerificationStatus('Your email has been verified successfully! You can now log in.');
+    }
+  }, [location]);
 
   const {
     register,
