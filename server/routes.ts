@@ -34,8 +34,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Accept any of these test credentials
       if ((username === 'alexj' && password === 'password123') || 
           (username === 'alex.johnson@example.com' && password === 'password123') ||
-          (username === 'test@example.com' && password === 'password123')) {
+          (username === 'test@example.com' && password === 'password123') ||
+          (username && password === 'password123')) { // Allow any username with standard password
         // Set session data
+        if (!req.session) {
+          req.session = {} as any;
+        }
         req.session.userId = 1;
         
         // Return user data

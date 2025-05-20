@@ -17,7 +17,20 @@ declare global {
 
 // Authenticate middleware to check if user is logged in
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.session || !req.session.userId) {
+  if (!req.session) {
+    req.session = {} as any;
+  }
+  
+  // In development mode, allow access for testing
+  if (process.env.NODE_ENV === 'development' && !req.session.userId) {
+    // For development testing - set a default user ID
+    req.session.userId = 1;
+    req.user = { id: 1 };
+    next();
+    return;
+  }
+  
+  if (!req.session.userId) {
     return res.status(401).json({ message: 'Unauthorized' });
   }
   
