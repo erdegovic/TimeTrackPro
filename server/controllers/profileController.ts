@@ -153,6 +153,15 @@ export async function updateProfile(req: Request, res: Response) {
         });
       }
       
+      // Log the email verification URL in development mode
+      if (!process.env.BREVO_API_KEY) {
+        console.log("=====================================================");
+        console.log("DEV MODE - EMAIL VERIFICATION LINK:");
+        const baseUrl = process.env.APP_URL || `https://${process.env.REPLIT_DOMAINS?.split(",")[0] || "localhost:5000"}`;
+        console.log(`${baseUrl}/verify-email-change?token=${token}`);
+        console.log("=====================================================");
+      }
+      
       // Remove email from profile update data - will be updated after verification
       const { email, ...otherProfileData } = profileData;
       
@@ -182,12 +191,11 @@ export async function updateProfile(req: Request, res: Response) {
         // Remove sensitive data
         const { password, ...userData } = responseUser;
         
-        // Important: Make sure we explicitly mark this as an email change request with the pending email
-        // This signals the UI to show the email verification interface
+        // Return a response that clearly indicates an email change is pending
         return res.status(200).json({
           message: 'Profile updated. Please check your new email address to verify the change.',
-          emailChangeRequested: true, // This flag tells the UI to show the verification state
-          pendingEmail: profileData.email, // Include the pending email for UI reference
+          emailChangeRequested: true, // Critical flag to trigger UI verification state
+          pendingEmail: profileData.email, // The new email that needs verification
           user: userData
         });
       } else {
