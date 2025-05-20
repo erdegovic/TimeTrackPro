@@ -241,4 +241,6 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UserRegister = z.infer<typeof userRegisterSchema>;
 export type UserLogin = z.infer<typeof userLoginSchema>;
 export type Verification = typeof verifications.$inferSelect;
+export const insertVerificationSchema = createInsertSchema(verifications).omit({ id: true });
+export type InsertVerification = z.infer<typeof insertVerificationSchema>;
 export type Session = typeof sessions.$inferSelect;

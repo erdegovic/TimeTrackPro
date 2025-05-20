@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { storage } from '../storage';
 import { comparePassword, hashPassword, generateVerificationToken } from '../utils/auth';
 import { sendEmailChangeVerification } from '../utils/email';
+import { InsertVerification } from '@shared/schema';
 import { z } from 'zod';
 import { add } from 'date-fns';
 
@@ -128,14 +129,16 @@ export async function updateProfile(req: Request, res: Response) {
       const token = generateVerificationToken();
       const expiration = add(new Date(), { hours: 24 });
       
-      // Store verification request
-      await storage.createVerification({
+      // Store verification request in database
+      const verificationData: InsertVerification = {
         userId: user.id,
         token,
-        email: profileData.email, // Store the new email
-        type: 'email',
+        newEmail: profileData.email,
+        type: 'email_change',
         expiresAt: expiration
-      });
+      };
+      
+      await storage.createVerification(verificationData);
       
       // Send verification email to new address
       const emailSent = await sendEmailChangeVerification(
@@ -255,8 +258,8 @@ export async function verifyEmailChange(req: Request, res: Response) {
       return res.status(400).json({ message: 'Verification token has expired. Please request a new one.' });
     }
     
-    // Check if it's an email verification token
-    if (verification.type !== 'email') {
+    // Check if it's an email change verification token
+    if (verification.type !== 'email_change') {
       return res.status(400).json({ message: 'Invalid verification token type' });
     }
     
@@ -266,9 +269,14 @@ export async function verifyEmailChange(req: Request, res: Response) {
       return res.status(404).json({ message: 'User not found' });
     }
     
+    // Make sure we have the new email
+    if (!verification.newEmail) {
+      return res.status(400).json({ message: 'New email not found in verification record' });
+    }
+    
     // Update the user's email
     const updatedUser = await storage.updateUser(user.id, { 
-      email: verification.email 
+      email: verification.newEmail 
     });
     
     if (!updatedUser) {
