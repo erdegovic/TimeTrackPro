@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,7 +17,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
-import { Lock, User, Mail, Key, Save } from 'lucide-react';
+import { Lock, User, Mail, Key, Save, Upload } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 
 // Form schemas
 const profileSchema = z.object({
@@ -41,17 +42,32 @@ type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 export default function AccountPage() {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string>("https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
   
   // Profile form
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      firstName: 'Alex',
-      lastName: 'Johnson',
-      email: 'alex.johnson@example.com',
-      username: 'alexj',
+      firstName: user?.firstName || 'Alex',
+      lastName: user?.lastName || 'Johnson',
+      email: user?.email || 'alex.johnson@example.com',
+      username: user?.username || 'alexj',
     },
   });
+  
+  // Update form values when user data is loaded
+  useEffect(() => {
+    if (user) {
+      profileForm.reset({
+        firstName: user.firstName || 'Alex',
+        lastName: user.lastName || 'Johnson',
+        email: user.email || 'alex.johnson@example.com',
+        username: user.username || 'alexj',
+      });
+    }
+  }, [user, profileForm]);
   
   // Password form
   const passwordForm = useForm<PasswordFormValues>({
@@ -63,20 +79,80 @@ export default function AccountPage() {
     },
   });
   
+  const handleAvatarClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+  
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Show loading state
+      setIsUpdating(true);
+      
+      // Create a file reader to read the file as a data URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        if (result) {
+          // Update avatar URL with the data URL
+          setAvatarUrl(result);
+          
+          // Here you would typically upload the file to a server
+          // For now, we'll just simulate it with a timeout
+          setTimeout(() => {
+            toast({
+              title: "Avatar updated",
+              description: "Your profile picture has been updated successfully.",
+            });
+            setIsUpdating(false);
+          }, 1000);
+        }
+      };
+      reader.onerror = () => {
+        toast({
+          title: "Upload failed",
+          description: "There was an error uploading your image. Please try again.",
+          variant: "destructive",
+        });
+        setIsUpdating(false);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
   const onProfileSubmit = async (data: ProfileFormValues) => {
     setIsUpdating(true);
     try {
-      // This would normally be an API call to update user data
+      // Make an actual API call to update the user profile
+      const response = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
+      
+      // Log the data for debugging
       console.log('Updating profile with:', data);
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Update the profile name in the UI
+      const profileNameElement = document.querySelector('.user-profile-name');
+      if (profileNameElement) {
+        profileNameElement.textContent = `${data.firstName} ${data.lastName}`;
+      }
       
       toast({
         title: "Profile updated",
         description: "Your profile information has been updated successfully.",
       });
     } catch (error) {
+      console.error('Profile update error:', error);
       toast({
         title: "Update failed",
         description: "There was a problem updating your profile. Please try again.",
@@ -138,15 +214,42 @@ export default function AccountPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center space-y-4">
-            <Avatar className="h-32 w-32">
-              <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" alt="User" />
-              <AvatarFallback className="text-lg">AJ</AvatarFallback>
+            <Avatar className="h-32 w-32 cursor-pointer" onClick={handleAvatarClick}>
+              <AvatarImage src={avatarUrl} alt="User" />
+              <AvatarFallback className="text-lg">
+                {user?.firstName?.[0] || 'A'}{user?.lastName?.[0] || 'J'}
+              </AvatarFallback>
             </Avatar>
+            <input 
+              type="file" 
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*"
+              onChange={handleAvatarChange}
+            />
             <div className="text-center">
-              <h3 className="text-lg font-medium">Alex Johnson</h3>
-              <p className="text-sm text-gray-500">alex.johnson@example.com</p>
-              <Button variant="outline" size="sm" className="mt-3">
-                Change Avatar
+              <h3 className="text-lg font-medium user-profile-name">
+                {user?.firstName || 'Alex'} {user?.lastName || 'Johnson'}
+              </h3>
+              <p className="text-sm text-gray-500">{user?.email || 'alex.johnson@example.com'}</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-3" 
+                onClick={handleAvatarClick}
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <>
+                    <span className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-t-transparent" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Change Avatar
+                  </>
+                )}
               </Button>
             </div>
           </CardContent>
