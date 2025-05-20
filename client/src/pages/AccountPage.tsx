@@ -120,31 +120,15 @@ export default function AccountPage() {
       
       // Create a file reader to read the file as a data URL
       const reader = new FileReader();
-      reader.onload = async (e) => {
+      reader.onload = (e) => {
         const result = e.target?.result as string;
         if (result) {
           try {
-            // Save the avatar URL to localStorage first for persistence
+            // Save the avatar URL to localStorage for persistence
             localStorage.setItem('userAvatarUrl', result);
             
-            // Set the avatar first to give immediate feedback
+            // Set the avatar to give immediate feedback
             setAvatarUrl(result);
-            
-            // Send the image data to the server
-            // Note: Use a smaller base64 string to avoid payload issues
-            const response = await fetch('/api/auth/avatar', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ 
-                avatarUrl: 'uploaded-via-client' // Just send a placeholder to avoid large payloads
-              }),
-            });
-            
-            if (!response.ok) {
-              throw new Error('Failed to update avatar');
-            }
             
             toast({
               title: "Avatar updated",
@@ -152,10 +136,10 @@ export default function AccountPage() {
             });
           } catch (error) {
             console.error('Avatar upload error:', error);
-            // Even if the server request fails, keep the image for the current session
             toast({
-              title: "Avatar updated locally",
-              description: "Your profile picture has been updated in this browser session.",
+              title: "Upload failed",
+              description: "There was an error processing your image. Please try again.",
+              variant: "destructive",
             });
           } finally {
             setIsUpdating(false);
