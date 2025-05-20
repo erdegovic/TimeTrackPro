@@ -185,7 +185,7 @@ export default function RegisterForm() {
         
         <div className="my-6 flex justify-center">
           <ReCAPTCHA 
-            sitekey={process.env.RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"} 
+            sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"} 
             onChange={handleCaptchaChange}
           />
         </div>
