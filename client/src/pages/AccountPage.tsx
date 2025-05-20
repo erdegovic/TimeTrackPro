@@ -20,6 +20,16 @@ import { toast } from '@/hooks/use-toast';
 import { Lock, User, Mail, Key, Save, Upload } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
+// Define user interface for TypeScript type safety
+interface UserProfile {
+  id: number;
+  firstName?: string | null;
+  lastName?: string | null;
+  email: string;
+  username: string;
+  profileImageUrl?: string | null;
+}
+
 // Form schemas
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -59,22 +69,7 @@ export default function AccountPage() {
   
   // Load saved profile data from localStorage on component mount
   useEffect(() => {
-    // Try to load saved profile data from localStorage
-    const savedProfile = localStorage.getItem('userProfile');
-    if (savedProfile) {
-      try {
-        const profileData = JSON.parse(savedProfile);
-        profileForm.reset(profileData);
-        
-        // If there's a saved avatar URL, use it
-        const savedAvatarUrl = localStorage.getItem('userAvatarUrl');
-        if (savedAvatarUrl) {
-          setAvatarUrl(savedAvatarUrl);
-        }
-      } catch (error) {
-        console.error('Error parsing saved profile data:', error);
-      }
-    } else if (user) {
+    if (user) {
       // Use user data from API if available
       profileForm.reset({
         firstName: user.firstName || 'Alex',
@@ -82,6 +77,11 @@ export default function AccountPage() {
         email: user.email || 'alex.johnson@example.com',
         username: user.username || 'alexj',
       });
+      
+      // Use profile image from database if available
+      if (user.profileImageUrl) {
+        setAvatarUrl(user.profileImageUrl);
+      }
     }
   }, [user, profileForm]);
   

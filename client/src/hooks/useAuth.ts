@@ -18,8 +18,7 @@ export function useAuth() {
     queryKey: ["/api/auth/user"],
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: true,
-    initialData: getUserFromStorage
+    refetchOnWindowFocus: true
   });
 
   // Handle navigation based on authentication status
@@ -50,8 +49,7 @@ export function useAuth() {
         }
       });
       
-      // Clear stored profile data on logout
-      localStorage.removeItem('userData');
+      // No need to clear local storage as we're using the database now
       
       // Clear all queries and redirect to login
       queryClient.clear();
