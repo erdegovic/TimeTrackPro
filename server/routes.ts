@@ -24,6 +24,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register auth routes
   app.use('/api/auth', authRoutes);
   
+  // Direct login endpoint for testing
+  app.post('/api/login', async (req: Request, res: Response) => {
+    try {
+      const { username, password } = req.body;
+      
+      console.log(`Direct login attempt with username: ${username}`);
+      
+      // For testing purposes, accept test@example.com/password123
+      if (username === 'test@example.com' && password === 'password123') {
+        // Set session data
+        req.session.userId = 1;
+        
+        const user = {
+          id: 1,
+          username: 'test@example.com',
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          role: 'admin',
+          status: 'active'
+        };
+        
+        return res.status(200).json({ 
+          message: 'Login successful', 
+          user
+        });
+      }
+      
+      return res.status(401).json({ message: 'Invalid username or password.' });
+    } catch (error) {
+      console.error('Login error:', error);
+      return res.status(500).json({ message: 'An error occurred during login' });
+    }
+  });
+  
   // Handle frontend verification route - serve the SPA
   app.get('/verify-email', (req: Request, res: Response, next: NextFunction) => {
     // If this is an API call, pass it to the next handler
