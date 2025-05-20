@@ -13,12 +13,9 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { format, addDays } from "date-fns";
-import { db } from "./db";
-import { eq } from "drizzle-orm";
 import authRoutes from "./routes/auth";
 import profileRoutes from "./routes/profile";
 import { authenticate, handleVerificationRedirect } from "./middleware/auth";
-import fetch from "node-fetch";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register auth routes
@@ -30,6 +27,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Direct login endpoint for testing
   app.post('/api/login', async (req: Request, res: Response) => {
     try {
+      // Update to use email instead of username
       const { email, password } = req.body;
       
       console.log(`Login attempt with email: ${email}`);
@@ -46,13 +44,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           req.session = {} as any;
         }
         
-        // Set up user session
+        // Use real user data if available
         if (foundUser) {
           req.session.userId = foundUser.id;
           
           return res.status(200).json({
             message: "Login successful",
-            user: foundUser
+            user: {
+              id: foundUser.id,
+              username: foundUser.username,
+              firstName: foundUser.firstName,
+              lastName: foundUser.lastName,
+              email: foundUser.email
+            }
           });
         } else {
           // Use test user if no real user found
@@ -89,7 +93,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return next();
   });
   
-  // All API routes use /api prefix
+  // API routes
   
   // Clients API
   app.get("/api/clients", async (req: Request, res: Response) => {
@@ -291,7 +295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/tracker/time-entries", async (req: Request, res: Response) => {
     try {
       // Need more permissive validation for tracker
-      const data: Partial<z.infer<typeof insertTimeEntrySchema>> = {
+      const data: any = {
         ...req.body
       };
       

@@ -12,7 +12,7 @@ import { CheckCircle2 } from 'lucide-react';
 
 // Login form schema
 const loginSchema = z.object({
-  username: z.string().min(1, "Username is required"),
+  email: z.string().email("Valid email is required"),
   password: z.string().min(1, "Password is required"),
 });
 
@@ -41,7 +41,7 @@ export default function LoginForm() {
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: '',
+      email: '',
       password: '',
     }
   });
@@ -105,14 +105,15 @@ export default function LoginForm() {
       
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="username">Username</Label>
+          <Label htmlFor="email">Email</Label>
           <Input
-            id="username"
-            {...register("username")}
-            placeholder="Your username"
+            id="email"
+            type="email"
+            {...register("email")}
+            placeholder="Your email"
           />
-          {errors.username && (
-            <p className="text-sm text-red-500">{errors.username.message}</p>
+          {errors.email && (
+            <p className="text-sm text-red-500">{errors.email.message}</p>
           )}
         </div>
         

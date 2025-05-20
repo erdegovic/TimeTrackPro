@@ -9,6 +9,7 @@ import {
   insertSettingsSchema,
   timeFormatEnum,
   roundingTypeEnum,
+  timeEntries,
   timeEntryUpdateSchema
 } from "@shared/schema";
 import { z } from "zod";
@@ -35,40 +36,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Login attempt with email: ${email}`);
       
       // Find user by email
-      const foundUser = await storage.getUserByEmail(email);
+      const user = await storage.getUserByEmail(email);
       
       // For development, accept test credentials
       const isTestCredential = email === 'test@example.com' && password === 'password123';
       
-      if (foundUser || isTestCredential) {
+      if (user || isTestCredential) {
         // Set session data
         if (!req.session) {
           req.session = {} as any;
         }
         
-        // Set up user session
-        if (foundUser) {
-          req.session.userId = foundUser.id;
-          
-          return res.status(200).json({
-            message: "Login successful",
-            user: foundUser
-          });
-        } else {
-          // Use test user if no real user found
-          req.session.userId = 1;
-          
-          return res.status(200).json({
-            message: "Login successful",
-            user: {
-              id: 1,
-              username: "testuser",
-              firstName: "Attila", 
-              lastName: "Erdeg",
-              email: "test@example.com"
-            }
-          });
-        }
+        // Use real user ID if available, otherwise default to 1
+        req.session.userId = user ? user.id : 1;
+        
+        // Return user data
+        const userData = user || {
+          id: 1,
+          username: "testuser",
+          firstName: "Attila", 
+          lastName: "Erdeg",
+          email: "test@example.com"
+        };
+        
+        res.status(200).json({
+          message: "Login successful",
+          user: userData
+        });
+        
+        return;
       }
       
       return res.status(401).json({ message: "Invalid email or password" });
