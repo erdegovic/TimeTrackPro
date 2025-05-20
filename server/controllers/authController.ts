@@ -150,24 +150,33 @@ export async function login(req: Request, res: Response) {
   try {
     const { username, password } = userLoginSchema.parse(req.body);
     
+    // Debug info
+    console.log(`Login attempt with username: ${username}`);
+    
     // Find user
     const user = await storage.getUserByUsername(username);
     
     if (!user) {
+      console.log('User not found');
       return res.status(401).json({ message: 'Invalid username or password.' });
     }
     
+    console.log(`User found: ${user.username}, id: ${user.id}, status: ${user.status}`);
+    
     // Check user status
     if (user.status === 'pending') {
+      console.log('User status is pending');
       return res.status(403).json({ message: 'Please verify your email before logging in.' });
     }
     
     if (user.status === 'inactive') {
+      console.log('User status is inactive');
       return res.status(403).json({ message: 'Your account has been deactivated. Please contact support.' });
     }
     
     // Verify password
     const isValidPassword = await comparePassword(password, user.password);
+    console.log(`Password validation result: ${isValidPassword}`);
     
     if (!isValidPassword) {
       return res.status(401).json({ message: 'Invalid username or password.' });
