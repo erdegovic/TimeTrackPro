@@ -206,15 +206,8 @@ export default function AccountPage() {
       const displayName = `${data.firstName} ${data.lastName}`;
       
       // Dispatch a custom event to notify the layout about profile changes
-      window.dispatchEvent(new CustomEvent('profile-updated', { 
-        detail: { 
-          name: displayName,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          email: data.email,
-          username: data.username
-        }
-      }));
+      // No need to pass details as we now force refresh from the database
+      window.dispatchEvent(new CustomEvent('profile-updated', {}));
       
       // Force a refresh of the auth data
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });

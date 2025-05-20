@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Separator } from "@/components/ui/separator";
+import { useAuth, UserProfile } from "@/hooks/useAuth";
+import { queryClient } from "@/lib/queryClient";
 
 type NavItemProps = {
   href: string;
@@ -51,46 +53,31 @@ export default function AppLayout({ children }: AppLayoutProps) {
     clientName?: string;
   } | null>(null);
   
-  // User profile state
-  const [userName, setUserName] = useState('Alex Johnson');
-  const [userAvatar, setUserAvatar] = useState('https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80');
+  // Get user profile data from authentication
+  const { user, isLoading } = useAuth();
   
-  // Load user profile data from localStorage if available
+  // User profile state (with fallbacks while loading)
+  const [userName, setUserName] = useState('Loading...');
+  const [userAvatar, setUserAvatar] = useState('');
+  
+  // Update user profile state when auth data changes
   useEffect(() => {
-    const loadProfileData = () => {
-      const savedProfile = localStorage.getItem('userProfile');
-      const savedAvatar = localStorage.getItem('userAvatarUrl');
+    if (user) {
+      const displayName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username;
+      setUserName(displayName);
       
-      if (savedProfile) {
-        try {
-          const profileData = JSON.parse(savedProfile);
-          setUserName(`${profileData.firstName} ${profileData.lastName}`);
-        } catch (error) {
-          console.error('Error parsing saved profile data:', error);
-        }
+      if (user.profileImageUrl) {
+        setUserAvatar(user.profileImageUrl);
       }
-      
-      if (savedAvatar) {
-        setUserAvatar(savedAvatar);
-      }
-    };
-    
-    // Load initial profile data
-    loadProfileData();
-    
-    // Listen for profile updates from the account page
-    const handleProfileUpdate = (event: CustomEvent) => {
-      const { name, avatar } = event.detail;
-      if (name) setUserName(name);
-      if (avatar) setUserAvatar(avatar);
-      
-      // Refresh all user-profile-name elements to be sure they're updated
-      const profileNameElements = document.querySelectorAll('.user-profile-name');
-      profileNameElements.forEach(element => {
-        if (element && name) {
-          element.textContent = name;
-        }
-      });
+    }
+  }, [user]);
+  
+  // Setup listener for profile update events  
+  useEffect(() => {
+    // Listen for profile updates and refresh data
+    const handleProfileUpdate = () => {
+      // Force refresh of auth data to update sidebar
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
     };
     
     // Add event listener for profile updates
@@ -279,11 +266,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
               size="sm" 
               className="w-full justify-start text-gray-600 hover:text-red-600 mt-1"
               onClick={() => {
-                // Clear all user-related data from localStorage
-                localStorage.removeItem('user');
-                localStorage.removeItem('userData');
-                localStorage.removeItem('userProfile');
-                localStorage.removeItem('userAvatarUrl');
+                // No need to clear local storage anymore as we're using the database
+              // Just trigger the logout request
                 
                 fetch('/api/auth/logout')
                   .then(() => {
