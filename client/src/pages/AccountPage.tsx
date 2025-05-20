@@ -269,8 +269,8 @@ export default function AccountPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center space-y-4">
-            <Avatar className="h-32 w-32 cursor-pointer" onClick={handleAvatarClick}>
-              <AvatarImage src={avatarUrl} alt="User" />
+            <Avatar className="h-32 w-32 cursor-pointer rounded-full overflow-hidden" onClick={handleAvatarClick}>
+              <AvatarImage src={avatarUrl} alt="User" className="object-cover w-full h-full" />
               <AvatarFallback className="text-lg">
                 {user?.firstName?.[0] || 'A'}{user?.lastName?.[0] || 'J'}
               </AvatarFallback>

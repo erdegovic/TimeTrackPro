@@ -50,6 +50,29 @@ export default function AppLayout({ children }: AppLayoutProps) {
     projectName?: string;
     clientName?: string;
   } | null>(null);
+  
+  // User profile state
+  const [userName, setUserName] = useState('Alex Johnson');
+  const [userAvatar, setUserAvatar] = useState('https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80');
+  
+  // Load user profile data from localStorage if available
+  useEffect(() => {
+    const savedProfile = localStorage.getItem('userProfile');
+    const savedAvatar = localStorage.getItem('userAvatarUrl');
+    
+    if (savedProfile) {
+      try {
+        const profileData = JSON.parse(savedProfile);
+        setUserName(`${profileData.firstName} ${profileData.lastName}`);
+      } catch (error) {
+        console.error('Error parsing saved profile data:', error);
+      }
+    }
+    
+    if (savedAvatar) {
+      setUserAvatar(savedAvatar);
+    }
+  }, []);
 
   const closeSidebar = () => setSidebarOpen(false);
   
@@ -210,12 +233,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <div className="flex-shrink-0 border-t border-gray-200 p-4">
             <Link href="/account" className="flex-shrink-0 w-full group block">
               <div className="flex items-center">
-                <Avatar className="h-9 w-9">
-                  <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" alt="User" />
-                  <AvatarFallback>AJ</AvatarFallback>
+                <Avatar className="h-9 w-9 rounded-full overflow-hidden">
+                  <AvatarImage src={userAvatar} alt="User" className="object-cover w-full h-full" />
+                  <AvatarFallback>{userName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                 </Avatar>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">Alex Johnson</p>
+                  <p className="user-profile-name text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">{userName}</p>
                   <p className="text-xs font-medium text-gray-500">Free Account</p>
                 </div>
               </div>
