@@ -223,6 +223,8 @@ export default function AccountPage() {
       
       // Handle email verification case specially
       if (result.emailChangeRequested) {
+        console.log('Email change requested, setting up pending email state', result);
+        
         // Get the pending email from the response
         const pendingEmail = result.pendingEmail || data.email;
         
@@ -238,14 +240,22 @@ export default function AccountPage() {
           duration: 7000, // Show for longer since this is important
         });
         
-        // Set the email field value to be displayed in the greyed out text
-        profileForm.setValue('email', pendingEmail);
+        // Force the form to refresh with the current values
+        profileForm.reset({
+          ...profileForm.getValues(),
+          email: user?.email || '' // Keep the original email in the form
+        });
         
         // Update the user profile email display
         const emailElement = document.querySelector('.user-profile-email');
         if (emailElement) {
           emailElement.textContent = user?.email || ''; // Keep showing the original email
         }
+        
+        // Force refresh of pending email verification status
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        }, 500);
         
         // Dispatch a custom event to notify layout (just for name changes)
         window.dispatchEvent(new CustomEvent('profile-updated', {}));
