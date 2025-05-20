@@ -1,92 +1,108 @@
-import { useEffect, useState } from 'react';
-import { useLocation, useRoute } from 'wouter';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { CheckCircle, XCircle, Clock, Mail } from 'lucide-react';
 
 export default function VerifyEmailChangePage() {
-  const [, navigate] = useLocation();
-  const [, params] = useRoute('/verify-email-change');
+  const [location, setLocation] = useLocation();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [message, setMessage] = useState('Verifying your email address...');
+  const [message, setMessage] = useState('Verifying your email change...');
+  const [errorDetails, setErrorDetails] = useState('');
 
   useEffect(() => {
-    async function verifyEmail() {
+    const verifyEmail = async () => {
       try {
-        // Get the token from URL search params
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-
+        // Extract token from URL
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+        
         if (!token) {
           setStatus('error');
-          setMessage('Verification token is missing. Please check your email and try again.');
+          setMessage('Invalid verification link');
+          setErrorDetails('The verification link is missing a token. Please try again or contact support.');
           return;
         }
 
-        // Call the verification API
-        const response = await fetch(`/api/auth/verify-email-change?token=${token}`);
-        const data = await response.json();
+        // Call API to verify email change
+        const response = await fetch(`/api/auth/verify-email-change?token=${token}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
 
         if (response.ok) {
           setStatus('success');
-          setMessage(data.message || 'Your email has been verified successfully!');
+          setMessage('Email updated successfully');
         } else {
+          const errorData = await response.json();
           setStatus('error');
-          setMessage(data.message || 'Failed to verify your email. The token may be invalid or expired.');
+          setMessage('Failed to verify email');
+          setErrorDetails(errorData.message || 'An unknown error occurred');
         }
       } catch (error) {
-        console.error('Email verification error:', error);
+        console.error('Error verifying email:', error);
         setStatus('error');
-        setMessage('An error occurred during verification. Please try again later.');
+        setMessage('Failed to verify email');
+        setErrorDetails('An unexpected error occurred while verifying your email.');
       }
-    }
+    };
 
     verifyEmail();
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 px-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Email Verification</CardTitle>
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-50">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-xl font-semibold flex items-center">
+            {status === 'loading' && <Clock className="mr-2 h-5 w-5 text-blue-500 animate-pulse" />}
+            {status === 'success' && <CheckCircle className="mr-2 h-5 w-5 text-green-500" />}
+            {status === 'error' && <XCircle className="mr-2 h-5 w-5 text-red-500" />}
+            Email Verification
+          </CardTitle>
+          <CardDescription>
+            {status === 'loading' && 'We are processing your request...'}
+            {status === 'success' && 'Your email has been verified successfully.'}
+            {status === 'error' && 'There was a problem verifying your email.'}
+          </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col items-center space-y-4 py-6">
+        <CardContent>
           {status === 'loading' && (
-            <>
-              <Loader2 className="h-16 w-16 text-primary animate-spin" />
-              <p className="text-lg text-center">{message}</p>
-            </>
+            <div className="flex justify-center py-4">
+              <div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent"></div>
+            </div>
           )}
-
+          
           {status === 'success' && (
-            <>
-              <CheckCircle className="h-16 w-16 text-green-500" />
-              <Alert className="bg-green-50 border-green-200">
-                <AlertTitle className="text-green-800">Success!</AlertTitle>
-                <AlertDescription className="text-green-700">{message}</AlertDescription>
-              </Alert>
-            </>
+            <Alert className="bg-green-50 border-green-200">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <AlertTitle>Success</AlertTitle>
+              <AlertDescription>
+                Your email address has been updated successfully. You can now use your new email to log in.
+              </AlertDescription>
+            </Alert>
           )}
-
+          
           {status === 'error' && (
-            <>
-              <XCircle className="h-16 w-16 text-red-500" />
-              <Alert className="bg-red-50 border-red-200">
-                <AlertTitle className="text-red-800">Verification Failed</AlertTitle>
-                <AlertDescription className="text-red-700">{message}</AlertDescription>
-              </Alert>
-            </>
+            <Alert className="bg-red-50 border-red-200">
+              <XCircle className="h-4 w-4 text-red-500" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>
+                {errorDetails}
+              </AlertDescription>
+            </Alert>
           )}
         </CardContent>
-        <CardFooter className="flex justify-center pb-6">
-          {status !== 'loading' && (
-            <Button 
-              onClick={() => navigate('/login')} 
-              variant={status === 'success' ? 'default' : 'outline'}>
-              {status === 'success' ? 'Go to Login' : 'Back to Login'}
-            </Button>
-          )}
+        <CardFooter className="flex justify-center">
+          <Button 
+            variant={status === 'error' ? 'destructive' : 'default'} 
+            onClick={() => setLocation('/account')}
+          >
+            {status === 'success' ? 'Go to Account' : 'Return to Account'}
+          </Button>
         </CardFooter>
       </Card>
     </div>

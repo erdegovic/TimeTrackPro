@@ -56,7 +56,8 @@ router.put('/profile', async (req, res) => {
         token,
         newEmail: email,
         type: 'email_change',
-        expiresAt: expiration
+        expiresAt: expiration,
+        createdAt: new Date()
       });
       
       // Send verification email

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,26 +10,19 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from '@/hooks/use-toast';
-import { Lock, User, Mail, Key, Save, Upload, AlertCircle, RefreshCw } from 'lucide-react';
-import { useAuth, UserProfile } from '../hooks/useAuth';
+import { Lock, User, Key, Upload } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 import { queryClient } from '@/lib/queryClient';
+import ProfileForm from '@/components/Auth/ProfileForm';
 
-// Form schemas
-const profileSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Invalid email address'),
-});
-
+// Password form schema
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
   newPassword: z.string().min(8, 'Password must be at least 8 characters'),
@@ -39,63 +32,14 @@ const passwordSchema = z.object({
   path: ["confirmPassword"],
 });
 
-type ProfileFormValues = z.infer<typeof profileSchema>;
 type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 export default function AccountPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>("https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80");
-  const [pendingEmailChange, setPendingEmailChange] = useState<string | null>(null);
-  const [emailFieldDisabled, setEmailFieldDisabled] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
-  
-  // Profile form
-  const profileForm = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      firstName: user?.firstName || 'Alex',
-      lastName: user?.lastName || 'Johnson',
-      email: user?.email || 'alex.johnson@example.com',
-    },
-  });
-  
-  // Load saved profile data from API on component mount
-  useEffect(() => {
-    if (user) {
-      // Use user data from API if available
-      profileForm.reset({
-        firstName: user.firstName || 'Alex',
-        lastName: user.lastName || 'Johnson',
-        email: user.email || 'alex.johnson@example.com',
-      });
-      
-      // Use profile image from database if available
-      if (user.profileImageUrl) {
-        setAvatarUrl(user.profileImageUrl);
-      }
-      
-      // Check for any pending email verifications
-      const checkPendingEmailChange = async () => {
-        try {
-          const response = await fetch('/api/auth/pending-email-change');
-          if (response.ok) {
-            const data = await response.json();
-            if (data.pendingEmail) {
-              setPendingEmailChange(data.pendingEmail);
-              setEmailFieldDisabled(true);
-              profileForm.setValue('email', data.pendingEmail);
-            }
-          }
-        } catch (error) {
-          console.error('Failed to check pending email verifications:', error);
-        }
-      };
-      
-      checkPendingEmailChange();
-    }
-  }, [user, profileForm]);
-  
+
   // Password form
   const passwordForm = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordSchema),
@@ -105,196 +49,71 @@ export default function AccountPage() {
       confirmPassword: '',
     },
   });
-  
+
+  // Avatar upload handler
   const handleAvatarClick = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
   };
-  
-  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      // Show loading state
-      setIsUpdating(true);
-      
-      // Make sure the file isn't too large
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        toast({
-          title: "File too large",
-          description: "Please select an image smaller than 5MB.",
-          variant: "destructive",
-        });
-        setIsUpdating(false);
-        return;
-      }
-      
-      // Create a file reader to read the file as a data URL
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const result = e.target?.result as string;
-        if (result) {
-          try {
-            // Set the avatar first to give immediate feedback
-            setAvatarUrl(result);
-            
-            // Send to server to save permanently
-            const response = await fetch('/api/auth/avatar', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ 
-                avatarUrl: result
-              }),
-            });
-            
-            if (!response.ok) {
-              throw new Error('Failed to update avatar on server');
-            }
-            
-            // Get the response data
-            const responseData = await response.json();
-            console.log('Avatar upload response:', responseData);
-            
-            // Force a refresh of the auth data to update profile info
-            queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-            
+    if (!file) return;
+
+    // In a real app, you would upload the file to a server
+    // For now, just use a local URL
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      if (e.target?.result) {
+        // Set avatar locally
+        setAvatarUrl(e.target.result.toString());
+        
+        // Send to server
+        try {
+          const response = await fetch('/api/auth/avatar', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              avatarUrl: e.target.result.toString() 
+            }),
+          });
+          
+          if (response.ok) {
             toast({
-              title: "Avatar updated",
-              description: "Your profile picture has been updated successfully and saved to the database.",
+              title: 'Avatar updated',
+              description: 'Your profile picture has been updated successfully',
             });
-          } catch (error) {
-            console.error('Avatar upload error:', error);
+            
+            // Update user in react-query cache
+            queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+          } else {
             toast({
-              title: "Update failed",
-              description: "There was a problem saving your profile picture to the database.",
-              variant: "destructive",
+              variant: 'destructive',
+              title: 'Update failed',
+              description: 'Failed to update avatar',
             });
-          } finally {
-            setIsUpdating(false);
           }
+        } catch (error) {
+          console.error('Error updating avatar:', error);
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'An unexpected error occurred',
+          });
         }
-      };
-      reader.onerror = () => {
-        toast({
-          title: "Upload failed",
-          description: "There was an error reading your image. Please try again.",
-          variant: "destructive",
-        });
-        setIsUpdating(false);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-  
-  const onProfileSubmit = async (data: ProfileFormValues) => {
-    setIsUpdating(true);
-    try {
-      console.log('Updating profile with:', data);
-      
-      // Send profile update to server API
-      const response = await fetch('/api/auth/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          firstName: data.firstName,
-          lastName: data.lastName,
-          email: data.email,
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to update profile on server');
       }
-      
-      const result = await response.json();
-      console.log('Profile update response:', result);
-      
-      // Update UI elements showing the user's name
-      const profileNameElements = document.querySelectorAll('.user-profile-name');
-      profileNameElements.forEach(element => {
-        if (element) {
-          element.textContent = `${data.firstName} ${data.lastName}`;
-        }
-      });
-      
-      // Handle email verification case specially
-      if (result.emailChangeRequested) {
-        console.log('Email change requested, setting up pending email state', result);
-        
-        // Get the pending email from the response
-        const pendingEmail = result.pendingEmail || data.email;
-        
-        // Store pending email in state
-        setPendingEmailChange(pendingEmail);
-        
-        // Disable the email field to show pending state
-        setEmailFieldDisabled(true);
-        
-        toast({
-          title: "Verification email sent",
-          description: `We've sent a verification link to ${pendingEmail}. Please check your inbox to confirm your new email address.`,
-          duration: 7000, // Show for longer since this is important
-        });
-        
-        // Force the form to refresh with the current values
-        profileForm.reset({
-          ...profileForm.getValues(),
-          email: user?.email || '' // Keep the original email in the form
-        });
-        
-        // Update the user profile email display
-        const emailElement = document.querySelector('.user-profile-email');
-        if (emailElement) {
-          emailElement.textContent = user?.email || ''; // Keep showing the original email
-        }
-        
-        // Force refresh of pending email verification status
-        setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-        }, 500);
-        
-        // Dispatch a custom event to notify layout (just for name changes)
-        window.dispatchEvent(new CustomEvent('profile-updated', {}));
-        
-        // Force a refresh of the auth data for other changes (name, etc.)
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-        
-      } else {
-        // Standard profile update (no email change)
-        
-        // Dispatch a custom event to notify the layout about profile changes
-        window.dispatchEvent(new CustomEvent('profile-updated', {}));
-        
-        // Force a refresh of the auth data
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-        
-        toast({
-          title: "Profile updated",
-          description: "Your profile information has been updated successfully.",
-        });
-      }
-    } catch (error) {
-      console.error('Profile update error:', error);
-      toast({
-        title: "Update failed",
-        description: "There was a problem updating your profile. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpdating(false);
-    }
+    };
+    reader.readAsDataURL(file);
   };
-  
+
+  // Password update handler
   const onPasswordSubmit = async (data: PasswordFormValues) => {
     setIsUpdating(true);
+    
     try {
-      // Make a real API call to update the password
-      console.log('Updating password with:', data);
-      
       const response = await fetch('/api/auth/password', {
         method: 'PUT',
         headers: {
@@ -302,252 +121,117 @@ export default function AccountPage() {
         },
         body: JSON.stringify({
           currentPassword: data.currentPassword,
-          newPassword: data.newPassword
+          newPassword: data.newPassword,
         }),
       });
       
-      if (!response.ok) {
+      if (response.ok) {
+        toast({
+          title: 'Password updated',
+          description: 'Your password has been updated successfully',
+        });
+        
+        // Reset form
+        passwordForm.reset({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+        });
+      } else {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update password');
+        toast({
+          variant: 'destructive',
+          title: 'Update failed',
+          description: errorData.message || 'Failed to update password',
+        });
       }
-      
-      toast({
-        title: "Password updated",
-        description: "Your password has been changed successfully and saved to the database.",
-      });
-      
-      // Reset password form
-      passwordForm.reset({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-      });
     } catch (error) {
-      console.error('Password update error:', error);
+      console.error('Error updating password:', error);
       toast({
-        title: "Update failed",
-        description: typeof error === 'object' && error !== null && 'message' in error
-          ? String(error.message)
-          : "There was a problem updating your password. Please try again.",
-        variant: "destructive",
+        variant: 'destructive',
+        title: 'Error',
+        description: 'An unexpected error occurred',
       });
     } finally {
       setIsUpdating(false);
     }
   };
-  
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Account</h1>
-        <p className="text-muted-foreground">
-          Manage your account settings and change your password
-        </p>
-      </div>
+    <div className="container mx-auto py-10">
+      <h1 className="text-3xl font-bold mb-6">Account Settings</h1>
       
-      <Separator />
-      
-      <div className="flex flex-col gap-8 md:flex-row">
-        <Card className="md:w-1/3">
-          <CardHeader>
-            <CardTitle>Your Profile</CardTitle>
-            <CardDescription>
-              This is how others will see you on the site
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center space-y-4">
-            <Avatar className="h-32 w-32 cursor-pointer rounded-full overflow-hidden" onClick={handleAvatarClick}>
-              <AvatarImage src={avatarUrl} alt="User" className="object-cover w-full h-full" />
-              <AvatarFallback className="text-lg">
-                {user?.firstName?.[0] || 'A'}{user?.lastName?.[0] || 'J'}
-              </AvatarFallback>
-            </Avatar>
-            <input 
-              type="file" 
-              ref={fileInputRef}
-              className="hidden"
-              accept="image/*"
-              onChange={handleAvatarChange}
-            />
-            <div className="text-center">
-              <h3 className="text-lg font-medium user-profile-name">
-                {user?.firstName || 'Alex'} {user?.lastName || 'Johnson'}
-              </h3>
-              <p className="text-sm text-gray-500">{user?.email || 'alex.johnson@example.com'}</p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="mt-3" 
-                onClick={handleAvatarClick}
-                disabled={isUpdating}
-              >
-                {isUpdating ? (
-                  <>
-                    <span className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-t-transparent" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Change Avatar
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-6">
+        {/* Left sidebar */}
+        <div className="space-y-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="relative">
+                  <Avatar className="h-24 w-24 cursor-pointer" onClick={handleAvatarClick}>
+                    <AvatarImage src={user?.profileImageUrl || avatarUrl} alt="Profile" />
+                    <AvatarFallback>{user?.firstName?.[0]}{user?.lastName?.[0]}</AvatarFallback>
+                  </Avatar>
+                  <Button 
+                    size="icon" 
+                    className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-primary text-primary-foreground" 
+                    onClick={handleAvatarClick}
+                  >
+                    <Upload className="h-4 w-4" />
+                  </Button>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept="image/*" 
+                    onChange={handleFileChange}
+                  />
+                </div>
+                <div className="text-center">
+                  <h3 className="font-medium">{user?.firstName} {user?.lastName}</h3>
+                  <p className="text-sm text-muted-foreground">{user?.email}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
         
-        <div className="flex-1">
-          <Tabs defaultValue="personal">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="personal">
+        {/* Main content */}
+        <div className="space-y-6">
+          <Tabs defaultValue="profile">
+            <TabsList className="mb-4">
+              <TabsTrigger value="profile" className="flex items-center">
                 <User className="mr-2 h-4 w-4" />
-                Personal Info
+                Profile
               </TabsTrigger>
-              <TabsTrigger value="password">
+              <TabsTrigger value="security" className="flex items-center">
                 <Lock className="mr-2 h-4 w-4" />
-                Password
+                Security
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="personal" className="mt-4">
+            {/* Profile Tab */}
+            <TabsContent value="profile">
               <Card>
                 <CardHeader>
-                  <CardTitle>Personal Information</CardTitle>
+                  <CardTitle>Profile Information</CardTitle>
                   <CardDescription>
-                    Update your personal details
+                    Update your personal information and contact details.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Form {...profileForm}>
-                    <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <FormField
-                          control={profileForm.control}
-                          name="firstName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>First name</FormLabel>
-                              <FormControl>
-                                <Input placeholder="First name" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={profileForm.control}
-                          name="lastName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Last name</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Last name" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <FormField
-                        control={profileForm.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <div className="flex items-center">
-                                <Mail className="mr-2 h-4 w-4 opacity-50 self-center" />
-                                {emailFieldDisabled ? (
-                                  <div className="flex-1">
-                                    {/* Grey out text, not a textbox */}
-                                    <div className="text-gray-500 border border-gray-200 rounded-md px-3 py-2 bg-gray-50">
-                                      {pendingEmailChange}
-                                    </div>
-                                    <p className="text-sm text-amber-600 flex items-center mt-2">
-                                      <AlertCircle className="h-3 w-3 mr-1" />
-                                      Please check your inbox to confirm your new email address
-                                    </p>
-                                    <Button 
-                                      type="button" 
-                                      variant="outline"
-                                      size="sm"
-                                      className="mt-2" 
-                                      onClick={async () => {
-                                        try {
-                                          // Call the API to cancel the pending email change
-                                          const response = await fetch('/api/auth/cancel-email-change', {
-                                            method: 'DELETE',
-                                          });
-                                          
-                                          if (!response.ok) {
-                                            throw new Error('Failed to cancel email change');
-                                          }
-                                          
-                                          // Reset UI state
-                                          setEmailFieldDisabled(false);
-                                          setPendingEmailChange(null);
-                                          profileForm.setValue('email', user?.email || '');
-                                          
-                                          toast({
-                                            title: "Email change cancelled",
-                                            description: "Your pending email change has been cancelled successfully.",
-                                          });
-                                        } catch (error) {
-                                          console.error('Failed to cancel email change:', error);
-                                          toast({
-                                            title: "Error cancelling email change",
-                                            description: "There was a problem cancelling your email change. Please try again.",
-                                            variant: "destructive",
-                                          });
-                                        }
-                                      }}
-                                    >
-                                      <RefreshCw className="h-3 w-3 mr-1" /> Reset to {user?.email}
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <Input placeholder="Email" {...field} />
-                                )}
-                              </div>
-                            </FormControl>
-                            {!emailFieldDisabled && <FormMessage />}
-                          </FormItem>
-                        )}
-                      />
-                      
-
-                      
-                      <Button 
-                        type="submit" 
-                        className="w-full sm:w-auto"
-                        disabled={isUpdating}
-                      >
-                        {isUpdating ? (
-                          <>
-                            <span className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-t-transparent" />
-                            Updating...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="mr-2 h-4 w-4" />
-                            Save changes
-                          </>
-                        )}
-                      </Button>
-                    </form>
-                  </Form>
+                  {user && <ProfileForm user={user} />}
                 </CardContent>
               </Card>
             </TabsContent>
             
-            <TabsContent value="password" className="mt-4">
+            {/* Security Tab */}
+            <TabsContent value="security">
               <Card>
                 <CardHeader>
-                  <CardTitle>Change Password</CardTitle>
+                  <CardTitle>Password</CardTitle>
                   <CardDescription>
-                    Update your password to keep your account secure
+                    Update your password to keep your account secure.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -560,9 +244,16 @@ export default function AccountPage() {
                           <FormItem>
                             <FormLabel>Current Password</FormLabel>
                             <FormControl>
-                              <div className="flex">
-                                <Key className="mr-2 h-4 w-4 opacity-50 self-center" />
-                                <Input placeholder="Current password" type="password" {...field} />
+                              <div className="flex items-center">
+                                <span className="absolute pl-3 text-gray-400">
+                                  <Key className="h-4 w-4" />
+                                </span>
+                                <Input 
+                                  type="password" 
+                                  placeholder="••••••••" 
+                                  className="pl-10" 
+                                  {...field} 
+                                />
                               </div>
                             </FormControl>
                             <FormMessage />
@@ -577,9 +268,16 @@ export default function AccountPage() {
                           <FormItem>
                             <FormLabel>New Password</FormLabel>
                             <FormControl>
-                              <div className="flex">
-                                <Key className="mr-2 h-4 w-4 opacity-50 self-center" />
-                                <Input placeholder="New password" type="password" {...field} />
+                              <div className="flex items-center">
+                                <span className="absolute pl-3 text-gray-400">
+                                  <Key className="h-4 w-4" />
+                                </span>
+                                <Input 
+                                  type="password" 
+                                  placeholder="••••••••" 
+                                  className="pl-10" 
+                                  {...field} 
+                                />
                               </div>
                             </FormControl>
                             <FormMessage />
@@ -592,11 +290,18 @@ export default function AccountPage() {
                         name="confirmPassword"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Confirm New Password</FormLabel>
+                            <FormLabel>Confirm Password</FormLabel>
                             <FormControl>
-                              <div className="flex">
-                                <Key className="mr-2 h-4 w-4 opacity-50 self-center" />
-                                <Input placeholder="Confirm new password" type="password" {...field} />
+                              <div className="flex items-center">
+                                <span className="absolute pl-3 text-gray-400">
+                                  <Key className="h-4 w-4" />
+                                </span>
+                                <Input 
+                                  type="password" 
+                                  placeholder="••••••••" 
+                                  className="pl-10" 
+                                  {...field} 
+                                />
                               </div>
                             </FormControl>
                             <FormMessage />
@@ -606,23 +311,31 @@ export default function AccountPage() {
                       
                       <Button 
                         type="submit" 
-                        className="w-full sm:w-auto"
+                        className="w-full md:w-auto"
                         disabled={isUpdating}
                       >
-                        {isUpdating ? (
-                          <>
-                            <span className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-t-transparent" />
-                            Updating...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="mr-2 h-4 w-4" />
-                            Change password
-                          </>
-                        )}
+                        Update Password
                       </Button>
                     </form>
                   </Form>
+                </CardContent>
+              </Card>
+              
+              <Separator className="my-6" />
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sessions</CardTitle>
+                  <CardDescription>
+                    Manage your active sessions and devices.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="py-4">
+                    <p className="text-sm text-gray-500">
+                      This feature is not yet implemented.
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
