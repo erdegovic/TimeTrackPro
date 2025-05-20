@@ -177,26 +177,13 @@ export default function AccountPage() {
   const onProfileSubmit = async (data: ProfileFormValues) => {
     setIsUpdating(true);
     try {
-      // Make an API call to update the user profile
-      const response = await fetch('/api/auth/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to update profile');
-      }
-      
-      // Log the data for debugging
+      // For this demo, just use localStorage to persist data
       console.log('Updating profile with:', data);
       
-      // Save profile data to localStorage to persist between tab changes
+      // Save profile data to localStorage
       localStorage.setItem('userProfile', JSON.stringify(data));
       
-      // Update profile name in the sidebar, personal information section, and profile box
+      // Update UI elements showing the user's name
       const profileNameElements = document.querySelectorAll('.user-profile-name');
       profileNameElements.forEach(element => {
         if (element) {
@@ -204,15 +191,15 @@ export default function AccountPage() {
         }
       });
       
-      // Store user data in localStorage to persist between logins
-      const storedUser = {
+      // Save user data for authentication persistence
+      const userData = {
         id: 1,
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
         username: data.username,
       };
-      localStorage.setItem('userData', JSON.stringify(storedUser));
+      localStorage.setItem('userData', JSON.stringify(userData));
       
       // Force a refresh of the profile card data
       const displayName = `${data.firstName} ${data.lastName}`;

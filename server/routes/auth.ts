@@ -8,7 +8,7 @@ import {
   resetPassword,
   getCurrentUser 
 } from '../controllers/authController';
-import { authenticate } from '../utils/auth';
+import { authenticate } from '../middleware/auth';
 
 const router = express.Router();
 
