@@ -54,11 +54,18 @@ export class DatabaseStorage implements IStorage {
 
   // Verification methods
   async createVerification(verification: Omit<Verification, "id">): Promise<Verification> {
-    const [result] = await db
-      .insert(verifications)
-      .values(verification)
-      .returning();
-    return result;
+    console.log('Database: Creating verification record:', JSON.stringify(verification, null, 2));
+    try {
+      const [result] = await db
+        .insert(verifications)
+        .values(verification)
+        .returning();
+      console.log('Database: Verification record created successfully:', result.id);
+      return result;
+    } catch (error) {
+      console.error('Database: Failed to create verification record:', error);
+      throw error;
+    }
   }
 
   async getVerificationByToken(token: string): Promise<Verification | undefined> {

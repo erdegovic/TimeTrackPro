@@ -138,6 +138,8 @@ export async function updateProfile(req: Request, res: Response) {
         expiresAt: expiration
       };
       
+      console.log('Creating email verification record:', verificationData);
+      
       await storage.createVerification(verificationData);
       
       // Send verification email to new address
@@ -226,9 +228,13 @@ export async function updateProfile(req: Request, res: Response) {
         }
       }
       
-      // Update user profile in the database
-      console.log(`Attempting to save profile updates to database for user ${userId}`);
-      const updatedUser = await storage.updateUser(userId, profileData);
+      // Remove email from profile update data to prevent direct updates
+      // Email should only be updated through the verification process
+      const { email, ...otherProfileData } = profileData;
+      
+      // Update user profile in the database without changing email
+      console.log(`Attempting to save profile updates to database for user ${userId} (without email change)`);
+      const updatedUser = await storage.updateUser(userId, otherProfileData);
       
       // Return updated user data (without password)
       if (updatedUser) {
