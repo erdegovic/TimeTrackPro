@@ -58,11 +58,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Generate a new verification token
-      const token = require('crypto').randomBytes(32).toString('hex');
+      const crypto = require('crypto');
+      const token = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 1); // Token expires in 24 hours
       
-      // Create verification record
+      // Delete any existing email verifications for this user
+      const verifications = await storage.getVerificationsByUser(user.id);
+      for (const verification of verifications) {
+        if (verification.type === 'email') {
+          await storage.deleteVerification(verification.token);
+        }
+      }
+      
+      // Create new verification record
       await storage.createVerification({
         userId: user.id,
         token,
@@ -78,15 +87,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : `${req.protocol}://${req.get('host')}`;
       
       // Import email utilities
-      const { sendEmail, getRegistrationEmailContent } = await import('./utils/email-service');
+      const emailModule = await import('./utils/email-service');
       
       // Generate email content with verification link
-      const emailContent = getRegistrationEmailContent(token, baseUrl);
+      const emailContent = emailModule.getRegistrationEmailContent(token, baseUrl);
       
       // Send verification email
-      const emailSent = await sendEmail({
+      const emailSent = await emailModule.sendEmail({
         to: email,
-        subject: 'Welcome to Tickd - Verify your email address',
+        subject: 'Verify Your Email Address - Tickd',
         htmlContent: emailContent
       });
       
