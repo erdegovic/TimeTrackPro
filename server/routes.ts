@@ -477,8 +477,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projectId: projectId ? parseInt(projectId) : undefined,
         startDate,
         endDate,
-        timeFormat: timeFormat as TimeFormat,
-        roundingType: roundingType as RoundingType,
+        timeFormat: timeFormat as "decimal" | "time",
+        roundingType: roundingType as "none" | "nearest_tenth" | "nearest_quarter" | "nearest_half",
         timeAdjustment
       };
       
@@ -501,23 +501,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Invoices API
-  app.get("/api/invoices", async (req: Request, res: Response) => {
+  app.get("/api/invoices", authenticate, async (req: Request, res: Response) => {
     try {
-      const invoices = await storage.getInvoices();
-      res.json(invoices);
+      // Get all invoices
+      const allInvoices = await storage.getInvoices();
+      
+      // In a real implementation, we would filter invoices by user ID in the database query
+      // Since we're using an in-memory storage for now, we'll filter here
+      const userInvoices = allInvoices.filter(invoice => {
+        // In development mode, return all invoices for testing
+        if (process.env.NODE_ENV === 'development') {
+          return true;
+        }
+        
+        // In production, filter by user ID
+        // We'd need to track the invoice owner (creator) in the database
+        return invoice.userId === req.user?.id;
+      });
+      
+      res.json(userInvoices);
     } catch (error) {
       console.error('Error getting invoices:', error);
       res.status(500).json({ message: 'Failed to fetch invoices' });
     }
   });
   
-  app.get("/api/invoices/:id", async (req: Request, res: Response) => {
+  app.get("/api/invoices/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       const invoice = await storage.getInvoice(id);
+      
       if (!invoice) {
         return res.status(404).json({ message: 'Invoice not found' });
       }
+      
+      // Check if invoice belongs to current user (skip this check in development)
+      if (invoice.userId && 
+          invoice.userId !== req.user?.id && 
+          process.env.NODE_ENV !== 'development') {
+        return res.status(403).json({ message: 'You are not authorized to view this invoice' });
+      }
+      
       res.json(invoice);
     } catch (error) {
       console.error('Error getting invoice:', error);
@@ -525,13 +549,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/invoices/number/:number", async (req: Request, res: Response) => {
+  app.get("/api/invoices/number/:number", authenticate, async (req: Request, res: Response) => {
     try {
       const invoiceNumber = req.params.number;
       const invoice = await storage.getInvoiceByNumber(invoiceNumber);
+      
       if (!invoice) {
         return res.status(404).json({ message: 'Invoice not found' });
       }
+      
+      // In development mode, allow access to all invoices
+      // In production, check if the invoice belongs to the current user
+      if (process.env.NODE_ENV !== 'development' && invoice.userId && invoice.userId !== req.user?.id) {
+        return res.status(403).json({ message: 'You are not authorized to view this invoice' });
+      }
+      
       res.json(invoice);
     } catch (error) {
       console.error('Error getting invoice by number:', error);
@@ -539,10 +571,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/invoices", async (req: Request, res: Response) => {
+  app.post("/api/invoices", authenticate, async (req: Request, res: Response) => {
     try {
+      // Parse the invoice data
       const data = insertInvoiceSchema.parse(req.body);
-      const invoice = await storage.createInvoice(data);
+      
+      // Add the user ID to the invoice data
+      const invoiceWithUser = {
+        ...data,
+        userId: req.user?.id
+      };
+      
+      // Create the invoice in storage
+      const invoice = await storage.createInvoice(invoiceWithUser);
       res.status(201).json(invoice);
     } catch (error) {
       if (error instanceof z.ZodError) {

@@ -77,6 +77,7 @@ export const invoices = pgTable("invoices", {
   taxRate: numeric("tax_rate", { precision: 5, scale: 2 }).default("0"),
   total: numeric("total", { precision: 10, scale: 2 }).notNull(),
   notes: text("notes"),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
 });
 
 // Projects table
