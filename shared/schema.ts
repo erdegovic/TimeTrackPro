@@ -104,6 +104,7 @@ export const timeEntries = pgTable("time_entries", {
   year: integer("year").notNull(),
   billable: boolean("billable").default(true),
   invoiceId: integer("invoice_id").references(() => invoices.id, { onDelete: 'set null' }),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
 });
 
 // Settings table

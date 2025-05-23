@@ -6,16 +6,27 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 interface EmailVerificationProps {
   token: string;
+  manualVerification?: boolean;
+  isVerifying?: boolean;
 }
 
-export default function EmailVerification({ token }: EmailVerificationProps) {
+export default function EmailVerification({ 
+  token, 
+  manualVerification = true, 
+  isVerifying: initialVerifying 
+}: EmailVerificationProps) {
   const [_, navigate] = useLocation();
   const { toast } = useToast();
-  const [isVerifying, setIsVerifying] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(initialVerifying ?? true);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    // If the parent component is handling verification, don't do anything here
+    if (!manualVerification) {
+      return;
+    }
+
     const verifyEmail = async () => {
       try {
         if (!token) {
@@ -58,9 +69,9 @@ export default function EmailVerification({ token }: EmailVerificationProps) {
       }
     };
 
-    if (token) {
+    if (token && manualVerification) {
       verifyEmail();
-    } else {
+    } else if (!token) {
       setIsVerifying(false);
       setErrorMessage("Invalid verification token.");
       toast({
@@ -69,7 +80,7 @@ export default function EmailVerification({ token }: EmailVerificationProps) {
         variant: "destructive",
       });
     }
-  }, [token, toast, navigate]);
+  }, [token, toast, navigate, manualVerification]);
 
   return (
     <Card className="w-full max-w-md mx-auto">
