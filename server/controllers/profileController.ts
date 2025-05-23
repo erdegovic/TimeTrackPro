@@ -211,7 +211,9 @@ export async function updateProfile(req: Request, res: Response) {
         
         // Print out the email verification URL for easy testing
         console.log(`============= EMAIL VERIFICATION LINK =============`);
-        const baseUrl = process.env.APP_URL || `https://${process.env.REPLIT_DOMAINS?.split(",")[0] || "localhost:5000"}`;
+        const baseUrl = process.env.NODE_ENV === 'production' 
+          ? 'https://tickd.me'
+          : process.env.APP_URL || `https://${process.env.REPLIT_DOMAINS?.split(",")[0] || "localhost:5000"}`;
         console.log(`${baseUrl}/verify-email-change?token=${token}`);
         console.log(`==================================================`);
         

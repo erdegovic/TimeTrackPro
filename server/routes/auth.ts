@@ -296,8 +296,10 @@ const resendVerification = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'No pending email verification found' });
     }
 
-    // Generate verification URL
-    const baseUrl = `${req.protocol}://${req.hostname}`;
+    // Generate verification URL with production domain for deployment
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://tickd.me'
+      : `${req.protocol}://${req.hostname}`;
     const verificationUrl = `${baseUrl}/verify-email-change?token=${pendingEmailChange.token}`;
     
     // Import email utilities and send email
