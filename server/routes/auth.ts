@@ -337,6 +337,148 @@ const resendVerification = async (req: Request, res: Response) => {
 // Register routes
 router.get('/pending-email-change', getPendingEmailChange);
 router.put('/profile', updateProfile);
+// Registration endpoint
+router.post('/register', async (req: Request, res: Response) => {
+  try {
+    // Extract registration data
+    const { email, password, firstName, lastName, captchaToken } = req.body;
+    
+    // Validate required fields
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+    
+    // Verify captcha (simplified here, would verify with service in production)
+    if (!captchaToken && process.env.NODE_ENV === 'production') {
+      return res.status(400).json({ message: 'Captcha verification failed' });
+    }
+    
+    // Check if email already exists
+    const existingUser = await storage.getUserByEmail(email);
+    if (existingUser) {
+      return res.status(409).json({ message: 'Email is already registered' });
+    }
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Create verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const expirationDate = new Date();
+    expirationDate.setHours(expirationDate.getHours() + 24); // 24 hour expiration
+    
+    // Create user
+    const user = await storage.createUser({
+      email,
+      username: email, // Using email as username
+      password: hashedPassword,
+      firstName: firstName || null,
+      lastName: lastName || null,
+      role: 'user',
+      status: 'pending', // Require email verification
+      verificationToken: verificationToken,
+      resetPasswordToken: null,
+      profileImageUrl: null
+    });
+    
+    // Create verification record
+    await storage.createVerification({
+      userId: user.id,
+      token: verificationToken,
+      type: 'email',
+      newEmail: null, // Not an email change
+      expiresAt: expirationDate
+    });
+    
+    // Generate verification URL
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://tickd.me'
+      : `${req.protocol}://${req.hostname}`;
+    
+    // Import email utilities and send email
+    const { sendEmail, getEmailVerificationContent } = await import('../utils/email-service');
+    
+    // Send verification email
+    const emailSent = await sendEmail({
+      to: email,
+      subject: 'Verify your email address',
+      htmlContent: getEmailVerificationContent(verificationToken, baseUrl, email)
+    });
+    
+    if (emailSent) {
+      console.log(`Verification email sent to ${email}`);
+      console.log(`[DEV MODE] Email verification link: ${baseUrl}/verify-email?token=${verificationToken}`);
+      
+      // Return success with development testing info if in dev mode
+      if (process.env.NODE_ENV !== 'production') {
+        return res.status(201).json({
+          message: 'Registration successful. Please verify your email address.',
+          _devInfo: {
+            verificationUrl: `${baseUrl}/verify-email?token=${verificationToken}`
+          }
+        });
+      } else {
+        return res.status(201).json({
+          message: 'Registration successful. Please verify your email address.'
+        });
+      }
+    } else {
+      // If email fails, still return success but log error
+      console.error(`Failed to send verification email to ${email}`);
+      return res.status(201).json({
+        message: 'Registration successful, but we could not send a verification email. Please contact support.'
+      });
+    }
+  } catch (error) {
+    console.error('Registration error:', error);
+    return res.status(500).json({ message: 'An error occurred during registration' });
+  }
+});
+
+// Email verification endpoint
+router.get('/verify-email', async (req: Request, res: Response) => {
+  try {
+    // Get token from request
+    const { token } = req.query;
+    
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ message: 'Invalid verification token' });
+    }
+    
+    // Find verification record
+    const verification = await storage.getVerificationByToken(token);
+    if (!verification || verification.type !== 'email') {
+      return res.status(400).json({ message: 'Invalid or expired verification token' });
+    }
+    
+    // Check if token is expired
+    if (verification.expiresAt < new Date()) {
+      return res.status(400).json({ message: 'Verification token has expired' });
+    }
+    
+    // Get and update user
+    const user = await storage.getUser(verification.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Update user status to active
+    await storage.updateUser(user.id, {
+      status: 'active',
+      verificationToken: null
+    });
+    
+    // Remove verification record
+    await storage.deleteVerification(token);
+    
+    // Redirect to frontend with success message
+    res.redirect(`/?verified=true`);
+  } catch (error) {
+    console.error('Email verification error:', error);
+    res.status(500).json({ message: 'An error occurred during email verification' });
+  }
+});
+
 router.delete('/cancel-email-change', cancelEmailChange);
 router.get('/verify-email-change', verifyEmailChange);
 router.put('/password', updatePassword);
