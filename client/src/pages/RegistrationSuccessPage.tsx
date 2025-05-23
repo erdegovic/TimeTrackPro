@@ -21,8 +21,8 @@ export default function RegistrationSuccessPage() {
   
   return (
     <AuthLayout>
-      <div className="w-full max-w-md p-4 space-y-6">
-        <Card className="w-full">
+      <div className="w-full flex justify-center items-center min-h-[calc(100vh-100px)]">
+        <Card className="w-full max-w-md">
           <CardHeader className="space-y-1 flex flex-col items-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
               <Check className="h-8 w-8 text-green-600" />

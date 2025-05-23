@@ -27,8 +27,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register profile routes (password, profile, and avatar updates)
   app.use('/api/auth', profileRoutes);
   
-  // Add handler for verify-email-change to redirect to frontend
+  // Add handlers for email verification redirects
   app.get('/verify-email-change', handleVerificationRedirect);
+  app.get('/verify-email', handleVerificationRedirect);
+  
+  // API endpoint to verify email token
+  app.get('/api/auth/verify-email', async (req: Request, res: Response) => {
+    try {
+      const token = req.query.token as string;
+      
+      if (!token) {
+        return res.status(400).json({ message: 'Verification token is required.' });
+      }
+      
+      console.log('Processing verification token:', token);
+      
+      // Find verification record
+      const verification = await storage.getVerificationByToken(token);
+      
+      if (!verification) {
+        console.log('Verification token not found in database:', token);
+        return res.status(400).json({ message: 'Invalid or expired verification token.' });
+      }
+      
+      console.log('Verification record found:', verification);
+      
+      // Find user
+      const user = await storage.getUser(verification.userId);
+      
+      if (!user) {
+        console.log('User not found for verification:', verification.userId);
+        return res.status(404).json({ message: 'User not found.' });
+      }
+      
+      console.log('Found user for verification:', user.id);
+      
+      // Update user status
+      await storage.updateUser(user.id, { 
+        status: 'active',
+        verificationToken: null,
+        updatedAt: new Date() 
+      });
+      
+      console.log('User status updated to active');
+      
+      // Remove verification token
+      await storage.deleteVerification(token);
+      
+      console.log('Verification token deleted');
+      
+      return res.status(200).json({ 
+        message: 'Email verified successfully. You can now log in.',
+        success: true
+      });
+    } catch (error) {
+      console.error('Email verification error:', error);
+      return res.status(500).json({ message: 'Email verification failed. Please try again.' });
+    }
+  });
   
   // Direct login endpoint for testing
   app.post('/api/login', async (req: Request, res: Response) => {

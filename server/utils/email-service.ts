@@ -155,8 +155,12 @@ export function getEmailVerificationContent(token: string, baseUrl: string, newE
         
         <p>Hello,</p>
         
-        <p>You recently requested to change your email address to <strong>${newEmail}</strong>. 
-        To complete this process, please click on the button below to verify your new email address:</p>
+        ${newEmail.includes('@') 
+          ? `<p>You recently requested to change your email address to <strong>${newEmail}</strong>. 
+             To complete this process, please click on the button below to verify your new email address:</p>`
+          : `<p>Welcome to Tickd! Thank you for registering. 
+             To activate your account, please click on the button below to verify your email address:</p>`
+        }
         
         <div style="text-align: center;">
           <a href="${verificationUrl}" class="button">Verify Email Address</a>
@@ -165,7 +169,10 @@ export function getEmailVerificationContent(token: string, baseUrl: string, newE
         <p>Alternatively, you can copy and paste the following link into your browser:</p>
         <p style="word-break: break-all;"><a href="${verificationUrl}">${verificationUrl}</a></p>
         
-        <p>If you did not request this change, please ignore this email or contact support.</p>
+        <p>${newEmail.includes('@') 
+            ? 'If you did not request this change, please ignore this email or contact support.'
+            : 'If you did not create an account, please ignore this email.'
+          }</p>
         
         <p>This verification link will expire in 24 hours.</p>
         
