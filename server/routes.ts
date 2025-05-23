@@ -37,7 +37,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const token = req.query.token as string;
       
       if (!token) {
-        return res.status(400).json({ message: 'Verification token is required.' });
+        // Redirect to login with error message
+        return res.redirect('/login?error=missing-token');
       }
       
       console.log('Processing verification token:', token);
@@ -47,7 +48,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!verification) {
         console.log('Verification token not found in database:', token);
-        return res.status(400).json({ message: 'Invalid or expired verification token.' });
+        // Redirect to login with error message
+        return res.redirect('/login?error=invalid-token');
       }
       
       console.log('Verification record found:', verification);
@@ -57,7 +59,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!user) {
         console.log('User not found for verification:', verification.userId);
-        return res.status(404).json({ message: 'User not found.' });
+        // Redirect to login with error message
+        return res.redirect('/login?error=user-not-found');
       }
       
       console.log('Found user for verification:', user.id);
@@ -75,13 +78,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Verification token deleted');
       
-      return res.status(200).json({ 
-        message: 'Email verified successfully. You can now log in.',
-        success: true
-      });
+      // Redirect to login with success message
+      return res.redirect('/login?verified=true');
     } catch (error) {
       console.error('Email verification error:', error);
-      return res.status(500).json({ message: 'Email verification failed. Please try again.' });
+      // Redirect to login with error message
+      return res.redirect('/login?error=verification-failed');
     }
   });
   
@@ -104,7 +106,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Login rejected - unverified email: ${email}`);
           return res.status(403).json({ 
             message: 'Please verify your email address before logging in',
-            needsVerification: true
+            needsVerification: true,
+            email: email
           });
         }
         

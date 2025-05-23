@@ -55,7 +55,6 @@ export const handleVerificationRedirect = (req: Request, res: Response) => {
   // Determine which page to redirect to based on URL path
   const isEmailChange = req.path.includes('verify-email-change');
   
-  // Instead of redirecting to verify-email route, we'll serve the HTML page directly
-  // This will allow the client-side JavaScript to properly access the token from the URL
-  return res.sendFile('index.html', { root: './client/dist' });
+  // Forward directly to the API endpoint that handles verification
+  return res.redirect(`/api/auth/verify-email?token=${encodeURIComponent(token)}`);
 };
