@@ -27,36 +27,47 @@ export default function VerifyEmailPage() {
     
     // Set the token and start verification
     setToken(urlToken);
+    console.log("Processing verification with token:", urlToken);
     
     // Automatically verify the token
     const verifyToken = async () => {
       try {
-        const response = await fetch(`/api/auth/verify-email?token=${urlToken}`);
-        const data = await response.json();
+        // Create the URL with the token as a parameter
+        const apiUrl = `/api/auth/verify-email?token=${encodeURIComponent(urlToken)}`;
+        console.log("Sending verification request to:", apiUrl);
         
-        if (response.ok) {
-          toast({
-            title: "Success",
-            description: "Your email has been verified successfully!",
-          });
-          
-          // Redirect to login page with success message after a short delay
-          setTimeout(() => {
-            navigate("/login?verified=true");
-          }, 2000);
-        } else {
-          toast({
-            title: "Verification Failed",
-            description: data.message || "Email verification failed. Please try again.",
-            variant: "destructive",
-          });
+        const response = await fetch(apiUrl);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Verification response error:", response.status, errorText);
+          throw new Error(`Verification failed with status ${response.status}`);
         }
-      } catch (error) {
+        
+        const data = await response.json();
+        console.log("Verification response:", data);
+        
         toast({
-          title: "Error",
-          description: "An unexpected error occurred. Please try again.",
+          title: "Success",
+          description: "Your email has been verified successfully!",
+        });
+        
+        setIsSuccess(true);
+        
+        // Redirect to login page with success message after a short delay
+        setTimeout(() => {
+          navigate("/login?verified=true");
+        }, 2000);
+      } catch (error) {
+        console.error("Verification error:", error);
+        
+        toast({
+          title: "Verification Failed",
+          description: "Email verification failed. The link may have expired or is invalid.",
           variant: "destructive",
         });
+        
+        setErrorMessage("Verification failed. The link may have expired or is invalid.");
       } finally {
         setIsVerifying(false);
       }

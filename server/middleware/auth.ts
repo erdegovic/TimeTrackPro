@@ -46,10 +46,16 @@ export const handleVerificationRedirect = (req: Request, res: Response) => {
     return res.redirect('/login?error=missing-token');
   }
   
+  // In development, log the verification URL for easier debugging
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Development testing mode - verification link available');
+    console.log('Verification URL:', `${req.protocol}://${req.get('host')}${req.originalUrl}`);
+  }
+  
   // Determine which page to redirect to based on URL path
   const isEmailChange = req.path.includes('verify-email-change');
   
-  // Redirect to the appropriate frontend verification page
-  const redirectPath = isEmailChange ? 'verify-email-change' : 'verify-email';
-  return res.redirect(`/${redirectPath}?token=${token}`);
+  // Instead of redirecting to verify-email route, we'll serve the HTML page directly
+  // This will allow the client-side JavaScript to properly access the token from the URL
+  return res.sendFile('index.html', { root: './client/dist' });
 };
