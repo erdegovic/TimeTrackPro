@@ -90,9 +90,9 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
  * Generate HTML content for email verification
  */
 export function getEmailVerificationContent(token: string, baseUrl: string, newEmail: string): string {
-  // Check if this is an email verification or an email change verification
-  const isEmailChange = newEmail.includes('@');
-  const path = isEmailChange ? 'verify-email-change' : 'verify-email';
+  // Determine if this is an email verification for registration or an email change
+  const type = newEmail.includes('@') ? 'change' : 'registration';
+  const path = type === 'change' ? 'verify-email-change' : 'verify-email';
   
   const verificationUrl = `${baseUrl}/${path}?token=${token}`;
   
@@ -149,26 +149,27 @@ export function getEmailVerificationContent(token: string, baseUrl: string, newE
     <body>
       <div class="container">
         <div class="header">
-          <h2>Email Verification</h2>
+          <h2>${type === 'change' ? 'Email Verification' : 'Welcome to Tickd!'}</h2>
         </div>
         
         <p>Hello,</p>
         
-        ${isEmailChange 
+        ${type === 'change' 
           ? `<p>You recently requested to change your email address to <strong>${newEmail}</strong>. 
              To complete this process, please click on the button below to verify your new email address:</p>`
-          : `<p>Welcome to Tickd! Thank you for registering with us. 
-             To activate your account and start tracking your time efficiently, please click on the button below:</p>`
+          : `<p>Thank you for registering with Tickd, your new time tracking solution! 
+             We're excited to have you on board and look forward to helping you manage your projects more efficiently.</p>
+             <p>To get started, please verify your email address by clicking the button below:</p>`
         }
         
         <div style="text-align: center;">
-          <a href="${verificationUrl}" class="button">Verify Email Address</a>
+          <a href="${verificationUrl}" class="button">${type === 'change' ? 'Verify Email Address' : 'Activate My Account'}</a>
         </div>
         
         <p>Alternatively, you can copy and paste the following link into your browser:</p>
         <p style="word-break: break-all;"><a href="${verificationUrl}">${verificationUrl}</a></p>
         
-        <p>${newEmail.includes('@') 
+        <p>${type === 'change' 
             ? 'If you did not request this change, please ignore this email or contact support.'
             : 'If you did not create an account, please ignore this email.'
           }</p>
