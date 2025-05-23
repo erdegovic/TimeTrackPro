@@ -65,8 +65,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update user status
       await storage.updateUser(user.id, { 
         status: 'active',
-        verificationToken: null,
-        updatedAt: new Date() 
+        verificationToken: null
       });
       
       console.log('User status updated to active');
