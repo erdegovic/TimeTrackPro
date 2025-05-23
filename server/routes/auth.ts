@@ -399,11 +399,14 @@ router.post('/register', async (req: Request, res: Response) => {
     // Import email utilities and send email
     const { sendEmail, getEmailVerificationContent } = await import('../utils/email-service');
     
-    // Send welcome email with verification link
-    const emailSent = await sendEmail({
+    // Import proper email functions with destructuring
+    const emailModule = await import('../utils/email-service');
+    
+    // Send welcome email with verification link - using the proper function
+    const emailSent = await emailModule.sendEmail({
       to: email,
       subject: 'Welcome to Tickd - Verify your email address',
-      htmlContent: getRegistrationEmailContent(verificationToken, baseUrl)
+      htmlContent: emailModule.getRegistrationEmailContent(verificationToken, baseUrl)
     });
     
     if (emailSent) {
