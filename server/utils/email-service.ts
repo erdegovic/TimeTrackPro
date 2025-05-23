@@ -91,9 +91,8 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
  */
 export function getEmailVerificationContent(token: string, baseUrl: string, newEmail: string): string {
   // Check if this is an email verification or an email change verification
-  const path = newEmail.includes('@') && token.length > 30 
-    ? (token.includes('change') ? 'verify-email-change' : 'verify-email')
-    : 'verify-email';
+  const isEmailChange = newEmail.includes('@');
+  const path = isEmailChange ? 'verify-email-change' : 'verify-email';
   
   const verificationUrl = `${baseUrl}/${path}?token=${token}`;
   
@@ -155,11 +154,11 @@ export function getEmailVerificationContent(token: string, baseUrl: string, newE
         
         <p>Hello,</p>
         
-        ${newEmail.includes('@') 
+        ${isEmailChange 
           ? `<p>You recently requested to change your email address to <strong>${newEmail}</strong>. 
              To complete this process, please click on the button below to verify your new email address:</p>`
-          : `<p>Welcome to Tickd! Thank you for registering. 
-             To activate your account, please click on the button below to verify your email address:</p>`
+          : `<p>Welcome to Tickd! Thank you for registering with us. 
+             To activate your account and start tracking your time efficiently, please click on the button below:</p>`
         }
         
         <div style="text-align: center;">

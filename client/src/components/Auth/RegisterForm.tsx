@@ -81,11 +81,9 @@ export default function RegisterForm() {
         
         // Check if we received developer verification info (for testing only)
         if (process.env.NODE_ENV === 'development' && result._devInfo && result._devInfo.verificationUrl) {
-          // In development mode, open the verification URL in a new tab
-          console.log('Development testing mode - auto-verifying account');
-          setTimeout(() => {
-            window.open(result._devInfo.verificationUrl, '_blank');
-          }, 500);
+          // Log the verification URL for easier testing, but don't open automatically
+          console.log('Development testing mode - verification link available');
+          console.log('Verification URL:', result._devInfo.verificationUrl);
         }
       } else {
         toast({
