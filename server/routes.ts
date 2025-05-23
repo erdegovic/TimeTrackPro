@@ -402,14 +402,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/time-entries/:id", async (req: Request, res: Response) => {
+  app.put("/api/time-entries/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      const data = timeEntryUpdateSchema.parse(req.body);
-      const timeEntry = await storage.updateTimeEntry(id, data);
-      if (!timeEntry) {
+      
+      // First verify the user owns this time entry
+      const existingEntry = await storage.getTimeEntry(id);
+      if (!existingEntry) {
         return res.status(404).json({ message: 'Time entry not found' });
       }
+      
+      // Check if entry belongs to current user (unless in development)
+      if (existingEntry.userId && 
+          existingEntry.userId !== req.user?.id && 
+          process.env.NODE_ENV !== 'development') {
+        return res.status(403).json({ message: 'You are not authorized to update this time entry' });
+      }
+      
+      // Parse and update the entry
+      const data = timeEntryUpdateSchema.parse(req.body);
+      const timeEntry = await storage.updateTimeEntry(id, data);
+      
       res.json(timeEntry);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -423,13 +436,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.delete("/api/time-entries/:id", async (req: Request, res: Response) => {
+  app.delete("/api/time-entries/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      
+      // First verify the user owns this time entry
+      const existingEntry = await storage.getTimeEntry(id);
+      if (!existingEntry) {
+        return res.status(404).json({ message: 'Time entry not found' });
+      }
+      
+      // Check if entry belongs to current user (unless in development)
+      if (existingEntry.userId && 
+          existingEntry.userId !== req.user?.id && 
+          process.env.NODE_ENV !== 'development') {
+        return res.status(403).json({ message: 'You are not authorized to delete this time entry' });
+      }
+      
+      // Delete the entry
       const deleted = await storage.deleteTimeEntry(id);
       if (!deleted) {
         return res.status(404).json({ message: 'Time entry not found' });
       }
+      
       res.json({ message: 'Time entry deleted successfully' });
     } catch (error) {
       console.error('Error deleting time entry:', error);
@@ -438,7 +467,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Reports API
-  app.post("/api/reports", async (req: Request, res: Response) => {
+  app.post("/api/reports", authenticate, async (req: Request, res: Response) => {
     try {
       const { clientId, projectId, startDate, endDate, timeFormat, roundingType, timeAdjustment } = req.body;
       
@@ -448,13 +477,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projectId: projectId ? parseInt(projectId) : undefined,
         startDate,
         endDate,
-        timeFormat: timeFormat as z.infer<typeof timeFormatEnum>,
-        roundingType: roundingType as z.infer<typeof roundingTypeEnum>,
+        timeFormat: timeFormat as TimeFormat,
+        roundingType: roundingType as RoundingType,
         timeAdjustment
       };
       
       const entries = await storage.getTimeEntriesByFilters(filters);
-      res.json(entries);
+      
+      // Filter entries to only show those belonging to the current user
+      const userEntries = entries.filter(entry => {
+        if (process.env.NODE_ENV === 'development') {
+          return true; // Allow all entries in development mode
+        }
+        
+        return entry.userId === req.user?.id;
+      });
+      
+      res.json(userEntries);
     } catch (error) {
       console.error('Error generating report:', error);
       res.status(500).json({ message: 'Failed to generate report' });
