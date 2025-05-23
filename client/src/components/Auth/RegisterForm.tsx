@@ -11,7 +11,6 @@ import { useLocation } from 'wouter';
 
 // Registration form schema
 const registerSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
   email: z.string().email("Please enter a valid email"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   confirmPassword: z.string(),
@@ -38,7 +37,6 @@ export default function RegisterForm() {
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      username: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -139,18 +137,7 @@ export default function RegisterForm() {
           </div>
         </div>
         
-        <div className="space-y-2">
-          <Label htmlFor="username">Username</Label>
-          <Input
-            id="username"
-            {...register("username")}
-            placeholder="Username"
-          />
-          {errors.username && (
-            <p className="text-sm text-red-500">{errors.username.message}</p>
-          )}
-        </div>
-        
+
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input
