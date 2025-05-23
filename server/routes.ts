@@ -597,14 +597,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/invoices/:id", async (req: Request, res: Response) => {
+  app.put("/api/invoices/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      
+      // First verify the user owns this invoice
+      const existingInvoice = await storage.getInvoice(id);
+      if (!existingInvoice) {
+        return res.status(404).json({ message: 'Invoice not found' });
+      }
+      
+      // Check if invoice belongs to current user (unless in development)
+      if (existingInvoice.userId && 
+          existingInvoice.userId !== req.user?.id && 
+          process.env.NODE_ENV !== 'development') {
+        return res.status(403).json({ message: 'You are not authorized to update this invoice' });
+      }
+      
       const data = insertInvoiceSchema.parse(req.body);
       const invoice = await storage.updateInvoice(id, data);
+      
       if (!invoice) {
         return res.status(404).json({ message: 'Invoice not found' });
       }
+      
       res.json(invoice);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -618,13 +634,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.delete("/api/invoices/:id", async (req: Request, res: Response) => {
+  app.delete("/api/invoices/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      
+      // First verify the user owns this invoice
+      const existingInvoice = await storage.getInvoice(id);
+      if (!existingInvoice) {
+        return res.status(404).json({ message: 'Invoice not found' });
+      }
+      
+      // Check if invoice belongs to current user (unless in development)
+      if (existingInvoice.userId && 
+          existingInvoice.userId !== req.user?.id && 
+          process.env.NODE_ENV !== 'development') {
+        return res.status(403).json({ message: 'You are not authorized to delete this invoice' });
+      }
+      
+      // Delete the invoice
       const deleted = await storage.deleteInvoice(id);
       if (!deleted) {
         return res.status(404).json({ message: 'Invoice not found' });
       }
+      
       res.json({ message: 'Invoice deleted successfully' });
     } catch (error) {
       console.error('Error deleting invoice:', error);
