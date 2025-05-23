@@ -381,13 +381,14 @@ router.post('/register', async (req: Request, res: Response) => {
       profileImageUrl: null
     });
     
-    // Create verification record
+    // Create verification record with createdAt date
     await storage.createVerification({
       userId: user.id,
       token: verificationToken,
       type: 'email',
       newEmail: null, // Not an email change
-      expiresAt: expirationDate
+      expiresAt: expirationDate,
+      createdAt: new Date()
     });
     
     // Generate verification URL

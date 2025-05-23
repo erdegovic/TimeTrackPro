@@ -90,7 +90,12 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
  * Generate HTML content for email verification
  */
 export function getEmailVerificationContent(token: string, baseUrl: string, newEmail: string): string {
-  const verificationUrl = `${baseUrl}/verify-email-change?token=${token}`;
+  // Check if this is an email verification or an email change verification
+  const path = newEmail.includes('@') && token.length > 30 
+    ? (token.includes('change') ? 'verify-email-change' : 'verify-email')
+    : 'verify-email';
+  
+  const verificationUrl = `${baseUrl}/${path}?token=${token}`;
   
   return `
     <!DOCTYPE html>
