@@ -60,11 +60,6 @@ export default function RegistrationSuccessPage() {
                 Go to Login Page
               </Link>
             </Button>
-            <Button variant="outline" className="w-full" asChild>
-              <Link href="/register">
-                Back to Registration
-              </Link>
-            </Button>
           </CardFooter>
         </Card>
       </div>
