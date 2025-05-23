@@ -68,6 +68,9 @@ export default function LoginForm() {
         
         // Redirect to dashboard
         navigate("/dashboard");
+      } else if (response.status === 403 && result.message?.includes("verify your email")) {
+        // User has an unverified email - redirect to verification page
+        navigate(`/unverified-email?email=${encodeURIComponent(data.email)}`);
       } else {
         toast({
           title: "Login failed",

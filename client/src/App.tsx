@@ -20,6 +20,7 @@ import VerifyEmailChangePage from "./pages/VerifyEmailChangePage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import RegistrationSuccessPage from "./pages/RegistrationSuccessPage";
+import UnverifiedEmailPage from "./pages/UnverifiedEmailPage";
 
 function Router() {
   // Public routes (no layout)
@@ -54,6 +55,9 @@ function Router() {
       </Route>
       <Route path="/registration-success">
         <RegistrationSuccessPage />
+      </Route>
+      <Route path="/unverified-email">
+        <UnverifiedEmailPage />
       </Route>
       
       {/* Protected routes with app layout */}
