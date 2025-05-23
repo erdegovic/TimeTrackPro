@@ -85,7 +85,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Direct login endpoint for testing
+  // Login endpoint
   app.post('/api/login', async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body;
@@ -99,6 +99,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isTestCredential = email === 'test@example.com' && password === 'password123';
       
       if (foundUser || isTestCredential) {
+        // Check if email is verified (except for test account)
+        if (foundUser && foundUser.status === 'pending' && !isTestCredential) {
+          console.log(`Login rejected - unverified email: ${email}`);
+          return res.status(403).json({ 
+            message: 'Please verify your email address before logging in',
+            needsVerification: true
+          });
+        }
+        
         // Set session data
         if (!req.session) {
           req.session = {} as any;

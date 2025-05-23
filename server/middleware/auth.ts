@@ -46,6 +46,10 @@ export const handleVerificationRedirect = (req: Request, res: Response) => {
     return res.redirect('/login?error=missing-token');
   }
   
-  // Redirect to frontend verification page
-  return res.redirect(`/verify-email-change?token=${token}`);
+  // Determine which page to redirect to based on URL path
+  const isEmailChange = req.path.includes('verify-email-change');
+  
+  // Redirect to the appropriate frontend verification page
+  const redirectPath = isEmailChange ? 'verify-email-change' : 'verify-email';
+  return res.redirect(`/${redirectPath}?token=${token}`);
 };
