@@ -76,15 +76,16 @@ export default function RegisterForm() {
         reset();
         setCaptchaToken(null);
         
+        // Always redirect to the success page first to show the user instructions
+        navigate(`/registration-success?email=${encodeURIComponent(data.email)}`);
+        
         // Check if we received developer verification info (for testing only)
-        if (result._devInfo && result._devInfo.verificationUrl) {
-          // Auto-verify in development mode by navigating directly to the verification URL
-          // This is only for testing - in production, users would check their email
+        if (process.env.NODE_ENV === 'development' && result._devInfo && result._devInfo.verificationUrl) {
+          // In development mode, open the verification URL in a new tab
           console.log('Development testing mode - auto-verifying account');
-          window.location.href = result._devInfo.verificationUrl;
-        } else {
-          // Standard flow - redirect to success page
-          navigate(`/registration-success?email=${encodeURIComponent(data.email)}`);
+          setTimeout(() => {
+            window.open(result._devInfo.verificationUrl, '_blank');
+          }, 500);
         }
       } else {
         toast({
