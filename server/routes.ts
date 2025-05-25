@@ -17,7 +17,7 @@ import { db } from "./db";
 import { eq } from "drizzle-orm";
 import authRoutes from "./routes/auth";
 import profileRoutes from "./routes/profile";
-import emailVerificationRoutes from "./routes/email-verification";
+import verifyRoutes from "./routes/verify";
 import { authenticate, handleVerificationRedirect } from "./middleware/auth";
 import fetch from "node-fetch";
 
@@ -29,9 +29,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/auth', profileRoutes);
   
   // Register email verification routes (no authentication required)
-  app.use('/api', emailVerificationRoutes);
+  app.use('/api/auth', verifyRoutes);
   
-  // Resend verification endpoint moved to public-auth.ts
+  // Add direct resend verification endpoint
+  app.post('/api/auth/resend-verification', async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ message: 'Email is required' });
+      }
+      
+      console.log(`Resend verification request for email: ${email}`);
+      
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      
+      // Don't reveal if user exists for security
+      if (!user) {
+        console.log(`User not found for email: ${email}`);
+        return res.status(200).json({ 
+          message: 'If your account exists, a verification email has been sent.' 
+        });
+      }
+      
+      // Check if user already verified
+      if (user.status === 'active') {
+        console.log(`User already verified: ${email}`);
+        return res.status(200).json({ 
+          message: 'Your account is already verified. Please log in.' 
+        });
+      }
+      
+      // Generate a new verification token
+      const crypto = require('crypto');
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 1); // Token expires in 24 hours
+      
+      // Update user's verification token
+      await storage.updateUser(user.id, {
+        verificationToken: token
+      });
+      
+      // Create verification record
+      await storage.createVerification({
+        userId: user.id,
+        token,
+        type: 'email',
+        newEmail: '',
+        expiresAt,
+        createdAt: new Date()
+      });
+      
+      // Construct the base URL for the verification link
+      let baseUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://tickd.me' 
+        : `${req.protocol}://${req.get('host')}`;
+      
+      // Import email utilities
+      const emailModule = await import('./utils/email-service');
+      
+      // Generate email content with verification link
+      const emailContent = emailModule.getRegistrationEmailContent(token, baseUrl);
+      
+      // Send verification email
+      const emailSent = await emailModule.sendEmail({
+        to: email,
+        subject: 'Verify Your Email Address - Tickd',
+        htmlContent: emailContent
+      });
+      
+      if (emailSent) {
+        console.log(`Verification email resent to ${email}`);
+        
+        // For development, log the verification URL
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[DEV MODE] Email verification link:', `${baseUrl}/verify-email?token=${token}`);
+        }
+        
+        return res.status(200).json({ 
+          message: 'Verification email has been sent. Please check your inbox.' 
+        });
+      } else {
+        console.error(`Failed to send verification email to ${email}`);
+        return res.status(500).json({ 
+          message: 'Failed to send verification email. Please try again later.' 
+        });
+      }
+    } catch (error) {
+      console.error('Error resending verification email:', error);
+      return res.status(500).json({ 
+        message: 'An unexpected error occurred. Please try again.' 
+      });
+    }
+  });
   
   // Simplified email verification redirect - direct visitors to API endpoint
   app.get('/verify-email-change', handleVerificationRedirect);
