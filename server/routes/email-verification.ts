@@ -58,6 +58,11 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
       createdAt: new Date()
     });
     
+    // Also update the user's verification token
+    await storage.updateUser(user.id, {
+      verificationToken: token
+    });
+    
     // Construct the base URL for the verification link
     let baseUrl = process.env.NODE_ENV === 'production' 
       ? 'https://tickd.me' 

@@ -17,7 +17,7 @@ import { db } from "./db";
 import { eq } from "drizzle-orm";
 import authRoutes from "./routes/auth";
 import profileRoutes from "./routes/profile";
-import publicAuthRoutes from "./routes/public-auth";
+import emailVerificationRoutes from "./routes/email-verification";
 import { authenticate, handleVerificationRedirect } from "./middleware/auth";
 import fetch from "node-fetch";
 
@@ -28,8 +28,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register profile routes (password, profile, and avatar updates)
   app.use('/api/auth', profileRoutes);
   
-  // Register public auth routes (no authentication required)
-  app.use('/api/auth', publicAuthRoutes);
+  // Register email verification routes (no authentication required)
+  app.use('/api', emailVerificationRoutes);
   
   // Resend verification endpoint moved to public-auth.ts
   
