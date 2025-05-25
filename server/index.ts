@@ -2,11 +2,15 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import session from "express-session";
+import publicVerifyRoutes from "./routes/public-verify";
 
 const app = express();
 // Increase payload limit to handle image uploads (10MB)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+// Register public verification routes before authentication middleware
+app.use('/api/auth', publicVerifyRoutes);
 
 // Configure session middleware
 app.use(session({
