@@ -6,7 +6,7 @@ import { storage } from '../storage';
 const router = Router();
 
 // Public resend verification email endpoint (no session required)
-router.post('/resend-verification', async (req: Request, res: Response) => {
+router.post('/auth/resend-verification', async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
     
