@@ -45,6 +45,7 @@ export interface IStorage {
 
   // Time Entries
   getTimeEntries(): Promise<TimeEntry[]>;
+  getTimeEntriesByUser(userId: number): Promise<TimeEntry[]>;
   getTimeEntriesByProject(projectId: number): Promise<TimeEntry[]>;
   getTimeEntriesByDateRange(startDate: string, endDate: string): Promise<TimeEntry[]>;
   getTimeEntriesByFilters(filters: ReportFilters): Promise<TimeEntry[]>;

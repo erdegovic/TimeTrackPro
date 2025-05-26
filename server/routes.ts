@@ -447,11 +447,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'User not authenticated' });
       }
       
-      // Get all time entries then filter by user ID
-      const allTimeEntries = await storage.getTimeEntries();
-      
-      // Filter by user ID to ensure data separation
-      const userTimeEntries = allTimeEntries.filter(entry => entry.userId === userId);
+      // Get time entries directly filtered by user ID from database
+      const userTimeEntries = await storage.getTimeEntriesByUser(userId);
       
       res.json(userTimeEntries);
     } catch (error) {

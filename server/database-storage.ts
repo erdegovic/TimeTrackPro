@@ -179,6 +179,14 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(timeEntries).orderBy(desc(timeEntries.date));
   }
 
+  async getTimeEntriesByUser(userId: number): Promise<TimeEntry[]> {
+    return await db
+      .select()
+      .from(timeEntries)
+      .where(eq(timeEntries.userId, userId))
+      .orderBy(desc(timeEntries.date));
+  }
+
   async getTimeEntriesByProject(projectId: number): Promise<TimeEntry[]> {
     return await db
       .select()
