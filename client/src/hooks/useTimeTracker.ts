@@ -24,7 +24,11 @@ export function useTimeTracker() {
       return apiRequest("POST", "/api/time-entries", timeEntry);
     },
     onSuccess: () => {
+      // Invalidate all related queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      
       toast({
         title: "Time entry saved",
         description: "Your time entry has been saved successfully.",

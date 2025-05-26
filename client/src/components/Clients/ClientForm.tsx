@@ -61,7 +61,11 @@ export default function ClientForm({ onSuccess, initialData, isEditing = false, 
       return apiRequest("POST", "/api/clients", data);
     },
     onSuccess: () => {
+      // Invalidate all related queries to refresh the data everywhere
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      
       toast({
         title: "Client created",
         description: "New client has been created successfully.",

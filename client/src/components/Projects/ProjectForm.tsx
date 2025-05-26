@@ -63,7 +63,11 @@ export default function ProjectForm({ onSuccess, initialData, isEditing = false,
       return apiRequest("POST", "/api/projects", projectData);
     },
     onSuccess: () => {
+      // Invalidate all related queries to refresh the data everywhere
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      
       toast({
         title: "Project created",
         description: "New project has been created successfully.",
