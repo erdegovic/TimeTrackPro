@@ -532,10 +532,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'User not authenticated' });
       }
       
-      // Need more permissive validation for tracker
-      const data: Partial<z.infer<typeof insertTimeEntrySchema>> = {
+      // Convert timestamp strings to Date objects for database compatibility
+      const data = {
         ...req.body,
-        userId: userId // Add user ID to time entry
+        userId: userId,
+        startTime: req.body.startTime ? new Date(req.body.startTime) : undefined,
+        endTime: req.body.endTime ? new Date(req.body.endTime) : undefined,
       };
       
       const timeEntry = await storage.createTimeEntry(data as any);
