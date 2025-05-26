@@ -521,6 +521,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/time-entries/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
       
       // First verify the user owns this time entry
       const existingEntry = await storage.getTimeEntry(id);
@@ -528,10 +532,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Time entry not found' });
       }
       
-      // Check if entry belongs to current user (unless in development)
-      if (existingEntry.userId && 
-          existingEntry.userId !== req.user?.id && 
-          process.env.NODE_ENV !== 'development') {
+      // Check if entry belongs to current user
+      if (existingEntry.userId !== userId) {
         return res.status(403).json({ message: 'You are not authorized to update this time entry' });
       }
       
@@ -555,6 +557,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/time-entries/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
       
       // First verify the user owns this time entry
       const existingEntry = await storage.getTimeEntry(id);
@@ -562,10 +568,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Time entry not found' });
       }
       
-      // Check if entry belongs to current user (unless in development)
-      if (existingEntry.userId && 
-          existingEntry.userId !== req.user?.id && 
-          process.env.NODE_ENV !== 'development') {
+      // Check if entry belongs to current user
+      if (existingEntry.userId !== userId) {
         return res.status(403).json({ message: 'You are not authorized to delete this time entry' });
       }
       
@@ -601,13 +605,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const entries = await storage.getTimeEntriesByFilters(filters);
       
       // Filter entries to only show those belonging to the current user
-      const userEntries = entries.filter(entry => {
-        if (process.env.NODE_ENV === 'development') {
-          return true; // Allow all entries in development mode
-        }
-        
-        return entry.userId === req.user?.id;
-      });
+      const userId = req.session?.userId;
+      const userEntries = entries.filter(entry => entry.userId === userId);
       
       res.json(userEntries);
     } catch (error) {
@@ -619,21 +618,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Invoices API
   app.get("/api/invoices", authenticate, async (req: Request, res: Response) => {
     try {
-      // Get all invoices
-      const allInvoices = await storage.getInvoices();
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
       
-      // In a real implementation, we would filter invoices by user ID in the database query
-      // Since we're using an in-memory storage for now, we'll filter here
-      const userInvoices = allInvoices.filter(invoice => {
-        // In development mode, return all invoices for testing
-        if (process.env.NODE_ENV === 'development') {
-          return true;
-        }
-        
-        // In production, filter by user ID
-        // We'd need to track the invoice owner (creator) in the database
-        return invoice.userId === req.user?.id;
-      });
+      // Get all invoices and filter by user ID
+      const allInvoices = await storage.getInvoices();
+      const userInvoices = allInvoices.filter(invoice => invoice.userId === userId);
       
       res.json(userInvoices);
     } catch (error) {
@@ -689,13 +681,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/invoices", authenticate, async (req: Request, res: Response) => {
     try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      
       // Parse the invoice data
       const data = insertInvoiceSchema.parse(req.body);
       
       // Add the user ID to the invoice data
       const invoiceWithUser = {
         ...data,
-        userId: req.user?.id
+        userId: userId
       };
       
       // Create the invoice in storage
