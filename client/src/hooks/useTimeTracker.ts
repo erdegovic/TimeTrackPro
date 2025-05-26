@@ -152,22 +152,7 @@ export function useTimeTracker() {
       const weekNum = Math.ceil(startDateTime.getDate() / 7);
       const weekLabel = `Week ${weekNum}`;
       
-      // Prepare time entry data
-      const timeEntry: Partial<TimeEntry> = {
-        description,
-        projectId: selectedProjectId,
-        startTime: startDateTime,
-        endTime: endDateTime,
-        duration: duration.toString(),
-        date: dateStr,
-        month: monthStr,
-        year: yearNum,
-        weekNumber: weekNum,
-        weekLabel: weekLabel,
-        billable: true,
-      };
-      
-      console.log("Saving time entry:", timeEntry);
+      console.log("Saving time entry with duration:", duration);
       
       // Check for existing entry with same description, project, and date
       try {
@@ -176,14 +161,14 @@ export function useTimeTracker() {
         
         console.log("Checking for existing entries on date:", dateStr);
         console.log("Looking for description:", description, "projectId:", selectedProjectId);
-        console.log("All existing entries:", existingEntries.map(e => ({
+        console.log("All existing entries:", existingEntries.map((e: any) => ({
           id: e.id,
           description: e.description,
           projectId: e.projectId,
           date: e.date
         })));
         
-        const todayEntry = existingEntries.find((entry: TimeEntry) => 
+        const todayEntry = existingEntries.find((entry: any) => 
           entry.description === description &&
           entry.projectId === selectedProjectId &&
           entry.date === dateStr
@@ -200,27 +185,61 @@ export function useTimeTracker() {
           
           // Update the existing entry
           await apiRequest("PUT", `/api/time-entries/${todayEntry.id}`, {
-            ...todayEntry,
+            description: todayEntry.description,
+            projectId: todayEntry.projectId,
+            startTime: todayEntry.startTime,
+            endTime: endDateTime,
             duration: newTotalDuration.toString(),
-            endTime: endDateTime
+            date: todayEntry.date,
+            month: todayEntry.month,
+            year: todayEntry.year,
+            weekNumber: todayEntry.weekNumber,
+            weekLabel: todayEntry.weekLabel,
+            billable: todayEntry.billable
           });
+          
+          console.log("Successfully updated existing entry");
           
           // Invalidate cache to refresh the UI
           queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
           
           toast({
             title: "Time added to existing entry",
-            description: `Added ${duration.toFixed(2)} hours to today's entry. Total: ${newTotalDuration.toFixed(2)} hours`,
+            description: `Added ${duration.toFixed(4)} hours to today's entry. Total: ${newTotalDuration.toFixed(4)} hours`,
           });
         } else {
           console.log("No existing entry found, creating new one");
-          // Create new entry
-          createTimeEntry.mutate(timeEntry);
+          
+          // Create new entry using direct API call instead of mutation
+          await apiRequest("POST", "/api/tracker/time-entries", {
+            description,
+            projectId: selectedProjectId,
+            startTime: startDateTime,
+            endTime: endDateTime,
+            duration: duration.toString(),
+            date: dateStr,
+            month: monthStr,
+            year: yearNum,
+            weekNumber: weekNum,
+            weekLabel: weekLabel,
+            billable: true,
+          });
+          
+          // Invalidate cache to refresh the UI
+          queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+          
+          toast({
+            title: "Time entry saved",
+            description: `Saved ${duration.toFixed(4)} hours`,
+          });
         }
       } catch (error) {
-        console.error("Error checking existing entries:", error);
-        // Fallback to creating new entry
-        createTimeEntry.mutate(timeEntry);
+        console.error("Error saving time entry:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save time entry. Please try again.",
+          variant: "destructive",
+        });
       }
       
       // Reset timer state
