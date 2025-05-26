@@ -267,9 +267,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'User not authenticated' });
       }
       
-      // Get all clients and filter by user ID
-      const allClients = await storage.getClients();
-      const userClients = allClients.filter(client => client.userId === userId);
+      // Get clients directly filtered by user ID from database
+      const userClients = await storage.getClientsByUser(userId);
       
       res.json(userClients);
     } catch (error) {

@@ -100,6 +100,10 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(clients);
   }
 
+  async getClientsByUser(userId: number): Promise<Client[]> {
+    return await db.select().from(clients).where(eq(clients.userId, userId));
+  }
+
   async getClient(id: number): Promise<Client | undefined> {
     const [client] = await db.select().from(clients).where(eq(clients.id, id));
     return client;
@@ -127,6 +131,10 @@ export class DatabaseStorage implements IStorage {
   // Projects methods
   async getProjects(): Promise<Project[]> {
     return await db.select().from(projects);
+  }
+
+  async getProjectsByUser(userId: number): Promise<Project[]> {
+    return await db.select().from(projects).where(eq(projects.userId, userId));
   }
 
   async getProjectsByClient(clientId: number): Promise<Project[]> {
