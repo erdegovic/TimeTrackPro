@@ -357,9 +357,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'User not authenticated' });
       }
       
-      // Get all projects and filter by user ID
-      const allProjects = await storage.getProjects();
-      const userProjects = allProjects.filter(project => project.userId === userId);
+      // Get projects directly filtered by user ID from database
+      const userProjects = await storage.getProjectsByUser(userId);
       
       res.json(userProjects);
     } catch (error) {
@@ -633,8 +632,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const entries = await storage.getTimeEntriesByFilters(filters);
       
-      // Filter entries to only show those belonging to the current user
+      // Filter entries by user ID directly from database query
       const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
       const userEntries = entries.filter(entry => entry.userId === userId);
       
       res.json(userEntries);

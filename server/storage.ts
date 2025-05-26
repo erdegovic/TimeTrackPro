@@ -36,6 +36,7 @@ export interface IStorage {
 
   // Projects
   getProjects(): Promise<Project[]>;
+  getProjectsByUser(userId: number): Promise<Project[]>;
   getProjectsByClient(clientId: number): Promise<Project[]>;
   getProject(id: number): Promise<Project | undefined>;
   createProject(project: InsertProject): Promise<Project>;
