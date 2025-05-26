@@ -71,6 +71,37 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
     enabled: !!selectedClientId
   });
 
+  // Listen for play button events from time entries
+  useEffect(() => {
+    const handleStartTimerFromEntry = (event: CustomEvent) => {
+      const { description: entryDescription, projectId } = event.detail;
+      
+      // Find the project to get its client ID
+      const project = projects.find(p => p.id === projectId);
+      const clientId = project?.clientId;
+      
+      // Update form fields
+      setDescription(entryDescription);
+      setSelectedProjectId(projectId);
+      setSelectedClientId(clientId || null);
+      
+      // Start the timer automatically
+      setTimeout(() => {
+        // Trigger timer start by simulating click on start button
+        const startButton = document.querySelector('[data-timer-start]') as HTMLButtonElement;
+        if (startButton && !startButton.disabled) {
+          startButton.click();
+        }
+      }, 100); // Small delay to ensure form state is updated
+    };
+
+    window.addEventListener('startTimerFromEntry', handleStartTimerFromEntry as EventListener);
+    
+    return () => {
+      window.removeEventListener('startTimerFromEntry', handleStartTimerFromEntry as EventListener);
+    };
+  }, [projects]);
+
   // Handle client selection
   const handleClientChange = (value: string) => {
     const clientId = Number(value);
