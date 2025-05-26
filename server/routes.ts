@@ -260,10 +260,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // All API routes use /api prefix
   
   // Clients API
-  app.get("/api/clients", async (req: Request, res: Response) => {
+  app.get("/api/clients", authenticate, async (req: Request, res: Response) => {
     try {
-      const clients = await storage.getClients();
-      res.json(clients);
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      
+      // Get all clients and filter by user ID
+      const allClients = await storage.getClients();
+      const userClients = allClients.filter(client => client.userId === userId);
+      
+      res.json(userClients);
     } catch (error) {
       console.error('Error getting clients:', error);
       res.status(500).json({ message: 'Failed to fetch clients' });
@@ -284,10 +292,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/clients", async (req: Request, res: Response) => {
+  app.post("/api/clients", authenticate, async (req: Request, res: Response) => {
     try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      
       const data = insertClientSchema.parse(req.body);
-      const client = await storage.createClient(data);
+      const clientWithUser = { ...data, userId };
+      const client = await storage.createClient(clientWithUser);
       res.status(201).json(client);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -337,10 +351,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Projects API
-  app.get("/api/projects", async (req: Request, res: Response) => {
+  app.get("/api/projects", authenticate, async (req: Request, res: Response) => {
     try {
-      const projects = await storage.getProjects();
-      res.json(projects);
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      
+      // Get all projects and filter by user ID
+      const allProjects = await storage.getProjects();
+      const userProjects = allProjects.filter(project => project.userId === userId);
+      
+      res.json(userProjects);
     } catch (error) {
       console.error('Error getting projects:', error);
       res.status(500).json({ message: 'Failed to fetch projects' });
@@ -361,10 +383,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/projects", async (req: Request, res: Response) => {
+  app.post("/api/projects", authenticate, async (req: Request, res: Response) => {
     try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      
       const data = insertProjectSchema.parse(req.body);
-      const project = await storage.createProject(data);
+      const projectWithUser = { ...data, userId };
+      const project = await storage.createProject(projectWithUser);
       res.status(201).json(project);
     } catch (error) {
       if (error instanceof z.ZodError) {

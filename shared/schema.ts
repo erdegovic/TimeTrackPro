@@ -62,6 +62,7 @@ export const clients = pgTable("clients", {
   phone: text("phone"),
   taxId: text("tax_id"),
   currency: text("currency").default("USD"),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
 });
 
 // Invoices table
@@ -88,6 +89,7 @@ export const projects = pgTable("projects", {
   description: text("description"),
   active: boolean("active").default(true),
   hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }).default("0"),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
 });
 
 // Time entries table
