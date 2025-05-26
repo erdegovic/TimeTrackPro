@@ -176,6 +176,12 @@ export function useTimeTracker() {
         
         console.log("Checking for existing entries on date:", dateStr);
         console.log("Looking for description:", description, "projectId:", selectedProjectId);
+        console.log("All existing entries:", existingEntries.map(e => ({
+          id: e.id,
+          description: e.description,
+          projectId: e.projectId,
+          date: e.date
+        })));
         
         const todayEntry = existingEntries.find((entry: TimeEntry) => 
           entry.description === description &&
