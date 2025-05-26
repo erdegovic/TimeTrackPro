@@ -48,7 +48,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
       console.error("Error restoring timer state:", error);
     }
   }, []);
-  
+
   // Fetch clients
   const { data: clients = [] } = useQuery({
     queryKey: ["/api/clients"],

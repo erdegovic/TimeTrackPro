@@ -155,6 +155,7 @@ export default function SimpleTimer({
         disabled={isDisabled}
         variant={isRunning ? "destructive" : "default"}
         className={isRunning ? "bg-destructive" : "bg-accent"}
+        data-timer-start={!isRunning ? "true" : undefined}
       >
         {isRunning ? (
           <>
