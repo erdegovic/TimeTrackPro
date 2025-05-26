@@ -104,19 +104,18 @@ export default function ProfileForm({ user }: ProfileFormProps) {
           }
         } else {
           // No pending email change
+          const hadPendingEmail = pendingEmail;
           setPendingEmail(null);
           setEmailVerificationAlert(false);
           
-          toast({
-            title: "Status updated",
-            description: pendingEmail 
-              ? "Your email has been successfully verified!" 
-              : "No pending email verification found.",
-            duration: 3000,
-          });
-          
-          // If we had a pending email before but not anymore, it was verified
-          if (pendingEmail) {
+          // Only show notification if there was a pending email that got verified
+          if (hadPendingEmail) {
+            toast({
+              title: "Email verified",
+              description: "Your email has been successfully verified!",
+              duration: 3000,
+            });
+            
             // Refresh the form with updated user data
             form.reset({
               firstName: user?.firstName || '',
@@ -124,6 +123,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
               email: user?.email || '',
             });
           }
+          // Don't show any notification if there was never a pending email
         }
       }
     } catch (error) {
