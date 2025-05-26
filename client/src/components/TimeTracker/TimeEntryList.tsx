@@ -176,6 +176,20 @@ export default function TimeEntryList() {
     }
   };
 
+  // Handle play button click - communicate with time tracker
+  const handlePlay = (description: string, projectId: number) => {
+    // Send a custom event to the time tracker component
+    const playEvent = new CustomEvent('startTimerFromEntry', {
+      detail: { description, projectId }
+    });
+    window.dispatchEvent(playEvent);
+    
+    toast({
+      title: "Timer started",
+      description: `Started tracking: ${description}`,
+    });
+  };
+
   return (
     <>
       {/* Time View Toggle */}
@@ -264,6 +278,7 @@ export default function TimeEntryList() {
                       projects={projects}
                       timeFormat={timeFormat}
                       onDelete={(id) => setDeleteId(id)}
+                      onPlay={handlePlay}
                       isNew={newEntryIds.includes(entry.id)}
                     />
                   ))}

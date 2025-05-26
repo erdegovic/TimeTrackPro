@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Edit, Copy, Trash2 } from "lucide-react";
+import { Edit, Copy, Trash2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
   Dialog, 
@@ -24,6 +24,7 @@ interface TimeEntryRowProps {
   projects: Project[];
   timeFormat: "decimal" | "time";
   onDelete: (id: number) => void;
+  onPlay?: (description: string, projectId: number) => void;
   isNew?: boolean;
 }
 
@@ -33,6 +34,7 @@ export default function TimeEntryRow({
   projects,
   timeFormat,
   onDelete,
+  onPlay,
   isNew = false
 }: TimeEntryRowProps) {
   const { toast } = useToast();
@@ -238,6 +240,17 @@ export default function TimeEntryRow({
           {formatDuration(entry.duration || 0)}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 space-x-2">
+          {onPlay && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => onPlay(entry.description || "", entry.projectId)} 
+              className="text-green-600 hover:text-green-700"
+              title="Continue tracking this task"
+            >
+              <Play className="h-4 w-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} className="text-primary hover:text-primary/80">
             <Edit className="h-4 w-4" />
           </Button>
