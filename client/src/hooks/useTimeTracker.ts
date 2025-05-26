@@ -174,11 +174,16 @@ export function useTimeTracker() {
         const response = await fetch("/api/time-entries");
         const existingEntries = await response.json();
         
+        console.log("Checking for existing entries on date:", dateStr);
+        console.log("Looking for description:", description, "projectId:", selectedProjectId);
+        
         const todayEntry = existingEntries.find((entry: TimeEntry) => 
           entry.description === description &&
           entry.projectId === selectedProjectId &&
           entry.date === dateStr
         );
+        
+        console.log("Found existing entry:", todayEntry);
         
         if (todayEntry) {
           // Update existing entry by adding the new duration
@@ -202,6 +207,7 @@ export function useTimeTracker() {
             description: `Added ${duration.toFixed(2)} hours to today's entry. Total: ${newTotalDuration.toFixed(2)} hours`,
           });
         } else {
+          console.log("No existing entry found, creating new one");
           // Create new entry
           createTimeEntry.mutate(timeEntry);
         }

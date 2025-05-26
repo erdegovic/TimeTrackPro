@@ -139,6 +139,14 @@ export default function TimeEntryList() {
     return acc;
   }, {} as Record<string, { label: string; entries: typeof enhancedEntries; totalHours: number }>);
 
+  // Sort entries within each group (newest first)
+  Object.values(groupedEntries).forEach(group => {
+    group.entries.sort((a, b) => {
+      // Sort by ID in descending order (newest entries have higher IDs)
+      return b.id - a.id;
+    });
+  });
+
   // Sort groups by date (newest first)
   const sortedGroups = Object.entries(groupedEntries).sort((a, b) => {
     if (groupBy === "date") {
@@ -178,9 +186,13 @@ export default function TimeEntryList() {
 
   // Handle play button click - communicate with time tracker
   const handlePlay = (description: string, projectId: number) => {
+    // Find the project to get the client ID
+    const project = projects.find(p => p.id === projectId);
+    const clientId = project?.clientId;
+    
     // Send a custom event to the time tracker component
     const playEvent = new CustomEvent('startTimerFromEntry', {
-      detail: { description, projectId }
+      detail: { description, projectId, clientId }
     });
     window.dispatchEvent(playEvent);
     
