@@ -169,8 +169,47 @@ export function useTimeTracker() {
       
       console.log("Saving time entry:", timeEntry);
       
-      // Save time entry
-      createTimeEntry.mutate(timeEntry);
+      // Check for existing entry with same description, project, and date
+      try {
+        const response = await fetch("/api/time-entries");
+        const existingEntries = await response.json();
+        
+        const todayEntry = existingEntries.find((entry: TimeEntry) => 
+          entry.description === description &&
+          entry.projectId === selectedProjectId &&
+          entry.date === dateStr
+        );
+        
+        if (todayEntry) {
+          // Update existing entry by adding the new duration
+          const existingDuration = parseFloat(todayEntry.duration || "0");
+          const newTotalDuration = existingDuration + duration;
+          
+          console.log(`Updating existing entry ${todayEntry.id}: ${existingDuration}h + ${duration}h = ${newTotalDuration}h`);
+          
+          // Update the existing entry
+          await apiRequest("PUT", `/api/time-entries/${todayEntry.id}`, {
+            ...todayEntry,
+            duration: newTotalDuration.toString(),
+            endTime: endDateTime
+          });
+          
+          // Invalidate cache to refresh the UI
+          queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+          
+          toast({
+            title: "Time added to existing entry",
+            description: `Added ${duration.toFixed(2)} hours to today's entry. Total: ${newTotalDuration.toFixed(2)} hours`,
+          });
+        } else {
+          // Create new entry
+          createTimeEntry.mutate(timeEntry);
+        }
+      } catch (error) {
+        console.error("Error checking existing entries:", error);
+        // Fallback to creating new entry
+        createTimeEntry.mutate(timeEntry);
+      }
       
       // Reset timer state
       setIsTracking(false);
