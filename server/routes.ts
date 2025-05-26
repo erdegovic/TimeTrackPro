@@ -416,21 +416,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Time Entries API
   app.get("/api/time-entries", authenticate, async (req: Request, res: Response) => {
     try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      
       // Get all time entries then filter by user ID
-      // Note: In a production database implementation, we would use a WHERE clause
       const allTimeEntries = await storage.getTimeEntries();
       
-      // Filter by user ID (for now this is a client-side filter since we're using in-memory storage)
-      // In a real DB implementation, we would query directly with userId filter
-      const userTimeEntries = allTimeEntries.filter(entry => {
-        // In development mode, return all entries for testing
-        if (process.env.NODE_ENV === 'development') {
-          return true;
-        }
-        
-        // In production, check if userId matches
-        return entry.userId === req.user?.id;
-      });
+      // Filter by user ID to ensure data separation
+      const userTimeEntries = allTimeEntries.filter(entry => entry.userId === userId);
       
       res.json(userTimeEntries);
     } catch (error) {
@@ -442,10 +437,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/time-entries/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      
       const timeEntry = await storage.getTimeEntry(id);
       
       if (!timeEntry) {
         return res.status(404).json({ message: 'Time entry not found' });
+      }
+      
+      // Check if time entry belongs to the authenticated user
+      if (timeEntry.userId !== userId) {
+        return res.status(403).json({ message: 'Access denied' });
       }
       
       // Verify that the entry belongs to the current user
@@ -462,13 +467,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/time-entries", authenticate, async (req: Request, res: Response) => {
     try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      
       // Parse and validate the data
       const data = insertTimeEntrySchema.parse(req.body);
       
       // Add the current user's ID to the time entry
       const timeEntryWithUser = {
         ...data,
-        userId: req.user?.id
+        userId: userId
       };
       
       // Create the time entry in storage
@@ -489,10 +499,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Special endpoint for saving time tracker entries
   app.post("/api/tracker/time-entries", authenticate, async (req: Request, res: Response) => {
     try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      
       // Need more permissive validation for tracker
       const data: Partial<z.infer<typeof insertTimeEntrySchema>> = {
         ...req.body,
-        userId: req.user?.id // Add user ID to time entry
+        userId: userId // Add user ID to time entry
       };
       
       const timeEntry = await storage.createTimeEntry(data as any);
