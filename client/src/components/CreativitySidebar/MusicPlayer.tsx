@@ -73,24 +73,69 @@ const playlists: Playlist[] = [
 ];
 
 export default function MusicPlayer() {
-  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist>(playlists[0]);
-  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
+  const [currentPlaylist, setCurrentPlaylist] = useState(playlists[0]);
+  const [currentTrack, setCurrentTrack] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(75);
-  const [isShuffled, setIsShuffled] = useState(false);
-  const [repeatMode, setRepeatMode] = useState<'none' | 'one' | 'all'>('none');
-  
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const [volume, setVolume] = useState([50]);
+  const [progress, setProgress] = useState(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const oscillatorRef = useRef<OscillatorNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+
+  const initAudio = () => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      gainNodeRef.current = audioContextRef.current.createGain();
+      gainNodeRef.current.connect(audioContextRef.current.destination);
+    }
+  };
+
+  const playAmbientSound = () => {
+    initAudio();
+    
+    if (!audioContextRef.current || !gainNodeRef.current) return;
+
+    if (oscillatorRef.current) {
+      oscillatorRef.current.stop();
+    }
+
+    oscillatorRef.current = audioContextRef.current.createOscillator();
+    const gainNode = gainNodeRef.current;
+    
+    gainNode.gain.value = volume[0] / 100 * 0.3;
+    
+    oscillatorRef.current.type = 'sawtooth';
+    oscillatorRef.current.frequency.value = 80 + Math.random() * 40;
+    
+    const lfo = audioContextRef.current.createOscillator();
+    const lfoGain = audioContextRef.current.createGain();
+    lfo.frequency.value = 0.5;
+    lfoGain.gain.value = 20;
+    
+    lfo.connect(lfoGain);
+    lfoGain.connect(oscillatorRef.current.frequency);
+    
+    oscillatorRef.current.connect(gainNode);
+    
+    oscillatorRef.current.start();
+    lfo.start();
+    
+    setIsPlaying(true);
+  };
+
+  const stopSound = () => {
+    if (oscillatorRef.current) {
+      oscillatorRef.current.stop();
+      oscillatorRef.current = null;
+    }
+    setIsPlaying(false);
+  };
 
   const handlePlayPause = () => {
-    if (!currentTrack) {
-      // Start playing first track of selected playlist
-      setCurrentTrack(selectedPlaylist.tracks[0]);
-      setIsPlaying(true);
+    if (isPlaying) {
+      stopSound();
     } else {
-      setIsPlaying(!isPlaying);
+      playAmbientSound();
     }
   };
 
