@@ -12,28 +12,38 @@
 }
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 222.2 47.4% 11.2%;
-  --card: 0 0% 100%;
-  --card-foreground: 222.2 47.4% 11.2%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --primary: 196 86% 45%;
-  --primary-foreground: 211 100% 99%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --accent: 140 43% 54%;
-  --accent-foreground: 222.2 47.4% 11.2%;
+  /* Tickd Brand Colors */
+  --tickd-primary: 213 100% 49.8%; /* #007AFF - iOS Blue */
+  --tickd-secondary: 145 79% 49%; /* #34C759 - Success Green */
+  --tickd-text: 220 10% 11%; /* #1C1C1E - Dark Text */
+  --tickd-light-text: 220 10% 45%; /* #636e72 - Light Gray Text */
+  --tickd-bg: 240 20% 98%; /* #FAFAFA - Background */
+  --tickd-card: 0 0% 100%; /* #ffffff - Card Background */
+  --tickd-border: 240 6% 90%; /* #E5E5EA - Border */
+  
+  /* Updated Shadcn variables to use Tickd colors */
+  --background: var(--tickd-bg);
+  --foreground: var(--tickd-text);
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: var(--tickd-light-text);
+  --popover: var(--tickd-card);
+  --popover-foreground: var(--tickd-text);
+  --card: var(--tickd-card);
+  --card-foreground: var(--tickd-text);
+  --border: var(--tickd-border);
+  --input: var(--tickd-border);
+  --primary: var(--tickd-primary);
+  --primary-foreground: 0 0% 98%;
+  --secondary: var(--tickd-secondary);
+  --secondary-foreground: 0 0% 98%;
+  --accent: var(--tickd-primary);
+  --accent-foreground: 0 0% 98%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
-  --ring: 215 20.2% 65.1%;
-  --radius: 0.5rem;
-  --chart-1: 196 86% 45%;
-  --chart-2: 358 75% 59%;
+  --ring: var(--tickd-primary);
+  --radius: 0.75rem; /* More rounded for modern look */
+  --chart-1: var(--tickd-primary);
+  --chart-2: var(--tickd-secondary);
   --chart-3: 25 95% 53%;
   --chart-4: 262 83% 58%;
   --chart-5: 120 57% 40%;
@@ -65,11 +75,103 @@
 @layer base {
   * {
     @apply border-border;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   }
   
   body {
-    @apply font-sans antialiased bg-gray-50 text-gray-900;
+    @apply font-sans antialiased;
+    background-color: hsl(var(--tickd-bg));
+    color: hsl(var(--tickd-text));
   }
+}
+
+/* Tickd Brand Classes */
+.tickd-card {
+  @apply bg-white rounded-xl border shadow-sm;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+  border-color: hsl(var(--tickd-border));
+}
+
+.tickd-primary {
+  color: hsl(var(--tickd-primary));
+}
+
+.tickd-secondary {
+  color: hsl(var(--tickd-secondary));
+}
+
+.tickd-light-text {
+  color: hsl(var(--tickd-light-text));
+}
+
+.tickd-bg-primary {
+  background-color: hsl(var(--tickd-primary));
+}
+
+.tickd-bg-secondary {
+  background-color: hsl(var(--tickd-secondary));
+}
+
+.tickd-border-primary {
+  border-color: hsl(var(--tickd-primary));
+}
+
+.tickd-shadow {
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+}
+
+/* Enhanced animations matching landing page */
+.tickd-fade-in {
+  animation: tickdFadeIn 0.8s ease-out forwards;
+}
+
+.tickd-slide-up {
+  animation: tickdSlideUp 0.8s ease-out forwards;
+}
+
+.tickd-scale-in {
+  animation: tickdScaleIn 0.8s ease-out forwards;
+}
+
+@keyframes tickdFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes tickdSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tickdScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Enhanced hover effects */
+.tickd-hover-lift {
+  transition: all 0.3s ease;
+}
+
+.tickd-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
 }
 
 /* Custom utility classes */
