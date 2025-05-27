@@ -245,19 +245,19 @@ export default function TimeEntryRow({
               variant="ghost" 
               size="icon" 
               onClick={() => onPlay(entry.description || "", entry.projectId)} 
-              className="text-green-600 hover:text-green-700"
+              className="text-green-600 hover:text-white hover:bg-green-600"
               title="Continue tracking this task"
             >
               <Play className="h-4 w-4" />
             </Button>
           )}
-          <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} className="text-primary hover:text-primary/80">
+          <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} className="text-primary hover:text-white hover:bg-primary">
             <Edit className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={handleDuplicate} className="text-gray-500 hover:text-gray-700">
+          <Button variant="ghost" size="icon" onClick={handleDuplicate} className="text-gray-500 hover:text-white hover:bg-gray-500">
             <Copy className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => onDelete(entry.id)} className="text-destructive hover:text-destructive/80">
+          <Button variant="ghost" size="icon" onClick={() => onDelete(entry.id)} className="text-destructive hover:text-white hover:bg-destructive">
             <Trash2 className="h-4 w-4" />
           </Button>
         </td>

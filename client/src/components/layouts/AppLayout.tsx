@@ -266,7 +266,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <Button 
               variant="ghost" 
               size="sm" 
-              className="w-full justify-start text-gray-600 hover:text-red-600 mt-1"
+              className="w-full justify-start text-gray-600 hover:text-white hover:bg-red-600 mt-1"
               onClick={() => {
                 // No need to clear local storage anymore as we're using the database
               // Just trigger the logout request
