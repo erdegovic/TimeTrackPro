@@ -636,7 +636,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const userEntries = entries.filter(entry => entry.userId === userId);
       
-      res.json(userEntries);
+      // Structure the response to match the expected format
+      const reportData = {
+        timeEntries: userEntries,
+        weeklyData: [], // This will be calculated on the frontend
+        totalHours: 0,
+        totalAmount: 0,
+        timeFormat: filters.timeFormat || "decimal",
+        roundingType: filters.roundingType || "none"
+      };
+      
+      res.json(reportData);
     } catch (error) {
       console.error('Error generating report:', error);
       res.status(500).json({ message: 'Failed to generate report' });
