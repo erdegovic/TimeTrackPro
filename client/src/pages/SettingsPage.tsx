@@ -10,10 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Save, Upload, X, Palette, Eye, FileText, Building } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { 
+  Loader2, Save, Upload, X, Palette, Building, FileText, 
+  ChevronRight, ChevronDown, Zap, BrushIcon, Type, CreditCard 
+} from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Settings } from "@shared/schema";
@@ -111,11 +114,57 @@ const colorPalettes = [
   }
 ];
 
+interface CollapsibleSection {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+  description: string;
+}
+
+const sections: CollapsibleSection[] = [
+  {
+    id: "business",
+    title: "Business Information",
+    icon: <Building className="h-4 w-4" />,
+    description: "Company details and contact information"
+  },
+  {
+    id: "branding",
+    title: "Logo & Branding",
+    icon: <BrushIcon className="h-4 w-4" />,
+    description: "Upload logo and customize colors"
+  },
+  {
+    id: "colors",
+    title: "Color Themes",
+    icon: <Palette className="h-4 w-4" />,
+    description: "Choose invoice color palette"
+  },
+  {
+    id: "typography",
+    title: "Typography & Layout",
+    icon: <Type className="h-4 w-4" />,
+    description: "Font size and template options"
+  },
+  {
+    id: "invoice",
+    title: "Invoice Settings",
+    icon: <FileText className="h-4 w-4" />,
+    description: "Numbering, currency, and tax settings"
+  },
+  {
+    id: "banking",
+    title: "Payment Details",
+    icon: <CreditCard className="h-4 w-4" />,
+    description: "Banking information for payments"
+  }
+];
+
 export default function SettingsPage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState("business");
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(["branding"]));
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch current settings
@@ -160,6 +209,9 @@ export default function SettingsPage() {
     },
   });
 
+  // Watch form values for live preview
+  const watchedValues = form.watch();
+
   // Populate form when settings are loaded
   useEffect(() => {
     if (settings) {
@@ -176,6 +228,20 @@ export default function SettingsPage() {
         showLogo: settings.showLogo ?? true,
         showCompanyDetails: settings.showCompanyDetails ?? true,
         showBankDetails: settings.showBankDetails ?? true,
+        businessName: settings.businessName || "",
+        businessAddress: settings.businessAddress || "",
+        businessCity: settings.businessCity || "",
+        businessState: settings.businessState || "",
+        businessZipCode: settings.businessZipCode || "",
+        businessCountry: settings.businessCountry || "",
+        businessPhone: settings.businessPhone || "",
+        businessEmail: settings.businessEmail || "",
+        businessTaxId: settings.businessTaxId || "",
+        bankName: settings.bankName || "",
+        bankAccountName: settings.bankAccountName || "",
+        bankAccountNumber: settings.bankAccountNumber || "",
+        bankSortCode: settings.bankSortCode || "",
+        invoiceFooterText: settings.invoiceFooterText || "",
       };
       
       form.reset(formData);
@@ -185,6 +251,17 @@ export default function SettingsPage() {
       }
     }
   }, [settings, form]);
+
+  // Toggle section visibility
+  const toggleSection = (sectionId: string) => {
+    const newOpenSections = new Set(openSections);
+    if (newOpenSections.has(sectionId)) {
+      newOpenSections.delete(sectionId);
+    } else {
+      newOpenSections.add(sectionId);
+    }
+    setOpenSections(newOpenSections);
+  };
 
   // Handle logo upload
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -280,862 +357,699 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-gray-600">
-          Manage your business information, invoice customization, and preferences
-        </p>
+    <div className="h-screen flex flex-col">
+      {/* Header */}
+      <div className="flex-none border-b bg-white px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Invoice Customization</h1>
+            <p className="text-gray-600 text-sm">
+              Customize your invoice branding and see changes in real-time
+            </p>
+          </div>
+          <Button
+            onClick={form.handleSubmit(onSubmit)}
+            disabled={isSubmitting}
+            className="flex items-center gap-2"
+          >
+            {isSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            {isSubmitting ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
       </div>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="business" className="flex items-center gap-2">
-                <Building className="h-4 w-4" />
-                Business
-              </TabsTrigger>
-              <TabsTrigger value="invoice" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Invoice Settings
-              </TabsTrigger>
-              <TabsTrigger value="customization" className="flex items-center gap-2">
-                <Palette className="h-4 w-4" />
-                Customization
-              </TabsTrigger>
-              <TabsTrigger value="preview" className="flex items-center gap-2">
-                <Eye className="h-4 w-4" />
-                Preview
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Business Information Tab */}
-            <TabsContent value="business" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Business Information</CardTitle>
-                  <CardDescription>
-                    Enter your business details that will appear on invoices
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="businessName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Business Name *</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Your Business Name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="businessEmail"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Business Email</FormLabel>
-                          <FormControl>
-                            <Input {...field} type="email" placeholder="contact@business.com" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="businessAddress"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Business Address</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="123 Business Street" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="businessCity"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>City</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="City" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="businessState"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>State/Province</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="State" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="businessZipCode"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>ZIP/Postal Code</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="12345" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="businessCountry"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Country</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Country" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="businessPhone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="+1 (555) 123-4567" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="businessTaxId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tax ID</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Tax ID Number" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Banking Information</CardTitle>
-                  <CardDescription>
-                    Banking details for payment instructions on invoices
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="bankName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Bank Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Bank Name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="bankAccountName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Account Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Account Holder Name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="bankAccountNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Account Number</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Account Number" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="bankSortCode"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Sort Code / Routing Number</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Sort Code" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Invoice Settings Tab */}
-            <TabsContent value="invoice" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Invoice Configuration</CardTitle>
-                  <CardDescription>
-                    Configure default invoice settings and numbering
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="nextInvoiceNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Next Invoice Number</FormLabel>
-                          <FormControl>
-                            <Input {...field} type="number" min="1" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="defaultCurrency"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Currency</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select currency" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="USD">USD - US Dollar</SelectItem>
-                              <SelectItem value="EUR">EUR - Euro</SelectItem>
-                              <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                              <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
-                              <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
-                              <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="displayCurrency"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Currency Symbol</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="$" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="defaultTimeFormat"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Time Format</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="decimal">Decimal (1.5 hours)</SelectItem>
-                              <SelectItem value="time">Time (1:30)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <Separator />
-
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Tax Settings</h3>
-                    
-                    <FormField
-                      control={form.control}
-                      name="enableTax"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Enable Tax</FormLabel>
-                            <div className="text-sm text-gray-600">
-                              Add tax calculations to invoices
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    {form.watch("enableTax") && (
-                      <FormField
-                        control={form.control}
-                        name="defaultTaxRate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Default Tax Rate (%)</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="number" step="0.01" min="0" max="100" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="showDueDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Show Due Date</FormLabel>
-                          <div className="text-sm text-gray-600">
-                            Display due date on invoices
-                          </div>
+      {/* Main Content */}
+      <div className="flex-1 flex">
+        {/* Customization Panel */}
+        <div className="w-96 border-r bg-gray-50 overflow-y-auto">
+          <Form {...form}>
+            <form className="p-4 space-y-2">
+              {sections.map((section) => (
+                <Collapsible
+                  key={section.id}
+                  open={openSections.has(section.id)}
+                  onOpenChange={() => toggleSection(section.id)}
+                >
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-between p-3 h-auto hover:bg-white/80"
+                    >
+                      <div className="flex items-center gap-3">
+                        {section.icon}
+                        <div className="text-left">
+                          <div className="font-medium text-sm">{section.title}</div>
+                          <div className="text-xs text-gray-500">{section.description}</div>
                         </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
+                      </div>
+                      {openSections.has(section.id) ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
 
-            {/* Customization Tab */}
-            <TabsContent value="customization" className="space-y-6">
-              {/* Logo Upload */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Company Logo</CardTitle>
-                  <CardDescription>
-                    Upload your company logo to appear on invoices
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="showLogo"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Show Logo on Invoices</FormLabel>
-                          <div className="text-sm text-gray-600">
-                            Display your company logo on generated invoices
-                          </div>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-4">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center gap-2"
-                      >
-                        <Upload className="h-4 w-4" />
-                        Upload Logo
-                      </Button>
-                      <p className="text-sm text-gray-600">
-                        Supported formats: PNG, JPG, GIF (max 2MB)
-                      </p>
-                    </div>
-
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoUpload}
-                      className="hidden"
-                    />
-
-                    {logoPreview && (
-                      <div className="relative inline-block">
-                        <img
-                          src={logoPreview}
-                          alt="Company Logo Preview"
-                          className="max-w-xs max-h-32 object-contain border rounded"
+                  <CollapsibleContent className="space-y-4 px-3 pb-4">
+                    {/* Business Information */}
+                    {section.id === "business" && (
+                      <div className="space-y-3">
+                        <FormField
+                          control={form.control}
+                          name="businessName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Business Name *</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Your Business Name" className="h-8 text-sm" />
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
                         />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={removeLogo}
-                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
+                        
+                        <FormField
+                          control={form.control}
+                          name="businessEmail"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Business Email</FormLabel>
+                              <FormControl>
+                                <Input {...field} type="email" placeholder="contact@business.com" className="h-8 text-sm" />
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="businessAddress"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Address</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="123 Business Street" className="h-8 text-sm" />
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <FormField
+                            control={form.control}
+                            name="businessCity"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">City</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="City" className="h-8 text-sm" />
+                                </FormControl>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="businessState"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">State</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="State" className="h-8 text-sm" />
+                                </FormControl>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <FormField
+                            control={form.control}
+                            name="businessZipCode"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">ZIP Code</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="12345" className="h-8 text-sm" />
+                                </FormControl>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="businessCountry"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Country</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="Country" className="h-8 text-sm" />
+                                </FormControl>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <FormField
+                          control={form.control}
+                          name="businessPhone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Phone</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="+1 (555) 123-4567" className="h-8 text-sm" />
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
                       </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
 
-              {/* Color Themes */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Color Palette</CardTitle>
-                  <CardDescription>
-                    Choose or customize colors for your invoice design
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Predefined Palettes */}
-                  <div>
-                    <Label className="text-base font-medium">Quick Color Palettes</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
-                      {colorPalettes.map((palette) => (
-                        <Button
-                          key={palette.name}
-                          type="button"
-                          variant="outline"
-                          onClick={() => applyColorPalette(palette)}
-                          className="h-auto p-3 flex flex-col items-start gap-2"
-                        >
-                          <div className="flex gap-1">
-                            <div 
-                              className="w-4 h-4 rounded-full border" 
-                              style={{ backgroundColor: palette.primary }} 
-                            />
-                            <div 
-                              className="w-4 h-4 rounded-full border" 
-                              style={{ backgroundColor: palette.accent }} 
-                            />
-                            <div 
-                              className="w-4 h-4 rounded-full border" 
-                              style={{ backgroundColor: palette.text }} 
-                            />
-                          </div>
-                          <span className="text-xs font-medium">{palette.name}</span>
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Custom Colors */}
-                  <div className="space-y-4">
-                    <Label className="text-base font-medium">Custom Colors</Label>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="invoiceColorTheme"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Primary Color</FormLabel>
-                            <div className="flex gap-2">
-                              <FormControl>
-                                <Input {...field} type="color" className="w-16 h-10 p-1 cursor-pointer" />
-                              </FormControl>
-                              <FormControl>
-                                <Input {...field} placeholder="#1f2937" className="flex-1" />
-                              </FormControl>
-                            </div>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="invoiceAccentColor"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Accent Color</FormLabel>
-                            <div className="flex gap-2">
-                              <FormControl>
-                                <Input {...field} type="color" className="w-16 h-10 p-1 cursor-pointer" />
-                              </FormControl>
-                              <FormControl>
-                                <Input {...field} placeholder="#3b82f6" className="flex-1" />
-                              </FormControl>
-                            </div>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="invoiceTextColor"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Text Color</FormLabel>
-                            <div className="flex gap-2">
-                              <FormControl>
-                                <Input {...field} type="color" className="w-16 h-10 p-1 cursor-pointer" />
-                              </FormControl>
-                              <FormControl>
-                                <Input {...field} placeholder="#374151" className="flex-1" />
-                              </FormControl>
-                            </div>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="invoiceBackgroundColor"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Background Color</FormLabel>
-                            <div className="flex gap-2">
-                              <FormControl>
-                                <Input {...field} type="color" className="w-16 h-10 p-1 cursor-pointer" />
-                              </FormControl>
-                              <FormControl>
-                                <Input {...field} placeholder="#ffffff" className="flex-1" />
-                              </FormControl>
-                            </div>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Template and Typography */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Template & Typography</CardTitle>
-                  <CardDescription>
-                    Customize the overall look and typography of your invoices
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="invoiceTemplate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Invoice Template</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="professional">Professional</SelectItem>
-                              <SelectItem value="modern">Modern</SelectItem>
-                              <SelectItem value="classic">Classic</SelectItem>
-                              <SelectItem value="minimal">Minimal</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="customFontSize"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Font Size (px)</FormLabel>
-                          <FormControl>
-                            <Input {...field} type="number" min="8" max="24" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="invoiceFooterText"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Invoice Footer Text</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            {...field} 
-                            placeholder="Thank you for your business! Payment is due within 30 days."
-                            rows={3}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="space-y-4">
-                    <Label className="text-base font-medium">Display Options</Label>
-                    
-                    <FormField
-                      control={form.control}
-                      name="showCompanyDetails"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Show Company Details</FormLabel>
-                            <div className="text-sm text-gray-600">
-                              Display your company information on invoices
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="showBankDetails"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Show Bank Details</FormLabel>
-                            <div className="text-sm text-gray-600">
-                              Display banking information for payments
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Preview Tab */}
-            <TabsContent value="preview" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Invoice Preview</CardTitle>
-                  <CardDescription>
-                    See how your customizations will look on actual invoices
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div 
-                    className="border rounded-lg p-6 max-w-2xl mx-auto"
-                    style={{ 
-                      backgroundColor: form.watch("invoiceBackgroundColor"),
-                      color: form.watch("invoiceTextColor"),
-                      fontSize: `${form.watch("customFontSize")}px`
-                    }}
-                  >
-                    {/* Invoice Header */}
-                    <div className="flex justify-between items-start mb-6">
-                      <div>
-                        {form.watch("showLogo") && logoPreview && (
-                          <img 
-                            src={logoPreview} 
-                            alt="Company Logo" 
-                            className="max-h-16 mb-4"
-                          />
-                        )}
-                        {form.watch("showCompanyDetails") && (
-                          <div>
-                            <h2 
-                              className="text-xl font-bold"
-                              style={{ color: form.watch("invoiceColorTheme") }}
-                            >
-                              {form.watch("businessName") || "Your Business Name"}
-                            </h2>
-                            <div className="text-sm">
-                              {form.watch("businessAddress") && <div>{form.watch("businessAddress")}</div>}
-                              <div>
-                                {[form.watch("businessCity"), form.watch("businessState"), form.watch("businessZipCode")]
-                                  .filter(Boolean).join(", ")}
+                    {/* Logo & Branding */}
+                    {section.id === "branding" && (
+                      <div className="space-y-3">
+                        <FormField
+                          control={form.control}
+                          name="showLogo"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                              <div className="space-y-0.5">
+                                <FormLabel className="text-xs font-medium">Show Logo</FormLabel>
+                                <div className="text-xs text-gray-600">
+                                  Display logo on invoices
+                                </div>
                               </div>
-                              {form.watch("businessEmail") && <div>{form.watch("businessEmail")}</div>}
-                              {form.watch("businessPhone") && <div>{form.watch("businessPhone")}</div>}
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="space-y-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-full"
+                          >
+                            <Upload className="h-3 w-3 mr-2" />
+                            Upload Logo
+                          </Button>
+                          <p className="text-xs text-gray-600 text-center">
+                            PNG, JPG, GIF (max 2MB)
+                          </p>
+
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleLogoUpload}
+                            className="hidden"
+                          />
+
+                          {logoPreview && (
+                            <div className="relative">
+                              <img
+                                src={logoPreview}
+                                alt="Logo Preview"
+                                className="w-full max-h-16 object-contain border rounded"
+                              />
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={removeLogo}
+                                className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0"
+                              >
+                                <X className="h-2 w-2" />
+                              </Button>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="text-right">
-                        <h1 
-                          className="text-2xl font-bold"
-                          style={{ color: form.watch("invoiceColorTheme") }}
-                        >
-                          INVOICE
-                        </h1>
-                        <div className="text-sm">
-                          <div>Invoice #: {form.watch("nextInvoiceNumber")}</div>
-                          <div>Date: {new Date().toLocaleDateString()}</div>
-                          {form.watch("showDueDate") && (
-                            <div>Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
                           )}
                         </div>
                       </div>
-                    </div>
+                    )}
 
-                    {/* Sample invoice content */}
-                    <div className="border-t border-b py-4 my-4">
-                      <div className="grid grid-cols-4 gap-4 font-semibold text-sm">
-                        <div style={{ color: form.watch("invoiceAccentColor") }}>Description</div>
-                        <div style={{ color: form.watch("invoiceAccentColor") }}>Hours</div>
-                        <div style={{ color: form.watch("invoiceAccentColor") }}>Rate</div>
-                        <div style={{ color: form.watch("invoiceAccentColor") }} className="text-right">Amount</div>
-                      </div>
-                      <div className="grid grid-cols-4 gap-4 text-sm mt-2">
-                        <div>Web Development</div>
-                        <div>8.5</div>
-                        <div>{form.watch("displayCurrency")}75.00</div>
-                        <div className="text-right">{form.watch("displayCurrency")}637.50</div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <div className="text-right">
-                        <div className="text-lg font-bold" style={{ color: form.watch("invoiceColorTheme") }}>
-                          Total: {form.watch("displayCurrency")}637.50
+                    {/* Color Themes */}
+                    {section.id === "colors" && (
+                      <div className="space-y-3">
+                        <div>
+                          <Label className="text-xs font-medium">Quick Palettes</Label>
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            {colorPalettes.map((palette) => (
+                              <Button
+                                key={palette.name}
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => applyColorPalette(palette)}
+                                className="h-auto p-2 flex flex-col gap-1"
+                              >
+                                <div className="flex gap-1">
+                                  <div 
+                                    className="w-3 h-3 rounded-full border" 
+                                    style={{ backgroundColor: palette.primary }} 
+                                  />
+                                  <div 
+                                    className="w-3 h-3 rounded-full border" 
+                                    style={{ backgroundColor: palette.accent }} 
+                                  />
+                                </div>
+                                <span className="text-xs">{palette.name}</span>
+                              </Button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    </div>
 
-                    {form.watch("showBankDetails") && (form.watch("bankName") || form.watch("bankAccountNumber")) && (
-                      <div className="mt-6 p-4 bg-gray-50 rounded">
-                        <h3 className="font-semibold text-sm" style={{ color: form.watch("invoiceAccentColor") }}>
-                          Payment Details
-                        </h3>
-                        <div className="text-sm">
-                          {form.watch("bankName") && <div>Bank: {form.watch("bankName")}</div>}
-                          {form.watch("bankAccountName") && <div>Account Name: {form.watch("bankAccountName")}</div>}
-                          {form.watch("bankAccountNumber") && <div>Account: {form.watch("bankAccountNumber")}</div>}
-                          {form.watch("bankSortCode") && <div>Sort Code: {form.watch("bankSortCode")}</div>}
+                        <Separator />
+
+                        <div className="space-y-3">
+                          <FormField
+                            control={form.control}
+                            name="invoiceColorTheme"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Primary Color</FormLabel>
+                                <div className="flex gap-2">
+                                  <FormControl>
+                                    <Input {...field} type="color" className="w-10 h-8 p-1 cursor-pointer" />
+                                  </FormControl>
+                                  <FormControl>
+                                    <Input {...field} placeholder="#1f2937" className="flex-1 h-8 text-sm" />
+                                  </FormControl>
+                                </div>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="invoiceAccentColor"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Accent Color</FormLabel>
+                                <div className="flex gap-2">
+                                  <FormControl>
+                                    <Input {...field} type="color" className="w-10 h-8 p-1 cursor-pointer" />
+                                  </FormControl>
+                                  <FormControl>
+                                    <Input {...field} placeholder="#3b82f6" className="flex-1 h-8 text-sm" />
+                                  </FormControl>
+                                </div>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
                         </div>
                       </div>
                     )}
 
-                    {form.watch("invoiceFooterText") && (
-                      <div className="mt-6 text-center text-sm border-t pt-4">
-                        {form.watch("invoiceFooterText")}
+                    {/* Typography & Layout */}
+                    {section.id === "typography" && (
+                      <div className="space-y-3">
+                        <FormField
+                          control={form.control}
+                          name="invoiceTemplate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Template Style</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger className="h-8 text-sm">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="professional">Professional</SelectItem>
+                                  <SelectItem value="modern">Modern</SelectItem>
+                                  <SelectItem value="classic">Classic</SelectItem>
+                                  <SelectItem value="minimal">Minimal</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="customFontSize"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Font Size (px)</FormLabel>
+                              <FormControl>
+                                <Input {...field} type="number" min="8" max="24" className="h-8 text-sm" />
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="invoiceFooterText"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Footer Text</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  {...field} 
+                                  placeholder="Thank you for your business!"
+                                  rows={2}
+                                  className="text-sm"
+                                />
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
                       </div>
+                    )}
+
+                    {/* Invoice Settings */}
+                    {section.id === "invoice" && (
+                      <div className="space-y-3">
+                        <FormField
+                          control={form.control}
+                          name="nextInvoiceNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Next Invoice Number</FormLabel>
+                              <FormControl>
+                                <Input {...field} type="number" min="1" className="h-8 text-sm" />
+                              </FormControl>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="grid grid-cols-2 gap-2">
+                          <FormField
+                            control={form.control}
+                            name="defaultCurrency"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Currency</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger className="h-8 text-sm">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="USD">USD</SelectItem>
+                                    <SelectItem value="EUR">EUR</SelectItem>
+                                    <SelectItem value="GBP">GBP</SelectItem>
+                                    <SelectItem value="CAD">CAD</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="displayCurrency"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Symbol</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="$" className="h-8 text-sm" />
+                                </FormControl>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <FormField
+                          control={form.control}
+                          name="enableTax"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                              <div className="space-y-0.5">
+                                <FormLabel className="text-xs font-medium">Enable Tax</FormLabel>
+                                <div className="text-xs text-gray-600">
+                                  Add tax to invoices
+                                </div>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        {watchedValues.enableTax && (
+                          <FormField
+                            control={form.control}
+                            name="defaultTaxRate"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Tax Rate (%)</FormLabel>
+                                <FormControl>
+                                  <Input {...field} type="number" step="0.01" min="0" max="100" className="h-8 text-sm" />
+                                </FormControl>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Banking */}
+                    {section.id === "banking" && (
+                      <div className="space-y-3">
+                        <FormField
+                          control={form.control}
+                          name="showBankDetails"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                              <div className="space-y-0.5">
+                                <FormLabel className="text-xs font-medium">Show Payment Details</FormLabel>
+                                <div className="text-xs text-gray-600">
+                                  Display banking info
+                                </div>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+
+                        {watchedValues.showBankDetails && (
+                          <>
+                            <FormField
+                              control={form.control}
+                              name="bankName"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-xs">Bank Name</FormLabel>
+                                  <FormControl>
+                                    <Input {...field} placeholder="Bank Name" className="h-8 text-sm" />
+                                  </FormControl>
+                                  <FormMessage className="text-xs" />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="bankAccountName"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-xs">Account Name</FormLabel>
+                                  <FormControl>
+                                    <Input {...field} placeholder="Account Holder" className="h-8 text-sm" />
+                                  </FormControl>
+                                  <FormMessage className="text-xs" />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name="bankAccountNumber"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-xs">Account Number</FormLabel>
+                                  <FormControl>
+                                    <Input {...field} placeholder="Account Number" className="h-8 text-sm" />
+                                  </FormControl>
+                                  <FormMessage className="text-xs" />
+                                </FormItem>
+                              )}
+                            />
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
+            </form>
+          </Form>
+        </div>
+
+        {/* Live Preview */}
+        <div className="flex-1 p-6 bg-gray-100 overflow-y-auto">
+          <div className="max-w-2xl mx-auto">
+            <div className="mb-4 flex items-center gap-2 text-sm text-gray-600">
+              <Zap className="h-4 w-4" />
+              Live Preview - Changes appear instantly
+            </div>
+            
+            <div 
+              className="bg-white shadow-lg rounded-lg p-8 min-h-[600px]"
+              style={{ 
+                backgroundColor: watchedValues.invoiceBackgroundColor,
+                color: watchedValues.invoiceTextColor,
+                fontSize: `${watchedValues.customFontSize}px`
+              }}
+            >
+              {/* Invoice Header */}
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  {watchedValues.showLogo && logoPreview && (
+                    <img 
+                      src={logoPreview} 
+                      alt="Company Logo" 
+                      className="max-h-16 mb-4"
+                    />
+                  )}
+                  {watchedValues.showCompanyDetails && (
+                    <div>
+                      <h2 
+                        className="text-xl font-bold mb-2"
+                        style={{ color: watchedValues.invoiceColorTheme }}
+                      >
+                        {watchedValues.businessName || "Your Business Name"}
+                      </h2>
+                      <div className="text-sm space-y-1">
+                        {watchedValues.businessAddress && <div>{watchedValues.businessAddress}</div>}
+                        <div>
+                          {[watchedValues.businessCity, watchedValues.businessState, watchedValues.businessZipCode]
+                            .filter(Boolean).join(", ")}
+                        </div>
+                        {watchedValues.businessEmail && <div>{watchedValues.businessEmail}</div>}
+                        {watchedValues.businessPhone && <div>{watchedValues.businessPhone}</div>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="text-right">
+                  <h1 
+                    className="text-3xl font-bold mb-2"
+                    style={{ color: watchedValues.invoiceColorTheme }}
+                  >
+                    INVOICE
+                  </h1>
+                  <div className="text-sm space-y-1">
+                    <div>Invoice #: {watchedValues.nextInvoiceNumber}</div>
+                    <div>Date: {new Date().toLocaleDateString()}</div>
+                    {watchedValues.showDueDate && (
+                      <div>Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
                     )}
                   </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                </div>
+              </div>
 
-          {/* Save Button */}
-          <div className="flex justify-end gap-4 pt-6 border-t">
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex items-center gap-2"
-            >
-              {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
+              {/* Client Information */}
+              <div className="mb-6">
+                <h3 
+                  className="font-semibold mb-2"
+                  style={{ color: watchedValues.invoiceAccentColor }}
+                >
+                  Bill To:
+                </h3>
+                <div>
+                  <div className="font-medium">Sample Client</div>
+                  <div className="text-sm">123 Client Street</div>
+                  <div className="text-sm">Client City, State 12345</div>
+                  <div className="text-sm">client@example.com</div>
+                </div>
+              </div>
+
+              {/* Sample invoice content */}
+              <div className="border-t border-b py-4 mb-6">
+                <div className="grid grid-cols-4 gap-4 font-semibold text-sm mb-2">
+                  <div style={{ color: watchedValues.invoiceAccentColor }}>Description</div>
+                  <div style={{ color: watchedValues.invoiceAccentColor }}>Hours</div>
+                  <div style={{ color: watchedValues.invoiceAccentColor }}>Rate</div>
+                  <div style={{ color: watchedValues.invoiceAccentColor }} className="text-right">Amount</div>
+                </div>
+                <div className="grid grid-cols-4 gap-4 text-sm">
+                  <div>Web Development</div>
+                  <div>8.5</div>
+                  <div>{watchedValues.displayCurrency}75.00</div>
+                  <div className="text-right">{watchedValues.displayCurrency}637.50</div>
+                </div>
+              </div>
+
+              <div className="flex justify-end mb-6">
+                <div className="text-right space-y-1">
+                  <div>Subtotal: {watchedValues.displayCurrency}637.50</div>
+                  {watchedValues.enableTax && (
+                    <div>Tax ({watchedValues.defaultTaxRate}%): {watchedValues.displayCurrency}{(637.50 * parseFloat(watchedValues.defaultTaxRate) / 100).toFixed(2)}</div>
+                  )}
+                  <div 
+                    className="text-lg font-bold pt-2 border-t"
+                    style={{ color: watchedValues.invoiceColorTheme }}
+                  >
+                    Total: {watchedValues.displayCurrency}{watchedValues.enableTax ? (637.50 + (637.50 * parseFloat(watchedValues.defaultTaxRate) / 100)).toFixed(2) : "637.50"}
+                  </div>
+                </div>
+              </div>
+
+              {watchedValues.showBankDetails && (watchedValues.bankName || watchedValues.bankAccountNumber) && (
+                <div className="mb-6 p-4 bg-gray-50 rounded">
+                  <h3 className="font-semibold text-sm mb-2" style={{ color: watchedValues.invoiceAccentColor }}>
+                    Payment Details
+                  </h3>
+                  <div className="text-sm space-y-1">
+                    {watchedValues.bankName && <div>Bank: {watchedValues.bankName}</div>}
+                    {watchedValues.bankAccountName && <div>Account Name: {watchedValues.bankAccountName}</div>}
+                    {watchedValues.bankAccountNumber && <div>Account: {watchedValues.bankAccountNumber}</div>}
+                    {watchedValues.bankSortCode && <div>Sort Code: {watchedValues.bankSortCode}</div>}
+                  </div>
+                </div>
               )}
-              {isSubmitting ? "Saving..." : "Save Settings"}
-            </Button>
+
+              {watchedValues.invoiceFooterText && (
+                <div className="text-center text-sm border-t pt-4 mt-8">
+                  {watchedValues.invoiceFooterText}
+                </div>
+              )}
+            </div>
           </div>
-        </form>
-      </Form>
+        </div>
+      </div>
     </div>
   );
 }
