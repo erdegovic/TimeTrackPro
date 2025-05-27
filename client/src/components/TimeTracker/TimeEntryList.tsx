@@ -51,6 +51,19 @@ export default function TimeEntryList() {
       }
     }
   }, [timeEntries]);
+
+  // Listen for manual highlight triggers from timer updates
+  useEffect(() => {
+    const handleHighlight = (event: CustomEvent) => {
+      const { entryId } = event.detail;
+      if (entryId && !newEntryIds.includes(entryId)) {
+        setNewEntryIds(prev => [...prev, entryId]);
+      }
+    };
+
+    window.addEventListener('timeEntryHighlight', handleHighlight as EventListener);
+    return () => window.removeEventListener('timeEntryHighlight', handleHighlight as EventListener);
+  }, [newEntryIds]);
   
   // Effect to remove the highlight after it fades away
   useEffect(() => {

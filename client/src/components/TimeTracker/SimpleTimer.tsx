@@ -112,7 +112,15 @@ export default function SimpleTimer({
 
   // Stop the timer with same-day merging logic
   const handleStop = async () => {
-    if (!isRunning || !startTime || !projectId) return;
+    if (!isRunning || !startTime) return;
+    
+    // Allow entries without projectId for manual tracking
+    if (!projectId && !description.trim()) {
+      console.log("Skipping save - no project selected and no description");
+      setIsRunning(false);
+      localStorage.removeItem("timeTracker");
+      return;
+    }
     
     console.log("Stopping timer...");
     
@@ -125,6 +133,9 @@ export default function SimpleTimer({
     const endTime = new Date();
     const diffMs = endTime.getTime() - startTime.getTime();
     const duration = diffMs / (1000 * 60 * 60); // Convert to hours
+    
+    // Save even very short sessions (no minimum duration)
+    console.log(`Recording session: ${Math.floor(diffMs / 1000)} seconds (${duration.toFixed(6)} hours)`);
     
     console.log("Timer stopped with data:", {
       actualSeconds: Math.floor(diffMs / 1000),
@@ -191,6 +202,11 @@ export default function SimpleTimer({
         });
         
         console.log("Successfully updated existing entry");
+        
+        // Trigger green highlight for updated entry
+        window.dispatchEvent(new CustomEvent('timeEntryHighlight', {
+          detail: { entryId: todayEntry.id, type: 'updated' }
+        }));
       } else {
         console.log("No existing entry found, creating new one");
         
