@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Play, Square } from "lucide-react";
 import { formatTime } from "@/lib/utils/timeUtils";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface SimpleTimerProps {
   description: string;
@@ -23,6 +24,7 @@ export default function SimpleTimer({
   const [time, setTime] = useState(0);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const intervalRef = useRef<number | null>(null);
+  const queryClient = useQueryClient();
   
   // Check localStorage on mount to see if we have a running timer
   useEffect(() => {
@@ -212,9 +214,9 @@ export default function SimpleTimer({
         });
       }
       
-      // Don't call the old callback - it creates duplicates
-      // Just invalidate the cache manually
-      window.dispatchEvent(new CustomEvent('timeEntryUpdated'));
+      // Force cache refresh using React Query
+      await queryClient.invalidateQueries({ queryKey: ['/api/time-entries'] });
+      console.log("Cache invalidated successfully");
       
     } catch (error) {
       console.error("Error in same-day merging logic:", error);
