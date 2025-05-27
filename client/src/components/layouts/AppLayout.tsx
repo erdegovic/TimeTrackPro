@@ -1,6 +1,7 @@
 import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Logo } from "@/components/ui/logo";
+import CreativitySidebar from "@/components/CreativitySidebar/CreativitySidebar";
 import { 
   Clock, 
   Calendar, 
@@ -45,6 +46,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [location] = useLocation();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [creativitySidebarCollapsed, setCreativitySidebarCollapsed] = useState(false);
   const [hasActiveTimer, setHasActiveTimer] = useState(false);
   const [timerInfo, setTimerInfo] = useState<{
     description: string;
@@ -305,12 +307,23 @@ export default function AppLayout({ children }: AppLayoutProps) {
         )}
         
         {/* Main content area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6" style={{ backgroundColor: 'hsl(var(--tickd-bg))' }}>
+        <main 
+          className={`flex-1 overflow-y-auto p-4 md:p-6 transition-all duration-500 ${
+            creativitySidebarCollapsed ? 'mr-16' : 'mr-80'
+          }`} 
+          style={{ backgroundColor: 'hsl(var(--tickd-bg))' }}
+        >
           <div className="max-w-7xl mx-auto tickd-fade-in">
             {children}
           </div>
         </main>
       </div>
+
+      {/* Creativity Sidebar */}
+      <CreativitySidebar 
+        isCollapsed={creativitySidebarCollapsed}
+        onToggle={() => setCreativitySidebarCollapsed(!creativitySidebarCollapsed)}
+      />
     </div>
   );
 }
