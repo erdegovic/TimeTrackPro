@@ -169,7 +169,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         />
       )}
       <aside className={`${isMobile ? (sidebarOpen ? 'fixed inset-y-0 left-0 z-40 block' : 'hidden') : 'flex flex-shrink-0'}`}>
-        <div className="flex flex-col w-64 bg-white border-r border-gray-200 h-full">
+        <div className="flex flex-col w-64 h-full tickd-card border-r tickd-shadow" style={{ backgroundColor: 'hsl(var(--tickd-bg))' }}>
           <div className="h-16 flex items-center px-4 border-b border-gray-200">
             <Logo />
             {isMobile && (
@@ -188,10 +188,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
             {/* Active Timer Indicator */}
             {timerInfo && (
-              <div className="mx-3 mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="mx-3 mb-4 p-3 tickd-card border-l-4 tickd-border-primary tickd-fade-in">
                 <div className="flex items-center">
-                  <Timer className="w-5 h-5 mr-2 text-blue-600 animate-pulse" />
-                  <span className="text-sm font-medium text-blue-700">Timer Running</span>
+                  <Timer className="w-5 h-5 mr-2 tickd-primary animate-pulse" />
+                  <span className="text-sm font-medium tickd-primary">Timer Running</span>
                 </div>
                 <div className="mt-2">
                   <div className="text-xs font-medium text-gray-500">
@@ -201,7 +201,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <div className="text-sm font-medium mt-1 truncate text-gray-700">
                     {timerInfo.description}
                   </div>
-                  <div className="mt-1 font-mono text-sm text-blue-700">
+                  <div className="mt-1 font-mono text-sm tickd-primary font-semibold">
                     {Math.floor(timerInfo.elapsedTime / 3600).toString().padStart(2, '0')}:
                     {Math.floor((timerInfo.elapsedTime % 3600) / 60).toString().padStart(2, '0')}:
                     {(timerInfo.elapsedTime % 60).toString().padStart(2, '0')}
@@ -305,8 +305,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
         )}
         
         {/* Main content area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6" style={{ backgroundColor: 'hsl(var(--tickd-bg))' }}>
+          <div className="max-w-7xl mx-auto tickd-fade-in">
             {children}
           </div>
         </main>
