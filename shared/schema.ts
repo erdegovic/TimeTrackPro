@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, numeric, boolean, timestamp, pgEnum, varchar, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, numeric, boolean, timestamp, pgEnum, varchar, index, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -150,6 +150,48 @@ export const settings = pgTable("settings", {
   invoiceTemplate: text("invoice_template").default("professional"), // Template style
 });
 
+// Creativity Features Tables
+export const creativityNotes = pgTable("creativity_notes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  title: text("title"),
+  content: text("content").notNull(),
+  category: text("category"), // Ideas, Goals, Inspirations, Meeting Notes
+  tags: text("tags"), // Comma-separated tags
+  isPinned: boolean("is_pinned").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const weeklyGoals = pgTable("weekly_goals", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  isCompleted: boolean("is_completed").default(false),
+  priority: text("priority"), // high, medium, low
+  weekOf: text("week_of").notNull(), // Start of the week (YYYY-MM-DD)
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const gratitudeEntries = pgTable("gratitude_entries", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  content: text("content").notNull(),
+  date: text("date").notNull(), // YYYY-MM-DD format
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const focusSessions = pgTable("focus_sessions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  type: text("type").notNull(), // meditation, breathing, focus
+  duration: integer("duration"), // in seconds
+  completedAt: timestamp("completed_at").defaultNow(),
+});
+
 // Create Insert Schemas
 export const insertClientSchema = createInsertSchema(clients).omit({ id: true });
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true });
@@ -173,6 +215,12 @@ export const timeEntryUpdateSchema = z.object({
 });
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true });
 export const insertSettingsSchema = createInsertSchema(settings).omit({ id: true });
+
+// Creativity Features Insert Schemas
+export const insertCreativityNoteSchema = createInsertSchema(creativityNotes).omit({ id: true });
+export const insertWeeklyGoalSchema = createInsertSchema(weeklyGoals).omit({ id: true });
+export const insertGratitudeEntrySchema = createInsertSchema(gratitudeEntries).omit({ id: true });
+export const insertFocusSessionSchema = createInsertSchema(focusSessions).omit({ id: true });
 
 // Define Types
 export type Client = typeof clients.$inferSelect;
@@ -263,3 +311,13 @@ export type Verification = typeof verifications.$inferSelect;
 export const insertVerificationSchema = createInsertSchema(verifications).omit({ id: true });
 export type InsertVerification = z.infer<typeof insertVerificationSchema>;
 export type Session = typeof sessions.$inferSelect;
+
+// Creativity Features Types
+export type CreativityNote = typeof creativityNotes.$inferSelect;
+export type InsertCreativityNote = z.infer<typeof insertCreativityNoteSchema>;
+export type WeeklyGoal = typeof weeklyGoals.$inferSelect;
+export type InsertWeeklyGoal = z.infer<typeof insertWeeklyGoalSchema>;
+export type GratitudeEntry = typeof gratitudeEntries.$inferSelect;
+export type InsertGratitudeEntry = z.infer<typeof insertGratitudeEntrySchema>;
+export type FocusSession = typeof focusSessions.$inferSelect;
+export type InsertFocusSession = z.infer<typeof insertFocusSessionSchema>;
