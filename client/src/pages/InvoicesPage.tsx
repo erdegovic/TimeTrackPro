@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { generatePdf } from "@/lib/pdf-generator";
+import { generateEnhancedInvoicePDF, generateInvoiceCSV, EnhancedInvoiceData } from "@/lib/enhanced-pdf-generator";
 import { Invoice, Client, Settings } from "@shared/schema";
 // Make sure to use relative path for imports
 import InvoiceEditView from "../components/Invoices/InvoiceEditView";
@@ -60,7 +60,7 @@ export default function InvoicesPage() {
     }
   });
   
-  const handleExportPdf = async (invoice: Invoice) => {
+  const handleExportPdf = async (invoice: Invoice, format: 'pdf' | 'csv' = 'pdf') => {
     const client = clients.find(c => c.id === invoice.clientId);
     
     if (!client || !settings) {
@@ -136,23 +136,83 @@ export default function InvoicesPage() {
         timeFormat: settings.defaultTimeFormat || 'decimal'
       };
       
-      // Generate PDF
-      const filename = `invoice-${invoice.invoiceNumber.replace('INV-', '')}.pdf`;
-      
-      generatePdf({
-        filename,
-        invoice: invoiceData,
-        client,
-        settings,
-        reportData, // Include enhanced report data with time entries
-        type: "invoice",
-        showDueDate: settings.showDueDate === null ? undefined : !!settings.showDueDate
-      });
-      
-      toast({
-        title: "Invoice exported",
-        description: `Your invoice has been exported as ${filename}`,
-      });
+      // Group entries by week for enhanced display
+      const weeklyGroups = enrichedEntries.reduce((groups: any[], entry) => {
+        const weekLabel = entry.weekLabel || `Week of ${new Date(entry.date).toLocaleDateString()}`;
+        const existingGroup = groups.find(g => g.weekLabel === weekLabel);
+        
+        if (existingGroup) {
+          existingGroup.entries.push(entry);
+          existingGroup.totalHours += parseFloat(entry.duration || "0");
+          existingGroup.totalAmount += entry.amount || 0;
+        } else {
+          groups.push({
+            weekLabel: weekLabel,
+            entries: [entry],
+            totalHours: parseFloat(entry.duration || "0"),
+            totalAmount: entry.amount || 0
+          });
+        }
+        
+        return groups;
+      }, []);
+
+      // Create enhanced invoice data for new PDF generator
+      const enhancedInvoiceData: EnhancedInvoiceData = {
+        invoice: {
+          id: invoiceData.id,
+          invoiceNumber: invoiceData.invoiceNumber,
+          issueDate: invoiceData.issueDate,
+          dueDate: invoiceData.dueDate || "",
+          status: invoiceData.status,
+          notes: notes,
+          subtotal: invoiceData.subtotal,
+          tax: invoiceData.tax || "0",
+          taxRate: invoiceData.taxRate || "0",
+          total: invoiceData.total
+        },
+        client: {
+          id: client.id,
+          name: client.name,
+          email: client.email || "",
+          address: client.address || "",
+          city: client.city || "",
+          state: client.state || "",
+          zipCode: client.zipCode || "",
+          country: client.country || "",
+          phone: client.phone || "",
+          taxId: client.taxId || ""
+        },
+        timeEntries: enrichedEntries.map(entry => ({
+          id: entry.id,
+          description: entry.description,
+          duration: parseFloat(entry.duration || "0"),
+          amount: entry.amount || 0,
+          date: entry.date,
+          weekLabel: entry.weekLabel || `Week of ${new Date(entry.date).toLocaleDateString()}`,
+          project: {
+            name: entry.project?.name || "Unknown Project",
+            hourlyRate: entry.project?.hourlyRate || "0"
+          }
+        })),
+        weeklyGroups: weeklyGroups,
+        timeAdjustment: undefined,
+        settings: settings
+      };
+
+      if (format === 'pdf') {
+        generateEnhancedInvoicePDF(enhancedInvoiceData);
+        toast({
+          title: "Invoice exported",
+          description: "Your customized invoice PDF has been generated with your branding",
+        });
+      } else {
+        generateInvoiceCSV(enhancedInvoiceData);
+        toast({
+          title: "Invoice exported",
+          description: "Your invoice data has been exported as CSV",
+        });
+      }
     } catch (error) {
       console.error("Error exporting invoice:", error);
       toast({

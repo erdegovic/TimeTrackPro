@@ -90,7 +90,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
     );
   }
 
-  if (!reportData || reportData.timeEntries.length === 0) {
+  if (!reportData || !Array.isArray(reportData) || reportData.length === 0) {
     return (
       <div className="border border-gray-200 rounded-md p-8 text-center">
         <p className="text-gray-500">No data found for the selected filters.</p>
