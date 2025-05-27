@@ -74,11 +74,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
   // Listen for play button events from time entries
   useEffect(() => {
     const handleStartTimerFromEntry = (event: CustomEvent) => {
-      const { description: entryDescription, projectId } = event.detail;
-      
-      // Find the project to get its client ID
-      const project = projects.find(p => p.id === projectId);
-      const clientId = project?.clientId;
+      const { description: entryDescription, projectId, clientId } = event.detail;
       
       // Update form fields
       setDescription(entryDescription);
@@ -95,10 +91,13 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
       }, 100); // Small delay to ensure form state is updated
     };
 
+    // Listen for both old and new event names
     window.addEventListener('startTimerFromEntry', handleStartTimerFromEntry as EventListener);
+    window.addEventListener('startTimerWithMerging', handleStartTimerFromEntry as EventListener);
     
     return () => {
       window.removeEventListener('startTimerFromEntry', handleStartTimerFromEntry as EventListener);
+      window.removeEventListener('startTimerWithMerging', handleStartTimerFromEntry as EventListener);
     };
   }, [projects]);
 
