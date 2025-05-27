@@ -99,7 +99,7 @@ export const timeEntries = pgTable("time_entries", {
   projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: 'cascade' }),
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time"),
-  duration: numeric("duration", { precision: 10, scale: 2 }), // Duration in hours
+  duration: numeric("duration", { precision: 10, scale: 6 }), // Duration in hours with second precision
   date: text("date").notNull(), // Store as YYYY-MM-DD
   weekNumber: integer("week_number").notNull(),
   weekLabel: text("week_label").notNull(), // e.g., "Week 1 (Jul 3 - Jul 9)"
