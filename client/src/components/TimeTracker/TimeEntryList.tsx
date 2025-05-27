@@ -184,14 +184,14 @@ export default function TimeEntryList() {
     }
   };
 
-  // Handle play button click - communicate with time tracker
+  // Handle play button click - use proper timer hook with same-day merging
   const handlePlay = (description: string, projectId: number) => {
     // Find the project to get the client ID
     const project = projects.find(p => p.id === projectId);
     const clientId = project?.clientId;
     
-    // Send a custom event to the time tracker component
-    const playEvent = new CustomEvent('startTimerFromEntry', {
+    // Send event to TimeTrackerPage to use the proper useTimeTracker hook
+    const playEvent = new CustomEvent('startTimerWithMerging', {
       detail: { description, projectId, clientId }
     });
     window.dispatchEvent(playEvent);
