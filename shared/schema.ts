@@ -133,6 +133,21 @@ export const settings = pgTable("settings", {
   defaultTaxRate: numeric("default_tax_rate", { precision: 5, scale: 2 }).default("0"),
   enableTax: boolean("enable_tax").default(false),
   showDueDate: boolean("show_due_date").default(true),
+  
+  // Invoice customization fields
+  companyLogo: text("company_logo"), // Base64 encoded image
+  showLogo: boolean("show_logo").default(true),
+  invoiceColorTheme: text("invoice_color_theme").default("#1f2937"), // Primary color
+  invoiceAccentColor: text("invoice_accent_color").default("#3b82f6"), // Accent color
+  invoiceTextColor: text("invoice_text_color").default("#374151"), // Text color
+  invoiceBackgroundColor: text("invoice_background_color").default("#ffffff"), // Background
+  
+  // Additional invoice customization
+  customFontSize: text("custom_font_size").default("12"), // Font size in px
+  invoiceFooterText: text("invoice_footer_text"),
+  showCompanyDetails: boolean("show_company_details").default(true),
+  showBankDetails: boolean("show_bank_details").default(true),
+  invoiceTemplate: text("invoice_template").default("professional"), // Template style
 });
 
 // Create Insert Schemas
