@@ -489,7 +489,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateCreativityNote(id: number, noteData: any): Promise<any> {
     const [note] = await db
-      .update(creativityNotes)
+      .update(schema.creativityNotes)
       .set({
         title: noteData.title,
         content: noteData.content,
@@ -498,23 +498,23 @@ export class DatabaseStorage implements IStorage {
         isPinned: noteData.isPinned,
         updatedAt: new Date()
       })
-      .where(eq(creativityNotes.id, id))
+      .where(eq(schema.creativityNotes.id, id))
       .returning();
     return note;
   }
 
   async deleteCreativityNote(id: number): Promise<void> {
-    await db.delete(creativityNotes).where(eq(creativityNotes.id, id));
+    await db.delete(schema.creativityNotes).where(eq(schema.creativityNotes.id, id));
   }
 
   async getWeeklyGoals(userId: number): Promise<any[]> {
-    const goals = await db.select().from(weeklyGoals).where(eq(weeklyGoals.userId, userId));
+    const goals = await db.select().from(schema.weeklyGoals).where(eq(schema.weeklyGoals.userId, userId));
     return goals;
   }
 
   async createWeeklyGoal(goalData: any): Promise<any> {
     const [goal] = await db
-      .insert(weeklyGoals)
+      .insert(schema.weeklyGoals)
       .values({
         userId: goalData.userId,
         title: goalData.title,
@@ -529,7 +529,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateWeeklyGoal(id: number, goalData: any): Promise<any> {
     const [goal] = await db
-      .update(weeklyGoals)
+      .update(schema.weeklyGoals)
       .set({
         title: goalData.title,
         description: goalData.description,
@@ -539,12 +539,12 @@ export class DatabaseStorage implements IStorage {
         completedAt: goalData.isCompleted ? new Date() : null,
         updatedAt: new Date()
       })
-      .where(eq(weeklyGoals.id, id))
+      .where(eq(schema.weeklyGoals.id, id))
       .returning();
     return goal;
   }
 
   async deleteWeeklyGoal(id: number): Promise<void> {
-    await db.delete(weeklyGoals).where(eq(weeklyGoals.id, id));
+    await db.delete(schema.weeklyGoals).where(eq(schema.weeklyGoals.id, id));
   }
 }
