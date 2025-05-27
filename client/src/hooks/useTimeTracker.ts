@@ -18,35 +18,7 @@ export function useTimeTracker() {
   // Timer interval ref
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
-  // Create time entry mutation
-  const createTimeEntry = useMutation({
-    mutationFn: async (timeEntry: Partial<TimeEntry>) => {
-      return apiRequest("POST", "/api/time-entries", timeEntry);
-    },
-    onSuccess: () => {
-      // Invalidate all related queries to refresh the data
-      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      
-      toast({
-        title: "Time entry saved",
-        description: "Your time entry has been saved successfully.",
-      });
-      
-      // Reset form
-      setDescription("");
-      setElapsedTime(0);
-    },
-    onError: (error) => {
-      console.error("Failed to save time entry:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save time entry. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
+  // Removed old mutation - now using direct API calls in stopTimer for same-day merging
   
   // Load in-progress timer from localStorage on mount
   useEffect(() => {
