@@ -6,6 +6,7 @@ import {
   TimeEntry, InsertTimeEntry, timeEntries,
   Invoice, InsertInvoice, invoices,
   Settings, InsertSettings, settings,
+  creativityNotes, weeklyGoals,
   ReportFilters
 } from "@shared/schema";
 import { db } from "./db";

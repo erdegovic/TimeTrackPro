@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Music, FileText, Lightbulb, Target, Heart, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import SimpleMusicPlayer from "./SimpleMusicPlayer";
+import NewMusicPlayer from "./NewMusicPlayer";
 import NotesSection from "./NotesSection";
 import InspirationSection from "./InspirationSection";
 import WeeklyGoals from "./WeeklyGoals";
@@ -116,7 +116,7 @@ export default function CreativitySidebar({ isCollapsed = false, onToggle }: Cre
         {/* Content Area */}
         {!isCollapsed && (
           <div className="flex-1 p-4 overflow-y-auto">
-            {activeSection === "music" && <SimpleMusicPlayer />}
+            {activeSection === "music" && <NewMusicPlayer />}
             {activeSection === "notes" && <NotesSection />}
             {activeSection === "inspiration" && <InspirationSection />}
             {activeSection === "goals" && <WeeklyGoals />}
