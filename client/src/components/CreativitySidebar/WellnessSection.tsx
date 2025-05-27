@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { Heart, Play, Pause, RotateCcw, Coffee, Moon, Sun } from "lucide-react";
+import { Heart, Play, Pause, RotateCcw, Coffee, Moon, Sun, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 
 const breathingExercises = [
   {
@@ -43,6 +44,146 @@ const quickMeditations = [
   { duration: 300, label: "5 min", emoji: "🧘" },
 ];
 
+// Ambient sound generator using Web Audio API
+class AmbientSoundGenerator {
+  private audioContext: AudioContext | null = null;
+  private oscillators: OscillatorNode[] = [];
+  private gainNodes: GainNode[] = [];
+  private isPlaying = false;
+
+  async init() {
+    if (!this.audioContext) {
+      this.audioContext = new AudioContext();
+    }
+    if (this.audioContext.state === 'suspended') {
+      await this.audioContext.resume();
+    }
+  }
+
+  generateOceanWaves() {
+    if (!this.audioContext) return;
+
+    // Low frequency base wave
+    const baseOsc = this.audioContext.createOscillator();
+    const baseGain = this.audioContext.createGain();
+    
+    baseOsc.type = 'sine';
+    baseOsc.frequency.setValueAtTime(60, this.audioContext.currentTime);
+    baseGain.gain.setValueAtTime(0.1, this.audioContext.currentTime);
+    
+    baseOsc.connect(baseGain);
+    baseGain.connect(this.audioContext.destination);
+    
+    this.oscillators.push(baseOsc);
+    this.gainNodes.push(baseGain);
+
+    // Add some randomness for natural wave sounds
+    const modOsc = this.audioContext.createOscillator();
+    const modGain = this.audioContext.createGain();
+    
+    modOsc.type = 'sine';
+    modOsc.frequency.setValueAtTime(0.2, this.audioContext.currentTime);
+    modGain.gain.setValueAtTime(10, this.audioContext.currentTime);
+    
+    modOsc.connect(modGain);
+    modGain.connect(baseOsc.frequency);
+    
+    this.oscillators.push(modOsc);
+    this.gainNodes.push(modGain);
+
+    baseOsc.start();
+    modOsc.start();
+  }
+
+  generateRainfall() {
+    if (!this.audioContext) return;
+
+    // White noise for rain sound
+    const bufferSize = this.audioContext.sampleRate * 2;
+    const noiseBuffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = Math.random() * 2 - 1;
+    }
+
+    const whiteNoise = this.audioContext.createBufferSource();
+    whiteNoise.buffer = noiseBuffer;
+    whiteNoise.loop = true;
+
+    const bandpass = this.audioContext.createBiquadFilter();
+    bandpass.type = 'bandpass';
+    bandpass.frequency.setValueAtTime(1000, this.audioContext.currentTime);
+
+    const gainNode = this.audioContext.createGain();
+    gainNode.gain.setValueAtTime(0.05, this.audioContext.currentTime);
+
+    whiteNoise.connect(bandpass);
+    bandpass.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+
+    this.gainNodes.push(gainNode);
+    whiteNoise.start();
+  }
+
+  generateForestAmbient() {
+    if (!this.audioContext) return;
+
+    // Multiple oscillators for forest sounds
+    const frequencies = [200, 400, 800, 1200];
+    
+    frequencies.forEach((freq, index) => {
+      const osc = this.audioContext!.createOscillator();
+      const gain = this.audioContext!.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq + Math.random() * 50, this.audioContext!.currentTime);
+      gain.gain.setValueAtTime(0.02 / (index + 1), this.audioContext!.currentTime);
+      
+      osc.connect(gain);
+      gain.connect(this.audioContext!.destination);
+      
+      this.oscillators.push(osc);
+      this.gainNodes.push(gain);
+      
+      osc.start();
+    });
+  }
+
+  setVolume(volume: number) {
+    this.gainNodes.forEach(gain => {
+      gain.gain.setValueAtTime(volume * 0.1, gain.context.currentTime);
+    });
+  }
+
+  stop() {
+    this.oscillators.forEach(osc => {
+      try {
+        osc.stop();
+      } catch (e) {
+        // Oscillator might already be stopped
+      }
+    });
+    this.oscillators = [];
+    this.gainNodes = [];
+    this.isPlaying = false;
+  }
+
+  getIsPlaying() {
+    return this.isPlaying;
+  }
+
+  setIsPlaying(playing: boolean) {
+    this.isPlaying = playing;
+  }
+}
+
+const ambientSounds = [
+  { id: 'ocean', label: 'Ocean Waves', emoji: '🌊', generator: 'generateOceanWaves' },
+  { id: 'rain', label: 'Gentle Rain', emoji: '🌧️', generator: 'generateRainfall' },
+  { id: 'forest', label: 'Forest Sounds', emoji: '🌲', generator: 'generateForestAmbient' },
+];
+
 export default function WellnessSection() {
   const [selectedExercise, setSelectedExercise] = useState(breathingExercises[0]);
   const [isActive, setIsActive] = useState(false);
@@ -52,6 +193,12 @@ export default function WellnessSection() {
   const [selectedMeditation, setSelectedMeditation] = useState(180);
   const [meditationTime, setMeditationTime] = useState(0);
   const [isMeditating, setIsMeditating] = useState(false);
+  
+  // Ambient sound controls
+  const [selectedSound, setSelectedSound] = useState(ambientSounds[0]);
+  const [isSoundPlaying, setIsSoundPlaying] = useState(false);
+  const [soundVolume, setSoundVolume] = useState([30]);
+  const soundGeneratorRef = useRef<AmbientSoundGenerator>(new AmbientSoundGenerator());
   
   const intervalRef = useRef<NodeJS.Timeout>();
 

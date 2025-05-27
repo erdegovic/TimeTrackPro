@@ -853,6 +853,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Creativity Notes Routes
+  app.get("/api/creativity/notes", authenticate, async (req: Request, res: Response) => {
+    try {
+      const notes = await storage.getCreativityNotes(req.user.id);
+      res.json(notes);
+    } catch (error) {
+      console.error("Error fetching notes:", error);
+      res.status(500).json({ message: "Failed to fetch notes" });
+    }
+  });
+
+  app.post("/api/creativity/notes", authenticate, async (req: Request, res: Response) => {
+    try {
+      const noteData = { ...req.body, userId: req.user.id };
+      const note = await storage.createCreativityNote(noteData);
+      res.json(note);
+    } catch (error) {
+      console.error("Error creating note:", error);
+      res.status(500).json({ message: "Failed to create note" });
+    }
+  });
+
+  app.put("/api/creativity/notes/:id", authenticate, async (req: Request, res: Response) => {
+    try {
+      const noteId = parseInt(req.params.id);
+      const note = await storage.updateCreativityNote(noteId, req.body);
+      res.json(note);
+    } catch (error) {
+      console.error("Error updating note:", error);
+      res.status(500).json({ message: "Failed to update note" });
+    }
+  });
+
+  app.delete("/api/creativity/notes/:id", authenticate, async (req: Request, res: Response) => {
+    try {
+      const noteId = parseInt(req.params.id);
+      await storage.deleteCreativityNote(noteId);
+      res.json({ message: "Note deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      res.status(500).json({ message: "Failed to delete note" });
+    }
+  });
+
+  // Weekly Goals Routes
+  app.get("/api/creativity/goals", authenticate, async (req: Request, res: Response) => {
+    try {
+      const goals = await storage.getWeeklyGoals(req.user.id);
+      res.json(goals);
+    } catch (error) {
+      console.error("Error fetching goals:", error);
+      res.status(500).json({ message: "Failed to fetch goals" });
+    }
+  });
+
+  app.post("/api/creativity/goals", authenticate, async (req: Request, res: Response) => {
+    try {
+      const goalData = { ...req.body, userId: req.user.id };
+      const goal = await storage.createWeeklyGoal(goalData);
+      res.json(goal);
+    } catch (error) {
+      console.error("Error creating goal:", error);
+      res.status(500).json({ message: "Failed to create goal" });
+    }
+  });
+
+  app.put("/api/creativity/goals/:id", authenticate, async (req: Request, res: Response) => {
+    try {
+      const goalId = parseInt(req.params.id);
+      const goal = await storage.updateWeeklyGoal(goalId, req.body);
+      res.json(goal);
+    } catch (error) {
+      console.error("Error updating goal:", error);
+      res.status(500).json({ message: "Failed to update goal" });
+    }
+  });
+
+  app.delete("/api/creativity/goals/:id", authenticate, async (req: Request, res: Response) => {
+    try {
+      const goalId = parseInt(req.params.id);
+      await storage.deleteWeeklyGoal(goalId);
+      res.json({ message: "Goal deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting goal:", error);
+      res.status(500).json({ message: "Failed to delete goal" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
