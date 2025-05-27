@@ -176,11 +176,14 @@ export default function SimpleTimer({
       console.log("Found existing entry:", todayEntry);
       
       if (todayEntry) {
-        // Update existing entry by adding the new duration
-        const existingDuration = parseFloat(todayEntry.duration || "0");
-        const newTotalDuration = existingDuration + duration;
+        // Update existing entry by adding the new duration - use precise decimal arithmetic
+        const existingDurationMs = Math.round(parseFloat(todayEntry.duration || "0") * 3600000); // Convert to milliseconds
+        const newDurationMs = Math.round(duration * 3600000); // Convert to milliseconds
+        const totalMs = existingDurationMs + newDurationMs;
+        const newTotalDuration = totalMs / 3600000; // Convert back to hours
         
-        console.log(`Updating existing entry ${todayEntry.id}: ${existingDuration}h + ${duration}h = ${newTotalDuration}h`);
+        console.log(`Updating existing entry ${todayEntry.id}: ${parseFloat(todayEntry.duration || "0")}h + ${duration}h = ${newTotalDuration}h`);
+        console.log(`Millisecond calculation: ${existingDurationMs}ms + ${newDurationMs}ms = ${totalMs}ms`);
         
         // Update the existing entry
         await fetch(`/api/time-entries/${todayEntry.id}`, {
