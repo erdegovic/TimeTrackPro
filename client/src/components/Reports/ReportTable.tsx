@@ -53,12 +53,29 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
       const res = await apiRequest("POST", "/api/reports", filters);
       const data = await res.json();
       
-      // Apply time adjustments and rounding if needed
-      if (filters.timeAdjustment?.increaseByPercentage || filters.roundingType !== "none") {
-        return processReportData(data, filters);
+      // Handle both old array format and new structured format
+      let structuredData;
+      if (Array.isArray(data)) {
+        // Convert old array format to new structured format
+        structuredData = {
+          timeEntries: data,
+          weeklyData: [],
+          totalHours: 0,
+          totalAmount: 0,
+          timeFormat: filters.timeFormat || "decimal",
+          roundingType: filters.roundingType || "none"
+        };
+      } else {
+        // Already in structured format
+        structuredData = data;
       }
       
-      return data;
+      // Apply time adjustments and rounding if needed
+      if (filters.timeAdjustment?.increaseByPercentage || filters.roundingType !== "none") {
+        return processReportData(structuredData, filters);
+      }
+      
+      return structuredData;
     }
   });
 
