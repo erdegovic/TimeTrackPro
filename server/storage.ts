@@ -66,6 +66,16 @@ export interface IStorage {
   // Settings
   getSettings(): Promise<Settings | undefined>;
   updateSettings(settings: Partial<InsertSettings>): Promise<Settings>;
+
+  // Creativity Features
+  getCreativityNotes(userId: number): Promise<any[]>;
+  createCreativityNote(note: any): Promise<any>;
+  updateCreativityNote(id: number, note: any): Promise<any>;
+  deleteCreativityNote(id: number): Promise<void>;
+  getWeeklyGoals(userId: number): Promise<any[]>;
+  createWeeklyGoal(goal: any): Promise<any>;
+  updateWeeklyGoal(id: number, goal: any): Promise<any>;
+  deleteWeeklyGoal(id: number): Promise<void>;
 }
 
 // This class is no longer used, replaced by DatabaseStorage

@@ -463,4 +463,51 @@ export class DatabaseStorage implements IStorage {
       showDueDate: true,
     };
   }
+
+  // Creativity Features
+  async getCreativityNotes(userId: number): Promise<any[]> {
+    const notes = await db.select().from(creativityNotes).where(eq(creativityNotes.userId, userId));
+    return notes;
+  }
+
+  async createCreativityNote(noteData: any): Promise<any> {
+    const [note] = await db.insert(creativityNotes).values(noteData).returning();
+    return note;
+  }
+
+  async updateCreativityNote(id: number, noteData: any): Promise<any> {
+    const [note] = await db
+      .update(creativityNotes)
+      .set({ ...noteData, updatedAt: new Date() })
+      .where(eq(creativityNotes.id, id))
+      .returning();
+    return note;
+  }
+
+  async deleteCreativityNote(id: number): Promise<void> {
+    await db.delete(creativityNotes).where(eq(creativityNotes.id, id));
+  }
+
+  async getWeeklyGoals(userId: number): Promise<any[]> {
+    const goals = await db.select().from(weeklyGoals).where(eq(weeklyGoals.userId, userId));
+    return goals;
+  }
+
+  async createWeeklyGoal(goalData: any): Promise<any> {
+    const [goal] = await db.insert(weeklyGoals).values(goalData).returning();
+    return goal;
+  }
+
+  async updateWeeklyGoal(id: number, goalData: any): Promise<any> {
+    const [goal] = await db
+      .update(weeklyGoals)
+      .set({ ...goalData, updatedAt: new Date() })
+      .where(eq(weeklyGoals.id, id))
+      .returning();
+    return goal;
+  }
+
+  async deleteWeeklyGoal(id: number): Promise<void> {
+    await db.delete(weeklyGoals).where(eq(weeklyGoals.id, id));
+  }
 }
