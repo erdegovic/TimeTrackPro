@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Music, FileText, Lightbulb, Target, Heart, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import MusicPlayer from "./MusicPlayer";
+import NotesSection from "./NotesSection";
+import InspirationSection from "./InspirationSection";
+import WeeklyGoals from "./WeeklyGoals";
+import WellnessSection from "./WellnessSection";
 
 interface CreativitySidebarProps {
   isCollapsed?: boolean;
@@ -111,64 +116,11 @@ export default function CreativitySidebar({ isCollapsed = false, onToggle }: Cre
         {/* Content Area */}
         {!isCollapsed && (
           <div className="flex-1 p-4 overflow-y-auto">
-            <div className="space-y-4">
-              {/* Placeholder content for now */}
-              <div className="tickd-card p-6 tickd-hover-lift">
-                <div className={`w-full h-32 rounded-xl bg-gradient-to-br ${
-                  sections.find(s => s.id === activeSection)?.color || 'from-gray-400 to-gray-500'
-                } flex items-center justify-center mb-4`}>
-                  <div className="text-white text-center">
-                    <div className="text-3xl mb-2">🎵</div>
-                    <div className="text-sm font-medium">Coming Soon</div>
-                  </div>
-                </div>
-                <h3 className="text-lg font-semibold mb-2 tickd-text">
-                  {sections.find(s => s.id === activeSection)?.label} Section
-                </h3>
-                <p className="tickd-light-text text-sm">
-                  Beautiful {activeSection} features will be implemented here with smooth animations and delightful interactions.
-                </p>
-              </div>
-
-              {/* Preview of multiple feature cards */}
-              <div className="grid grid-cols-1 gap-3">
-                <div className="tickd-card p-4 tickd-hover-lift bg-gradient-to-r from-white/60 to-white/40">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center">
-                      <span className="text-white text-xs">♪</span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">Feature 1</div>
-                      <div className="text-xs tickd-light-text">Interactive element</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="tickd-card p-4 tickd-hover-lift bg-gradient-to-r from-white/60 to-white/40">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-cyan-400 flex items-center justify-center">
-                      <span className="text-white text-xs">✨</span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">Feature 2</div>
-                      <div className="text-xs tickd-light-text">Creative tool</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="tickd-card p-4 tickd-hover-lift bg-gradient-to-r from-white/60 to-white/40">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-400 to-emerald-400 flex items-center justify-center">
-                      <span className="text-white text-xs">🎯</span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">Feature 3</div>
-                      <div className="text-xs tickd-light-text">Productivity boost</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {activeSection === "music" && <MusicPlayer />}
+            {activeSection === "notes" && <NotesSection />}
+            {activeSection === "inspiration" && <InspirationSection />}
+            {activeSection === "goals" && <WeeklyGoals />}
+            {activeSection === "wellness" && <WellnessSection />}
           </div>
         )}
 
