@@ -56,12 +56,29 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
       // Handle both old array format and new structured format
       let structuredData;
       if (Array.isArray(data)) {
-        // Convert old array format to new structured format
+        // Convert old array format to new structured format and group by weeks
+        const groupedByWeek = data.reduce((acc: any, entry: any) => {
+          const weekKey = entry.weekLabel || `Week ${entry.weekNumber}`;
+          if (!acc[weekKey]) {
+            acc[weekKey] = {
+              weekNumber: entry.weekNumber || 1,
+              weekLabel: weekKey,
+              totalHours: 0,
+              totalAmount: 0,
+              entries: []
+            };
+          }
+          acc[weekKey].entries.push(entry);
+          acc[weekKey].totalHours += parseFloat(entry.duration) || 0;
+          acc[weekKey].totalAmount += parseFloat(entry.amount) || 0;
+          return acc;
+        }, {});
+
         structuredData = {
           timeEntries: data,
-          weeklyData: [],
-          totalHours: 0,
-          totalAmount: 0,
+          weeklyData: Object.values(groupedByWeek),
+          totalHours: data.reduce((sum: number, entry: any) => sum + (parseFloat(entry.duration) || 0), 0),
+          totalAmount: data.reduce((sum: number, entry: any) => sum + (parseFloat(entry.amount) || 0), 0),
           timeFormat: filters.timeFormat || "decimal",
           roundingType: filters.roundingType || "none"
         };
