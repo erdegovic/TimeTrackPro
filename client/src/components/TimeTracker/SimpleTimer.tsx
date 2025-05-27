@@ -125,12 +125,13 @@ export default function SimpleTimer({
     const duration = diffMs / (1000 * 60 * 60); // Convert to hours
     
     console.log("Timer stopped with data:", {
-      seconds: time,
+      actualSeconds: Math.floor(diffMs / 1000),
+      timerSeconds: time,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString()
     });
     
-    console.log("Client calculated exact duration:", duration.toFixed(4), "hours from", diffMs, "ms");
+    console.log("Client calculated exact duration:", duration.toFixed(4), "hours from", diffMs, "ms (", Math.floor(diffMs / 1000), "actual seconds)");
     
     // Format dates for database
     const dateStr = startTime.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -211,12 +212,9 @@ export default function SimpleTimer({
         });
       }
       
-      // Trigger cache invalidation by calling the old callback with no-op data
-      onStop({
-        seconds: 0, // This won't be used anymore
-        startTime: startTime,
-        endTime: endTime
-      });
+      // Don't call the old callback - it creates duplicates
+      // Just invalidate the cache manually
+      window.dispatchEvent(new CustomEvent('timeEntryUpdated'));
       
     } catch (error) {
       console.error("Error in same-day merging logic:", error);

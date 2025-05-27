@@ -231,30 +231,15 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
                   
                   console.log("Saving time entry:", timeEntry);
                   
-                  try {
-                    // Save time entry using the special timer endpoint
-                    const result = await apiRequest("POST", "/api/tracker/time-entries", timeEntry);
-                    console.log("Time entry saved:", result);
-                    
-                    // Show success toast
-                    toast({
-                      title: "Time entry saved",
-                      description: "Your time entry has been saved successfully.",
-                    });
-                    
-                    // Reset form
-                    setDescription("");
-                    
-                    // Invalidate the time entries query to refresh the list
-                    queryClient.invalidateQueries({ queryKey: ['/api/time-entries'] });
-                  } catch (error) {
-                    console.error("Error saving time entry:", error);
-                    toast({
-                      title: "Error",
-                      description: "Failed to save time entry. Please try again.",
-                      variant: "destructive",
-                    });
-                  }
+                  // BYPASS OLD SAVE LOGIC - SimpleTimer now handles everything
+                  // This prevents the duplicate creation issue
+                  console.log("Timer data received but bypassed - SimpleTimer handles save logic");
+                  
+                  // Just invalidate cache to refresh UI
+                  queryClient.invalidateQueries({ queryKey: ['/api/time-entries'] });
+                  
+                  // Reset form
+                  setDescription("");
                 }}
               />
             </div>
