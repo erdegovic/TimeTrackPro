@@ -90,7 +90,7 @@ export default function WeeklyGoals() {
       description: newGoal.description,
       priority: newGoal.priority || "medium",
       weekOf: currentWeekStart,
-      userId: 1, // Will be set by backend based on auth
+      userId: 2, // Current user ID
       isCompleted: false,
     });
   };

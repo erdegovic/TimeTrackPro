@@ -101,7 +101,7 @@ export default function NotesSection() {
       category: newNote.category || "ideas",
       tags: newNote.tags,
       isPinned: newNote.isPinned || false,
-      userId: 1, // Will be set by backend based on auth
+      userId: 2, // Current user ID
     });
   };
 

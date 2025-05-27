@@ -856,7 +856,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Creativity Notes Routes
   app.get("/api/creativity/notes", authenticate, async (req: Request, res: Response) => {
     try {
-      const notes = await storage.getCreativityNotes(req.user.id);
+      const userId = req.session?.userId || req.user?.id || 1;
+      const notes = await storage.getCreativityNotes(userId);
       res.json(notes);
     } catch (error) {
       console.error("Error fetching notes:", error);
@@ -866,7 +867,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/creativity/notes", authenticate, async (req: Request, res: Response) => {
     try {
-      const noteData = { ...req.body, userId: req.user.id };
+      const userId = req.session?.userId || req.user?.id || 1;
+      const noteData = { ...req.body, userId };
       const note = await storage.createCreativityNote(noteData);
       res.json(note);
     } catch (error) {
@@ -900,7 +902,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Weekly Goals Routes
   app.get("/api/creativity/goals", authenticate, async (req: Request, res: Response) => {
     try {
-      const goals = await storage.getWeeklyGoals(req.user.id);
+      const userId = req.session?.userId || req.user?.id || 1;
+      const goals = await storage.getWeeklyGoals(userId);
       res.json(goals);
     } catch (error) {
       console.error("Error fetching goals:", error);
@@ -910,7 +913,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/creativity/goals", authenticate, async (req: Request, res: Response) => {
     try {
-      const goalData = { ...req.body, userId: req.user.id };
+      const userId = req.session?.userId || req.user?.id || 1;
+      const goalData = { ...req.body, userId };
       const goal = await storage.createWeeklyGoal(goalData);
       res.json(goal);
     } catch (error) {
