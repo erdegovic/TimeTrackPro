@@ -10,6 +10,7 @@ import {
   ReportFilters
 } from "@shared/schema";
 import { db } from "./db";
+import * as schema from "@shared/schema";
 import { eq, and, between, desc, sql, like } from "drizzle-orm";
 import { IStorage } from "./storage";
 import { addWeeks, format, parseISO, startOfWeek, endOfWeek, getWeekOfMonth, getYear, getMonth } from "date-fns";
@@ -467,13 +468,13 @@ export class DatabaseStorage implements IStorage {
 
   // Creativity Features - Database storage
   async getCreativityNotes(userId: number): Promise<any[]> {
-    const notes = await db.select().from(creativityNotes).where(eq(creativityNotes.userId, userId));
+    const notes = await db.select().from(schema.creativityNotes).where(eq(schema.creativityNotes.userId, userId));
     return notes;
   }
 
   async createCreativityNote(noteData: any): Promise<any> {
     const [note] = await db
-      .insert(creativityNotes)
+      .insert(schema.creativityNotes)
       .values({
         userId: noteData.userId,
         title: noteData.title,
