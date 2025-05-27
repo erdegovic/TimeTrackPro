@@ -464,32 +464,34 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // Creativity Features - Using in-memory storage for now
+  // Creativity Features - Simple in-memory storage that persists during session
+  private creativityNotesStore: Map<number, any[]> = new Map();
+  private creativityGoalsStore: Map<number, any[]> = new Map();
+
   async getCreativityNotes(userId: number): Promise<any[]> {
-    // Return mock data for now until we implement proper database tables
-    return [
-      {
-        id: 1,
-        title: "Creative Ideas",
-        content: "This is a test note to show the interface is working!",
-        category: "ideas",
-        tags: "creativity,inspiration",
-        isPinned: false,
-        userId: userId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-    ];
+    if (!this.creativityNotesStore.has(userId)) {
+      this.creativityNotesStore.set(userId, []);
+    }
+    return this.creativityNotesStore.get(userId) || [];
   }
 
   async createCreativityNote(noteData: any): Promise<any> {
-    // Simulate successful creation
+    const userId = noteData.userId;
+    if (!this.creativityNotesStore.has(userId)) {
+      this.creativityNotesStore.set(userId, []);
+    }
+    
     const newNote = {
-      id: Math.floor(Math.random() * 1000),
+      id: Date.now(), // Use timestamp as ID
       ...noteData,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+    
+    const userNotes = this.creativityNotesStore.get(userId) || [];
+    userNotes.push(newNote);
+    this.creativityNotesStore.set(userId, userNotes);
+    
     return newNote;
   }
 
@@ -507,30 +509,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getWeeklyGoals(userId: number): Promise<any[]> {
-    // Return mock data for now
-    return [
-      {
-        id: 1,
-        title: "Complete project tasks",
-        description: "Finish the weekly milestones",
-        priority: "high",
-        weekOf: new Date().toISOString().split('T')[0],
-        isCompleted: false,
-        userId: userId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-    ];
+    if (!this.creativityGoalsStore.has(userId)) {
+      this.creativityGoalsStore.set(userId, []);
+    }
+    return this.creativityGoalsStore.get(userId) || [];
   }
 
   async createWeeklyGoal(goalData: any): Promise<any> {
-    // Simulate successful creation
+    const userId = goalData.userId;
+    if (!this.creativityGoalsStore.has(userId)) {
+      this.creativityGoalsStore.set(userId, []);
+    }
+    
     const newGoal = {
-      id: Math.floor(Math.random() * 1000),
+      id: Date.now() + Math.floor(Math.random() * 100), // Unique timestamp ID
       ...goalData,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+    
+    const userGoals = this.creativityGoalsStore.get(userId) || [];
+    userGoals.push(newGoal);
+    this.creativityGoalsStore.set(userId, userGoals);
+    
     return newGoal;
   }
 
