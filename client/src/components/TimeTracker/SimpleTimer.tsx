@@ -108,32 +108,129 @@ export default function SimpleTimer({
     }));
   };
 
-  // Stop the timer
-  const handleStop = () => {
-    if (!isRunning || !startTime) return;
+  // Stop the timer with same-day merging logic
+  const handleStop = async () => {
+    if (!isRunning || !startTime || !projectId) return;
     
     console.log("Stopping timer...");
+    
     // Clear the interval
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
     
-    // Calculate duration
     const endTime = new Date();
+    const diffMs = endTime.getTime() - startTime.getTime();
+    const duration = diffMs / (1000 * 60 * 60); // Convert to hours
     
-    // Reset state
-    setIsRunning(false);
-    
-    // Remove from localStorage
-    localStorage.removeItem("timeTracker");
-    
-    // Call the onStop callback
-    onStop({
+    console.log("Timer stopped with data:", {
       seconds: time,
-      startTime: startTime,
-      endTime: endTime
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString()
     });
+    
+    console.log("Client calculated exact duration:", duration.toFixed(4), "hours from", diffMs, "ms");
+    
+    // Format dates for database
+    const dateStr = startTime.toISOString().split('T')[0]; // YYYY-MM-DD
+    const monthStr = startTime.toLocaleDateString('en-US', { month: 'long' });
+    const yearNum = startTime.getFullYear();
+    const weekNum = Math.ceil(startTime.getDate() / 7);
+    const weekLabel = `Week ${weekNum}`;
+    
+    try {
+      // Check for existing entry with same description, project, and date
+      const response = await fetch("/api/time-entries");
+      const existingEntries = await response.json();
+      
+      console.log("Checking for existing entries on date:", dateStr);
+      console.log("Looking for description:", description, "projectId:", projectId);
+      console.log("All existing entries:", existingEntries.map((e: any) => ({
+        id: e.id,
+        description: e.description,
+        projectId: e.projectId,
+        date: e.date
+      })));
+      
+      const todayEntry = existingEntries.find((entry: any) => 
+        entry.description === description &&
+        entry.projectId === projectId &&
+        entry.date === dateStr
+      );
+      
+      console.log("Found existing entry:", todayEntry);
+      
+      if (todayEntry) {
+        // Update existing entry by adding the new duration
+        const existingDuration = parseFloat(todayEntry.duration || "0");
+        const newTotalDuration = existingDuration + duration;
+        
+        console.log(`Updating existing entry ${todayEntry.id}: ${existingDuration}h + ${duration}h = ${newTotalDuration}h`);
+        
+        // Update the existing entry
+        await fetch(`/api/time-entries/${todayEntry.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description: todayEntry.description,
+            projectId: todayEntry.projectId,
+            startTime: todayEntry.startTime,
+            endTime: endTime.toISOString(),
+            duration: newTotalDuration.toString(),
+            date: todayEntry.date,
+            month: todayEntry.month,
+            year: todayEntry.year,
+            weekNumber: todayEntry.weekNumber,
+            weekLabel: todayEntry.weekLabel,
+            billable: todayEntry.billable
+          }),
+        });
+        
+        console.log("Successfully updated existing entry");
+      } else {
+        console.log("No existing entry found, creating new one");
+        
+        // Create new entry
+        await fetch("/api/tracker/time-entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description,
+            projectId,
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString(),
+            duration: duration.toString(),
+            date: dateStr,
+            month: monthStr,
+            year: yearNum,
+            weekNumber: weekNum,
+            weekLabel: weekLabel,
+            billable: true,
+          }),
+        });
+      }
+      
+      // Trigger cache invalidation by calling the old callback with no-op data
+      onStop({
+        seconds: 0, // This won't be used anymore
+        startTime: startTime,
+        endTime: endTime
+      });
+      
+    } catch (error) {
+      console.error("Error in same-day merging logic:", error);
+      // Fallback to old behavior if there's an error
+      onStop({
+        seconds: time,
+        startTime: startTime,
+        endTime: endTime
+      });
+    }
+    
+    // Reset state and cleanup
+    setIsRunning(false);
+    localStorage.removeItem("timeTracker");
   };
 
   // Format the time to a string in HH:MM:SS format
