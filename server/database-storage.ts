@@ -212,33 +212,43 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTimeEntriesByFilters(filters: ReportFilters): Promise<TimeEntry[]> {
-    let query = db.select().from(timeEntries);
+    let whereConditions = [];
 
+    // Filter by client (through projects)
     if (filters.clientId) {
-      // To filter by client, we need to join with projects
-      query = db
-        .select({ timeEntries })
-        .from(timeEntries)
-        .innerJoin(projects, eq(timeEntries.projectId, projects.id))
-        .where(eq(projects.clientId, filters.clientId))
-        .orderBy(desc(timeEntries.date)) as any;
-    } else if (filters.projectId) {
-      query = query.where(eq(timeEntries.projectId, filters.projectId));
+      whereConditions.push(
+        sql`${timeEntries.projectId} IN (
+          SELECT ${projects.id} FROM ${projects} 
+          WHERE ${projects.clientId} = ${filters.clientId}
+        )`
+      );
     }
 
+    // Filter by project
+    if (filters.projectId) {
+      whereConditions.push(eq(timeEntries.projectId, filters.projectId));
+    }
+
+    // Filter by date range
     if (filters.startDate && filters.endDate) {
-      query = query.where(
-        and(
-          sql`${timeEntries.date} >= ${filters.startDate}`,
-          sql`${timeEntries.date} <= ${filters.endDate}`
-        )
+      whereConditions.push(
+        sql`${timeEntries.date} >= ${filters.startDate}`
+      );
+      whereConditions.push(
+        sql`${timeEntries.date} <= ${filters.endDate}`
       );
     }
 
     // Only get non-invoiced entries
-    query = query.where(sql`${timeEntries.invoiceId} IS NULL`);
+    whereConditions.push(sql`${timeEntries.invoiceId} IS NULL`);
 
-    return await query.orderBy(desc(timeEntries.date));
+    const query = db
+      .select()
+      .from(timeEntries)
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+      .orderBy(desc(timeEntries.date));
+
+    return await query;
   }
 
   async getTimeEntry(id: number): Promise<TimeEntry | undefined> {
