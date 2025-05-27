@@ -464,87 +464,85 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // Creativity Features - Simple in-memory storage that persists during session
-  private creativityNotesStore: Map<number, any[]> = new Map();
-  private creativityGoalsStore: Map<number, any[]> = new Map();
-
+  // Creativity Features - Database storage
   async getCreativityNotes(userId: number): Promise<any[]> {
-    if (!this.creativityNotesStore.has(userId)) {
-      this.creativityNotesStore.set(userId, []);
-    }
-    return this.creativityNotesStore.get(userId) || [];
+    const notes = await db.select().from(creativityNotes).where(eq(creativityNotes.userId, userId));
+    return notes;
   }
 
   async createCreativityNote(noteData: any): Promise<any> {
-    const userId = noteData.userId;
-    if (!this.creativityNotesStore.has(userId)) {
-      this.creativityNotesStore.set(userId, []);
-    }
-    
-    const newNote = {
-      id: Date.now(), // Use timestamp as ID
-      ...noteData,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    const userNotes = this.creativityNotesStore.get(userId) || [];
-    userNotes.push(newNote);
-    this.creativityNotesStore.set(userId, userNotes);
-    
-    return newNote;
+    const [note] = await db
+      .insert(creativityNotes)
+      .values({
+        userId: noteData.userId,
+        title: noteData.title,
+        content: noteData.content,
+        category: noteData.category || null,
+        tags: noteData.tags || null,
+        isPinned: noteData.isPinned || false
+      })
+      .returning();
+    return note;
   }
 
   async updateCreativityNote(id: number, noteData: any): Promise<any> {
-    // Simulate successful update
-    return {
-      id,
-      ...noteData,
-      updatedAt: new Date().toISOString()
-    };
+    const [note] = await db
+      .update(creativityNotes)
+      .set({
+        title: noteData.title,
+        content: noteData.content,
+        category: noteData.category,
+        tags: noteData.tags,
+        isPinned: noteData.isPinned,
+        updatedAt: new Date()
+      })
+      .where(eq(creativityNotes.id, id))
+      .returning();
+    return note;
   }
 
   async deleteCreativityNote(id: number): Promise<void> {
-    // Simulate successful deletion
+    await db.delete(creativityNotes).where(eq(creativityNotes.id, id));
   }
 
   async getWeeklyGoals(userId: number): Promise<any[]> {
-    if (!this.creativityGoalsStore.has(userId)) {
-      this.creativityGoalsStore.set(userId, []);
-    }
-    return this.creativityGoalsStore.get(userId) || [];
+    const goals = await db.select().from(weeklyGoals).where(eq(weeklyGoals.userId, userId));
+    return goals;
   }
 
   async createWeeklyGoal(goalData: any): Promise<any> {
-    const userId = goalData.userId;
-    if (!this.creativityGoalsStore.has(userId)) {
-      this.creativityGoalsStore.set(userId, []);
-    }
-    
-    const newGoal = {
-      id: Date.now() + Math.floor(Math.random() * 100), // Unique timestamp ID
-      ...goalData,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    const userGoals = this.creativityGoalsStore.get(userId) || [];
-    userGoals.push(newGoal);
-    this.creativityGoalsStore.set(userId, userGoals);
-    
-    return newGoal;
+    const [goal] = await db
+      .insert(weeklyGoals)
+      .values({
+        userId: goalData.userId,
+        title: goalData.title,
+        description: goalData.description || null,
+        isCompleted: goalData.isCompleted || false,
+        priority: goalData.priority || null,
+        weekOf: goalData.weekOf
+      })
+      .returning();
+    return goal;
   }
 
   async updateWeeklyGoal(id: number, goalData: any): Promise<any> {
-    // Simulate successful update
-    return {
-      id,
-      ...goalData,
-      updatedAt: new Date().toISOString()
-    };
+    const [goal] = await db
+      .update(weeklyGoals)
+      .set({
+        title: goalData.title,
+        description: goalData.description,
+        isCompleted: goalData.isCompleted,
+        priority: goalData.priority,
+        weekOf: goalData.weekOf,
+        completedAt: goalData.isCompleted ? new Date() : null,
+        updatedAt: new Date()
+      })
+      .where(eq(weeklyGoals.id, id))
+      .returning();
+    return goal;
   }
 
   async deleteWeeklyGoal(id: number): Promise<void> {
-    // Simulate successful deletion
+    await db.delete(weeklyGoals).where(eq(weeklyGoals.id, id));
   }
 }
