@@ -199,10 +199,13 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
                   className="w-36 justify-between" 
                   disabled={!selectedClientId}
                 >
-                  {selectedProjectId ? 
-                    allProjects.find(p => p.id === selectedProjectId)?.name || "Select project" : 
+                  {selectedProjectId ? (
+                    <span style={{ color: allProjects.find(p => p.id === selectedProjectId)?.color || "#000000" }}>
+                      {allProjects.find(p => p.id === selectedProjectId)?.name || "Select project"}
+                    </span>
+                  ) : (
                     "Project"
-                  }
+                  )}
                   <ChevronDown className="h-4 w-4 opacity-50" />
                 </Button>
               </PopoverTrigger>
@@ -227,7 +230,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
                         {selectedProjectId === project.id && <Check className="h-4 w-4 mr-2" />}
                         <span 
                           className={selectedProjectId === project.id ? "ml-0" : "ml-6"}
-                          style={{ color: (project as any).color || "#3B82F6" }}
+                          style={{ color: (project as any).color || "#000000" }}
                         >
                           {project.name}
                         </span>
