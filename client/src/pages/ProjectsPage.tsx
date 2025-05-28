@@ -62,7 +62,11 @@ export default function ProjectsPage() {
   const columns = [
     {
       header: "Name",
-      accessorKey: "name",
+      accessorKey: (row: Project) => (
+        <span style={{ color: row.color || "#000000" }} className="font-medium">
+          {row.name}
+        </span>
+      ),
       className: "font-medium",
     },
     {

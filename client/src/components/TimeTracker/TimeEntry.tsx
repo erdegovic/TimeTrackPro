@@ -235,7 +235,11 @@ export default function TimeEntryRow({
       <tr className={newEntryClass}>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.description}</td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.client?.name || "—"}</td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.project?.name || "—"}</td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+          <span style={{ color: entry.project?.color || "#000000" }}>
+            {entry.project?.name || "—"}
+          </span>
+        </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-medium text-gray-900">
           {formatDuration(entry.duration || 0)}
         </td>
