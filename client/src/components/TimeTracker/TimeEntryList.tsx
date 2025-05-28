@@ -295,15 +295,8 @@ export default function TimeEntryList() {
 
   // Handle play button click - use direct timer hook for synchronization
   const handlePlay = (description: string, projectId: number) => {
-    // Find the project to get the client ID
-    const project = projects.find(p => p.id === projectId);
-    const clientId = project?.clientId;
-    
-    // Send event to TimeTrackerPage to use the proper useTimeTracker hook
-    const playEvent = new CustomEvent('startTimerWithMerging', {
-      detail: { description, projectId, clientId }
-    });
-    window.dispatchEvent(playEvent);
+    // Use the unified timer hook directly for complete synchronization
+    startTimerWithData(description, projectId);
     
     toast({
       title: "Timer started",
