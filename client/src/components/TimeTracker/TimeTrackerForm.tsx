@@ -3,6 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Keyboard } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { Check, ChevronDown } from "lucide-react";
 import { Client, Project, TimeEntry } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -21,6 +24,8 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [isTimerActive, setIsTimerActive] = useState(false);
+  const [clientSearchTerm, setClientSearchTerm] = useState("");
+  const [projectSearchTerm, setProjectSearchTerm] = useState("");
   
   // On component mount, check if there's an active timer and initialize form state
   useEffect(() => {
@@ -59,16 +64,26 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
     }
   });
 
-  // Fetch projects for the selected client
-  const { data: projects = [] } = useQuery({
-    queryKey: ["/api/projects", selectedClientId],
+  // Fetch all projects but filter by client locally for better performance
+  const { data: allProjects = [] } = useQuery({
+    queryKey: ["/api/projects"],
     queryFn: async () => {
-      if (!selectedClientId) return [];
-      const response = await fetch(`/api/projects?clientId=${selectedClientId}`);
+      const response = await fetch("/api/projects");
       if (!response.ok) throw new Error("Failed to fetch projects");
       return response.json() as Promise<Project[]>;
-    },
-    enabled: !!selectedClientId
+    }
+  });
+
+  // Filter clients based on search term
+  const filteredClients = clients.filter(client =>
+    client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
+  );
+
+  // Filter projects based on selected client and search term
+  const filteredProjects = allProjects.filter(project => {
+    const matchesClient = selectedClientId ? project.clientId === selectedClientId : false;
+    const matchesSearch = project.name.toLowerCase().includes(projectSearchTerm.toLowerCase());
+    return matchesClient && matchesSearch;
   });
 
   // Listen for play button events from time entries
@@ -99,7 +114,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
       window.removeEventListener('startTimerFromEntry', handleStartTimerFromEntry as EventListener);
       window.removeEventListener('startTimerWithMerging', handleStartTimerFromEntry as EventListener);
     };
-  }, [projects]);
+  }, [allProjects]);
 
   // Handle client selection
   const handleClientChange = (value: string) => {
@@ -129,54 +144,107 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
               </div>
             </div>
             
-            <Select 
-              value={selectedClientId?.toString()} 
-              onValueChange={(value) => {
-                console.log("Client selected:", value);
-                if (value === "new") {
-                  if (onAddClient) {
-                    onAddClient();
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-36 justify-between">
+                  {selectedClientId ? 
+                    clients.find(c => c.id === selectedClientId)?.name || "Select client" : 
+                    "Client"
                   }
-                } else {
-                  handleClientChange(value);
-                }
-              }}
-            >
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="Client" />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id.toString()}>{client.name}</SelectItem>
-                ))}
-                <SelectItem value="new">+ Add new client</SelectItem>
-              </SelectContent>
-            </Select>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-0">
+                <div className="p-2">
+                  <Input
+                    placeholder="Search clients..."
+                    value={clientSearchTerm}
+                    onChange={(e) => setClientSearchTerm(e.target.value)}
+                    className="mb-2"
+                  />
+                  <div className="max-h-40 overflow-y-auto">
+                    {filteredClients.map((client) => (
+                      <div
+                        key={client.id}
+                        className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded"
+                        onClick={() => {
+                          handleClientChange(client.id.toString());
+                          setClientSearchTerm("");
+                        }}
+                      >
+                        {selectedClientId === client.id && <Check className="h-4 w-4 mr-2" />}
+                        <span className={selectedClientId === client.id ? "ml-0" : "ml-6"}>
+                          {client.name}
+                        </span>
+                      </div>
+                    ))}
+                    <div
+                      className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded border-t mt-1 pt-2"
+                      onClick={() => {
+                        if (onAddClient) onAddClient();
+                        setClientSearchTerm("");
+                      }}
+                    >
+                      <span className="ml-6">+ Add new client</span>
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
             
-            <Select 
-              value={selectedProjectId?.toString()} 
-              onValueChange={(val) => {
-                console.log("Project selected:", val);
-                if (val === "new") {
-                  if (onAddProject && selectedClientId) {
-                    onAddProject(selectedClientId);
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className="w-36 justify-between" 
+                  disabled={!selectedClientId}
+                >
+                  {selectedProjectId ? 
+                    allProjects.find(p => p.id === selectedProjectId)?.name || "Select project" : 
+                    "Project"
                   }
-                } else {
-                  setSelectedProjectId(Number(val));
-                }
-              }}
-              disabled={!selectedClientId}
-            >
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="Project" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id.toString()}>{project.name}</SelectItem>
-                ))}
-                <SelectItem value="new">+ Add new project</SelectItem>
-              </SelectContent>
-            </Select>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-0">
+                <div className="p-2">
+                  <Input
+                    placeholder="Search projects..."
+                    value={projectSearchTerm}
+                    onChange={(e) => setProjectSearchTerm(e.target.value)}
+                    className="mb-2"
+                  />
+                  <div className="max-h-40 overflow-y-auto">
+                    {filteredProjects.map((project) => (
+                      <div
+                        key={project.id}
+                        className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded"
+                        onClick={() => {
+                          setSelectedProjectId(project.id);
+                          setProjectSearchTerm("");
+                        }}
+                      >
+                        {selectedProjectId === project.id && <Check className="h-4 w-4 mr-2" />}
+                        <span className={selectedProjectId === project.id ? "ml-0" : "ml-6"}>
+                          {project.name}
+                        </span>
+                      </div>
+                    ))}
+                    {selectedClientId && (
+                      <div
+                        className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded border-t mt-1 pt-2"
+                        onClick={() => {
+                          if (onAddProject && selectedClientId) onAddProject(selectedClientId);
+                          setProjectSearchTerm("");
+                        }}
+                      >
+                        <span className="ml-6">+ Add new project</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
 
             <div className="flex-shrink-0">
               <SimpleTimer 
@@ -279,7 +347,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
                   <SelectValue placeholder="Select client" />
                 </SelectTrigger>
                 <SelectContent>
-                  {clients.map((client) => (
+                  {filteredClients.map((client) => (
                     <SelectItem key={client.id} value={client.id.toString()}>{client.name}</SelectItem>
                   ))}
                   <SelectItem value="new">+ Add new client</SelectItem>
@@ -304,7 +372,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
                   <SelectValue placeholder="Select project" />
                 </SelectTrigger>
                 <SelectContent>
-                  {projects.map((project) => (
+                  {filteredProjects.map((project) => (
                     <SelectItem key={project.id} value={project.id.toString()}>{project.name}</SelectItem>
                   ))}
                   <SelectItem value="new">+ Add new project</SelectItem>
