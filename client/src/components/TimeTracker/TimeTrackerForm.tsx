@@ -111,31 +111,99 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
   return (
     <div className="tickd-card-elevated tickd-spacing-lg">
       <div className="max-w-full">
-        <div className="flex flex-col gap-6">
-          {/* First Row: Description Input - Always Full Width */}
-          <div className="w-full">
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 opacity-70"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="M6 8h.001"></path><path d="M10 8h.001"></path><path d="M14 8h.001"></path><path d="M18 8h.001"></path><path d="M8 12h.001"></path><path d="M12 12h.001"></path><path d="M16 12h.001"></path><path d="M7 16h10"></path></svg>
-              </span>
-              <Input
-                type="text"
-                placeholder="What are you working on?"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full pl-10"
-              />
+        <div className="flex flex-col gap-4">
+          {/* Desktop: Single Row Layout */}
+          <div className="hidden md:flex md:items-center gap-2.5 w-full">
+            <div className="flex-1">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 opacity-70"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="M6 8h.001"></path><path d="M10 8h.001"></path><path d="M14 8h.001"></path><path d="M18 8h.001"></path><path d="M8 12h.001"></path><path d="M12 12h.001"></path><path d="M16 12h.001"></path><path d="M7 16h10"></path></svg>
+                </span>
+                <Input
+                  type="text"
+                  placeholder="What are you working on?"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full pl-10"
+                />
+              </div>
             </div>
-          </div>
-          
-          {/* Second Row: Client and Project Selectors - Stack on Small Screens */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-            <Select 
+            
+            <div className="flex gap-2.5">
+              <Select 
                 value={selectedClientId?.toString()} 
                 onValueChange={(value) => {
                   console.log("Client selected:", value);
                   if (value === "new") {
-                    // Show the client dialog through the callback
+                    if (onAddClient) {
+                      onAddClient();
+                    }
+                  } else {
+                    handleClientChange(value);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Select client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id.toString()}>{client.name}</SelectItem>
+                  ))}
+                  <SelectItem value="new">+ Add new client</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select 
+                value={selectedProjectId?.toString()} 
+                onValueChange={(val) => {
+                  console.log("Project selected:", val);
+                  if (val === "new") {
+                    if (onAddProject && selectedClientId) {
+                      onAddProject(selectedClientId);
+                    }
+                  } else {
+                    setSelectedProjectId(Number(val));
+                  }
+                }}
+                disabled={!selectedClientId}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Select project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>{project.name}</SelectItem>
+                  ))}
+                  <SelectItem value="new">+ Add new project</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Mobile: Stacked Layout */}
+          <div className="md:hidden flex flex-col gap-4">
+            <div className="w-full">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 opacity-70"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="M6 8h.001"></path><path d="M10 8h.001"></path><path d="M14 8h.001"></path><path d="M18 8h.001"></path><path d="M8 12h.001"></path><path d="M12 12h.001"></path><path d="M16 12h.001"></path><path d="M7 16h10"></path></svg>
+                </span>
+                <Input
+                  type="text"
+                  placeholder="What are you working on?"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full pl-10"
+                />
+              </div>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <Select 
+                value={selectedClientId?.toString()} 
+                onValueChange={(value) => {
+                  console.log("Client selected:", value);
+                  if (value === "new") {
                     if (onAddClient) {
                       onAddClient();
                     }
@@ -145,44 +213,44 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
                 }}
               >
                 <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select client" />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id.toString()}>{client.name}</SelectItem>
-                ))}
-                <SelectItem value="new">+ Add new client</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select 
-              value={selectedProjectId?.toString()} 
-              onValueChange={(val) => {
-                console.log("Project selected:", val);
-                if (val === "new") {
-                  // Show the project dialog through the callback and pass the client ID
-                  if (onAddProject && selectedClientId) {
-                    onAddProject(selectedClientId);
+                  <SelectValue placeholder="Select client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id.toString()}>{client.name}</SelectItem>
+                  ))}
+                  <SelectItem value="new">+ Add new client</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select 
+                value={selectedProjectId?.toString()} 
+                onValueChange={(val) => {
+                  console.log("Project selected:", val);
+                  if (val === "new") {
+                    if (onAddProject && selectedClientId) {
+                      onAddProject(selectedClientId);
+                    }
+                  } else {
+                    setSelectedProjectId(Number(val));
                   }
-                } else {
-                  setSelectedProjectId(Number(val));
-                }
-              }}
-              disabled={!selectedClientId}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select project" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id.toString()}>{project.name}</SelectItem>
-                ))}
-                <SelectItem value="new">+ Add new project</SelectItem>
-              </SelectContent>
-            </Select>
+                }}
+                disabled={!selectedClientId}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>{project.name}</SelectItem>
+                  ))}
+                  <SelectItem value="new">+ Add new project</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           
-          {/* Third Row: Timer Component */}
+          {/* Timer Component - Always on its own row */}
           <div className="w-full">
             <SimpleTimer 
               description={description}
