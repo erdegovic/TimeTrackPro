@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Edit, Copy, Trash2, Play } from "lucide-react";
 import { TimeEntry, Client, Project } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useTimeTracker } from "@/hooks/useTimeTracker";
 import { useToast } from "@/hooks/use-toast";
 import TimeEntryRow from "./TimeEntry";
 import EnhancedTimeEntry from "./EnhancedTimeEntry";
@@ -25,6 +26,7 @@ import EnhancedTimeEntry from "./EnhancedTimeEntry";
 export default function TimeEntryList() {
   const { toast } = useToast();
   const { isCollapsed: creativitySidebarCollapsed } = useCreativitySidebar();
+  const { startTimerWithData } = useTimeTracker();
   const [timeFormat, setTimeFormat] = useState<"decimal" | "time">("time");
   const [groupBy, setGroupBy] = useState<"date" | "project" | "client">("date");
   const [filterDate, setFilterDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -291,7 +293,7 @@ export default function TimeEntryList() {
     }
   };
 
-  // Handle play button click - use proper timer hook with same-day merging
+  // Handle play button click - use direct timer hook for synchronization
   const handlePlay = (description: string, projectId: number) => {
     // Find the project to get the client ID
     const project = projects.find(p => p.id === projectId);
