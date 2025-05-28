@@ -50,17 +50,19 @@ export default function EnhancedTimeEntry({
   timeFormat,
   onDelete,
   onPlay,
-  isNew = false
+  isNew = false,
+  isTracking: timerIsActive = false,
+  onStop
 }: EnhancedTimeEntryProps) {
   const { toast } = useToast();
-  const { isTracking, description: currentDescription, selectedProjectId, stopTimer, startTimerWithData } = useTimeTracker();
+  const { isTracking: globalIsTracking, description: currentDescription, selectedProjectId, stopTimer, startTimerWithData } = useTimeTracker();
   const [isExpanded, setIsExpanded] = useState(false);
   const [groupedEntry, setGroupedEntry] = useState<GroupedTimeEntry | null>(null);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [editingMainEntry, setEditingMainEntry] = useState(false);
 
   // Check if this entry is currently being tracked
-  const isCurrentlyTracking = isTracking && 
+  const isCurrentlyTracking = globalIsTracking && 
     selectedProjectId === entry.projectId && 
     currentDescription === entry.description;
 
