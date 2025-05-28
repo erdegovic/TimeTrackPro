@@ -85,13 +85,49 @@
   }
 }
 
-/* Tickd Brand Classes */
+/* Enhanced Card Styling System */
 .tickd-card {
-  @apply bg-white rounded-xl border shadow-sm;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+  @apply bg-white border;
+  border-radius: 16px; /* Larger radius for premium feel */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   border-color: hsl(var(--tickd-border));
+  transition: all 0.3s ease;
 }
 
+.tickd-card-elevated {
+  @apply bg-white border;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border-color: hsl(var(--tickd-border));
+  transition: all 0.3s ease;
+}
+
+.tickd-card-subtle {
+  @apply bg-white border;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-color: hsl(var(--tickd-border));
+  transition: all 0.3s ease;
+}
+
+/* Enhanced spacing utilities */
+.tickd-spacing-sm {
+  @apply p-4;
+}
+
+.tickd-spacing-md {
+  @apply p-6;
+}
+
+.tickd-spacing-lg {
+  @apply p-8;
+}
+
+.tickd-spacing-xl {
+  @apply p-10;
+}
+
+/* Color utilities */
 .tickd-primary {
   color: hsl(var(--tickd-primary));
 }
@@ -116,8 +152,9 @@
   border-color: hsl(var(--tickd-primary));
 }
 
+/* Legacy shadow class */
 .tickd-shadow {
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 /* Enhanced animations matching landing page */

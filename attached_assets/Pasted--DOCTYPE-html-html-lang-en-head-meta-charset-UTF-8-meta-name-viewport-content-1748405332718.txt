@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tickd • Advanced Time Tracker</title>
+    <style>
+        :root {
+            --primary: #5E6CFF;
+            --primary-dark: #4A56D9;
+            --primary-light: rgba(94, 108, 255, 0.1);
+            --text: #2E384D;
+            --text-light: #8798AD;
+            --text-lighter: #B2BECD;
+            --bg: #F8FAFC;
+            --card-bg: #FFFFFF;
+            --border: #E9EFF4;
+            --success: #4CAF50;
+            --warning: #FF9800;
+            --danger: #F44336;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text);
+            background: var(--bg);
+            line-height: 1.5;
+        }
+
+        @font-face {
+            font-family: 'Inter';
+            src: url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        }
+
+        .tickd-container {
+            display: grid;
+            grid-template-columns: 240px 1fr 320px;
+            height: 100vh;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            background: var(--card-bg);
+            border-right: 1px solid var(--border);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 40px;
+        }
+
+        .logo svg {
+            width: 32px;
+            height: 32px;
+        }
+
+        .logo h1 {
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #5E6CFF 0%, #8A6CFF 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .main-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+
+        .main-nav a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            color: var(--text-light);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .main-nav a:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .main-nav a.active {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .main-nav a svg {
+            width: 20px;
+            height: 20px;
+            stroke: currentColor;
+        }
+
+        .quick-start {
+            margin-top: auto;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            padding: 24px 32px;
+            overflow-y: auto;
+        }
+
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+
+        .time-display h2 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .time-display p {
+            color: var(--text-light);
+            font-size: 14px;
+        }
+
+        .user-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            color: var(--text-light);
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 2px solid var(--border);
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Time Tracking Card */
+        .time-tracking-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-md);
+            margin-bottom: 24px;
+        }
+
+        .tracker-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .tracker-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .tracker-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .project-selector {
+            margin-bottom: 24px;
+        }
+
+        .custom-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+            margin-bottom: 12px;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+        }
+
+        .task-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+        }
+
+        .time-display-large {
+            font-size: 64px;
+            font-weight: 600;
+            letter-spacing: -2px;
+            margin: 24px 0;
+            font-feature-settings: "tnum";
+            text-align: center;
+            font-family: 'SF Mono', 'Roboto Mono', monospace;
+            color: var(--text);
+        }
+
+        .time-actions {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+        }
+
+        /* Recent Sessions */
+        .recent-sessions {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-md);
+        }
+
+        .recent-sessions h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .session-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .session-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s;
+        }
+
+        .session-item:hover {
+            background: var(--primary-light);
+        }
+
+        .session-info {
+            flex: 1;
+        }
+
+        .project-tag {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .session-item p {
+            font-size: 14px;
+        }
+
+        .session-time {
+            font-family: 'SF Mono', 'Roboto Mono', monospace;
+            font-size: 14px;
+            color: var(--text-light);
+            margin-right: 12px;
+        }
+
+        /* Creativity Panel */
+        .creativity-panel {
+            background: var(--card-bg);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .panel-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .panel-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            color: var(--text-light);
+            position: relative;
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--primary);
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .panel-section {
+            display: none;
+        }
+
+        .panel-section.active {
+            display: block;
+        }
+
+        /* Music Player */
+        .now-playing {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .album-art {
+            width: 56px;
+            height: 56px;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            background: linear-gradient(135deg, #5E6CFF 0%, #8A6CFF 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .album-art img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .track-info h5 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .track-info p {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        .player-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 24px;
+            margin-bottom: 20px;
+        }
+
+        .player-controls .icon-btn {
+            width: 44px;
+            height: 44px;
+            color: var(--primary);
+        }
+
+        .player-controls .icon-btn.large {
+            width: 56px;
+            height: 56px;
+            background: var(--primary-light);
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            margin-bottom: 20px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 30%;
+            background: var(--primary);
+            border-radius: 2px;
+        }
+
+        .time-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-light);
+            margin-bottom: 20px;
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .volume-control input[type="range"] {
+            flex: 1;
+            height: 4px;
+            -webkit-appearance: none;
+            background: var(--border);
+            border-radius: 2px;
+        }
+
+        .volume-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: var(--primary);
+            border-radius: 50%;
+        }
+
+        .playlist {
+            margin-top: 24px;
+        }
+
+        .playlist h6 {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-light);
+            margin-bottom: 12px;
+        }
+
+        .playlist-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .playlist-item:hover {
+            background: var(--primary-light);
+        }
+
+        .playlist-cover {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-sm);
+        }
+
+        .playlist-item p {
+            font-size: 14px;
+        }
+
+        /* Notes Section */
+        .note-editor {
+            margin-bottom: 20px;
+        }
+
+        .note-editor textarea {
+            width: 100%;
+            height: 120px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            resize: none;
+            font-family: inherit;
+            margin-bottom: 8px;
+        }
+
+        .note-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .saved-notes {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .note-item {
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            background: var(--bg);
+        }
+
+        .note-date {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-bottom: 4px;
+        }
+
+        .note-content {
+            font-size: 14px;
+        }
+
+        /* Button Styles */
+        .btn {
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background: var(--card-bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg);
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        /* Utility Classes */
+        .hidden {
+            display: none;
+        }
+
+        /* Animation */
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="tickd-container">
+        <!-- Left Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16 0L32 16L16 32L0 16L16 0Z" fill="url(#paint0_linear)"/>
+                    <path d="M12 12L20 20M20 12L12 20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                    <defs>
+                        <linearGradient id="paint0_linear" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#5E6CFF"/>
+                            <stop offset="1" stop-color="#8A6CFF"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>tickd</h1>
+            </div>
+            
+            <nav class="main-nav">
+                <a href="#" class="active">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    Dashboard
+                </a>
+                <a href="#">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                        <polyline points="2 17 12 22 22 17"></polyline>
+                        <polyline points="2 12 12 17 22 12"></polyline>
+                    </svg>
+                    Projects
+                </a>
+                <a href="#">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    Reports
+                </a>
+                <a href="#">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    Team
+                </a>
+                <a href="#">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                    Settings
+                </a>
+            </nav>
+            
+            <div class="quick-start">
+                <button class="btn btn-primary" id="startTimerBtn">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polygon points="10 8 16 12 10 16 10 8"></polygon>
+                    </svg>
+                    New Session
+                </button>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <header class="app-header">
+                <div class="time-display">
+                    <h2 id="currentTime">08:42:19</h2>
+                    <p id="currentDate">Tuesday, May 28</p>
+                </div>
+                
+                <div class="user-controls">
+                    <button class="icon-btn">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                    </button>
+                    <div class="user-avatar">
+                        <img src="https://i.pravatar.cc/150?img=3" alt="User">
+                    </div>
+                </div>
+            </header>
+            
+            <div class="time-tracking-card" id="timerCard">
+                <div class="tracker-header">
+                    <h3 id="timerState">Current Session</h3>
+                    <div class="tracker-actions" id="timerControls">
+                        <button class="btn btn-secondary btn-small" id="pauseTimerBtn">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="6" y="4" width="4" height="16"></rect>
+                                <rect x="14" y="4" width="4" height="16"></rect>
+                            </svg>
+                            Pause
+                        </button>
+                        <button class="btn btn-secondary btn-small" id="stopTimerBtn">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <rect x="9" y="9" width="6" height="6"></rect>
+                            </svg>
+                            Complete
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="project-selector">
+                    <select class="custom-select" id="projectSelect">
+                        <option>Client Project X</option>
+                        <option>Internal Development</option>
+                        <option>Meeting</option>
+                        <option>Add new project...</option>
+                    </select>
+                    
+                    <input type="text" placeholder="What are you working on?" class="task-input" id="taskInput">
+                </div>
+                
+                <div class="time-display-large" id="timerDisplay">
+                    <span class="hours">00</span>:<span class="minutes">00</span>:<span class="seconds">00</span>
+                </div>
+                
+                <div class="time-actions">
+                    <button class="icon-btn" id="addMinuteBtn" title="Add 1 minute">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    </button>
+                    <button class="icon-btn" id="subtractMinuteBtn" title="Subtract 1 minute">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    </button>
+                    <button class="icon-btn" id="flagTimeBtn" title="Flag time">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                            <line x1="4" y1="22" x2="4" y2="15"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="recent-sessions">
+                <h4>Recent Sessions</h4>
+                <div class="session-list" id="sessionList">
+                    <!-- Sessions will be added dynamically -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Creativity Panel -->
+        <div class="creativity-panel">
+            <div class="panel-header">
+                <h3>Creativity Space</h3>
+                <button class="icon-btn" id="togglePanelBtn">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="panel-tabs">
+                <button class="tab-btn active" data-tab="music">Music</button>
+                <button class="tab-btn" data-tab="notes">Notes</button>
+                <button class="tab-btn" data-tab="inspiration">Inspiration</button>
+            </div>
+            
+            <div class="panel-content">
+                <!-- Music Player -->
+                <div class="panel-section active" id="musicSection">
+                    <div class="now-playing">
+                        <div class="album-art">
+                            <img src="https://source.unsplash.com/random/200x200/?album,cover" alt="Album Cover">
+                        </div>
+                        <div class="track-info">
+                            <h5 id="currentTrack">Focus Flow</h5>
+                            <p id="currentPlaylist">Deep Work Playlist</p>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-bar" id="progressBar">
+                        <div class="progress" id="progress"></div>
+                    </div>
+                    
+                    <div class="time-display">
+                        <span id="currentTimeElapsed">1:42</span>
+                        <span id="currentTimeTotal">3:24</span>
+                    </div>
+                    
+                    <div class="player-controls">
+                        <button class="icon-btn" id="prevTrackBtn">
+                            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="19 20 9 12 19 4 19 20"></polygon>
+                                <line x1="5" y1="19" x2="5" y2="5"></line>
+                            </svg>
+                        </button>
+                        <button class="icon-btn large" id="playPauseBtn">
+                            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                        </button>
+                        <button class="icon-btn" id="nextTrackBtn">
+                            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                                <line x1="19" y1="5" x2="19" y2="19"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="volume-control">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        </svg>
+                        <input type="range" min="0" max="100" value="70" id="volumeControl">
+                    </div>
+                    
+                    <div class="playlist">
+                        <h6>Suggested Playlists</h6>
+                        <div class="playlist-item" data-playlist="productive-coding">
+                            <div class="playlist-cover" style="background: #4ECDC4;"></div>
+                            <p>Productive Coding</p>
+                        </div>
+                        <div class="playlist-item" data-playlist="creative-thinking">
+                            <div class="playlist-cover" style="background: #FF9F1C;"></div>
+                            <p>Creative Thinking</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Notes Section -->
+                <div class="panel-section" id="notesSection">
+                    <div class="note-editor">
+                        <textarea id="noteInput" placeholder="Jot down ideas, tasks, or thoughts..."></textarea>
+                        <div class="note-actions">
+                            <button class="icon-btn" id="attachNoteBtn">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                                </svg>
+                            </button>
+                            <button class="btn btn-primary btn-small" id="saveNoteBtn">Save</button>
+                        </div>
+                    </div>
+                    
+                    <div class="saved-notes" id="savedNotes">
+                        <!-- Notes will be added dynamically -->
+                    </div>
+                </div>
+                
+                <!-- Inspiration Section -->
+                <div class="panel-section" id="inspirationSection">
+                    <div style="padding: 20px; text-align: center; color: var(--text-light);">
+                        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 12px;">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                        <h4>Inspiration Board</h4>
+                        <p>Coming soon - save images, quotes, and links that inspire your work.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Clock functionality
+            function updateClock() {
+                const now = new Date();
+                const timeEl = document.getElementById('currentTime');
+                const dateEl = document.getElementById('currentDate');
+                
+                // Format time (HH:MM:SS)
+                const hours = now.getHours().toString().padStart(2, '0');
+                const minutes = now.getMinutes().toString().padStart(2, '0');
+                const seconds = now.getSeconds().toString().padStart(2, '0');
+                timeEl.textContent = `${hours}:${minutes}:${seconds}`;
+                
+                // Format date (Weekday, Month Day)
+                const options = { weekday: 'long', month: 'long', day: 'numeric' };
+                dateEl.textContent = now.toLocaleDateString('en-US', options);
+            }
+            
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            // Timer functionality
+            let timerInterval;
+            let seconds = 0;
+            let isRunning = false;
+            let isPaused = false;
+            
+            function formatTime(totalSeconds) {
+                const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+                const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+                const secs = (totalSeconds % 60).toString().padStart(2, '0');
+                return { hours, minutes, seconds: secs };
+            }
+            
+            function updateTimerDisplay() {
+                const { hours, minutes, seconds: secs } = formatTime(seconds);
+                const timerDisplay = document.getElementById('timerDisplay');
+                timerDisplay.querySelector('.hours').textContent = hours;
+                timerDisplay.querySelector('.minutes').textContent = minutes;
+                timerDisplay.querySelector('.seconds').textContent = secs;
+            }
+            
+            function startTimer() {
+                if (isRunning) return;
+                
+                isRunning = true;
+                isPaused = false;
+                document.getElementById('timerState').textContent = 'Tracking Time';
+                document.getElementById('startTimerBtn').classList.add('hidden');
+                document.getElementById('timerControls').classList.remove('hidden');
+                
+                // Start from 0 if not paused
+                if (!isPaused) {
+                    seconds = 0;
+                    updateTimerDisplay();
+                }
+                
+                timerInterval = setInterval(() => {
+                    seconds++;
+                    updateTimerDisplay();
+                }, 1000);
+            }
+            
+            function pauseTimer() {
+                if (!isRunning) return;
+                
+                clearInterval(timerInterval);
+                isRunning = false;
+                isPaused = true;
+                document.getElementById('timerState').textContent = 'Paused';
+                document.getElementById('pauseTimerBtn').textContent = 'Resume';
+            }
+            
+            function resumeTimer() {
+                if (isRunning) return;
+                
+                isRunning = true;
+                isPaused = false;
+                document.getElementById('timerState').textContent = 'Tracking Time';
+                document.getElementById('pauseTimerBtn').textContent = 'Pause';
+                
+                timerInterval = setInterval(() => {
+                    seconds++;
+                    updateTimerDisplay();
+                }, 1000);
+            }
+            
+            function stopTimer() {
+                clearInterval(timerInterval);
+                isRunning = false;
+                isPaused = false;
+                
+                // Save session
+                const project = document.getElementById('projectSelect').value;
+                const task = document.getElementById('taskInput').value || 'No description';
+                const { hours, minutes, seconds: secs } = formatTime(seconds);
+                const duration = `${hours}:${minutes}:${secs}`;
+                
+                addSessionToHistory(project, task, duration);
+                
+                // Reset UI
+                document.getElementById('timerState').textContent = 'Current Session';
+                document.getElementById('startTimerBtn').classList.remove('hidden');
+                document.getElementById('timerControls').classList.add('hidden');
+                seconds = 0;
+                updateTimerDisplay();
+                document.getElementById('taskInput').value = '';
+            }
+            
+            function addSessionToHistory(project, task, duration) {
+                const sessionList = document.getElementById('sessionList');
+                const colors = ['#FF6B6B', '#48BB78', '#4299E1', '#9F7AEA', '#ED8936'];
+                const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                
+                const sessionItem = document.createElement('div');
+                sessionItem.className = 'session-item';
+                sessionItem.innerHTML = `
+                    <div class="session-info">
+                        <span class="project-tag" style="background: ${randomColor};">${project}</span>
+                        <p>${task}</p>
+                    </div>
+                    <div class="session-time">
+                        ${duration}
+                    </div>
+                    <button class="icon-btn">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="1"></circle>
+                            <circle cx="12" cy="5" r="1"></circle>
+                            <circle cx="12" cy="19" r="1"></circle>
+                        </svg>
+                    </button>
+                `;
+                
+                sessionList.insertBefore(sessionItem, sessionList.firstChild);
+                
+                // Limit to 10 sessions
+                if (sessionList.children.length > 10) {
+                    sessionList.removeChild(sessionList.lastChild);
+                }
+            }
+            
+            // Timer event listeners
+            document.getElementById('startTimerBtn').addEventListener('click', startTimer);
+            document.getElementById('pauseTimerBtn').addEventListener('click', function() {
+                if (isPaused) {
+                    resumeTimer();
+                } else {
+                    pauseTimer();
+                }
+            });
+            document.getElementById('stopTimerBtn').addEventListener('click', stopTimer);
+            document.getElementById('addMinuteBtn').addEventListener('click', function() {
+                seconds += 60;
+                updateTimerDisplay();
+            });
+            document.getElementById('subtractMinuteBtn').addEventListener('click', function() {
+                if (seconds >= 60) {
+                    seconds -= 60;
+                    updateTimerDisplay();
+                }
+            });
+            document.getElementById('flagTimeBtn').addEventListener('click', function() {
+                const project = document.getElementById('projectSelect').value;
+                const task = document.getElementById('taskInput').value || 'Flagged time';
+                const { hours, minutes, seconds: secs } = formatTime(seconds);
+                const duration = `${hours}:${minutes}:${secs}`;
+                
+                addSessionToHistory(project, task, duration);
+                
+                // Reset timer but keep it running
+                seconds = 0;
+                updateTimerDisplay();
+                document.getElementById('taskInput').value = '';
+                
+                // Visual feedback
+                const timerDisplay = document.getElementById('timerDisplay');
+                timerDisplay.classList.add('pulse');
+                setTimeout(() => {
+                    timerDisplay.classList.remove('pulse');
+                }, 2000);
+            });
+            
+            // Music player functionality
+            let isPlaying = false;
+            const playlists = {
+                'focus-flow': {
+                    name: 'Focus Flow',
+                    playlist: 'Deep Work Playlist',
+                    cover: 'https://source.unsplash.com/random/200x200/?album,electronic'
+                },
+                'productive-coding': {
+                    name: 'Algorithm',
+                    playlist: 'Productive Coding',
+                    cover: 'https://source.unsplash.com/random/200x200/?album,techno'
+                },
+                'creative-thinking': {
+                    name: 'Brainstorm',
+                    playlist: 'Creative Thinking',
+                    cover: 'https://source.unsplash.com/random/200x200/?album,ambient'
+                }
+            };
+            let currentPlaylist = 'focus-flow';
+            
+            function updatePlayerDisplay() {
+                const playlist = playlists[currentPlaylist];
+                document.getElementById('currentTrack').textContent = playlist.name;
+                document.getElementById('currentPlaylist').textContent = playlist.playlist;
+                document.querySelector('.album-art img').src = playlist.cover;
+            }
+            
+            function togglePlayPause() {
+                isPlaying = !isPlaying;
+                const playPauseBtn = document.getElementById('playPauseBtn');
+                
+                if (isPlaying) {
+                    playPauseBtn.innerHTML = `
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="6" y="4" width="4" height="16"></rect>
+                            <rect x="14" y="4" width="4" height="16"></rect>
+                        </svg>
+                    `;
+                    // Simulate progress
+                    simulateProgress();
+                } else {
+                    playPauseBtn.innerHTML = `
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                    `;
+                    clearTimeout(progressTimeout);
+                }
+            }
+            
+            let progressTimeout;
+            let progress = 0;
+            
+            function simulateProgress() {
+                if (!isPlaying) return;
+                
+                progress += 1;
+                if (progress > 100) {
+                    progress = 0;
+                    // Simulate track change
+                    if (Math.random() > 0.7) {
+                        changeTrack();
+                    }
+                }
+                
+                document.getElementById('progress').style.width = `${progress}%`;
+                
+                // Update time display
+                const totalSeconds = 204; // 3:24
+                const elapsedSeconds = Math.floor(totalSeconds * (progress / 100));
+                const minutes = Math.floor(elapsedSeconds / 60);
+                const secs = elapsedSeconds % 60;
+                document.getElementById('currentTimeElapsed').textContent = `${minutes}:${secs.toString().padStart(2, '0')}`;
+                
+                progressTimeout = setTimeout(simulateProgress, 100);
+            }
+            
+            function changeTrack() {
+                const playlistKeys = Object.keys(playlists);
+                currentPlaylist = playlistKeys[Math.floor(Math.random() * playlistKeys.length)];
+                updatePlayerDisplay();
+                progress = 0;
+            }
+            
+            // Music player event listeners
+            document.getElementById('playPauseBtn').addEventListener('click', togglePlayPause);
+            document.getElementById('prevTrackBtn').addEventListener('click', function() {
+                changeTrack();
+                if (isPlaying) {
+                    progress = 0;
+                    document.getElementById('progress').style.width = '0%';
+                }
+            });
+            document.getElementById('nextTrackBtn').addEventListener('click', function() {
+                changeTrack();
+                if (isPlaying) {
+                    progress = 0;
+                    document.getElementById('progress').style.width = '0%';
+                }
+            });
+            document.getElementById('volumeControl').addEventListener('input', function(e) {
+                // In a real app, this would control actual audio volume
+                console.log('Volume set to:', e.target.value);
+            });
+            document.querySelectorAll('.playlist-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    currentPlaylist = this.dataset.playlist;
+                    updatePlayerDisplay();
+                    if (!isPlaying) {
+                        togglePlayPause();
+                    }
+                    progress = 0;
+                    document.getElementById('progress').style.width = '0%';
+                });
+            });
+            
+            // Progress bar seeking
+            document.getElementById('progressBar').addEventListener('click', function(e) {
+                const rect = this.getBoundingClientRect();
+                const pos = (e.clientX - rect.left) / rect.width;
+                progress = Math.min(100, Math.max(0, pos * 100));
+                document.getElementById('progress').style.width = `${progress}%`;
+                
+                if (isPlaying) {
+                    clearTimeout(progressTimeout);
+                    simulateProgress();
+                }
+            });
+            
+            // Notes functionality
+            let notes = JSON.parse(localStorage.getItem('tickd-notes')) || [];
+            
+            function renderNotes() {
+                const notesContainer = document.getElementById('savedNotes');
+                notesContainer.innerHTML = '';
+                
+                notes.forEach(note => {
+                    const noteEl = document.createElement('div');
+                    noteEl.className = 'note-item';
+                    noteEl.innerHTML = `
+                        <p class="note-date">${note.date}</p>
+                        <p class="note-content">${note.content}</p>
+                    `;
+                    notesContainer.appendChild(noteEl);
+                });
+            }
+            
+            function saveNote() {
+                const content = document.getElementById('noteInput').value.trim();
+                if (!content) return;
+                
+                const now = new Date();
+                const options = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                const date = now.toLocaleDateString('en-US', options);
+                
+                notes.unshift({ date, content });
+                localStorage.setItem('tickd-notes', JSON.stringify(notes));
+                
+                document.getElementById('noteInput').value = '';
+                renderNotes();
+            }
+            
+            // Notes event listeners
+            document.getElementById('saveNoteBtn').addEventListener('click', saveNote);
+            document.getElementById('noteInput').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    saveNote();
+                }
+            });
+            
+            // Tab switching
+            document.querySelectorAll('.tab-btn').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // Update active tab
+                    document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Show corresponding section
+                    const tabId = this.dataset.tab;
+                    document.querySelectorAll('.panel-section').forEach(section => {
+                        section.classList.remove('active');
+                    });
+                    document.getElementById(`${tabId}Section`).classList.add('active');
+                });
+            });
+            
+            // Panel toggle
+            document.getElementById('togglePanelBtn').addEventListener('click', function() {
+                const panel = document.querySelector('.creativity-panel');
+                const isHidden = panel.style.transform === 'translateX(100%)';
+                
+                if (isHidden) {
+                    panel.style.transform = 'translateX(0)';
+                    this.innerHTML = `
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                    `;
+                } else {
+                    panel.style.transform = 'translateX(100%)';
+                    this.innerHTML = `
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    `;
+                }
+            });
+            
+            // Initialize
+            updatePlayerDisplay();
+            renderNotes();
+            
+            // Add some sample sessions if empty
+            if (document.getElementById('sessionList').children.length === 0) {
+                addSessionToHistory('Client Project', 'UI Design Review', '01:24:16');
+                addSessionToHistory('Internal Development', 'API Refactoring', '00:45:30');
+                addSessionToHistory('Meeting', 'Sprint Planning', '01:15:00');
+            }
+        });
+    </script>
+</body>
+</html>
