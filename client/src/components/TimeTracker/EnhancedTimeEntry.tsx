@@ -197,7 +197,10 @@ export default function EnhancedTimeEntry({
 
       await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
 
-      // Update local state immediately for instant UI feedback
+      // Wait for server update before refreshing UI
+      await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      
+      // Update local state after server confirms the change
       const updatedBlocks = groupedEntry.blocks.map(block => 
         block.id === blockId 
           ? { ...block, startTime: newStartTime, endTime: newEndTime, duration }
@@ -206,17 +209,11 @@ export default function EnhancedTimeEntry({
 
       const newTotalDuration = updatedBlocks.reduce((sum, block) => sum + block.duration, 0);
 
-      // Update local state first
       setGroupedEntry({
         ...groupedEntry,
         blocks: updatedBlocks,
         totalDuration: newTotalDuration
       });
-
-      // Refresh data from server and ensure UI updates
-      await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-      // Force component re-render to show updated times
-      await queryClient.refetchQueries({ queryKey: ["/api/time-entries"] });
 
       toast({
         title: "Time updated",
