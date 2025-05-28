@@ -217,8 +217,8 @@ export default function TimeEntryList() {
 
   return (
     <>
-      {/* Time View Toggle */}
-      <div className="flex justify-between items-center mb-4">
+      {/* Time View Toggle - Added more spacing from main tracker */}
+      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-4 mt-8">
         <div className="flex items-center space-x-4">
           <div className="flex items-center">
             <label htmlFor="time-format" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
@@ -283,7 +283,8 @@ export default function TimeEntryList() {
               </div>
             </div>
             
-            <div className="overflow-x-auto">
+            {/* Desktop Table View */}
+            <div className="hidden lg:block overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 table-striped">
                 <thead className="bg-gray-50">
                   <tr>
@@ -309,6 +310,95 @@ export default function TimeEntryList() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="lg:hidden space-y-3">
+              {group.entries.map((entry) => {
+                const formatDuration = (duration: string | number) => {
+                  const numDuration = typeof duration === "string" ? parseFloat(duration) : duration;
+                  if (timeFormat === "decimal") {
+                    return `${numDuration.toFixed(2)}h`;
+                  } else {
+                    const hours = Math.floor(numDuration);
+                    const minutes = Math.floor((numDuration - hours) * 60);
+                    const seconds = Math.round(((numDuration - hours) * 60 - minutes) * 60);
+                    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                  }
+                };
+
+                return (
+                  <div 
+                    key={entry.id} 
+                    className={`tickd-card-subtle tickd-spacing-md ${newEntryIds.includes(entry.id) ? 'animate-highlight' : ''}`}
+                  >
+                    {/* First line: Description and Time */}
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1 mr-4">
+                        <p className="font-medium text-gray-900 text-sm">{entry.description}</p>
+                      </div>
+                      <div className="font-mono font-semibold text-gray-900 text-sm">
+                        {formatDuration(entry.duration || 0)}
+                      </div>
+                    </div>
+                    
+                    {/* Second line: Client, Project, and Actions */}
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs text-gray-500">
+                        <span className="font-medium">{entry.client?.name || "—"}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span>{entry.project?.name || "—"}</span>
+                      </div>
+                      
+                      <div className="flex items-center space-x-1">
+                        {handlePlay && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handlePlay(entry.description || "", entry.projectId)} 
+                            className="text-green-600 hover:text-white hover:bg-green-600 h-8 w-8 p-0"
+                            title="Continue tracking this task"
+                          >
+                            <Play className="h-3 w-3" />
+                          </Button>
+                        )}
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => {
+                            // Trigger edit via the TimeEntryRow component
+                            const editEvent = new CustomEvent('editEntry', { detail: { entryId: entry.id } });
+                            window.dispatchEvent(editEvent);
+                          }}
+                          className="text-primary hover:text-white hover:bg-primary h-8 w-8 p-0"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => {
+                            // Trigger duplicate via the TimeEntryRow component
+                            const duplicateEvent = new CustomEvent('duplicateEntry', { detail: { entryId: entry.id } });
+                            window.dispatchEvent(duplicateEvent);
+                          }}
+                          className="text-gray-500 hover:text-white hover:bg-gray-500 h-8 w-8 p-0"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setDeleteId(entry.id)}
+                          className="text-destructive hover:text-white hover:bg-destructive h-8 w-8 p-0"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))
