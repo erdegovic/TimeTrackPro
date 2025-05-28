@@ -449,7 +449,7 @@ export class MemStorage implements Partial<IStorage> {
     let year = existingEntry.year;
     
     if (timeEntry.date && timeEntry.date !== existingEntry.date) {
-      const entryDate = parseISO(timeEntry.date);
+      const entryDate = new Date(timeEntry.date);
       weekNumber = getWeekOfMonth(entryDate);
       const weekStart = format(startOfWeek(entryDate), 'MMM d');
       const weekEnd = format(endOfWeek(entryDate), 'MMM d');
