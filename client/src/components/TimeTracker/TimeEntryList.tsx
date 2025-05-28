@@ -285,8 +285,8 @@ export default function TimeEntryList() {
               </div>
             </div>
             
-            {/* Desktop Table View */}
-            <div className="hidden lg:block overflow-x-auto">
+            {/* Table View with Horizontal Scroll - until very small screens */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 table-striped">
                 <thead className="bg-gray-50">
                   <tr>
@@ -314,8 +314,8 @@ export default function TimeEntryList() {
               </table>
             </div>
 
-            {/* Mobile Card View */}
-            <div className="lg:hidden space-y-3">
+            {/* Mobile Card View - only on very small screens */}
+            <div className="sm:hidden space-y-3">
               {group.entries.map((entry) => {
                 const formatDuration = (duration: string | number) => {
                   const numDuration = typeof duration === "string" ? parseFloat(duration) : duration;
