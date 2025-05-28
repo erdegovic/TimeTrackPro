@@ -213,8 +213,10 @@ export default function EnhancedTimeEntry({
         totalDuration: newTotalDuration
       });
 
-      // Refresh data from server but don't overwrite local changes immediately
-      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      // Refresh data from server and ensure UI updates
+      await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      // Force component re-render to show updated times
+      await queryClient.refetchQueries({ queryKey: ["/api/time-entries"] });
 
       toast({
         title: "Time updated",
@@ -518,6 +520,7 @@ function EditableTimeRange({
     <button
       onClick={() => onEditToggle(true)}
       className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-2 py-1 rounded text-sm"
+      key={`${startTime.getTime()}-${endTime.getTime()}`} // Force re-render when times change
     >
       {formatTime(startTime)} - {formatTime(endTime)}
     </button>
