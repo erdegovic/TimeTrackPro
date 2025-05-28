@@ -58,7 +58,13 @@ export default function EnhancedTimeEntry({
     if (entry.startTime && entry.endTime) {
       const startTime = new Date(entry.startTime);
       const endTime = new Date(entry.endTime);
-      const duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60); // hours
+      
+      // Use the stored duration from the database first, fallback to calculated
+      let duration = parseFloat(entry.duration?.toString() || "0");
+      if (duration === 0 || isNaN(duration)) {
+        // Only calculate if no stored duration
+        duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+      }
 
       // For now, treat each entry as a single block
       // In the future, this could be enhanced to detect actual grouped sessions
@@ -226,9 +232,12 @@ export default function EnhancedTimeEntry({
               )}
             </Button>
           ) : (
-            <div className="text-sm text-gray-400 font-medium">
-              {groupedEntry.blocks.length}
-            </div>
+            // Only show number if there are multiple blocks
+            groupedEntry.blocks.length > 1 ? (
+              <div className="text-sm text-gray-400 font-medium">
+                {groupedEntry.blocks.length}
+              </div>
+            ) : null
           )}
         </div>
 
