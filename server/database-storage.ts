@@ -302,7 +302,7 @@ export class DatabaseStorage implements IStorage {
     // Handle date change if it's present
     if (entryData.date) {
       const date = entryData.date;
-      const parsedDate = parseISO(date);
+      const parsedDate = new Date(date);
       
       // Recalculate week-related fields
       const weekStart = startOfWeek(parsedDate, { weekStartsOn: 1 });
