@@ -21,7 +21,21 @@ const projectSchema = z.object({
   description: z.string().optional(),
   active: z.boolean().default(true),
   hourlyRate: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid rate format").default("0"),
+  color: z.string().default("#3B82F6"),
 });
+
+// Predefined color options for projects
+const projectColors = [
+  "#3B82F6", // Blue
+  "#EF4444", // Red
+  "#10B981", // Green
+  "#F59E0B", // Yellow
+  "#8B5CF6", // Purple
+  "#EC4899", // Pink
+  "#06B6D4", // Cyan
+  "#F97316", // Orange
+  "#6B7280", // Gray
+];
 
 type ProjectFormProps = {
   onSuccess: () => void;
@@ -49,6 +63,7 @@ export default function ProjectForm({ onSuccess, initialData, isEditing = false,
       description: initialData?.description || "",
       active: initialData?.active !== undefined ? initialData.active : true,
       hourlyRate: initialData?.hourlyRate?.toString() || "0",
+      color: (initialData as any)?.color || "#3B82F6",
     },
   });
 
@@ -208,6 +223,36 @@ export default function ProjectForm({ onSuccess, initialData, isEditing = false,
                 </FormControl>
                 <p className="text-xs text-muted-foreground mt-1">
                   Rate is shown in the client's currency
+                </p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="color"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Project Color</FormLabel>
+                <FormControl>
+                  <div className="flex flex-wrap gap-2">
+                    {projectColors.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        className={`w-8 h-8 rounded-full border-2 cursor-pointer transition-all ${
+                          field.value === color ? 'border-gray-900 scale-110' : 'border-gray-300 hover:border-gray-400'
+                        }`}
+                        style={{ backgroundColor: color }}
+                        onClick={() => field.onChange(color)}
+                        title={`Select color ${color}`}
+                      />
+                    ))}
+                  </div>
+                </FormControl>
+                <p className="text-xs text-muted-foreground mt-1">
+                  This color will be used to identify the project throughout the app
                 </p>
                 <FormMessage />
               </FormItem>
