@@ -411,14 +411,7 @@ function EditableTimeRange({
       let parsedTime: Date;
       
       if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
-        // Try parsing with seconds first
-        parsedTime = parse(timeStr, 'h:mm:ssaa', baseDate);
-        if (!isValid(parsedTime)) {
-          parsedTime = parse(timeStr, 'h:mm:ssa', baseDate);
-        }
-        if (!isValid(parsedTime)) {
-          parsedTime = parse(timeStr, 'h:mmaa', baseDate);
-        }
+        parsedTime = parse(timeStr, 'h:mmaa', baseDate);
         if (!isValid(parsedTime)) {
           parsedTime = parse(timeStr, 'h:mma', baseDate);
         }
@@ -426,9 +419,8 @@ function EditableTimeRange({
         const parts = timeStr.split(':');
         const hours = parseInt(parts[0]);
         const minutes = parseInt(parts[1]) || 0;
-        const seconds = parseInt(parts[2]) || 0;
         parsedTime = new Date(baseDate);
-        parsedTime.setHours(hours, minutes, seconds, 0);
+        parsedTime.setHours(hours, minutes, 0, 0);
       } else {
         const hours = parseInt(timeStr);
         parsedTime = new Date(baseDate);
@@ -442,7 +434,7 @@ function EditableTimeRange({
   };
 
   const formatTime = (date: Date) => {
-    return format(date, 'h:mm:ssaa').toLowerCase();
+    return format(date, 'h:mmaa').toLowerCase();
   };
 
   if (isEditing) {

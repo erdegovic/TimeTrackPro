@@ -217,6 +217,19 @@ export function useTimeTracker() {
     }
   };
   
+  // Start timer with pre-filled data (for play button)
+  const startTimerWithData = (desc: string, projectId: number) => {
+    console.log("Starting timer with data:", { desc, projectId });
+    
+    setDescription(desc);
+    setSelectedProjectId(projectId);
+    
+    const now = Date.now();
+    setStartTime(now);
+    setIsTracking(true);
+    console.log("Timer started at:", new Date(now).toISOString());
+  };
+
   return {
     isTracking,
     startTime,
@@ -228,6 +241,7 @@ export function useTimeTracker() {
     selectedProjectId,
     setSelectedProjectId,
     startTimer,
+    startTimerWithData,
     stopTimer,
   };
 }
