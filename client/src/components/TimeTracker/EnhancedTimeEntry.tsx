@@ -431,6 +431,15 @@ function EditableTimeRange({
     }
   }, [isEditing, startTime, endTime]);
 
+  // Update the display when startTime or endTime props change
+  useEffect(() => {
+    if (!isEditing) {
+      // Force re-render of the button display when times change
+      setStartInput(format(startTime, 'h:mmaa').toLowerCase());
+      setEndInput(format(endTime, 'h:mmaa').toLowerCase());
+    }
+  }, [startTime, endTime, isEditing]);
+
   const handleSave = () => {
     const baseDate = new Date(startTime);
     const newStart = parseTimeInput(startInput, baseDate);
