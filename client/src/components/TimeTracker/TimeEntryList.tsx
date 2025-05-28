@@ -223,7 +223,7 @@ export default function TimeEntryList() {
     <>
       {/* Time View Toggle - Added more spacing from main tracker */}
       <div className="flex flex-col gap-4 mb-4 mt-8">
-        {/* Dynamically adjust breakpoints based on creativity sidebar state */}
+        {/* Large screens: All controls in one row */}
         <div className={`hidden ${creativitySidebarCollapsed ? 'lg:flex' : 'xl:flex'} items-center gap-4`}>
           <div className="flex items-center">
             <label htmlFor="time-format" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
@@ -268,8 +268,55 @@ export default function TimeEntryList() {
           </div>
         </div>
 
-        {/* Small/Medium screens: stacked layout with dynamic breakpoints */}
-        <div className={`${creativitySidebarCollapsed ? 'lg:hidden' : 'xl:hidden'} flex flex-col gap-3`}>
+        {/* Medium screens: Date moves to separate row */}
+        <div className={`${creativitySidebarCollapsed ? 'hidden md:block lg:hidden' : 'hidden lg:block xl:hidden'}`}>
+          <div className="flex items-center gap-4 mb-3">
+            <div className="flex items-center">
+              <label htmlFor="time-format-md" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
+              <div className="relative inline-block w-32">
+                <Select value={timeFormat} onValueChange={(val: "decimal" | "time") => setTimeFormat(val)}>
+                  <SelectTrigger id="time-format-md">
+                    <SelectValue placeholder="Select format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="decimal">Decimal (1.5h)</SelectItem>
+                    <SelectItem value="time">Time (1:30)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="flex items-center">
+              <label htmlFor="group-by-md" className="mr-2 text-sm font-medium text-gray-700">Group by:</label>
+              <div className="relative inline-block w-32">
+                <Select value={groupBy} onValueChange={(val: "date" | "project" | "client") => setGroupBy(val)}>
+                  <SelectTrigger id="group-by-md">
+                    <SelectValue placeholder="Select grouping" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date">Date</SelectItem>
+                    <SelectItem value="project">Project</SelectItem>
+                    <SelectItem value="client">Client</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center">
+            <label htmlFor="filter-date-md" className="mr-2 text-sm font-medium text-gray-700">Date:</label>
+            <Input
+              type="date"
+              id="filter-date-md"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              className="w-40"
+            />
+          </div>
+        </div>
+
+        {/* Small screens: All controls stacked vertically */}
+        <div className={`${creativitySidebarCollapsed ? 'md:hidden' : 'lg:hidden'} flex flex-col gap-3`}>
           <div className="flex items-center">
             <label htmlFor="time-format-mobile" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
             <div className="relative inline-block w-32">
