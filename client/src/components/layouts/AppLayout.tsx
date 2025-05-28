@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState, useEffect, createContext, useContext } from "react";
 import { Link, useLocation } from "wouter";
 import { Logo } from "@/components/ui/logo";
 import CreativitySidebar from "@/components/CreativitySidebar/CreativitySidebar";
@@ -23,6 +23,17 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Separator } from "@/components/ui/separator";
 import { useAuth, UserProfile } from "@/hooks/useAuth";
 import { queryClient } from "@/lib/queryClient";
+
+// Context for creativity sidebar state
+const CreativitySidebarContext = createContext<{
+  isCollapsed: boolean;
+  setIsCollapsed: (collapsed: boolean) => void;
+}>({
+  isCollapsed: false,
+  setIsCollapsed: () => {},
+});
+
+export const useCreativitySidebar = () => useContext(CreativitySidebarContext);
 
 type NavItemProps = {
   href: string;
@@ -160,7 +171,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <CreativitySidebarContext.Provider value={{
+      isCollapsed: creativitySidebarCollapsed,
+      setIsCollapsed: setCreativitySidebarCollapsed
+    }}>
+      <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
       {/* Added a backdrop div to handle closing when clicking outside the sidebar */}
       {isMobile && sidebarOpen && (
@@ -325,5 +340,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
         onToggle={() => setCreativitySidebarCollapsed(!creativitySidebarCollapsed)}
       />
     </div>
+    </CreativitySidebarContext.Provider>
   );
 }
