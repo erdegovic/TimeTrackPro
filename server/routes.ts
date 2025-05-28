@@ -541,12 +541,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'User not authenticated' });
       }
       
-      // Convert timestamp strings to Date objects for database compatibility
+      // Convert timestamp strings to Date objects and ensure date field is set
+      const startTime = req.body.startTime ? new Date(req.body.startTime) : new Date();
       const data = {
         ...req.body,
         userId: userId,
-        startTime: req.body.startTime ? new Date(req.body.startTime) : undefined,
+        startTime: startTime,
         endTime: req.body.endTime ? new Date(req.body.endTime) : undefined,
+        date: startTime.toISOString().split('T')[0], // Add date field in YYYY-MM-DD format
       };
       
       const timeEntry = await storage.createTimeEntry(data as any);
