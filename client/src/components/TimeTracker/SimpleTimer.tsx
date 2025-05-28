@@ -46,8 +46,8 @@ export default function SimpleTimer({
     // Call the parent's onStop callback with the session data
     onStop({
       seconds: Math.floor(diffMs / 1000),
-      startTime,
-      endTime
+      startTime: new Date(startTime),
+      endTime: new Date()
     });
     
     // Invalidate time entries to refresh the list
