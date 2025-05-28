@@ -183,8 +183,22 @@ export class DatabaseStorage implements IStorage {
 
   async getTimeEntriesByUser(userId: number): Promise<TimeEntry[]> {
     return await db
-      .select()
+      .select({
+        id: timeEntries.id,
+        description: timeEntries.description,
+        projectId: timeEntries.projectId,
+        duration: timeEntries.duration,
+        date: timeEntries.date,
+        amount: timeEntries.amount,
+        hourlyRate: timeEntries.hourlyRate,
+        userId: timeEntries.userId,
+        invoiceId: timeEntries.invoiceId,
+        client: clients,
+        project: projects,
+      })
       .from(timeEntries)
+      .leftJoin(projects, eq(timeEntries.projectId, projects.id))
+      .leftJoin(clients, eq(projects.clientId, clients.id))
       .where(eq(timeEntries.userId, userId))
       .orderBy(desc(timeEntries.date));
   }
