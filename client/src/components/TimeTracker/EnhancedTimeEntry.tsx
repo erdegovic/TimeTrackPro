@@ -193,8 +193,9 @@ export default function EnhancedTimeEntry({
         totalDuration: newTotalDuration
       });
 
-      // Refresh the time entries list to get updated data from server
-      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      // Force refresh to ensure UI consistency
+      await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/time-entries"] });
 
       toast({
         title: "Time updated",

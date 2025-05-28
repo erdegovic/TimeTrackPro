@@ -91,19 +91,21 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
     const handleStartTimerFromEntry = (event: CustomEvent) => {
       const { description: entryDescription, projectId, clientId } = event.detail;
       
-      // Update form fields
+      // Update form fields and start timer immediately
       setDescription(entryDescription);
       setSelectedProjectId(projectId);
       setSelectedClientId(clientId || null);
       
-      // Start the timer automatically
-      setTimeout(() => {
-        // Trigger timer start by simulating click on start button
-        const startButton = document.querySelector('[data-timer-start]') as HTMLButtonElement;
-        if (startButton && !startButton.disabled) {
-          startButton.click();
-        }
-      }, 100); // Small delay to ensure form state is updated
+      // Start timer using proper timer functionality
+      setIsTimerActive(true);
+      
+      // Save to localStorage for persistence
+      localStorage.setItem("timeTracker", JSON.stringify({
+        startTime: Date.now(),
+        description: entryDescription,
+        clientId: clientId || null,
+        projectId: projectId
+      }));
     };
 
     // Listen for both old and new event names
@@ -114,7 +116,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
       window.removeEventListener('startTimerFromEntry', handleStartTimerFromEntry as EventListener);
       window.removeEventListener('startTimerWithMerging', handleStartTimerFromEntry as EventListener);
     };
-  }, [allProjects]);
+  }, []);
 
   // Handle client selection
   const handleClientChange = (value: string) => {
