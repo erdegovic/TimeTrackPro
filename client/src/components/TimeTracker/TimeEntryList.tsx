@@ -268,12 +268,12 @@ export default function TimeEntryList() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       ) : sortedGroups.length === 0 ? (
-        <div className="bg-white shadow rounded-lg p-8 text-center">
+        <div className="tickd-card tickd-spacing-xl text-center">
           <p className="text-gray-500">No time entries found. Start tracking your time!</p>
         </div>
       ) : (
         sortedGroups.map(([groupKey, group]) => (
-          <div key={groupKey} className="bg-white shadow rounded-lg mb-6">
+          <div key={groupKey} className="tickd-card mb-6">
             <div className="px-4 py-3 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-medium text-gray-900">{group.label}</h2>

@@ -109,7 +109,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 shadow rounded-lg p-4">
+    <div className="tickd-card-elevated tickd-spacing-lg">
       <div className="max-w-full">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col md:flex-row md:items-center gap-2.5 w-full">
