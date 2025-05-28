@@ -330,54 +330,107 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
             </div>
             
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-              <Select 
-                value={selectedClientId?.toString()} 
-                onValueChange={(value) => {
-                  console.log("Client selected:", value);
-                  if (value === "new") {
-                    if (onAddClient) {
-                      onAddClient();
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    {selectedClientId ? 
+                      clients.find(c => c.id === selectedClientId)?.name || "Select client" : 
+                      "Select client"
                     }
-                  } else {
-                    handleClientChange(value);
-                  }
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select client" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredClients.map((client) => (
-                    <SelectItem key={client.id} value={client.id.toString()}>{client.name}</SelectItem>
-                  ))}
-                  <SelectItem value="new">+ Add new client</SelectItem>
-                </SelectContent>
-              </Select>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-0">
+                  <div className="p-2">
+                    <Input
+                      placeholder="Search clients..."
+                      value={clientSearchTerm}
+                      onChange={(e) => setClientSearchTerm(e.target.value)}
+                      className="mb-2"
+                    />
+                    <div className="max-h-40 overflow-y-auto">
+                      {filteredClients.map((client) => (
+                        <div
+                          key={client.id}
+                          className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded"
+                          onClick={() => {
+                            handleClientChange(client.id.toString());
+                            setClientSearchTerm("");
+                          }}
+                        >
+                          {selectedClientId === client.id && <Check className="h-4 w-4 mr-2" />}
+                          <span className={selectedClientId === client.id ? "ml-0" : "ml-6"}>
+                            {client.name}
+                          </span>
+                        </div>
+                      ))}
+                      <div
+                        className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded border-t mt-1 pt-2"
+                        onClick={() => {
+                          if (onAddClient) onAddClient();
+                          setClientSearchTerm("");
+                        }}
+                      >
+                        <span className="ml-6">+ Add new client</span>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
               
-              <Select 
-                value={selectedProjectId?.toString()} 
-                onValueChange={(val) => {
-                  console.log("Project selected:", val);
-                  if (val === "new") {
-                    if (onAddProject && selectedClientId) {
-                      onAddProject(selectedClientId);
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-between" 
+                    disabled={!selectedClientId}
+                  >
+                    {selectedProjectId ? 
+                      allProjects.find(p => p.id === selectedProjectId)?.name || "Select project" : 
+                      "Select project"
                     }
-                  } else {
-                    setSelectedProjectId(Number(val));
-                  }
-                }}
-                disabled={!selectedClientId}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select project" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredProjects.map((project) => (
-                    <SelectItem key={project.id} value={project.id.toString()}>{project.name}</SelectItem>
-                  ))}
-                  <SelectItem value="new">+ Add new project</SelectItem>
-                </SelectContent>
-              </Select>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-0">
+                  <div className="p-2">
+                    <Input
+                      placeholder="Search projects..."
+                      value={projectSearchTerm}
+                      onChange={(e) => setProjectSearchTerm(e.target.value)}
+                      className="mb-2"
+                    />
+                    <div className="max-h-40 overflow-y-auto">
+                      {filteredProjects.map((project) => (
+                        <div
+                          key={project.id}
+                          className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded"
+                          onClick={() => {
+                            setSelectedProjectId(project.id);
+                            setProjectSearchTerm("");
+                          }}
+                        >
+                          {selectedProjectId === project.id && <Check className="h-4 w-4 mr-2" />}
+                          <span className={selectedProjectId === project.id ? "ml-0" : "ml-6"}>
+                            {project.name}
+                          </span>
+                        </div>
+                      ))}
+                      {selectedClientId && (
+                        <div
+                          className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded border-t mt-1 pt-2"
+                          onClick={() => {
+                            if (onAddProject && selectedClientId) onAddProject(selectedClientId);
+                            setProjectSearchTerm("");
+                          }}
+                        >
+                          <span className="ml-6">+ Add new project</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
             
             <div className="w-full">
