@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useTimeTracker } from "@/hooks/useTimeTracker";
+import { useTimerContext } from "@/context/TimerContext";
 import { TimeEntry, Client, Project } from "@shared/schema";
 import { format, parse, isValid } from "date-fns";
 
@@ -55,7 +55,7 @@ export default function EnhancedTimeEntry({
   onStop
 }: EnhancedTimeEntryProps) {
   const { toast } = useToast();
-  const { isTracking: globalIsTracking, description: currentDescription, selectedProjectId, stopTimer, startTimerWithData } = useTimeTracker();
+  const { isTracking: globalIsTracking, description: currentDescription, selectedProjectId, stopTimer, startTimerWithData } = useTimerContext();
   const [isExpanded, setIsExpanded] = useState(false);
   const [groupedEntry, setGroupedEntry] = useState<GroupedTimeEntry | null>(null);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
