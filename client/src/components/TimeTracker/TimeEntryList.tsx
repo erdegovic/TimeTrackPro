@@ -184,7 +184,7 @@ export default function TimeEntryList() {
           id: entry.id.toString(),
           startTime: new Date(entry.startTime!),
           endTime: new Date(entry.endTime!),
-          duration: entry.exactDuration || Number(entry.duration || 0)
+          duration: Number(entry.duration || 0)
         }));
 
         const totalDuration = blocks.reduce((sum, block) => sum + block.duration, 0);
@@ -249,7 +249,7 @@ export default function TimeEntryList() {
       }
       
       acc[groupKey].entries.push(entry);
-      acc[groupKey].totalHours += entry.exactDuration || Number(entry.duration || 0);
+      acc[groupKey].totalHours += Number(entry.duration || 0);
     });
     
     return acc;
