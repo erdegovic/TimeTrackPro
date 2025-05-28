@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { useCreativitySidebar } from "@/components/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Edit, Copy, Trash2, Play } from "lucide-react";
 import { TimeEntry, Client, Project } from "@shared/schema";
@@ -22,6 +23,7 @@ import TimeEntryRow from "./TimeEntry";
 
 export default function TimeEntryList() {
   const { toast } = useToast();
+  const { isCollapsed: creativitySidebarCollapsed } = useCreativitySidebar();
   const [timeFormat, setTimeFormat] = useState<"decimal" | "time">("time");
   const [groupBy, setGroupBy] = useState<"date" | "project" | "client">("date");
   const [filterDate, setFilterDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -221,8 +223,8 @@ export default function TimeEntryList() {
     <>
       {/* Time View Toggle - Added more spacing from main tracker */}
       <div className="flex flex-col gap-4 mb-4 mt-8">
-        {/* Large screens: all in one row */}
-        <div className="hidden lg:flex lg:items-center gap-4">
+        {/* Dynamically adjust breakpoints based on creativity sidebar state */}
+        <div className={`hidden ${creativitySidebarCollapsed ? 'lg:flex' : 'xl:flex'} items-center gap-4`}>
           <div className="flex items-center">
             <label htmlFor="time-format" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
             <div className="relative inline-block w-32">
