@@ -262,37 +262,65 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTimeEntry(entryData: InsertTimeEntry): Promise<TimeEntry> {
-    // Fix: Ensure date is always a valid string before parseISO
-    let date: string;
-    if (entryData.date && typeof entryData.date === 'string') {
-      date = entryData.date;
+    console.log('=== CREATING TIME ENTRY - COMPLETE REWRITE ===');
+    console.log('Input entryData:', JSON.stringify(entryData, null, 2));
+    
+    // Determine date string with robust fallbacks
+    let dateString: string;
+    if (entryData.date && typeof entryData.date === 'string' && entryData.date.trim().length > 0) {
+      dateString = entryData.date.trim();
     } else if (entryData.startTime) {
-      date = new Date(entryData.startTime).toISOString().split('T')[0];
+      const startDate = new Date(entryData.startTime);
+      dateString = startDate.toISOString().substring(0, 10); // YYYY-MM-DD format
     } else {
-      date = new Date().toISOString().split('T')[0];
+      const now = new Date();
+      dateString = now.toISOString().substring(0, 10); // YYYY-MM-DD format
     }
     
-    console.log('Creating time entry with date:', date, 'from entryData:', JSON.stringify(entryData, null, 2));
-    const parsedDate = new Date(date); // Use Date constructor instead of parseISO
+    console.log('Using date string:', dateString);
     
-    // Calculate week-related fields
-    const weekStart = startOfWeek(parsedDate, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(parsedDate, { weekStartsOn: 1 });
-    const weekNumber = getWeekOfMonth(parsedDate);
+    // Create working date object for calculations
+    const workingDate = new Date(dateString + 'T12:00:00.000Z'); // Force UTC midday
+    console.log('Working date object:', workingDate);
+    
+    // Calculate all week/date related fields manually
+    const weekStart = startOfWeek(workingDate, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(workingDate, { weekStartsOn: 1 });
+    const weekNumber = getWeekOfMonth(workingDate);
     const weekLabel = `Week ${weekNumber} (${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')})`;
-    const month = format(parsedDate, 'yyyy-MM');
-    const year = getYear(parsedDate);
-
-    const newEntry = {
-      ...entryData,
+    const month = format(workingDate, 'yyyy-MM');
+    const year = getYear(workingDate);
+    
+    console.log('Calculated fields:', { weekNumber, weekLabel, month, year });
+    
+    // Build the complete entry object
+    const completeEntry = {
+      description: entryData.description || '',
+      projectId: entryData.projectId || 0,
+      userId: entryData.userId || null,
+      startTime: entryData.startTime || new Date(),
+      endTime: entryData.endTime || null,
+      duration: entryData.duration || null,
+      date: dateString,
       weekNumber,
       weekLabel,
       month,
       year,
+      invoiceId: entryData.invoiceId || null
     };
-
-    const [result] = await db.insert(timeEntries).values(newEntry).returning();
-    return result;
+    
+    console.log('Complete entry for database:', JSON.stringify(completeEntry, null, 2));
+    
+    try {
+      const [result] = await db.insert(timeEntries).values(completeEntry).returning();
+      console.log('=== TIME ENTRY CREATED SUCCESSFULLY ===');
+      console.log('Created entry:', JSON.stringify(result, null, 2));
+      return result;
+    } catch (error) {
+      console.error('=== DATABASE INSERT ERROR ===');
+      console.error('Error details:', error);
+      throw error;
+    }
   }
 
   async updateTimeEntry(
