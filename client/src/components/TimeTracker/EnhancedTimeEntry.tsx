@@ -99,7 +99,7 @@ export default function EnhancedTimeEntry({
   }, [entry, sessionGroup]);
 
   const formatTime = (date: Date) => {
-    return format(date, 'h:mmaa').toLowerCase();
+    return format(date, 'h:mm:ssaa').toLowerCase();
   };
 
   const formatDuration = (hours: number) => {
@@ -173,9 +173,12 @@ export default function EnhancedTimeEntry({
           : block
       );
 
+      // Sort blocks by start time to get the proper overall range
+      const sortedBlocks = [...updatedBlocks].sort((a, b) => 
+        a.startTime.getTime() - b.startTime.getTime()
+      );
+
       const newTotalDuration = updatedBlocks.reduce((sum, block) => sum + block.duration, 0);
-      const firstBlock = updatedBlocks[0];
-      const lastBlock = updatedBlocks[updatedBlocks.length - 1];
 
       setGroupedEntry({
         ...groupedEntry,
@@ -378,8 +381,8 @@ function EditableTimeRange({
 
   useEffect(() => {
     if (isEditing) {
-      setStartInput(format(startTime, 'h:mmaa').toLowerCase());
-      setEndInput(format(endTime, 'h:mmaa').toLowerCase());
+      setStartInput(format(startTime, 'h:mm:ssaa').toLowerCase());
+      setEndInput(format(endTime, 'h:mm:ssaa').toLowerCase());
     }
   }, [isEditing, startTime, endTime]);
 
@@ -401,14 +404,24 @@ function EditableTimeRange({
       let parsedTime: Date;
       
       if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
-        parsedTime = parse(timeStr, 'h:mmaa', baseDate);
+        // Try parsing with seconds first
+        parsedTime = parse(timeStr, 'h:mm:ssaa', baseDate);
+        if (!isValid(parsedTime)) {
+          parsedTime = parse(timeStr, 'h:mm:ssa', baseDate);
+        }
+        if (!isValid(parsedTime)) {
+          parsedTime = parse(timeStr, 'h:mmaa', baseDate);
+        }
         if (!isValid(parsedTime)) {
           parsedTime = parse(timeStr, 'h:mma', baseDate);
         }
       } else if (timeStr.includes(':')) {
-        const [hours, minutes] = timeStr.split(':').map(Number);
+        const parts = timeStr.split(':');
+        const hours = parseInt(parts[0]);
+        const minutes = parseInt(parts[1]) || 0;
+        const seconds = parseInt(parts[2]) || 0;
         parsedTime = new Date(baseDate);
-        parsedTime.setHours(hours, minutes, 0, 0);
+        parsedTime.setHours(hours, minutes, seconds, 0);
       } else {
         const hours = parseInt(timeStr);
         parsedTime = new Date(baseDate);
@@ -422,7 +435,7 @@ function EditableTimeRange({
   };
 
   const formatTime = (date: Date) => {
-    return format(date, 'h:mmaa').toLowerCase();
+    return format(date, 'h:mm:ssaa').toLowerCase();
   };
 
   if (isEditing) {
