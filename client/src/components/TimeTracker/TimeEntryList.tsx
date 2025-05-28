@@ -26,7 +26,7 @@ import EnhancedTimeEntry from "./EnhancedTimeEntry";
 export default function TimeEntryList() {
   const { toast } = useToast();
   const { isCollapsed: creativitySidebarCollapsed } = useCreativitySidebar();
-  const { startTimerWithData } = useTimeTracker();
+  const { startTimerWithData, setDescription, setSelectedClientId, setSelectedProjectId } = useTimeTracker();
   const [timeFormat, setTimeFormat] = useState<"decimal" | "time">("time");
   const [groupBy, setGroupBy] = useState<"date" | "project" | "client">("date");
   const [filterDate, setFilterDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -295,7 +295,18 @@ export default function TimeEntryList() {
 
   // Handle play button click - use direct timer hook for synchronization
   const handlePlay = (description: string, projectId: number) => {
-    // Use the unified timer hook directly for complete synchronization
+    // Find the project to get the client ID
+    const project = projects.find(p => p.id === projectId);
+    const clientId = project?.clientId;
+    
+    // First, populate the main tracker form with all the data
+    setDescription(description);
+    setSelectedProjectId(projectId);
+    if (clientId) {
+      setSelectedClientId(clientId);
+    }
+    
+    // Then start the timer with the data for complete synchronization
     startTimerWithData(description, projectId);
     
     toast({
