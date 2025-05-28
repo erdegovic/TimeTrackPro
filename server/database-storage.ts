@@ -262,8 +262,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTimeEntry(entryData: InsertTimeEntry): Promise<TimeEntry> {
-    // Ensure date is in YYYY-MM-DD format
-    const date = entryData.date;
+    // Ensure date is in YYYY-MM-DD format - use startTime if date is not provided
+    const date = entryData.date || (entryData.startTime ? entryData.startTime.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
     const parsedDate = parseISO(date);
     
     // Calculate week-related fields
