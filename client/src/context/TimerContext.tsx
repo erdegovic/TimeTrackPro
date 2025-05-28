@@ -142,10 +142,8 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       });
 
       // Force cache refresh to update totals immediately
-      if (window.queryClient) {
-        window.queryClient.invalidateQueries({ queryKey: ['/api/time-entries'] });
-        window.queryClient.refetchQueries({ queryKey: ['/api/time-entries'] });
-      }
+      // Trigger a complete data refresh by dispatching a custom event
+      window.dispatchEvent(new CustomEvent('timeEntryUpdated'));
 
       // Clear localStorage
       localStorage.removeItem("timeTracker");

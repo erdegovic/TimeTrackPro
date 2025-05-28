@@ -41,9 +41,19 @@ export default function TimeEntryList() {
   const [newEntryIds, setNewEntryIds] = useState<number[]>([]);
 
   // Fetch time entries
-  const { data: timeEntries = [], isLoading: isLoadingEntries } = useQuery<TimeEntry[]>({
+  const { data: timeEntries = [], isLoading: isLoadingEntries, refetch: refetchTimeEntries } = useQuery<TimeEntry[]>({
     queryKey: ["/api/time-entries"]
   });
+
+  // Listen for timer updates to refresh total times immediately
+  useEffect(() => {
+    const handleTimeEntryUpdate = () => {
+      refetchTimeEntries();
+    };
+
+    window.addEventListener('timeEntryUpdated', handleTimeEntryUpdate);
+    return () => window.removeEventListener('timeEntryUpdated', handleTimeEntryUpdate);
+  }, [refetchTimeEntries]);
   
   // Track new entries for highlighting
   useEffect(() => {
