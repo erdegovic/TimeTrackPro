@@ -180,22 +180,17 @@ export default function EnhancedTimeEntry({
           : block
       );
 
-      // Sort blocks by start time to get the proper overall range
-      const sortedBlocks = [...updatedBlocks].sort((a, b) => 
-        a.startTime.getTime() - b.startTime.getTime()
-      );
-
       const newTotalDuration = updatedBlocks.reduce((sum, block) => sum + block.duration, 0);
 
+      // Update local state first
       setGroupedEntry({
         ...groupedEntry,
         blocks: updatedBlocks,
         totalDuration: newTotalDuration
       });
 
-      // Force refresh to ensure UI consistency
-      await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/time-entries"] });
+      // Refresh data from server but don't overwrite local changes immediately
+      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
 
       toast({
         title: "Time updated",

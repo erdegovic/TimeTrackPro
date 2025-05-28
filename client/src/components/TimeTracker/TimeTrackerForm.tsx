@@ -12,6 +12,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatTime } from "@/lib/utils/timeUtils";
 import { format } from "date-fns";
 import SimpleTimer from "./SimpleTimer";
+import { useTimeTracker } from "@/hooks/useTimeTracker";
 
 interface TimeTrackerFormProps {
   onAddClient?: () => void;
@@ -20,12 +21,22 @@ interface TimeTrackerFormProps {
 
 export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrackerFormProps = {}) {
   const { toast } = useToast();
-  const [description, setDescription] = useState("");
-  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-  const [isTimerActive, setIsTimerActive] = useState(false);
   const [clientSearchTerm, setClientSearchTerm] = useState("");
   const [projectSearchTerm, setProjectSearchTerm] = useState("");
+  
+  // Use the proper time tracker hook for consistency
+  const {
+    isTracking,
+    description,
+    setDescription,
+    selectedClientId,
+    setSelectedClientId,
+    selectedProjectId,
+    setSelectedProjectId,
+    startTimer,
+    startTimerWithData,
+    stopTimer
+  } = useTimeTracker();
   
   // On component mount, check if there's an active timer and initialize form state
   useEffect(() => {
@@ -91,21 +102,13 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
     const handleStartTimerFromEntry = (event: CustomEvent) => {
       const { description: entryDescription, projectId, clientId } = event.detail;
       
-      // Update form fields and start timer immediately
-      setDescription(entryDescription);
-      setSelectedProjectId(projectId);
-      setSelectedClientId(clientId || null);
+      // Use the proper timer hook function for consistency
+      startTimerWithData(entryDescription, projectId);
       
-      // Start timer using proper timer functionality
-      setIsTimerActive(true);
-      
-      // Save to localStorage for persistence
-      localStorage.setItem("timeTracker", JSON.stringify({
-        startTime: Date.now(),
-        description: entryDescription,
-        clientId: clientId || null,
-        projectId: projectId
-      }));
+      // Update client selection if provided
+      if (clientId) {
+        setSelectedClientId(clientId);
+      }
     };
 
     // Listen for both old and new event names
@@ -116,13 +119,13 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
       window.removeEventListener('startTimerFromEntry', handleStartTimerFromEntry as EventListener);
       window.removeEventListener('startTimerWithMerging', handleStartTimerFromEntry as EventListener);
     };
-  }, []);
+  }, [startTimerWithData, setSelectedClientId]);
 
   // Handle client selection
   const handleClientChange = (value: string) => {
     const clientId = Number(value);
     setSelectedClientId(clientId);
-    setSelectedProjectId(null); // Reset project when client changes
+    setSelectedProjectId(undefined); // Reset project when client changes
   };
 
   return (

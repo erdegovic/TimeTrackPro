@@ -138,49 +138,113 @@ export default function TimeEntryList() {
     };
   });
 
-  // Group entries by date, project, or client
-  const groupedEntries = enhancedEntries.reduce((acc, entry) => {
-    let groupKey = "";
-    let groupLabel = "";
-    
-    if (groupBy === "date") {
-      groupKey = entry.date;
-      
-      // Format date for display
-      const entryDate = new Date(entry.date);
-      const today = new Date();
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      
-      if (format(entryDate, "yyyy-MM-dd") === format(today, "yyyy-MM-dd")) {
-        groupLabel = "Today";
-      } else if (format(entryDate, "yyyy-MM-dd") === format(yesterday, "yyyy-MM-dd")) {
-        groupLabel = "Yesterday";
-      } else {
-        groupLabel = format(entryDate, "MMMM d, yyyy");
+  // First group by date
+  const dateGroups = enhancedEntries.reduce((acc, entry) => {
+    const dateKey = entry.date;
+    if (!acc[dateKey]) {
+      acc[dateKey] = [];
+    }
+    acc[dateKey].push(entry);
+    return acc;
+  }, {} as Record<string, typeof enhancedEntries>);
+
+  // Then within each date, group by project+description for session merging
+  const sessionGroupedEntries = Object.entries(dateGroups).map(([date, entries]) => {
+    // Group entries by project + description combination
+    const sessionGroups = entries.reduce((acc, entry) => {
+      const sessionKey = `${entry.projectId}-${entry.description}`;
+      if (!acc[sessionKey]) {
+        acc[sessionKey] = [];
       }
-    } else if (groupBy === "project") {
-      groupKey = entry.projectId.toString();
-      groupLabel = entry.project?.name || "Unknown Project";
-    } else if (groupBy === "client") {
-      groupKey = (entry.project?.clientId || "unknown").toString();
-      groupLabel = entry.client?.name || "Unknown Client";
-    }
-    
-    if (!acc[groupKey]) {
-      acc[groupKey] = {
-        label: groupLabel,
-        entries: [],
-        totalHours: 0
-      };
-    }
-    
-    acc[groupKey].entries.push(entry);
-    // Use exactDuration for more accurate totals
-    acc[groupKey].totalHours += entry.exactDuration || Number(entry.duration || 0);
+      acc[sessionKey].push(entry);
+      return acc;
+    }, {} as Record<string, typeof entries>);
+
+    // Convert session groups to enhanced time entry format
+    const processedEntries = Object.values(sessionGroups).map(sessionEntries => {
+      if (sessionEntries.length === 1) {
+        // Single entry - show as normal
+        return sessionEntries[0];
+      } else {
+        // Multiple entries - create grouped entry with blocks
+        const sortedEntries = sessionEntries.sort((a, b) => 
+          new Date(a.startTime!).getTime() - new Date(b.startTime!).getTime()
+        );
+        
+        const blocks = sortedEntries.map(entry => ({
+          id: entry.id.toString(),
+          startTime: new Date(entry.startTime!),
+          endTime: new Date(entry.endTime!),
+          duration: entry.exactDuration || Number(entry.duration || 0)
+        }));
+
+        const totalDuration = blocks.reduce((sum, block) => sum + block.duration, 0);
+        const earliestStart = blocks[0].startTime;
+        const latestEnd = blocks[blocks.length - 1].endTime;
+
+        return {
+          ...sortedEntries[0], // Use first entry as base
+          sessionGroup: sessionEntries,
+          blocks,
+          totalDuration,
+          sessionCount: sessionEntries.length,
+          overallStartTime: earliestStart,
+          overallEndTime: latestEnd,
+          exactDuration: totalDuration
+        };
+      }
+    });
+
+    return {
+      date,
+      entries: processedEntries
+    };
+  });
+
+  // Group entries by date, project, or client for display grouping
+  const groupedEntries = sessionGroupedEntries.reduce((acc, { date, entries }) => {
+    entries.forEach(entry => {
+      let groupKey = "";
+      let groupLabel = "";
+      
+      if (groupBy === "date") {
+        groupKey = date;
+        
+        // Format date for display
+        const entryDate = new Date(date);
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        if (format(entryDate, "yyyy-MM-dd") === format(today, "yyyy-MM-dd")) {
+          groupLabel = "Today";
+        } else if (format(entryDate, "yyyy-MM-dd") === format(yesterday, "yyyy-MM-dd")) {
+          groupLabel = "Yesterday";
+        } else {
+          groupLabel = format(entryDate, "MMMM d, yyyy");
+        }
+      } else if (groupBy === "project") {
+        groupKey = entry.projectId.toString();
+        groupLabel = entry.project?.name || "Unknown Project";
+      } else if (groupBy === "client") {
+        groupKey = (entry.project?.clientId || "unknown").toString();
+        groupLabel = entry.client?.name || "Unknown Client";
+      }
+      
+      if (!acc[groupKey]) {
+        acc[groupKey] = {
+          label: groupLabel,
+          entries: [],
+          totalHours: 0
+        };
+      }
+      
+      acc[groupKey].entries.push(entry);
+      acc[groupKey].totalHours += entry.exactDuration || Number(entry.duration || 0);
+    });
     
     return acc;
-  }, {} as Record<string, { label: string; entries: typeof enhancedEntries; totalHours: number }>);
+  }, {} as Record<string, { label: string; entries: any[]; totalHours: number }>);
 
   // Sort entries within each group (newest first)
   Object.values(groupedEntries).forEach(group => {
