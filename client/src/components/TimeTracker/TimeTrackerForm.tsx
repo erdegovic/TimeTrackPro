@@ -12,7 +12,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatTime } from "@/lib/utils/timeUtils";
 import { format } from "date-fns";
 import SimpleTimer from "./SimpleTimer";
-import { useTimeTracker } from "@/hooks/useTimeTracker";
+import { useTimerContext } from "@/context/TimerContext";
 
 interface TimeTrackerFormProps {
   onAddClient?: () => void;
@@ -36,7 +36,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
     startTimer,
     startTimerWithData,
     stopTimer
-  } = useTimeTracker();
+  } = useTimerContext();
   
   // On component mount, check if there's an active timer and initialize form state
   useEffect(() => {
@@ -51,8 +51,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
         if (projectId) setSelectedProjectId(projectId);
         if (clientId) setSelectedClientId(clientId);
         
-        // Set timer active state so UI can be updated
-        setIsTimerActive(true);
+        // Timer state is managed by context, no need for local state
         
         // Make the clientId available for the timer
         if (typeof window !== 'undefined') {
