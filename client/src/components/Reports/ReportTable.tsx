@@ -181,7 +181,9 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                         {entry.client?.name || "—"}
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {entry.project?.name || "—"}
+                        <span style={{ color: (entry.project as any)?.color || "#6B7280" }}>
+                          {entry.project?.name || "—"}
+                        </span>
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
                         {formatTime(

@@ -446,7 +446,9 @@ export default function TimeEntryList() {
                       <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs text-gray-500">
                         <span className="font-medium">{entry.client?.name || "—"}</span>
                         <span className="hidden sm:inline">•</span>
-                        <span>{entry.project?.name || "—"}</span>
+                        <span style={{ color: (entry.project as any)?.color || "#6B7280" }}>
+                          {entry.project?.name || "—"}
+                        </span>
                       </div>
                       
                       <div className="flex items-center space-x-1">
