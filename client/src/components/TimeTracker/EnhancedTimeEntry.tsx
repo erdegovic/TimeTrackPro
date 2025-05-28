@@ -99,17 +99,24 @@ export default function EnhancedTimeEntry({
   }, [entry, sessionGroup]);
 
   const formatTime = (date: Date) => {
-    return format(date, 'h:mm:ssaa').toLowerCase();
+    return format(date, 'h:mmaa').toLowerCase();
   };
 
   const formatDuration = (hours: number) => {
     if (timeFormat === "decimal") {
       return `${hours.toFixed(2)}h`;
     } else {
-      const totalMinutes = Math.round(hours * 60);
-      const h = Math.floor(totalMinutes / 60);
-      const m = totalMinutes % 60;
-      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`;
+      const totalSeconds = Math.round(hours * 3600);
+      const h = Math.floor(totalSeconds / 3600);
+      const m = Math.floor((totalSeconds % 3600) / 60);
+      const s = totalSeconds % 60;
+      
+      if (h > 0) {
+        return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+      } else if (m > 0) {
+        return `${m}:${s.toString().padStart(2, '0')}`;
+      }
+      return `${s}s`;
     }
   };
 
@@ -381,8 +388,8 @@ function EditableTimeRange({
 
   useEffect(() => {
     if (isEditing) {
-      setStartInput(format(startTime, 'h:mm:ssaa').toLowerCase());
-      setEndInput(format(endTime, 'h:mm:ssaa').toLowerCase());
+      setStartInput(format(startTime, 'h:mmaa').toLowerCase());
+      setEndInput(format(endTime, 'h:mmaa').toLowerCase());
     }
   }, [isEditing, startTime, endTime]);
 
