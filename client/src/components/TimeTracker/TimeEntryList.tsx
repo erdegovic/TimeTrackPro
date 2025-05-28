@@ -474,35 +474,19 @@ export default function TimeEntryList() {
             
             {/* Enhanced Time Entry List - Clockify Style with Session Grouping */}
             <div className="bg-white">
-              {(() => {
-                // Group entries within this date/client/project group by description
-                const sessionGroups = new Map<string, any[]>();
-                group.entries.forEach(entry => {
-                  const key = `${entry.description}-${entry.projectId}`;
-                  if (!sessionGroups.has(key)) {
-                    sessionGroups.set(key, []);
-                  }
-                  sessionGroups.get(key)!.push(entry);
-                });
-
-                // Render each session group
-                return Array.from(sessionGroups.values()).map((sessionGroup) => {
-                  const mainEntry = sessionGroup[0];
-                  return (
-                    <EnhancedTimeEntry
-                      key={`session-${mainEntry.id}`}
-                      entry={mainEntry}
-                      sessionGroup={sessionGroup.length > 1 ? sessionGroup : undefined}
-                      clients={clients}
-                      projects={projects}
-                      timeFormat={timeFormat}
-                      onDelete={(id) => setDeleteId(id)}
-                      onPlay={handlePlay}
-                      isNew={newEntryIds.includes(mainEntry.id)}
-                    />
-                  );
-                });
-              })()}
+              {group.entries.map((entry) => (
+                <EnhancedTimeEntry
+                  key={`entry-${entry.id}`}
+                  entry={entry}
+                  sessionGroup={entry.sessionGroup}
+                  clients={clients}
+                  projects={projects}
+                  timeFormat={timeFormat}
+                  onDelete={(id) => setDeleteId(id)}
+                  onPlay={handlePlay}
+                  isNew={newEntryIds.includes(entry.id)}
+                />
+              ))}
             </div>
 
             {/* Mobile Card View - only on very small screens */}
