@@ -268,8 +268,8 @@ export default function TimeEntryList() {
           </div>
         </div>
 
-        {/* Small/Medium screens: stacked layout */}
-        <div className="lg:hidden flex flex-col gap-3">
+        {/* Small/Medium screens: stacked layout with dynamic breakpoints */}
+        <div className={`${creativitySidebarCollapsed ? 'lg:hidden' : 'xl:hidden'} flex flex-col gap-3`}>
           <div className="flex items-center">
             <label htmlFor="time-format-mobile" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
             <div className="relative inline-block w-32">
