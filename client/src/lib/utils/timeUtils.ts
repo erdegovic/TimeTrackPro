@@ -4,12 +4,9 @@
  * Can accept either seconds or decimal hours as input
  */
 export function formatTime(value: number, format: 'decimal' | 'time' = 'time'): string {
-  // Check if the value is already in hours (anything less than 100 is likely hours, not seconds)
-  // This handles cases where the duration is stored in decimal hours instead of seconds
-  const isValueInHours = value < 100;
-  
-  // Convert everything to seconds for consistent processing
-  const seconds = isValueInHours ? value * 3600 : value;
+  // For timer display, value is always in seconds
+  // Only convert to hours for decimal format display
+  const seconds = value;
   
   if (format === 'decimal') {
     // Convert to hours with 2 decimal places
