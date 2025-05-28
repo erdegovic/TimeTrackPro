@@ -220,8 +220,9 @@ export default function TimeEntryList() {
   return (
     <>
       {/* Time View Toggle - Added more spacing from main tracker */}
-      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-4 mt-8">
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-col gap-4 mb-4 mt-8">
+        {/* Format, Group by, and Date - responsive layout */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex items-center">
             <label htmlFor="time-format" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
             <div className="relative inline-block w-32">
@@ -237,7 +238,7 @@ export default function TimeEntryList() {
             </div>
           </div>
           
-          <div className="hidden md:flex items-center">
+          <div className="flex items-center">
             <label htmlFor="group-by" className="mr-2 text-sm font-medium text-gray-700">Group by:</label>
             <div className="relative inline-block w-32">
               <Select value={groupBy} onValueChange={(val: "date" | "project" | "client") => setGroupBy(val)}>
@@ -252,15 +253,17 @@ export default function TimeEntryList() {
               </Select>
             </div>
           </div>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <Input
-            type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            className="w-40"
-          />
+          
+          <div className="flex items-center">
+            <label htmlFor="filter-date" className="mr-2 text-sm font-medium text-gray-700">Date:</label>
+            <Input
+              type="date"
+              id="filter-date"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              className="w-40"
+            />
+          </div>
         </div>
       </div>
       
