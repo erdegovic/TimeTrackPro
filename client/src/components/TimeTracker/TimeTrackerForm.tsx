@@ -112,9 +112,9 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
     <div className="tickd-card-elevated tickd-spacing-lg">
       <div className="max-w-full">
         <div className="flex flex-col gap-4">
-          {/* Desktop: Everything in One Row */}
-          <div className="hidden lg:flex lg:items-center gap-3 w-full">
-            <div className="flex-1 min-w-0">
+          {/* Layout 1: Large screens - Everything in one row */}
+          <div className="hidden xl:flex xl:items-center gap-2.5 w-full">
+            <div className="flex-1 mb-2 md:mb-0">
               <div className="relative">
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 opacity-70"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="M6 8h.001"></path><path d="M10 8h.001"></path><path d="M14 8h.001"></path><path d="M18 8h.001"></path><path d="M8 12h.001"></path><path d="M12 12h.001"></path><path d="M16 12h.001"></path><path d="M7 16h10"></path></svg>
@@ -129,56 +129,56 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
               </div>
             </div>
             
-            <Select 
-              value={selectedClientId?.toString()} 
-              onValueChange={(value) => {
-                console.log("Client selected:", value);
-                if (value === "new") {
-                  if (onAddClient) {
-                    onAddClient();
+            <div className="flex flex-wrap gap-2.5 md:flex-nowrap w-full md:w-auto">
+              <Select 
+                value={selectedClientId?.toString()} 
+                onValueChange={(value) => {
+                  console.log("Client selected:", value);
+                  if (value === "new") {
+                    if (onAddClient) {
+                      onAddClient();
+                    }
+                  } else {
+                    handleClientChange(value);
                   }
-                } else {
-                  handleClientChange(value);
-                }
-              }}
-            >
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="Client" />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id.toString()}>{client.name}</SelectItem>
-                ))}
-                <SelectItem value="new">+ Add new client</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select 
-              value={selectedProjectId?.toString()} 
-              onValueChange={(val) => {
-                console.log("Project selected:", val);
-                if (val === "new") {
-                  if (onAddProject && selectedClientId) {
-                    onAddProject(selectedClientId);
+                }}
+              >
+                <SelectTrigger className="w-full md:w-40">
+                  <SelectValue placeholder="Select client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id.toString()}>{client.name}</SelectItem>
+                  ))}
+                  <SelectItem value="new">+ Add new client</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select 
+                value={selectedProjectId?.toString()} 
+                onValueChange={(val) => {
+                  console.log("Project selected:", val);
+                  if (val === "new") {
+                    if (onAddProject && selectedClientId) {
+                      onAddProject(selectedClientId);
+                    }
+                  } else {
+                    setSelectedProjectId(Number(val));
                   }
-                } else {
-                  setSelectedProjectId(Number(val));
-                }
-              }}
-              disabled={!selectedClientId}
-            >
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="Project" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id.toString()}>{project.name}</SelectItem>
-                ))}
-                <SelectItem value="new">+ Add new project</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <div className="flex-shrink-0">
+                }}
+                disabled={!selectedClientId}
+              >
+                <SelectTrigger className="w-full md:w-40">
+                  <SelectValue placeholder="Select project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>{project.name}</SelectItem>
+                  ))}
+                  <SelectItem value="new">+ Add new project</SelectItem>
+                </SelectContent>
+              </Select>
+              
               <SimpleTimer 
                 description={description}
                 projectId={selectedProjectId || undefined}
@@ -244,8 +244,142 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
             </div>
           </div>
 
-          {/* Mobile/Tablet: Stacked Layout */}
-          <div className="lg:hidden flex flex-col gap-4">
+          {/* Layout 2: Medium screens - Two rows */}
+          <div className="hidden md:block xl:hidden">
+            <div className="flex flex-col gap-4">
+              <div className="w-full">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 opacity-70"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="M6 8h.001"></path><path d="M10 8h.001"></path><path d="M14 8h.001"></path><path d="M18 8h.001"></path><path d="M8 12h.001"></path><path d="M12 12h.001"></path><path d="M16 12h.001"></path><path d="M7 16h10"></path></svg>
+                  </span>
+                  <Input
+                    type="text"
+                    placeholder="What are you working on?"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full pl-10"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2.5">
+                <Select 
+                  value={selectedClientId?.toString()} 
+                  onValueChange={(value) => {
+                    console.log("Client selected:", value);
+                    if (value === "new") {
+                      if (onAddClient) {
+                        onAddClient();
+                      }
+                    } else {
+                      handleClientChange(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Select client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id.toString()}>{client.name}</SelectItem>
+                    ))}
+                    <SelectItem value="new">+ Add new client</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select 
+                  value={selectedProjectId?.toString()} 
+                  onValueChange={(val) => {
+                    console.log("Project selected:", val);
+                    if (val === "new") {
+                      if (onAddProject && selectedClientId) {
+                        onAddProject(selectedClientId);
+                      }
+                    } else {
+                      setSelectedProjectId(Number(val));
+                    }
+                  }}
+                  disabled={!selectedClientId}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Select project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id.toString()}>{project.name}</SelectItem>
+                    ))}
+                    <SelectItem value="new">+ Add new project</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <SimpleTimer 
+                  description={description}
+                  projectId={selectedProjectId || undefined}
+                  clientId={selectedClientId || undefined}
+                  isDisabled={!description || !selectedProjectId}
+                  onStop={async (data) => {
+                    console.log("Timer stopped with data:", data);
+                    
+                    // Format dates for display
+                    const dateStr = format(data.startTime, 'yyyy-MM-dd');
+                    const monthStr = format(data.startTime, 'MMMM');
+                    const yearNum = data.startTime.getFullYear();
+                    
+                    // Calculate week number and label
+                    const weekNum = Math.ceil(data.startTime.getDate() / 7);
+                    const weekLabel = `Week ${weekNum}`;
+                    
+                    // Format date values according to what the server expects
+                    const startDateTime = new Date(data.startTime);
+                    const endDateTime = new Date(data.endTime);
+                    
+                    // Calculate duration correctly
+                    const diffMs = endDateTime.getTime() - startDateTime.getTime();
+                    
+                    // Calculate exact duration with higher precision (no minimum value)
+                    const hoursDecimal = diffMs / (1000 * 60 * 60);
+                    
+                    // Convert to string with 4 decimal places to capture seconds precisely
+                    const diffHours = hoursDecimal.toFixed(4);
+                    
+                    console.log(`Client calculated exact duration: ${diffHours} hours from ${diffMs}ms (${hoursDecimal} raw hours)`);
+                    
+                    // Prepare time entry data
+                    const timeEntry = {
+                      description,
+                      projectId: selectedProjectId || 0,
+                      // Pass the Date objects directly - they'll be serialized to strings automatically
+                      startTime: startDateTime,
+                      endTime: endDateTime,
+                      // Use the properly calculated duration (as a string to preserve decimal precision)
+                      duration: diffHours,
+                      date: dateStr,
+                      month: monthStr,
+                      year: yearNum,
+                      weekNumber: weekNum,
+                      weekLabel: weekLabel,
+                      billable: true,
+                    };
+                    
+                    console.log("Saving time entry:", timeEntry);
+                    
+                    // BYPASS OLD SAVE LOGIC - SimpleTimer now handles everything
+                    // This prevents the duplicate creation issue
+                    console.log("Timer data received but bypassed - SimpleTimer handles save logic");
+                    
+                    // Just invalidate cache to refresh UI
+                    queryClient.invalidateQueries({ queryKey: ['/api/time-entries'] });
+                    
+                    // Reset form
+                    setDescription("");
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Layout 3: Small screens - Three rows */}
+          <div className="md:hidden flex flex-col gap-4">
             <div className="w-full">
               <div className="relative">
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2">
