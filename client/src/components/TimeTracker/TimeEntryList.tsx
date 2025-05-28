@@ -20,6 +20,7 @@ import { TimeEntry, Client, Project } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import TimeEntryRow from "./TimeEntry";
+import EnhancedTimeEntry from "./EnhancedTimeEntry";
 
 export default function TimeEntryList() {
   const { toast } = useToast();
