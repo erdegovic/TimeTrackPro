@@ -34,7 +34,8 @@ export default function SimpleTimer({
     if (!isTracking || !startTime) return;
     
     const endTime = new Date();
-    const diffMs = endTime.getTime() - startTime.getTime();
+    const startTimeDate = new Date(startTime);
+    const diffMs = endTime.getTime() - startTimeDate.getTime();
     const duration = diffMs / (1000 * 60 * 60); // Convert to hours
     
     console.log(`Recording session: ${Math.floor(diffMs / 1000)} seconds (${duration.toFixed(6)} hours)`);
