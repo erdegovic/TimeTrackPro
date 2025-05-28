@@ -60,6 +60,19 @@ export default function EnhancedTimeEntry({
   const [groupedEntry, setGroupedEntry] = useState<GroupedTimeEntry | null>(null);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [editingMainEntry, setEditingMainEntry] = useState(false);
+  const [forceUpdate, setForceUpdate] = useState(0);
+
+  // Listen for timer state changes to force UI updates
+  useEffect(() => {
+    const handleTimerStateChange = (event: CustomEvent) => {
+      setForceUpdate(prev => prev + 1);
+    };
+
+    window.addEventListener('timerStateChanged', handleTimerStateChange as EventListener);
+    return () => {
+      window.removeEventListener('timerStateChanged', handleTimerStateChange as EventListener);
+    };
+  }, []);
 
   // Check if this entry is currently being tracked
   const isCurrentlyTracking = globalIsTracking && 
@@ -331,15 +344,12 @@ export default function EnhancedTimeEntry({
                     const project = projects.find(p => p.id === groupedEntry.project?.id);
                     const clientId = project?.clientId;
                     
-                    // Dispatch custom event to populate the main tracker form
-                    const event = new CustomEvent('startTimerFromEntry', { 
-                      detail: { 
-                        description: groupedEntry.description, 
-                        projectId: groupedEntry.project?.id || 0,
-                        clientId: clientId
-                      } 
-                    });
-                    window.dispatchEvent(event);
+                    // Use the improved timer function directly
+                    startTimerWithData(
+                      groupedEntry.description, 
+                      groupedEntry.project?.id || 0,
+                      clientId
+                    );
                   }
                 }}
                 title={isCurrentlyTracking ? "Stop tracking" : "Continue tracking this task"}

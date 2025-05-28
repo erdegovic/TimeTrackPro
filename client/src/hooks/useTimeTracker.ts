@@ -214,15 +214,24 @@ export function useTimeTracker() {
       // Reset timer state
       setIsTracking(false);
       setStartTime(null);
+      
+      // Dispatch event to force UI updates across all components
+      window.dispatchEvent(new CustomEvent('timerStateChanged', {
+        detail: { isTracking: false, projectId: null, description: '', clientId: null }
+      }));
     }
   };
   
   // Start timer with pre-filled data (for play button)
-  const startTimerWithData = (desc: string, projectId: number) => {
-    console.log("Starting timer with data:", { desc, projectId });
+  const startTimerWithData = (desc: string, projectId: number, clientId?: number) => {
+    console.log("Starting timer with data:", { desc, projectId, clientId });
     
+    // Update all form state immediately
     setDescription(desc);
     setSelectedProjectId(projectId);
+    if (clientId) {
+      setSelectedClientId(clientId);
+    }
     
     const now = Date.now();
     setStartTime(now);
@@ -232,11 +241,21 @@ export function useTimeTracker() {
     localStorage.setItem("timeTracker", JSON.stringify({
       startTime: now,
       description: desc,
-      clientId: selectedClientId,
+      clientId: clientId || selectedClientId,
       projectId: projectId
     }));
     
+    // Dispatch a custom event to force UI updates across all components
+    window.dispatchEvent(new CustomEvent('timerStateChanged', {
+      detail: { isTracking: true, projectId, description: desc, clientId }
+    }));
+    
     console.log("Timer started at:", new Date(now).toISOString());
+    
+    toast({
+      title: "Timer started",
+      description: `Started tracking "${desc}"`,
+    });
   };
 
   return {
