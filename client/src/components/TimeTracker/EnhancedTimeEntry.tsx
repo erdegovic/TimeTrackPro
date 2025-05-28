@@ -166,10 +166,7 @@ export default function EnhancedTimeEntry({
 
       await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
 
-      // Refresh the time entries list to get updated data
-      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-      
-      // Update local state with new values
+      // Update local state immediately for instant UI feedback
       const updatedBlocks = groupedEntry.blocks.map(block => 
         block.id === blockId 
           ? { ...block, startTime: newStartTime, endTime: newEndTime, duration }
@@ -177,12 +174,17 @@ export default function EnhancedTimeEntry({
       );
 
       const newTotalDuration = updatedBlocks.reduce((sum, block) => sum + block.duration, 0);
+      const firstBlock = updatedBlocks[0];
+      const lastBlock = updatedBlocks[updatedBlocks.length - 1];
 
       setGroupedEntry({
         ...groupedEntry,
         blocks: updatedBlocks,
         totalDuration: newTotalDuration
       });
+
+      // Refresh the time entries list to get updated data from server
+      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
 
       toast({
         title: "Time updated",
@@ -278,7 +280,14 @@ export default function EnhancedTimeEntry({
             />
           ) : (
             <div className="text-gray-500">
-              {formatTime(groupedEntry.blocks[0].startTime)} - {formatTime(groupedEntry.blocks[groupedEntry.blocks.length - 1].endTime)}
+              {(() => {
+                const sortedBlocks = [...groupedEntry.blocks].sort((a, b) => 
+                  a.startTime.getTime() - b.startTime.getTime()
+                );
+                const firstStart = sortedBlocks[0]?.startTime;
+                const lastEnd = sortedBlocks[sortedBlocks.length - 1]?.endTime;
+                return `${formatTime(firstStart)} - ${formatTime(lastEnd)}`;
+              })()}
             </div>
           )}
 

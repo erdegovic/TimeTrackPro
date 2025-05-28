@@ -149,35 +149,32 @@ export function useTimeTracker() {
         console.log("Found existing entry:", todayEntry);
         
         if (todayEntry) {
-          // Update existing entry by adding the new duration
-          const existingDuration = parseFloat(todayEntry.duration || "0");
-          const newTotalDuration = existingDuration + duration;
+          // Create a new separate entry instead of updating existing one
+          // This preserves individual time blocks for proper session grouping
+          console.log("Creating new session entry for same-day continuation");
           
-          console.log(`Updating existing entry ${todayEntry.id}: ${existingDuration}h + ${duration}h = ${newTotalDuration}h`);
-          
-          // Update the existing entry
-          await apiRequest("PUT", `/api/time-entries/${todayEntry.id}`, {
-            description: todayEntry.description,
-            projectId: todayEntry.projectId,
-            startTime: todayEntry.startTime,
+          await apiRequest("POST", "/api/tracker/time-entries", {
+            description,
+            projectId: selectedProjectId,
+            startTime: startDateTime,
             endTime: endDateTime,
-            duration: newTotalDuration.toString(),
-            date: todayEntry.date,
-            month: todayEntry.month,
-            year: todayEntry.year,
-            weekNumber: todayEntry.weekNumber,
-            weekLabel: todayEntry.weekLabel,
-            billable: todayEntry.billable
+            duration: duration.toString(),
+            date: dateStr,
+            month: monthStr,
+            year: yearNum,
+            weekNumber: weekNum,
+            weekLabel: weekLabel,
+            billable: true,
           });
           
-          console.log("Successfully updated existing entry");
+          console.log("Successfully created new session entry");
           
           // Invalidate cache to refresh the UI
           queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
           
           toast({
-            title: "Time added to existing entry",
-            description: `Added ${duration.toFixed(4)} hours to today's entry. Total: ${newTotalDuration.toFixed(4)} hours`,
+            title: "New session added",
+            description: `Added ${duration.toFixed(4)} hours as a new session for today's project`,
           });
         } else {
           console.log("No existing entry found, creating new one");
