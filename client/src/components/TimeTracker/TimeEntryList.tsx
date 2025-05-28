@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { 
@@ -90,6 +90,31 @@ export default function TimeEntryList() {
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
+
+  // Group entries by description, project, and date for session grouping
+  const groupedSessions = useMemo(() => {
+    const sessionGroups = new Map<string, any[]>();
+    
+    timeEntries.forEach(entry => {
+      const project = projects.find(p => p.id === entry.projectId);
+      const client = project ? clients.find(c => c.id === project.clientId) : undefined;
+      
+      // Create a unique key for grouping: description + project + date
+      const groupKey = `${entry.description || ''}-${entry.projectId}-${entry.date}`;
+      
+      if (!sessionGroups.has(groupKey)) {
+        sessionGroups.set(groupKey, []);
+      }
+      
+      sessionGroups.get(groupKey)!.push({
+        ...entry,
+        project,
+        client
+      });
+    });
+    
+    return sessionGroups;
+  }, [timeEntries, projects, clients]);
 
   // Enhanced time entries with client and project data and ALWAYS use the 
   // stored duration value to ensure edited values are used
@@ -383,20 +408,37 @@ export default function TimeEntryList() {
               </div>
             </div>
             
-            {/* Enhanced Time Entry List - Clockify Style */}
+            {/* Enhanced Time Entry List - Clockify Style with Session Grouping */}
             <div className="bg-white">
-              {group.entries.map((entry) => (
-                <EnhancedTimeEntry
-                  key={entry.id}
-                  entry={entry}
-                  clients={clients}
-                  projects={projects}
-                  timeFormat={timeFormat}
-                  onDelete={(id) => setDeleteId(id)}
-                  onPlay={handlePlay}
-                  isNew={newEntryIds.includes(entry.id)}
-                />
-              ))}
+              {(() => {
+                // Group entries within this date/client/project group by description
+                const sessionGroups = new Map<string, any[]>();
+                group.entries.forEach(entry => {
+                  const key = `${entry.description}-${entry.projectId}`;
+                  if (!sessionGroups.has(key)) {
+                    sessionGroups.set(key, []);
+                  }
+                  sessionGroups.get(key)!.push(entry);
+                });
+
+                // Render each session group
+                return Array.from(sessionGroups.values()).map((sessionGroup) => {
+                  const mainEntry = sessionGroup[0];
+                  return (
+                    <EnhancedTimeEntry
+                      key={`session-${mainEntry.id}`}
+                      entry={mainEntry}
+                      sessionGroup={sessionGroup.length > 1 ? sessionGroup : undefined}
+                      clients={clients}
+                      projects={projects}
+                      timeFormat={timeFormat}
+                      onDelete={(id) => setDeleteId(id)}
+                      onPlay={handlePlay}
+                      isNew={newEntryIds.includes(mainEntry.id)}
+                    />
+                  );
+                });
+              })()}
             </div>
 
             {/* Mobile Card View - only on very small screens */}

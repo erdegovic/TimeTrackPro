@@ -30,6 +30,7 @@ interface EnhancedTimeEntryProps {
     client?: Client;
     project?: Project;
   };
+  sessionGroup?: Array<TimeEntry & { client?: Client; project?: Project; }>;
   clients: Client[];
   projects: Project[];
   timeFormat: "decimal" | "time";
@@ -40,6 +41,7 @@ interface EnhancedTimeEntryProps {
 
 export default function EnhancedTimeEntry({
   entry,
+  sessionGroup,
   clients,
   projects,
   timeFormat,
@@ -53,27 +55,35 @@ export default function EnhancedTimeEntry({
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [editingMainEntry, setEditingMainEntry] = useState(false);
 
-  // Initialize grouped entry from regular time entry
+  // Initialize grouped entry from session group or single entry
   useEffect(() => {
-    if (entry.startTime && entry.endTime) {
-      const startTime = new Date(entry.startTime);
-      const endTime = new Date(entry.endTime);
-      
-      // Use the stored duration from the database first, fallback to calculated
-      let duration = parseFloat(entry.duration?.toString() || "0");
-      if (duration === 0 || isNaN(duration)) {
-        // Only calculate if no stored duration
-        duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-      }
+    const sessions = sessionGroup || [entry];
+    
+    if (sessions.length > 0 && sessions[0].startTime && sessions[0].endTime) {
+      // Create blocks from all sessions in the group
+      const blocks: TimeBlock[] = sessions
+        .filter(session => session.startTime && session.endTime)
+        .sort((a, b) => new Date(a.startTime!).getTime() - new Date(b.startTime!).getTime())
+        .map((session, index) => {
+          const startTime = new Date(session.startTime!);
+          const endTime = new Date(session.endTime!);
+          
+          // Use stored duration, fallback to calculated
+          let duration = parseFloat(session.duration?.toString() || "0");
+          if (duration === 0 || isNaN(duration)) {
+            duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+          }
+          
+          return {
+            id: `block-${session.id}`,
+            startTime,
+            endTime,
+            duration
+          };
+        });
 
-      // For now, treat each entry as a single block
-      // In the future, this could be enhanced to detect actual grouped sessions
-      const blocks: TimeBlock[] = [{
-        id: `block-${entry.id}`,
-        startTime,
-        endTime,
-        duration
-      }];
+      const totalDuration = blocks.reduce((sum, block) => sum + block.duration, 0);
+      const firstBlock = blocks[0];
 
       setGroupedEntry({
         id: entry.id,
@@ -81,12 +91,12 @@ export default function EnhancedTimeEntry({
         project: entry.project,
         client: entry.client,
         blocks,
-        totalDuration: duration,
-        date: entry.date || format(startTime, 'yyyy-MM-dd'),
+        totalDuration,
+        date: entry.date || format(firstBlock.startTime, 'yyyy-MM-dd'),
         isExpanded: false
       });
     }
-  }, [entry]);
+  }, [entry, sessionGroup]);
 
   const formatTime = (date: Date) => {
     return format(date, 'h:mmaa').toLowerCase();
@@ -156,7 +166,10 @@ export default function EnhancedTimeEntry({
 
       await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
 
-      // Update local state
+      // Refresh the time entries list to get updated data
+      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      
+      // Update local state with new values
       const updatedBlocks = groupedEntry.blocks.map(block => 
         block.id === blockId 
           ? { ...block, startTime: newStartTime, endTime: newEndTime, duration }
@@ -170,9 +183,6 @@ export default function EnhancedTimeEntry({
         blocks: updatedBlocks,
         totalDuration: newTotalDuration
       });
-
-      // Refresh the time entries list
-      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
 
       toast({
         title: "Time updated",
