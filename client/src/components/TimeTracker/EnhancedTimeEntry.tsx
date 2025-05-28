@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Edit, Copy, Trash2, Play, ChevronDown, ChevronRight } from "lucide-react";
+import { Edit, Copy, Trash2, Play, Square, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTimeTracker } from "@/hooks/useTimeTracker";
 import { TimeEntry, Client, Project } from "@shared/schema";
 import { format, parse, isValid } from "date-fns";
 
@@ -50,10 +51,16 @@ export default function EnhancedTimeEntry({
   isNew = false
 }: EnhancedTimeEntryProps) {
   const { toast } = useToast();
+  const { isTracking, description: currentDescription, selectedProjectId, stopTimer, startTimerWithData } = useTimeTracker();
   const [isExpanded, setIsExpanded] = useState(false);
   const [groupedEntry, setGroupedEntry] = useState<GroupedTimeEntry | null>(null);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [editingMainEntry, setEditingMainEntry] = useState(false);
+
+  // Check if this entry is currently being tracked
+  const isCurrentlyTracking = isTracking && 
+    selectedProjectId === entry.projectId && 
+    currentDescription === entry.description;
 
   // Initialize grouped entry from session group or single entry
   useEffect(() => {

@@ -227,6 +227,15 @@ export function useTimeTracker() {
     const now = Date.now();
     setStartTime(now);
     setIsTracking(true);
+    
+    // Save to localStorage for persistence across components
+    localStorage.setItem("timeTracker", JSON.stringify({
+      startTime: now,
+      description: desc,
+      clientId: selectedClientId,
+      projectId: projectId
+    }));
+    
     console.log("Timer started at:", new Date(now).toISOString());
   };
 
