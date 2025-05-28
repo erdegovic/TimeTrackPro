@@ -447,10 +447,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'User not authenticated' });
       }
       
-      // Get time entries directly filtered by user ID from database
-      const userTimeEntries = await storage.getTimeEntriesByUser(userId);
+      // Get time entries with project and client data
+      const timeEntries = await storage.getTimeEntriesByUser(userId);
+      const projects = await storage.getProjectsByUser(userId);
+      const clients = await storage.getClientsByUser(userId);
       
-      res.json(userTimeEntries);
+      // Enrich time entries with project and client data including colors
+      const enrichedEntries = timeEntries.map(entry => {
+        const project = projects.find(p => p.id === entry.projectId);
+        const client = project ? clients.find(c => c.id === project.clientId) : null;
+        
+        return {
+          ...entry,
+          project: project || null,
+          client: client || null
+        };
+      });
+      
+      res.json(enrichedEntries);
     } catch (error) {
       console.error('Error getting time entries:', error);
       res.status(500).json({ message: 'Failed to fetch time entries' });

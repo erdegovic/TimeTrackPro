@@ -21,12 +21,12 @@ const projectSchema = z.object({
   description: z.string().optional(),
   active: z.boolean().default(true),
   hourlyRate: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid rate format").default("0"),
-  color: z.string().default("#3B82F6"),
+  color: z.string().default("#000000"),
 });
 
 // Predefined color options for projects
 const projectColors = [
-  "#3B82F6", // Blue
+  "#000000", // Black (default)
   "#EF4444", // Red
   "#10B981", // Green
   "#F59E0B", // Yellow
@@ -34,7 +34,7 @@ const projectColors = [
   "#EC4899", // Pink
   "#06B6D4", // Cyan
   "#F97316", // Orange
-  "#6B7280", // Gray
+  "#3B82F6", // Blue
 ];
 
 type ProjectFormProps = {
@@ -63,7 +63,7 @@ export default function ProjectForm({ onSuccess, initialData, isEditing = false,
       description: initialData?.description || "",
       active: initialData?.active !== undefined ? initialData.active : true,
       hourlyRate: initialData?.hourlyRate?.toString() || "0",
-      color: (initialData as any)?.color || "#3B82F6",
+      color: (initialData as any)?.color || "#000000",
     },
   });
 

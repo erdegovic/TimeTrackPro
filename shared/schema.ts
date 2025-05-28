@@ -89,7 +89,7 @@ export const projects = pgTable("projects", {
   description: text("description"),
   active: boolean("active").default(true),
   hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }).default("0"),
-  color: text("color").default("#3B82F6"), // Default to blue
+  color: text("color").default("#000000"), // Default to black
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
 });
 
