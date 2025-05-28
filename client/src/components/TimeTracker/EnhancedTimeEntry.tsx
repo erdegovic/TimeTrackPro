@@ -38,6 +38,8 @@ interface EnhancedTimeEntryProps {
   onDelete: (id: number) => void;
   onPlay?: (description: string, projectId: number) => void;
   isNew?: boolean;
+  isTracking?: boolean;
+  onStop?: () => void;
 }
 
 export default function EnhancedTimeEntry({

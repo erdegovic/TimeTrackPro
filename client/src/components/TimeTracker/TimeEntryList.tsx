@@ -26,7 +26,14 @@ import EnhancedTimeEntry from "./EnhancedTimeEntry";
 export default function TimeEntryList() {
   const { toast } = useToast();
   const { isCollapsed: creativitySidebarCollapsed } = useCreativitySidebar();
-  const { startTimerWithData, setDescription, setSelectedClientId, setSelectedProjectId } = useTimeTracker();
+  const { 
+    startTimerWithData, 
+    setDescription, 
+    setSelectedClientId, 
+    setSelectedProjectId,
+    isTracking,
+    stopTimer 
+  } = useTimeTracker();
   const [timeFormat, setTimeFormat] = useState<"decimal" | "time">("time");
   const [groupBy, setGroupBy] = useState<"date" | "project" | "client">("date");
   const [filterDate, setFilterDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -491,6 +498,8 @@ export default function TimeEntryList() {
                   onDelete={(id) => setDeleteId(id)}
                   onPlay={handlePlay}
                   isNew={newEntryIds.includes(entry.id)}
+                  isTracking={isTracking}
+                  onStop={stopTimer}
                 />
               ))}
             </div>
@@ -540,9 +549,15 @@ export default function TimeEntryList() {
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            onClick={() => handlePlay(entry.description || "", entry.projectId)} 
-                            className="text-green-600 hover:text-white hover:bg-green-600 h-8 w-8 p-0"
-                            title="Continue tracking this task"
+                            onClick={() => {
+                              if (isTracking) {
+                                stopTimer();
+                              } else {
+                                handlePlay(entry.description || "", entry.projectId);
+                              }
+                            }}
+                            className={isTracking ? "text-red-600 hover:text-white hover:bg-red-600 h-8 w-8 p-0" : "text-green-600 hover:text-white hover:bg-green-600 h-8 w-8 p-0"}
+                            title={isTracking ? "Stop timer" : "Continue tracking this task"}
                           >
                             <Play className="h-3 w-3" />
                           </Button>
