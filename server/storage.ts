@@ -8,7 +8,7 @@ import {
   Verification, verifications,
   ReportFilters, TimeFormat, RoundingType, TimeAdjustment
 } from "@shared/schema";
-import { addWeeks, format, getWeekOfMonth, startOfWeek, endOfWeek, parseISO, getYear, getMonth } from "date-fns";
+import { addWeeks, format, getWeekOfMonth, startOfWeek, endOfWeek, getYear, getMonth } from "date-fns";
 
 export interface IStorage {
   // Users
@@ -415,7 +415,7 @@ export class MemStorage implements Partial<IStorage> {
 
   async createTimeEntry(timeEntry: InsertTimeEntry): Promise<TimeEntry> {
     const id = this.timeEntryId++;
-    const entryDate = parseISO(timeEntry.date);
+    const entryDate = new Date(timeEntry.date);
     const year = getYear(entryDate);
     const month = format(entryDate, 'yyyy-MM');
     const weekOfMonth = getWeekOfMonth(entryDate);
