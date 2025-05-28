@@ -221,8 +221,8 @@ export default function TimeEntryList() {
     <>
       {/* Time View Toggle - Added more spacing from main tracker */}
       <div className="flex flex-col gap-4 mb-4 mt-8">
-        {/* Format, Group by, and Date - responsive layout */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        {/* Large screens: all in one row */}
+        <div className="hidden lg:flex lg:items-center gap-4">
           <div className="flex items-center">
             <label htmlFor="time-format" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
             <div className="relative inline-block w-32">
@@ -259,6 +259,51 @@ export default function TimeEntryList() {
             <Input
               type="date"
               id="filter-date"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              className="w-40"
+            />
+          </div>
+        </div>
+
+        {/* Small/Medium screens: stacked layout */}
+        <div className="lg:hidden flex flex-col gap-3">
+          <div className="flex items-center">
+            <label htmlFor="time-format-mobile" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
+            <div className="relative inline-block w-32">
+              <Select value={timeFormat} onValueChange={(val: "decimal" | "time") => setTimeFormat(val)}>
+                <SelectTrigger id="time-format-mobile">
+                  <SelectValue placeholder="Select format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="decimal">Decimal (1.5h)</SelectItem>
+                  <SelectItem value="time">Time (1:30)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <div className="flex items-center">
+            <label htmlFor="group-by-mobile" className="mr-2 text-sm font-medium text-gray-700">Group by:</label>
+            <div className="relative inline-block w-32">
+              <Select value={groupBy} onValueChange={(val: "date" | "project" | "client") => setGroupBy(val)}>
+                <SelectTrigger id="group-by-mobile">
+                  <SelectValue placeholder="Select grouping" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">Date</SelectItem>
+                  <SelectItem value="project">Project</SelectItem>
+                  <SelectItem value="client">Client</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <div className="flex items-center">
+            <label htmlFor="filter-date-mobile" className="mr-2 text-sm font-medium text-gray-700">Date:</label>
+            <Input
+              type="date"
+              id="filter-date-mobile"
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
               className="w-40"
