@@ -63,8 +63,8 @@ export default function EnhancedTimeEntry({
 
   // Check if this entry is currently being tracked
   const isCurrentlyTracking = globalIsTracking && 
-    selectedProjectId === entry.projectId && 
-    currentDescription === entry.description;
+    selectedProjectId === groupedEntry?.project?.id && 
+    currentDescription === groupedEntry?.description;
 
   // Initialize grouped entry from session group or single entry
   useEffect(() => {
@@ -327,7 +327,19 @@ export default function EnhancedTimeEntry({
                   if (isCurrentlyTracking) {
                     stopTimer();
                   } else {
-                    startTimerWithData(groupedEntry.description, groupedEntry.project?.id || 0);
+                    // Find the project to get client ID for complete synchronization
+                    const project = projects.find(p => p.id === groupedEntry.project?.id);
+                    const clientId = project?.clientId;
+                    
+                    // Dispatch custom event to populate the main tracker form
+                    const event = new CustomEvent('startTimerFromEntry', { 
+                      detail: { 
+                        description: groupedEntry.description, 
+                        projectId: groupedEntry.project?.id || 0,
+                        clientId: clientId
+                      } 
+                    });
+                    window.dispatchEvent(event);
                   }
                 }}
                 title={isCurrentlyTracking ? "Stop tracking" : "Continue tracking this task"}
