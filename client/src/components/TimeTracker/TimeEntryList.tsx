@@ -383,33 +383,20 @@ export default function TimeEntryList() {
               </div>
             </div>
             
-            {/* Table View with Horizontal Scroll - until very small screens */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 table-striped">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {group.entries.map((entry) => (
-                    <TimeEntryRow
-                      key={entry.id}
-                      entry={entry}
-                      clients={clients}
-                      projects={projects}
-                      timeFormat={timeFormat}
-                      onDelete={(id) => setDeleteId(id)}
-                      onPlay={handlePlay}
-                      isNew={newEntryIds.includes(entry.id)}
-                    />
-                  ))}
-                </tbody>
-              </table>
+            {/* Enhanced Time Entry List - Clockify Style */}
+            <div className="bg-white">
+              {group.entries.map((entry) => (
+                <EnhancedTimeEntry
+                  key={entry.id}
+                  entry={entry}
+                  clients={clients}
+                  projects={projects}
+                  timeFormat={timeFormat}
+                  onDelete={(id) => setDeleteId(id)}
+                  onPlay={handlePlay}
+                  isNew={newEntryIds.includes(entry.id)}
+                />
+              ))}
             </div>
 
             {/* Mobile Card View - only on very small screens */}
