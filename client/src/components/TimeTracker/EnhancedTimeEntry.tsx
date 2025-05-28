@@ -327,7 +327,7 @@ export default function EnhancedTimeEntry({
                   if (isCurrentlyTracking) {
                     stopTimer();
                   } else {
-                    onPlay(groupedEntry.description, groupedEntry.project?.id || 0);
+                    startTimerWithData(groupedEntry.description, groupedEntry.project?.id || 0);
                   }
                 }}
                 title={isCurrentlyTracking ? "Stop tracking" : "Continue tracking this task"}
