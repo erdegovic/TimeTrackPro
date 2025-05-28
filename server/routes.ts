@@ -543,6 +543,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Convert timestamp strings to Date objects and ensure date field is set
       const startTime = req.body.startTime ? new Date(req.body.startTime) : new Date();
+      
+      // Validate projectId - reject if 0 or invalid
+      if (!req.body.projectId || req.body.projectId === 0) {
+        return res.status(400).json({ message: 'Valid project ID is required' });
+      }
+      
       const data = {
         ...req.body,
         userId: userId,

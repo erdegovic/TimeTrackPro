@@ -110,6 +110,16 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     const duration = (endTime - startTime) / 1000 / 3600; // Convert to hours
 
     try {
+      // Validate required fields before sending
+      if (!selectedProjectId || selectedProjectId === 0) {
+        toast({
+          title: "Error saving time entry",
+          description: "Please select a project before tracking time",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const response = await fetch("/api/tracker/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -130,6 +140,12 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         title: "Time entry saved",
         description: `Tracked ${Math.round(duration * 3600)} seconds`,
       });
+
+      // Force cache refresh to update totals immediately
+      if (window.queryClient) {
+        window.queryClient.invalidateQueries({ queryKey: ['/api/time-entries'] });
+        window.queryClient.refetchQueries({ queryKey: ['/api/time-entries'] });
+      }
 
       // Clear localStorage
       localStorage.removeItem("timeTracker");
