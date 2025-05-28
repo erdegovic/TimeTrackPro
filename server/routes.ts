@@ -551,6 +551,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         date: startTime.toISOString().split('T')[0], // Add date field in YYYY-MM-DD format
       };
       
+      console.log('Tracker time entry data being sent to database:', data);
+      
       const timeEntry = await storage.createTimeEntry(data as any);
       res.status(201).json(timeEntry);
     } catch (error) {

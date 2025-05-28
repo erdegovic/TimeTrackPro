@@ -262,9 +262,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTimeEntry(entryData: InsertTimeEntry): Promise<TimeEntry> {
-    // Ensure date is in YYYY-MM-DD format - use startTime if date is not provided
-    const date = entryData.date || (entryData.startTime ? entryData.startTime.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
-    const parsedDate = parseISO(date);
+    // Fix: Ensure date is always a valid string before parseISO
+    let date: string;
+    if (entryData.date && typeof entryData.date === 'string') {
+      date = entryData.date;
+    } else if (entryData.startTime) {
+      date = new Date(entryData.startTime).toISOString().split('T')[0];
+    } else {
+      date = new Date().toISOString().split('T')[0];
+    }
+    
+    console.log('Creating time entry with date:', date, 'from entryData:', JSON.stringify(entryData, null, 2));
+    const parsedDate = new Date(date); // Use Date constructor instead of parseISO
     
     // Calculate week-related fields
     const weekStart = startOfWeek(parsedDate, { weekStartsOn: 1 });
