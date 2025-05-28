@@ -315,11 +315,20 @@ export default function EnhancedTimeEntry({
               <Button 
                 variant="ghost" 
                 size="icon"
-                className="h-8 w-8 text-green-600 hover:text-white hover:bg-green-600"
-                onClick={() => onPlay(groupedEntry.description, groupedEntry.project?.id || 0)}
-                title="Continue tracking this task"
+                className={isCurrentlyTracking ? 
+                  "h-8 w-8 text-red-600 hover:text-white hover:bg-red-600" : 
+                  "h-8 w-8 text-green-600 hover:text-white hover:bg-green-600"
+                }
+                onClick={() => {
+                  if (isCurrentlyTracking) {
+                    stopTimer();
+                  } else {
+                    onPlay(groupedEntry.description, groupedEntry.project?.id || 0);
+                  }
+                }}
+                title={isCurrentlyTracking ? "Stop tracking" : "Continue tracking this task"}
               >
-                <Play className="h-4 w-4" />
+                {isCurrentlyTracking ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               </Button>
             )}
             <Button 
