@@ -245,7 +245,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
           </div>
 
           {/* Layout 2: Medium screens - Two rows (description top, selects + timer bottom) */}
-          <div className="hidden lg:block xl:hidden">
+          <div className="hidden 2xl:block xl:hidden">
             <div className="flex flex-col gap-4">
               <div className="w-full">
                 <div className="relative">
@@ -380,8 +380,8 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
             </div>
           </div>
 
-          {/* Layout 3: Small screens - Three rows (description, selects, timer) */}
-          <div className="lg:hidden flex flex-col gap-4">
+          {/* Layout 3: Small/Medium screens - Three rows (description, selects, timer) */}
+          <div className="2xl:hidden flex flex-col gap-4">
             <div className="w-full">
               <div className="relative">
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2">
