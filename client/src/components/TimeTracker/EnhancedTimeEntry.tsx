@@ -90,13 +90,13 @@ export default function EnhancedTimeEntry({
       console.log('Is this entry involved in merge?', isThisEntryInvolved, 'Entry:', { id: entry.id, description: entry.description, projectId: entry.projectId, date: entry.date });
       
       if (isThisEntryInvolved) {
-        console.log('Starting merge animation for entry', entry.id);
+        console.log('Starting merge highlight for entry', entry.id);
         setIsMerging(true);
-        // Reset after animation
+        // Keep highlighted for 5 seconds, then fade away slowly
         setTimeout(() => {
-          console.log('Ending merge animation for entry', entry.id);
+          console.log('Ending merge highlight for entry', entry.id);
           setIsMerging(false);
-        }, 600);
+        }, 5000);
       }
     };
 
@@ -419,9 +419,9 @@ export default function EnhancedTimeEntry({
   const canEditDirectly = !isGrouped;
 
   return (
-    <div className={`border-b border-gray-200 transition-all duration-300 ${isNew ? 'bg-green-50' : ''} ${isMerging ? 'bg-blue-100 border-blue-300 shadow-lg' : ''}`}>
+    <div className={`border-b border-gray-200 transition-all duration-1000 ${isNew ? 'bg-green-50' : ''} ${isMerging ? 'bg-blue-100 border-blue-300 shadow-lg' : ''}`}>
       {/* Main entry row */}
-      <div className={`flex items-center px-6 py-4 hover:bg-gray-50 transition-colors ${isMerging ? 'animate-pulse' : ''}`}>
+      <div className={`flex items-center px-6 py-4 hover:bg-gray-50 transition-all duration-1000 ${isMerging ? 'bg-blue-50' : ''}`}>
         {/* Expand/collapse button for grouped entries */}
         <div className="w-8 flex justify-center">
           {isGrouped ? (
@@ -498,17 +498,7 @@ export default function EnhancedTimeEntry({
                 {groupedEntry.description}
               </div>
               <div className="text-xs text-gray-500">
-                {(() => {
-                  console.log(`Entry ${entry.id} display data:`, {
-                    hasProject: !!groupedEntry.project,
-                    hasClient: !!groupedEntry.client,
-                    projectName: groupedEntry.project?.name,
-                    clientName: groupedEntry.client?.name,
-                    projectClientId: groupedEntry.project?.clientId,
-                    availableClients: clients.map(c => ({ id: c.id, name: c.name }))
-                  });
-                  return null;
-                })()}
+
                 {/* Always show project name with color */}
                 {groupedEntry.project && (
                   <span style={{ color: groupedEntry.project.color || "#000000" }}>
@@ -522,9 +512,13 @@ export default function EnhancedTimeEntry({
                 {/* Fallback: if no client data but we have project, find client from projects */}
                 {groupedEntry.project && !groupedEntry.client && (() => {
                   const foundClient = clients.find(c => c.id === groupedEntry.project?.clientId);
-                  console.log(`Entry ${entry.id}: Missing client, found fallback:`, foundClient);
                   return foundClient ? <span className="ml-2">• {foundClient.name}</span> : null;
                 })()}
+                
+                {/* Show message when no project is assigned */}
+                {!groupedEntry.project && (
+                  <span className="text-gray-400 italic">No project assigned</span>
+                )}
               </div>
             </>
           )}
