@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { FileText, Plus, Edit2, Trash2, Save, X, MessageSquare } from 'lucide-react';
+import { FileText, Plus, Edit2, Trash2, Save, X, MessageSquare, Volume2, VolumeX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { format } from 'date-fns';
@@ -50,6 +50,7 @@ export function TimeEntryNotes({ timeEntryId, trigger }: TimeEntryNotesProps) {
   const [newNoteContent, setNewNoteContent] = useState('');
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingContent, setEditingContent] = useState('');
+  const [speakingNoteId, setSpeakingNoteId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
