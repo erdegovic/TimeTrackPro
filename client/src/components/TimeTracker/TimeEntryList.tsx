@@ -315,6 +315,23 @@ export default function TimeEntryList() {
     });
   });
 
+  // Function to calculate daily earnings
+  const calculateDailyEarnings = (entries: any[]) => {
+    return entries.reduce((total, entry) => {
+      const duration = entry.exactDuration !== undefined ? entry.exactDuration : Number(entry.duration || 0);
+      
+      // Get hourly rate from project or client
+      let hourlyRate = 0;
+      if (entry.project?.hourlyRate) {
+        hourlyRate = Number(entry.project.hourlyRate);
+      } else if (entry.client?.hourlyRate) {
+        hourlyRate = Number(entry.client.hourlyRate);
+      }
+      
+      return total + (duration * hourlyRate);
+    }, 0);
+  };
+
   // Sort groups by date (newest first)
   const sortedGroups = Object.entries(groupedEntries).sort((a, b) => {
     if (groupBy === "date") {
@@ -564,9 +581,23 @@ export default function TimeEntryList() {
             <div className="px-4 py-3 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-medium text-gray-900">{group.label}</h2>
-                <span className="text-sm font-medium text-gray-500">
-                  Total: {timeFormat === "decimal" ? group.totalHours.toFixed(1) + "h" : formatTimeFromDecimal(group.totalHours)}
-                </span>
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium text-gray-500">
+                    Total: {timeFormat === "decimal" ? group.totalHours.toFixed(1) + "h" : formatTimeFromDecimal(group.totalHours)}
+                  </span>
+                  {groupBy === "date" && (() => {
+                    const dailyEarnings = calculateDailyEarnings(group.entries);
+                    const currency = settings?.defaultCurrency || "USD";
+                    return dailyEarnings > 0 ? (
+                      <span 
+                        className="text-sm font-medium text-green-600 cursor-help" 
+                        title={`Daily earnings in ${currency}. Change default currency in settings.`}
+                      >
+                        {currency} {dailyEarnings.toFixed(2)}
+                      </span>
+                    ) : null;
+                  })()}
+                </div>
               </div>
             </div>
             
