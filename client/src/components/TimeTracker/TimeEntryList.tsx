@@ -528,7 +528,7 @@ export default function TimeEntryList() {
             {/* Enhanced Time Entry List - Clockify Style with Session Grouping */}
             <div className="bg-white">
               {group.entries.map((entry) => (
-                <EnhancedTimeEntry
+                <AnimatedTimeEntry
                   key={`entry-${entry.id}`}
                   entry={entry}
                   sessionGroup={entry.sessionGroup}

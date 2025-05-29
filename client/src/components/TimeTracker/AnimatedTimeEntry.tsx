@@ -8,7 +8,7 @@ import { Edit, Copy, Trash2, Play, Square, ChevronDown, ChevronRight } from "luc
 import { TimeEntry, Client, Project } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatDecimalToTime, parseTimeToDecimal } from "@/lib/utils/timeUtils";
+import { formatTimeFromDecimal } from "@/lib/utils/timeUtils";
 
 interface AnimatedTimeEntryProps {
   entry: TimeEntry & { 
@@ -238,7 +238,7 @@ export default function AnimatedTimeEntry({
         <div className="w-24 px-2 text-sm font-mono font-medium text-gray-900">
           {timeFormat === "decimal" 
             ? `${groupedEntry.totalDuration.toFixed(2)}h` 
-            : formatDecimalToTime(groupedEntry.totalDuration.toString())
+            : formatTimeFromDecimal(groupedEntry.totalDuration)
           }
         </div>
 
@@ -277,7 +277,7 @@ export default function AnimatedTimeEntry({
                   onClick={() => onPlay(groupedEntry.description || "", entry.projectId)}
                   className="h-8 w-8 p-0"
                 >
-                  {isTracking ? <Stop className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  {isTracking ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                 </Button>
               )}
               
@@ -323,7 +323,7 @@ export default function AnimatedTimeEntry({
               <div className="w-24 text-gray-700 font-mono">
                 {timeFormat === "decimal" 
                   ? `${parseFloat(block.duration || "0").toFixed(2)}h` 
-                  : formatDecimalToTime(block.duration || "0")
+                  : formatTimeFromDecimal(parseFloat(block.duration || "0"))
                 }
               </div>
               <div className="w-32"></div>
