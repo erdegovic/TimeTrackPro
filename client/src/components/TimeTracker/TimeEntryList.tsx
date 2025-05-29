@@ -24,7 +24,7 @@ import { useTimeTracker } from "@/hooks/useTimeTracker";
 import { useToast } from "@/hooks/use-toast";
 import { CurrencySelector } from "@/components/ui/CurrencySelector";
 import TimeEntryRow from "./TimeEntry";
-import EnhancedTimeEntry from "./EnhancedTimeEntry";
+import CleanTimeEntry from "./CleanTimeEntry";
 
 export default function TimeEntryList() {
   const { toast } = useToast();
