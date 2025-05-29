@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Play, Pause, SkipBack, SkipForward, Volume2, Music } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, Music, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 
@@ -9,6 +9,8 @@ interface Track {
   artist: string;
   duration: string;
   description: string;
+  audioUrl?: string;
+  filename?: string;
 }
 
 interface Playlist {
@@ -20,7 +22,8 @@ interface Playlist {
   emoji: string;
 }
 
-const playlists: Playlist[] = [
+// Initialize with placeholder tracks - will be replaced with uploaded files
+const initialPlaylists: Playlist[] = [
   {
     id: "focus",
     name: "Focus Flow",
@@ -28,9 +31,7 @@ const playlists: Playlist[] = [
     color: "from-blue-500 to-purple-600",
     emoji: "🎯",
     tracks: [
-      { id: "f1", title: "Ocean Waves", artist: "Nature Sounds", duration: "∞", description: "Calming ocean waves for deep focus" },
-      { id: "f2", title: "Rain Forest", artist: "Nature Sounds", duration: "∞", description: "Gentle rainforest ambience" },
-      { id: "f3", title: "White Noise", artist: "Focus Audio", duration: "∞", description: "Pure white noise for concentration" },
+      { id: "f1", title: "Upload your focus music", artist: "Envato Elements", duration: "0:00", description: "Upload MP3 files from Envato Elements for focus music" },
     ]
   },
   {
@@ -40,9 +41,7 @@ const playlists: Playlist[] = [
     color: "from-pink-500 to-orange-500",
     emoji: "🎨",
     tracks: [
-      { id: "c1", title: "Melodic Waves", artist: "Ambient Studio", duration: "∞", description: "Inspiring melodic patterns" },
-      { id: "c2", title: "Peaceful Piano", artist: "Calm Music", duration: "∞", description: "Gentle piano melodies" },
-      { id: "c3", title: "Soft Strings", artist: "Relaxation", duration: "∞", description: "Soothing string arrangements" },
+      { id: "c1", title: "Upload your creative music", artist: "Envato Elements", duration: "0:00", description: "Upload MP3 files from Envato Elements for creative work" },
     ]
   },
   {
@@ -52,91 +51,126 @@ const playlists: Playlist[] = [
     color: "from-green-500 to-teal-500",
     emoji: "🧘",
     tracks: [
-      { id: "m1", title: "Breathing Guide", artist: "Mindfulness", duration: "∞", description: "Guided breathing exercise" },
-      { id: "m2", title: "Tibetan Bowls", artist: "Meditation", duration: "∞", description: "Traditional singing bowls" },
-      { id: "m3", title: "Forest Sounds", artist: "Nature", duration: "∞", description: "Deep forest ambience" },
+      { id: "m1", title: "Upload your meditation music", artist: "Envato Elements", duration: "0:00", description: "Upload MP3 files from Envato Elements for meditation" },
     ]
   }
 ];
 
 export default function NewMusicPlayer() {
-  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist>(playlists[0]);
+  const [playlists, setPlaylists] = useState<Playlist[]>(initialPlaylists);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist>(initialPlaylists[0]);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState([70]);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
-  // Audio context for generating ambient sounds
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const oscillatorRef = useRef<OscillatorNode | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null);
+  // HTML audio element for playing real audio files
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const initAudio = () => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      gainNodeRef.current = audioContextRef.current.createGain();
-      gainNodeRef.current.connect(audioContextRef.current.destination);
+  // Initialize audio element
+  useEffect(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.loop = true;
+      
+      audioRef.current.addEventListener('loadedmetadata', () => {
+        setDuration(audioRef.current?.duration || 0);
+      });
+      
+      audioRef.current.addEventListener('timeupdate', () => {
+        setCurrentTime(audioRef.current?.currentTime || 0);
+      });
+      
+      audioRef.current.addEventListener('ended', () => {
+        setIsPlaying(false);
+      });
     }
+    
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    };
+  }, []);
+
+  // Update volume when slider changes
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume[0] / 100;
+    }
+  }, [volume]);
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !file.type.startsWith('audio/')) {
+      alert('Please select a valid audio file (MP3, WAV, etc.)');
+      return;
+    }
+
+    const audioUrl = URL.createObjectURL(file);
+    const trackId = `${selectedPlaylist.id}_${Date.now()}`;
+    
+    // Create audio element to get duration
+    const tempAudio = new Audio(audioUrl);
+    tempAudio.addEventListener('loadedmetadata', () => {
+      const minutes = Math.floor(tempAudio.duration / 60);
+      const seconds = Math.floor(tempAudio.duration % 60);
+      const durationStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      
+      const newTrack: Track = {
+        id: trackId,
+        title: file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
+        artist: "Envato Elements",
+        duration: durationStr,
+        description: `Uploaded from ${file.name}`,
+        audioUrl: audioUrl,
+        filename: file.name
+      };
+
+      // Update the playlist with the new track
+      const updatedPlaylists = playlists.map(playlist => {
+        if (playlist.id === selectedPlaylist.id) {
+          const updatedTracks = playlist.tracks.filter(t => !t.title.includes("Upload your"));
+          return {
+            ...playlist,
+            tracks: [...updatedTracks, newTrack]
+          };
+        }
+        return playlist;
+      });
+
+      setPlaylists(updatedPlaylists);
+      
+      // Update selected playlist
+      const updatedSelectedPlaylist = updatedPlaylists.find(p => p.id === selectedPlaylist.id);
+      if (updatedSelectedPlaylist) {
+        setSelectedPlaylist(updatedSelectedPlaylist);
+      }
+      
+      // Auto-select the new track
+      setCurrentTrack(newTrack);
+    });
   };
 
-  const generateAmbientSound = (track: Track) => {
-    initAudio();
+  const playTrack = (track: Track) => {
+    if (!track.audioUrl || !audioRef.current) return;
     
-    if (!audioContextRef.current || !gainNodeRef.current) return;
-
-    // Stop current sound
-    if (oscillatorRef.current) {
-      oscillatorRef.current.stop();
-    }
-
-    // Create new oscillator based on track type
-    oscillatorRef.current = audioContextRef.current.createOscillator();
-    const gainNode = gainNodeRef.current;
-    
-    // Set volume
-    gainNode.gain.value = volume[0] / 100 * 0.3;
-    
-    // Configure sound based on track
-    if (track.id.includes("ocean") || track.title.includes("Ocean")) {
-      // Ocean waves - low frequency with modulation
-      oscillatorRef.current.type = 'sawtooth';
-      oscillatorRef.current.frequency.value = 60 + Math.random() * 40;
-      
-      // Add wave-like modulation
-      const lfo = audioContextRef.current.createOscillator();
-      const lfoGain = audioContextRef.current.createGain();
-      lfo.frequency.value = 0.3;
-      lfoGain.gain.value = 15;
-      
-      lfo.connect(lfoGain);
-      lfoGain.connect(oscillatorRef.current.frequency);
-      lfo.start();
-      
-    } else if (track.title.includes("Rain") || track.title.includes("Forest")) {
-      // Rain/forest - higher frequency with noise
-      oscillatorRef.current.type = 'sine';
-      oscillatorRef.current.frequency.value = 200 + Math.random() * 100;
-      
-    } else if (track.title.includes("White Noise")) {
-      // White noise
-      oscillatorRef.current.type = 'sawtooth';
-      oscillatorRef.current.frequency.value = 440 + Math.random() * 220;
-      
-    } else {
-      // Default ambient sound
-      oscillatorRef.current.type = 'sine';
-      oscillatorRef.current.frequency.value = 100 + Math.random() * 50;
-    }
-    
-    oscillatorRef.current.connect(gainNode);
-    oscillatorRef.current.start();
-    
-    setIsPlaying(true);
+    audioRef.current.src = track.audioUrl;
+    audioRef.current.play()
+      .then(() => setIsPlaying(true))
+      .catch(error => {
+        console.error('Error playing audio:', error);
+        alert('Unable to play this audio file');
+      });
   };
 
   const stopSound = () => {
-    if (oscillatorRef.current) {
-      oscillatorRef.current.stop();
-      oscillatorRef.current = null;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
     setIsPlaying(false);
   };
