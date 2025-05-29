@@ -448,7 +448,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get time entries with project and client data
+      console.log(`Fetching time entries for user ${userId}`);
       const timeEntries = await storage.getTimeEntriesByUser(userId);
+      console.log(`Found ${timeEntries.length} time entries for user ${userId}`);
       const projects = await storage.getProjectsByUser(userId);
       const clients = await storage.getClientsByUser(userId);
       
@@ -464,6 +466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
       
+      console.log(`Returning ${enrichedEntries.length} enriched entries`);
       res.json(enrichedEntries);
     } catch (error) {
       console.error('Error getting time entries:', error);
