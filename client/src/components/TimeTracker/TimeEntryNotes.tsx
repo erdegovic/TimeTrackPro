@@ -80,7 +80,8 @@ export function TimeEntryNotes({ timeEntryId, trigger }: TimeEntryNotesProps) {
       
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
-        setNewNoteContent(prev => prev + (prev ? ' ' : '') + transcript);
+        const processedText = addSmartPunctuation(transcript);
+        setNewNoteContent(prev => prev + (prev ? ' ' : '') + processedText);
         setIsRecording(false);
       };
       
@@ -101,6 +102,34 @@ export function TimeEntryNotes({ timeEntryId, trigger }: TimeEntryNotesProps) {
       setRecognition(recognition);
     }
   }, [toast]);
+
+  // Smart punctuation processing for speech-to-text
+  const addSmartPunctuation = (text: string): string => {
+    let processed = text.trim();
+    
+    // Capitalize first letter
+    processed = processed.charAt(0).toUpperCase() + processed.slice(1);
+    
+    // Add periods after common sentence endings
+    processed = processed.replace(/\b(done|finished|completed|ready|good|great|ok|okay|yes|no)$/i, '$1.');
+    
+    // Add commas after common pause words
+    processed = processed.replace(/\b(however|therefore|meanwhile|furthermore|moreover|also|additionally|first|second|third|next|then|finally|lastly|actually|basically|obviously|clearly|definitely|probably|maybe|perhaps|anyway|so|well|now|today|yesterday|tomorrow|later|earlier|before|after|during|while|when|if|although|because|since|unless|until|though|whereas)\b/gi, '$1,');
+    
+    // Add commas in lists (word and word and word)
+    processed = processed.replace(/(\w+)\s+and\s+(\w+)\s+and\s+/g, '$1, $2, and ');
+    
+    // Add period at the end if missing and doesn't end with punctuation
+    if (!/[.!?:]$/.test(processed)) {
+      processed += '.';
+    }
+    
+    // Clean up any double punctuation
+    processed = processed.replace(/[,]{2,}/g, ',');
+    processed = processed.replace(/[.]{2,}/g, '.');
+    
+    return processed;
+  };
 
   const startRecording = () => {
     if (recognition && !isRecording) {
