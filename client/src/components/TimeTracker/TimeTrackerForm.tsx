@@ -23,6 +23,8 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
   const { toast } = useToast();
   const [clientSearchTerm, setClientSearchTerm] = useState("");
   const [projectSearchTerm, setProjectSearchTerm] = useState("");
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [projectPopoverOpen, setProjectPopoverOpen] = useState(false);
   
   // Use the proper time tracker hook for consistency
   const {
@@ -148,14 +150,16 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
               </div>
             </div>
             
-            <Popover>
+            <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-36 justify-between">
-                  {selectedClientId ? 
-                    clients.find(c => c.id === selectedClientId)?.name || "Select client" : 
-                    "Client"
-                  }
-                  <ChevronDown className="h-4 w-4 opacity-50" />
+                <Button variant="outline" className="w-36 justify-between text-left overflow-hidden">
+                  <span className="truncate">
+                    {selectedClientId ? 
+                      clients.find(c => c.id === selectedClientId)?.name || "Select client" : 
+                      "Client"
+                    }
+                  </span>
+                  <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-56 p-0">
@@ -174,6 +178,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
                         onClick={() => {
                           handleClientChange(client.id.toString());
                           setClientSearchTerm("");
+                          setClientPopoverOpen(false);
                         }}
                       >
                         {selectedClientId === client.id && <Check className="h-4 w-4 mr-2" />}
@@ -196,21 +201,23 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
               </PopoverContent>
             </Popover>
             
-            <Popover>
+            <Popover open={projectPopoverOpen} onOpenChange={setProjectPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button 
                   variant="outline" 
-                  className="w-36 justify-between" 
+                  className="w-36 justify-between text-left overflow-hidden" 
                   disabled={!selectedClientId}
                 >
-                  {selectedProjectId ? (
-                    <span style={{ color: allProjects.find(p => p.id === selectedProjectId)?.color || "#000000" }}>
-                      {allProjects.find(p => p.id === selectedProjectId)?.name || "Select project"}
-                    </span>
-                  ) : (
-                    "Project"
-                  )}
-                  <ChevronDown className="h-4 w-4 opacity-50" />
+                  <span className="truncate">
+                    {selectedProjectId ? (
+                      <span style={{ color: allProjects.find(p => p.id === selectedProjectId)?.color || "#000000" }}>
+                        {allProjects.find(p => p.id === selectedProjectId)?.name || "Select project"}
+                      </span>
+                    ) : (
+                      "Project"
+                    )}
+                  </span>
+                  <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-56 p-0">
@@ -229,6 +236,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
                         onClick={() => {
                           setSelectedProjectId(project.id);
                           setProjectSearchTerm("");
+                          setProjectPopoverOpen(false);
                         }}
                       >
                         {selectedProjectId === project.id && <Check className="h-4 w-4 mr-2" />}
