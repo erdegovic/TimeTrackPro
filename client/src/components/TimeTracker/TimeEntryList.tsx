@@ -21,7 +21,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTimeTracker } from "@/hooks/useTimeTracker";
 import { useToast } from "@/hooks/use-toast";
 import TimeEntryRow from "./TimeEntry";
-import EnhancedTimeEntry from "./EnhancedTimeEntry";
+import AnimatedTimeEntry from "./AnimatedTimeEntry";
 
 export default function TimeEntryList() {
   const { toast } = useToast();
