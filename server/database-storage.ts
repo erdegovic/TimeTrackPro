@@ -185,33 +185,43 @@ export class DatabaseStorage implements IStorage {
     console.log(`[DB] Querying time entries for user ${userId}`);
     
     try {
-      // Use a raw SQL query to bypass any potential caching issues
-      const result = await db.execute(sql`
-        SELECT * FROM ${timeEntries} 
-        WHERE ${timeEntries.userId} = ${userId} 
-        ORDER BY ${timeEntries.date} DESC, ${timeEntries.id} DESC
-      `);
-      
-      console.log(`[DB] Raw query returned ${result.length} entries for user ${userId}`);
-      
-      // Also log some sample entries for debugging
-      if (result.length > 0) {
-        console.log(`[DB] Sample entries:`, result.slice(0, 3).map((e: any) => ({ id: e.id, description: e.description, date: e.date })));
-      }
-      
-      return result as TimeEntry[];
-    } catch (error) {
-      console.error(`[DB] Error querying time entries for user ${userId}:`, error);
-      
-      // Fallback to the original query
-      const fallbackResult = await db
+      // Use the standard Drizzle query
+      const result = await db
         .select()
         .from(timeEntries)
         .where(eq(timeEntries.userId, userId))
-        .orderBy(desc(timeEntries.date));
+        .orderBy(desc(timeEntries.date), desc(timeEntries.id));
       
-      console.log(`[DB] Fallback query returned ${fallbackResult.length} entries for user ${userId}`);
-      return fallbackResult;
+      console.log(`[DB] Query returned ${result.length} entries for user ${userId}`);
+      
+      // Also log some sample entries for debugging
+      if (result.length > 0) {
+        console.log(`[DB] Sample entries:`, result.slice(0, 3).map(e => ({ 
+          id: e.id, 
+          description: e.description, 
+          date: e.date,
+          userId: e.userId 
+        })));
+      } else {
+        // Try to understand why no entries are found
+        console.log(`[DB] No entries found for user ${userId}, checking total entries in table...`);
+        const totalEntries = await db.select().from(timeEntries);
+        console.log(`[DB] Total entries in table: ${totalEntries.length}`);
+        
+        if (totalEntries.length > 0) {
+          const userIds = [...new Set(totalEntries.map(e => e.userId))];
+          console.log(`[DB] User IDs in database: ${userIds.join(', ')}`);
+          console.log(`[DB] Looking for userId: ${userId} (type: ${typeof userId})`);
+          
+          const entriesForThisUser = totalEntries.filter(e => e.userId === userId);
+          console.log(`[DB] Entries for user ${userId} when filtered in JS: ${entriesForThisUser.length}`);
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error(`[DB] Error querying time entries for user ${userId}:`, error);
+      return [];
     }
   }
 
