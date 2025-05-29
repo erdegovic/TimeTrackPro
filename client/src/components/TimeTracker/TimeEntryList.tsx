@@ -315,20 +315,61 @@ export default function TimeEntryList() {
     });
   });
 
-  // Function to calculate daily earnings
+  // Currency conversion rates (simplified for demo - in production, use a real API)
+  const exchangeRates: Record<string, number> = {
+    USD: 1,
+    EUR: 0.92,
+    GBP: 0.79,
+    CAD: 1.35,
+    AUD: 1.52,
+    JPY: 150,
+    CHF: 0.91,
+    CNY: 7.2
+  };
+
+  // Function to convert currency
+  const convertCurrency = (amount: number, fromCurrency: string, toCurrency: string) => {
+    if (fromCurrency === toCurrency) return amount;
+    
+    // Convert to USD first, then to target currency
+    const usdAmount = amount / (exchangeRates[fromCurrency] || 1);
+    return usdAmount * (exchangeRates[toCurrency] || 1);
+  };
+
+  // Function to calculate daily earnings with proper currency conversion
   const calculateDailyEarnings = (entries: any[]) => {
+    const defaultCurrency = (settings as any)?.defaultCurrency || "USD";
+    
     return entries.reduce((total, entry) => {
       const duration = entry.exactDuration !== undefined ? entry.exactDuration : Number(entry.duration || 0);
       
-      // Get hourly rate from project or client
+      // Get hourly rate and currency from project or client
       let hourlyRate = 0;
+      let projectCurrency = defaultCurrency;
+      
       if (entry.project?.hourlyRate) {
         hourlyRate = Number(entry.project.hourlyRate);
+        // Projects inherit currency from their client
+        projectCurrency = entry.client?.currency || defaultCurrency;
       } else if (entry.client?.hourlyRate) {
         hourlyRate = Number(entry.client.hourlyRate);
+        projectCurrency = entry.client?.currency || defaultCurrency;
       }
       
-      return total + (duration * hourlyRate);
+      // Skip entries with no rate
+      if (hourlyRate === 0) {
+        return total;
+      }
+      
+      // Calculate earnings in project currency
+      const projectEarnings = duration * hourlyRate;
+      
+      // Convert to default display currency
+      const convertedEarnings = convertCurrency(projectEarnings, projectCurrency, defaultCurrency);
+      
+      console.log(`[Currency Debug] Entry ${entry.id}: ${duration}h × ${hourlyRate} ${projectCurrency} = ${projectEarnings} ${projectCurrency} → ${convertedEarnings} ${defaultCurrency}`);
+      
+      return total + convertedEarnings;
     }, 0);
   };
 
