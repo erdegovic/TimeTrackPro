@@ -332,7 +332,7 @@ export class DatabaseStorage implements IStorage {
     // Build the complete entry object
     const completeEntry = {
       description: entryData.description || '',
-      projectId: entryData.projectId || 0,
+      projectId: entryData.projectId || null,
       userId: entryData.userId || null,
       startTime: entryData.startTime || new Date(),
       endTime: entryData.endTime || null,
