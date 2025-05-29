@@ -45,6 +45,9 @@ export default function TimeEntryList() {
     queryKey: ["/api/time-entries"]
   });
 
+  // Debug logging to track the issue
+  console.log(`[TimeEntryList] Received ${timeEntries.length} time entries from API`);
+
   // Listen for timer updates to refresh total times immediately
   useEffect(() => {
     const handleTimeEntryUpdate = () => {
@@ -279,6 +282,13 @@ export default function TimeEntryList() {
       return new Date(b[0]).getTime() - new Date(a[0]).getTime();
     }
     return a[1].label.localeCompare(b[1].label);
+  });
+
+  // Debug logging to track the grouping issue
+  console.log(`[TimeEntryList] Grouped entries:`, Object.keys(groupedEntries));
+  console.log(`[TimeEntryList] Total groups: ${sortedGroups.length}`);
+  sortedGroups.forEach(([key, group]) => {
+    console.log(`[TimeEntryList] Group "${key}": ${group.entries.length} entries`);
   });
 
   // Delete mutation
