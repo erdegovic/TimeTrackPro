@@ -420,176 +420,122 @@ export default function EnhancedTimeEntry({
 
   return (
     <div className={`border-b border-gray-200 transition-all duration-1000 ${isNew ? 'bg-green-50' : ''} ${isMerging ? 'bg-blue-100 border-blue-300 shadow-lg' : ''}`}>
-      {/* Mobile Layout - Two Rows */}
-      <div className="sm:hidden px-4 py-3">
-        {/* First Row: Expand button, description, and duration */}
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex items-start flex-1 min-w-0">
-            {/* Expand/collapse button */}
-            <div className="w-6 flex justify-center mt-1 mr-3 flex-shrink-0">
-              {isGrouped ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsExpanded(!isExpanded)}
-                  className="p-0 h-5 w-5"
-                >
-                  {isExpanded ? (
-                    <ChevronDown className="h-3 w-3" />
-                  ) : (
-                    <ChevronRight className="h-3 w-3" />
-                  )}
-                </Button>
-              ) : (
-                groupedEntry.blocks.length > 1 ? (
-                  <div className="text-xs text-gray-400 font-medium">
-                    {groupedEntry.blocks.length}
-                  </div>
-                ) : null
-              )}
-            </div>
-
-            {/* Description */}
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-900 leading-tight">
-                {groupedEntry.description}
-              </div>
-            </div>
-          </div>
-
-          {/* Duration - fixed on the right */}
-          <div className="ml-4 flex-shrink-0">
-            <div className="font-mono font-medium text-gray-900 text-sm">
-              {formatDuration(groupedEntry.totalDuration)}
-            </div>
-          </div>
-        </div>
-
-        {/* Second Row: Project info, time range, and actions */}
-        <div className="flex items-center justify-between">
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-col space-y-1">
-              {/* Project and client info */}
-              <div className="text-xs text-gray-500">
-                {groupedEntry.project && (
-                  <span style={{ color: groupedEntry.project.color || "#000000" }}>
-                    {groupedEntry.project.name}
-                  </span>
-                )}
-                {groupedEntry.project && groupedEntry.client && (
-                  <span className="ml-2">• {groupedEntry.client.name}</span>
-                )}
-                {!groupedEntry.project && (
-                  <span className="text-gray-400 italic">No project assigned</span>
-                )}
-              </div>
-
-              {/* Time range */}
-              <div className="text-xs text-gray-500">
-                {(() => {
-                  const sortedBlocks = [...groupedEntry.blocks].sort((a, b) => 
-                    a.startTime.getTime() - b.startTime.getTime()
-                  );
-                  const firstStart = sortedBlocks[0]?.startTime;
-                  const lastEnd = sortedBlocks[sortedBlocks.length - 1]?.endTime;
-                  return `${formatTime(firstStart)} - ${formatTime(lastEnd)}`;
-                })()}
-              </div>
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex items-center space-x-1 ml-4">
-            {onPlay && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`h-7 w-7 p-0 ${isTracking ? 'text-red-600 hover:text-white hover:bg-red-600' : 'text-green-600 hover:text-white hover:bg-green-600'}`}
-                onClick={() => {
-                  if (isTracking && onStop) {
-                    onStop();
-                  } else if (onPlay && groupedEntry.project) {
-                    onPlay(groupedEntry.description, groupedEntry.project.id);
-                  }
-                }}
-              >
-                {isTracking ? (
-                  <Square className="h-3 w-3 fill-current" />
-                ) : (
-                  <Play className="h-3 w-3 fill-current" />
-                )}
-              </Button>
-            )}
+      {/* Main entry row */}
+      <div className={`flex items-center px-6 py-4 hover:bg-gray-50 transition-all duration-1000 ${isMerging ? 'bg-blue-50' : ''}`}>
+        {/* Expand/collapse button for grouped entries */}
+        <div className="w-8 flex justify-center">
+          {isGrouped ? (
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0 text-blue-600 hover:text-white hover:bg-blue-600"
-              onClick={() => setIsEditingEntry(true)}
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="p-0 h-6 w-6"
             >
-              <Edit className="h-3 w-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 text-red-600 hover:text-white hover:bg-red-600"
-              onClick={() => onDelete(entry.id)}
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Desktop/Tablet Layout (single row) */}
-      <div className="hidden sm:block">
-        <div className="px-6 py-4 hover:bg-gray-50 transition-all duration-1000">
-          <div className="flex items-center">
-            {/* Expand/collapse button for grouped entries */}
-            <div className="w-8 flex justify-center">
-              {isGrouped ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsExpanded(!isExpanded)}
-                  className="p-0 h-6 w-6"
-                >
-                  {isExpanded ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                </Button>
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4" />
               ) : (
-                groupedEntry.blocks.length > 1 ? (
-                  <div className="text-sm text-gray-400 font-medium">
-                    {groupedEntry.blocks.length}
-                  </div>
-                ) : null
+                <ChevronRight className="h-4 w-4" />
               )}
-            </div>
+            </Button>
+          ) : (
+            // Only show number if there are multiple blocks
+            groupedEntry.blocks.length > 1 ? (
+              <div className="text-sm text-gray-400 font-medium">
+                {groupedEntry.blocks.length}
+              </div>
+            ) : null
+          )}
+        </div>
 
-            {/* Description */}
-            <div className="flex-1 min-w-0 px-4">
+        {/* Description */}
+        <div className="flex-1 min-w-0 px-4">
+          {isEditingEntry ? (
+            <div className="space-y-2">
+              <Input
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="What are you working on?"
+                className="text-sm"
+              />
+              <div className="flex space-x-2">
+                <Select value={editClientId?.toString() || ""} onValueChange={(value) => {
+                  const clientId = value ? Number(value) : undefined;
+                  setEditClientId(clientId);
+                  setEditProjectId(undefined); // Reset project when client changes
+                }}>
+                  <SelectTrigger className="text-xs h-6">
+                    <SelectValue placeholder="Client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id.toString()}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={editProjectId?.toString() || ""} onValueChange={(value) => {
+                  setEditProjectId(value ? Number(value) : undefined);
+                }} disabled={!editClientId}>
+                  <SelectTrigger className="text-xs h-6">
+                    <SelectValue placeholder="Project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.filter(p => p.clientId === editClientId).map((project) => (
+                      <SelectItem key={project.id} value={project.id.toString()}>
+                        <span style={{ color: (project as any).color || "#000000" }}>
+                          {project.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          ) : (
+            <>
               <div className="text-sm font-medium text-gray-900 truncate">
                 {groupedEntry.description}
               </div>
               <div className="text-xs text-gray-500">
+
+                {/* Always show project name with color */}
                 {groupedEntry.project && (
                   <span style={{ color: groupedEntry.project.color || "#000000" }}>
                     {groupedEntry.project.name}
                   </span>
                 )}
+                {/* Always show client name if project exists (since all projects have clients) */}
                 {groupedEntry.project && groupedEntry.client && (
                   <span className="ml-2">• {groupedEntry.client.name}</span>
                 )}
+                {/* Fallback: if no client data but we have project, find client from projects */}
+                {groupedEntry.project && !groupedEntry.client && (() => {
+                  const foundClient = clients.find(c => c.id === groupedEntry.project?.clientId);
+                  return foundClient ? <span className="ml-2">• {foundClient.name}</span> : null;
+                })()}
+                
+                {/* Show message when no project is assigned */}
                 {!groupedEntry.project && (
                   <span className="text-gray-400 italic">No project assigned</span>
                 )}
               </div>
-            </div>
+            </>
+          )}
+        </div>
 
-            {/* Time range display */}
-            <div className="flex items-center space-x-4 text-sm">
+        {/* Time range display */}
+        <div className="flex items-center space-x-4 text-sm">
+          <div className="flex items-center space-x-2">
+            {canEditDirectly ? (
+              <EditableTimeRange
+                startTime={groupedEntry.blocks[0].startTime}
+                endTime={groupedEntry.blocks[0].endTime}
+                onUpdate={(start, end) => updateTimeBlock(groupedEntry.blocks[0].id, start, end)}
+                isEditing={editingMainEntry}
+                onEditToggle={setEditingMainEntry}
+              />
+            ) : (
               <div className="text-gray-500">
                 {(() => {
                   const sortedBlocks = [...groupedEntry.blocks].sort((a, b) => 
@@ -600,52 +546,121 @@ export default function EnhancedTimeEntry({
                   return `${formatTime(firstStart)} - ${formatTime(lastEnd)}`;
                 })()}
               </div>
-
-              {/* Total duration */}
-              <div className="font-mono font-medium text-gray-900 min-w-[80px] text-right">
-                {formatDuration(groupedEntry.totalDuration)}
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex items-center space-x-1">
-                {onPlay && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`h-8 w-8 ${isTracking ? 'text-red-600 hover:text-white hover:bg-red-600' : 'text-green-600 hover:text-white hover:bg-green-600'}`}
-                    onClick={() => {
-                      if (isTracking && onStop) {
-                        onStop();
-                      } else if (onPlay && groupedEntry.project) {
-                        onPlay(groupedEntry.description, groupedEntry.project.id);
-                      }
-                    }}
-                  >
-                    {isTracking ? (
-                      <Square className="h-4 w-4 fill-current" />
-                    ) : (
-                      <Play className="h-4 w-4 fill-current" />
-                    )}
-                  </Button>
-                )}
+            )}
+            
+            {/* Calendar icon for date selection */}
+            <Popover>
+              <PopoverTrigger asChild>
                 <Button
                   variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+                >
+                  <Calendar className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={new Date(groupedEntry.date)}
+                  onSelect={(date) => {
+                    if (date) {
+                      handleDateChange(date);
+                    }
+                  }}
+                  disabled={(date) => date > new Date()}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Total duration */}
+          <div className="font-mono font-medium text-gray-900 min-w-[80px] text-right">
+            {formatDuration(groupedEntry.totalDuration)}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center space-x-1">
+            {isEditingEntry ? (
+              <>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="h-8 w-8 text-green-600 hover:text-white hover:bg-green-600"
+                  onClick={handleSaveEntry}
+                  title="Save changes"
+                >
+                  <Save className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="h-8 w-8 text-gray-500 hover:text-white hover:bg-gray-500"
+                  onClick={handleCancelEdit}
+                  title="Cancel editing"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </>
+            ) : (
+              <>
+                {onPlay && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className={isCurrentlyTracking ? 
+                      "h-8 w-8 text-red-600 hover:text-white hover:bg-red-600" : 
+                      "h-8 w-8 text-green-600 hover:text-white hover:bg-green-600"
+                    }
+                    onClick={() => {
+                      if (isCurrentlyTracking) {
+                        stopTimer();
+                      } else {
+                        // Find the project to get client ID for complete synchronization
+                        const project = projects.find(p => p.id === groupedEntry.project?.id);
+                        const clientId = project?.clientId;
+                        
+                        // Use the improved timer function directly
+                        startTimerWithData(
+                          groupedEntry.description, 
+                          groupedEntry.project?.id || 0,
+                          clientId
+                        );
+                      }
+                    }}
+                    title={isCurrentlyTracking ? "Stop tracking" : "Continue tracking this task"}
+                  >
+                    {isCurrentlyTracking ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </Button>
+                )}
+                <Button 
+                  variant="ghost" 
                   size="icon"
                   className="h-8 w-8 text-blue-600 hover:text-white hover:bg-blue-600"
-                  onClick={() => console.log('Edit entry')}
+                  onClick={handleEditEntry}
+                  title="Edit entry"
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="ghost"
+                <Button 
+                  variant="ghost" 
                   size="icon"
-                  className="h-8 w-8 text-red-600 hover:text-white hover:bg-red-600"
-                  onClick={() => onDelete(entry.id)}
+                  className="h-8 w-8 text-gray-500 hover:text-white hover:bg-gray-500"
+                  onClick={handleDuplicate}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-white hover:bg-destructive"
+                  onClick={() => onDelete(groupedEntry.id)}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -679,6 +694,32 @@ export default function EnhancedTimeEntry({
     </div>
   );
 }
+
+// Component for editable time ranges
+function EditableTimeRange({ 
+  startTime, 
+  endTime, 
+  onUpdate, 
+  isEditing, 
+  onEditToggle 
+}: {
+  startTime: Date;
+  endTime: Date;
+  onUpdate: (start: Date, end: Date) => void;
+  isEditing: boolean;
+  onEditToggle: (editing: boolean) => void;
+}) {
+  const [startInput, setStartInput] = useState("");
+  const [endInput, setEndInput] = useState("");
+
+  useEffect(() => {
+    if (isEditing) {
+      setStartInput(format(startTime, 'h:mmaa').toLowerCase());
+      setEndInput(format(endTime, 'h:mmaa').toLowerCase());
+    }
+  }, [isEditing, startTime, endTime]);
+
+  // Update the display when startTime or endTime props change
   useEffect(() => {
     if (!isEditing) {
       // Force re-render of the button display when times change
