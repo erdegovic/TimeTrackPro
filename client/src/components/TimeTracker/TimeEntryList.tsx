@@ -523,23 +523,53 @@ export default function TimeEntryList() {
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <CalendarComponent
-                  mode="range"
-                  selected={{
-                    from: startDate ? new Date(startDate) : undefined,
-                    to: endDate ? new Date(endDate) : undefined,
-                  }}
-                  onSelect={(range) => {
-                    if (range?.from) {
-                      setStartDate(format(range.from, "yyyy-MM-dd"));
-                    }
-                    if (range?.to) {
-                      setEndDate(format(range.to, "yyyy-MM-dd"));
-                    } else if (range?.from && !range?.to) {
+                  mode="single"
+                  selected={startDate ? new Date(startDate) : undefined}
+                  onSelect={(date) => {
+                    if (!date) return;
+                    
+                    const clickedDate = format(date, "yyyy-MM-dd");
+                    
+                    if (!startDate) {
+                      // First click - set start date
+                      setStartDate(clickedDate);
+                      setEndDate("");
+                    } else if (!endDate) {
+                      // Second click - set end date or reset if same date
+                      if (clickedDate === startDate) {
+                        // Clicking same date - reset
+                        setStartDate("");
+                        setEndDate("");
+                      } else {
+                        // Different date - set as end date (ensure proper order)
+                        if (new Date(clickedDate) < new Date(startDate)) {
+                          setStartDate(clickedDate);
+                          setEndDate(startDate);
+                        } else {
+                          setEndDate(clickedDate);
+                        }
+                      }
+                    } else {
+                      // Third click - reset and start new selection
+                      setStartDate(clickedDate);
                       setEndDate("");
                     }
                   }}
                   numberOfMonths={2}
                   initialFocus
+                  modifiers={{
+                    selected: (date) => {
+                      if (!startDate && !endDate) return false;
+                      const dateStr = format(date, "yyyy-MM-dd");
+                      if (startDate && endDate) {
+                        return dateStr >= startDate && dateStr <= endDate;
+                      }
+                      return dateStr === startDate;
+                    }
+                  }}
+                  modifiersClassNames={{
+                    selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground"
+                  }}
                 />
               </PopoverContent>
             </Popover>
