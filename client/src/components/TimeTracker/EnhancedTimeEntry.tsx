@@ -71,6 +71,8 @@ export default function EnhancedTimeEntry({
   const [editClientId, setEditClientId] = useState<number | undefined>();
   const [editProjectId, setEditProjectId] = useState<number | undefined>();
   const [isMerging, setIsMerging] = useState(false);
+  const [isSliding, setIsSliding] = useState(false);
+  const [slideDirection, setSlideDirection] = useState<'up' | 'down' | null>(null);
 
   // Listen for timer state changes to force UI updates
   useEffect(() => {
@@ -79,24 +81,56 @@ export default function EnhancedTimeEntry({
     };
 
     const handleMergeAnimation = (event: CustomEvent) => {
-      const { sourceEntryId, description, projectId, date } = event.detail;
+      const { sourceEntryId, description, projectId, date, targetEntryId } = event.detail;
       
       console.log('Merge animation event received for entry', entry.id, 'Event details:', event.detail);
       
-      // Check if this entry is involved in the merge
-      const isThisEntryInvolved = entry.id === sourceEntryId || 
-        (entry.date === date && entry.description === description && entry.projectId === projectId);
+      // Check if this is the source entry (the one being edited)
+      const isSourceEntry = entry.id === sourceEntryId;
+      // Check if this is the target entry (the one being merged into)
+      const isTargetEntry = entry.id === targetEntryId || 
+        (entry.date === date && entry.description === description && entry.projectId === projectId && entry.id !== sourceEntryId);
       
-      console.log('Is this entry involved in merge?', isThisEntryInvolved, 'Entry:', { id: entry.id, description: entry.description, projectId: entry.projectId, date: entry.date });
+      console.log('Entry roles:', { 
+        id: entry.id, 
+        isSource: isSourceEntry, 
+        isTarget: isTargetEntry,
+        entryData: { description: entry.description, projectId: entry.projectId, date: entry.date }
+      });
       
-      if (isThisEntryInvolved) {
-        console.log('Starting merge animation for entry', entry.id);
-        setIsMerging(true);
-        // Reset after animation
+      if (isSourceEntry) {
+        console.log('Starting slide animation for source entry', entry.id);
+        // Find target entry position to determine slide direction
+        const targetElement = document.querySelector(`[data-entry-id="${targetEntryId}"]`);
+        const sourceElement = document.querySelector(`[data-entry-id="${entry.id}"]`);
+        
+        if (targetElement && sourceElement) {
+          const targetRect = targetElement.getBoundingClientRect();
+          const sourceRect = sourceElement.getBoundingClientRect();
+          const direction = targetRect.top < sourceRect.top ? 'up' : 'down';
+          
+          setSlideDirection(direction);
+          setIsSliding(true);
+          
+          // After slide completes, start merge animation
+          setTimeout(() => {
+            setIsSliding(false);
+            setIsMerging(true);
+            
+            // End merge animation
+            setTimeout(() => {
+              setIsMerging(false);
+              setSlideDirection(null);
+            }, 300);
+          }, 500);
+        }
+      } else if (isTargetEntry) {
+        console.log('Starting target highlight for entry', entry.id);
+        // Target entry just gets highlighting
         setTimeout(() => {
-          console.log('Ending merge animation for entry', entry.id);
-          setIsMerging(false);
-        }, 600);
+          setIsMerging(true);
+          setTimeout(() => setIsMerging(false), 600);
+        }, 500);
       }
     };
 
@@ -372,10 +406,20 @@ export default function EnhancedTimeEntry({
       // If merging will happen, trigger the merge animation before refresh
       if (willMerge) {
         console.log('Triggering merge animation for entry', entry.id);
+        
+        // Find the target entry ID
+        const targetEntry = allTimeEntries.find((existingEntry: any) => 
+          existingEntry.id !== entry.id &&
+          existingEntry.date === entry.date &&
+          existingEntry.description === editDescription.trim() &&
+          existingEntry.projectId === editProjectId
+        );
+        
         // Dispatch a custom event to trigger merge animation
         window.dispatchEvent(new CustomEvent('timeEntryMerging', {
           detail: {
             sourceEntryId: entry.id,
+            targetEntryId: targetEntry?.id,
             description: editDescription.trim(),
             projectId: editProjectId,
             date: entry.date
@@ -419,7 +463,17 @@ export default function EnhancedTimeEntry({
   const canEditDirectly = !isGrouped;
 
   return (
-    <div className={`border-b border-gray-200 transition-all duration-300 ${isNew ? 'bg-green-50' : ''} ${isMerging ? 'bg-blue-100 border-blue-300 shadow-lg' : ''}`}>
+    <div 
+      data-entry-id={entry.id}
+      className={`border-b border-gray-200 transition-all duration-500 ${isNew ? 'bg-green-50' : ''} ${isMerging ? 'bg-blue-100 border-blue-300 shadow-lg' : ''}`}
+      style={{
+        transform: isSliding ? 
+          `translateY(${slideDirection === 'up' ? '-100px' : '100px'}) scale(0.95)` : 
+          'translateY(0) scale(1)',
+        opacity: isSliding ? 0.7 : 1,
+        transition: 'all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+      }}
+    >
       {/* Main entry row */}
       <div className={`flex items-center px-6 py-4 hover:bg-gray-50 transition-colors ${isMerging ? 'animate-pulse' : ''}`}>
         {/* Expand/collapse button for grouped entries */}
@@ -498,17 +552,6 @@ export default function EnhancedTimeEntry({
                 {groupedEntry.description}
               </div>
               <div className="text-xs text-gray-500">
-                {(() => {
-                  console.log(`Entry ${entry.id} display data:`, {
-                    hasProject: !!groupedEntry.project,
-                    hasClient: !!groupedEntry.client,
-                    projectName: groupedEntry.project?.name,
-                    clientName: groupedEntry.client?.name,
-                    projectClientId: groupedEntry.project?.clientId,
-                    availableClients: clients.map(c => ({ id: c.id, name: c.name }))
-                  });
-                  return null;
-                })()}
                 {/* Always show project name with color */}
                 {groupedEntry.project && (
                   <span style={{ color: groupedEntry.project.color || "#000000" }}>
@@ -522,7 +565,6 @@ export default function EnhancedTimeEntry({
                 {/* Fallback: if no client data but we have project, find client from projects */}
                 {groupedEntry.project && !groupedEntry.client && (() => {
                   const foundClient = clients.find(c => c.id === groupedEntry.project?.clientId);
-                  console.log(`Entry ${entry.id}: Missing client, found fallback:`, foundClient);
                   return foundClient ? <span className="ml-2">• {foundClient.name}</span> : null;
                 })()}
               </div>
