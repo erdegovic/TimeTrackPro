@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Edit, Copy, Trash2, Play, Square, ChevronDown, ChevronRight, Calendar } from "lucide-react";
+import { Edit, Copy, Trash2, Play, Square, ChevronDown, ChevronRight, Calendar, Check, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTimerContext } from "@/context/TimerContext";
@@ -63,6 +64,10 @@ export default function EnhancedTimeEntry({
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [editingMainEntry, setEditingMainEntry] = useState(false);
   const [forceUpdate, setForceUpdate] = useState(0);
+  const [isEditingEntry, setIsEditingEntry] = useState(false);
+  const [editDescription, setEditDescription] = useState("");
+  const [editClientId, setEditClientId] = useState<number | undefined>();
+  const [editProjectId, setEditProjectId] = useState<number | undefined>();
 
   // Listen for timer state changes to force UI updates
   useEffect(() => {
@@ -294,6 +299,58 @@ export default function EnhancedTimeEntry({
     }
   };
 
+  const handleEditEntry = () => {
+    setEditDescription(groupedEntry?.description || "");
+    setEditClientId(groupedEntry?.client?.id);
+    setEditProjectId(groupedEntry?.project?.id);
+    setIsEditingEntry(true);
+  };
+
+  const handleSaveEntry = async () => {
+    if (!groupedEntry || !editDescription.trim()) return;
+
+    try {
+      // Update all blocks in the group with new details
+      const updateData = {
+        description: editDescription.trim(),
+        projectId: editProjectId
+      };
+
+      // For grouped entries, update all blocks
+      if (groupedEntry.blocks.length > 1) {
+        for (const block of groupedEntry.blocks) {
+          const actualEntryId = block.id.replace('block-', '');
+          await apiRequest("PUT", `/api/time-entries/${actualEntryId}`, updateData);
+        }
+      } else {
+        // For individual entries, update the single entry
+        await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
+      }
+
+      // Refresh the time entries list to trigger potential merging
+      await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      
+      setIsEditingEntry(false);
+      toast({
+        title: "Entry updated",
+        description: "Time entry has been updated successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update entry. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingEntry(false);
+    setEditDescription("");
+    setEditClientId(undefined);
+    setEditProjectId(undefined);
+  };
+
   if (!groupedEntry) return null;
 
   const isGrouped = groupedEntry.blocks.length > 1;
@@ -330,17 +387,64 @@ export default function EnhancedTimeEntry({
 
         {/* Description */}
         <div className="flex-1 min-w-0 px-4">
-          <div className="text-sm font-medium text-gray-900 truncate">
-            {groupedEntry.description}
-          </div>
-          <div className="text-xs text-gray-500">
-            <span style={{ color: groupedEntry.project?.color || "#000000" }}>
-              {groupedEntry.project?.name}
-            </span>
-            {groupedEntry.client && (
-              <span className="ml-2">• {groupedEntry.client.name}</span>
-            )}
-          </div>
+          {isEditingEntry ? (
+            <div className="space-y-2">
+              <Input
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="What are you working on?"
+                className="text-sm"
+              />
+              <div className="flex space-x-2">
+                <Select value={editClientId?.toString() || ""} onValueChange={(value) => {
+                  const clientId = value ? Number(value) : undefined;
+                  setEditClientId(clientId);
+                  setEditProjectId(undefined); // Reset project when client changes
+                }}>
+                  <SelectTrigger className="text-xs h-6">
+                    <SelectValue placeholder="Client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id.toString()}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={editProjectId?.toString() || ""} onValueChange={(value) => {
+                  setEditProjectId(value ? Number(value) : undefined);
+                }} disabled={!editClientId}>
+                  <SelectTrigger className="text-xs h-6">
+                    <SelectValue placeholder="Project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.filter(p => p.clientId === editClientId).map((project) => (
+                      <SelectItem key={project.id} value={project.id.toString()}>
+                        <span style={{ color: (project as any).color || "#000000" }}>
+                          {project.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="text-sm font-medium text-gray-900 truncate">
+                {groupedEntry.description}
+              </div>
+              <div className="text-xs text-gray-500">
+                <span style={{ color: groupedEntry.project?.color || "#000000" }}>
+                  {groupedEntry.project?.name}
+                </span>
+                {groupedEntry.client && (
+                  <span className="ml-2">• {groupedEntry.client.name}</span>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Time range display */}
@@ -401,51 +505,85 @@ export default function EnhancedTimeEntry({
 
           {/* Action buttons */}
           <div className="flex items-center space-x-1">
-            {onPlay && (
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className={isCurrentlyTracking ? 
-                  "h-8 w-8 text-red-600 hover:text-white hover:bg-red-600" : 
-                  "h-8 w-8 text-green-600 hover:text-white hover:bg-green-600"
-                }
-                onClick={() => {
-                  if (isCurrentlyTracking) {
-                    stopTimer();
-                  } else {
-                    // Find the project to get client ID for complete synchronization
-                    const project = projects.find(p => p.id === groupedEntry.project?.id);
-                    const clientId = project?.clientId;
-                    
-                    // Use the improved timer function directly
-                    startTimerWithData(
-                      groupedEntry.description, 
-                      groupedEntry.project?.id || 0,
-                      clientId
-                    );
-                  }
-                }}
-                title={isCurrentlyTracking ? "Stop tracking" : "Continue tracking this task"}
-              >
-                {isCurrentlyTracking ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              </Button>
+            {isEditingEntry ? (
+              <>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="h-8 w-8 text-green-600 hover:text-white hover:bg-green-600"
+                  onClick={handleSaveEntry}
+                  title="Save changes"
+                >
+                  <Save className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="h-8 w-8 text-gray-500 hover:text-white hover:bg-gray-500"
+                  onClick={handleCancelEdit}
+                  title="Cancel editing"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </>
+            ) : (
+              <>
+                {onPlay && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className={isCurrentlyTracking ? 
+                      "h-8 w-8 text-red-600 hover:text-white hover:bg-red-600" : 
+                      "h-8 w-8 text-green-600 hover:text-white hover:bg-green-600"
+                    }
+                    onClick={() => {
+                      if (isCurrentlyTracking) {
+                        stopTimer();
+                      } else {
+                        // Find the project to get client ID for complete synchronization
+                        const project = projects.find(p => p.id === groupedEntry.project?.id);
+                        const clientId = project?.clientId;
+                        
+                        // Use the improved timer function directly
+                        startTimerWithData(
+                          groupedEntry.description, 
+                          groupedEntry.project?.id || 0,
+                          clientId
+                        );
+                      }
+                    }}
+                    title={isCurrentlyTracking ? "Stop tracking" : "Continue tracking this task"}
+                  >
+                    {isCurrentlyTracking ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </Button>
+                )}
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="h-8 w-8 text-blue-600 hover:text-white hover:bg-blue-600"
+                  onClick={handleEditEntry}
+                  title="Edit entry"
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="h-8 w-8 text-gray-500 hover:text-white hover:bg-gray-500"
+                  onClick={handleDuplicate}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-white hover:bg-destructive"
+                  onClick={() => onDelete(groupedEntry.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </>
             )}
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="h-8 w-8 text-gray-500 hover:text-white hover:bg-gray-500"
-              onClick={handleDuplicate}
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="h-8 w-8 text-destructive hover:text-white hover:bg-destructive"
-              onClick={() => onDelete(groupedEntry.id)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
           </div>
         </div>
       </div>
