@@ -375,16 +375,26 @@ export default function EnhancedTimeEntry({
       // Check if this would create a merge by looking for existing entries
       const project = projects.find(p => p.id === editProjectId);
       console.log('Checking for merge. Edit data:', { description: editDescription.trim(), projectId: editProjectId, date: entry.date });
-      console.log('Available entries:', allTimeEntries.map(e => ({ id: e.id, description: e.description, projectId: e.projectId, date: e.date })));
+      console.log('Available entries:', allTimeEntries?.map(e => ({ id: e.id, description: e.description, projectId: e.projectId, date: e.date })));
       
-      const willMerge = allTimeEntries.some((existingEntry: any) => 
+      const willMerge = allTimeEntries?.some((existingEntry: any) => 
+        existingEntry.id !== entry.id &&
+        existingEntry.date === entry.date &&
+        existingEntry.description === editDescription.trim() &&
+        existingEntry.projectId === editProjectId
+      ) || false;
+      
+      console.log('Will merge?', willMerge);
+      
+      // Find target entry for animation
+      const targetEntry = allTimeEntries?.find((existingEntry: any) => 
         existingEntry.id !== entry.id &&
         existingEntry.date === entry.date &&
         existingEntry.description === editDescription.trim() &&
         existingEntry.projectId === editProjectId
       );
       
-      console.log('Will merge?', willMerge);
+      console.log('Target entry for merge:', targetEntry);
 
       // Update all blocks in the group with new details
       const updateData = {
@@ -404,33 +414,55 @@ export default function EnhancedTimeEntry({
       }
 
       // If merging will happen, trigger the merge animation before refresh
-      if (willMerge) {
-        console.log('Triggering merge animation for entry', entry.id);
+      if (willMerge && targetEntry) {
+        console.log('Triggering slide animation for entry', entry.id, 'to target', targetEntry.id);
         
-        // Find the target entry ID
-        const targetEntry = allTimeEntries.find((existingEntry: any) => 
-          existingEntry.id !== entry.id &&
-          existingEntry.date === entry.date &&
-          existingEntry.description === editDescription.trim() &&
-          existingEntry.projectId === editProjectId
-        );
+        // Start sliding animation immediately on this component
+        const targetElement = document.querySelector(`[data-entry-id="${targetEntry.id}"]`);
+        const sourceElement = document.querySelector(`[data-entry-id="${entry.id}"]`);
         
-        // Dispatch a custom event to trigger merge animation
-        window.dispatchEvent(new CustomEvent('timeEntryMerging', {
-          detail: {
-            sourceEntryId: entry.id,
-            targetEntryId: targetEntry?.id,
-            description: editDescription.trim(),
-            projectId: editProjectId,
-            date: entry.date
-          }
-        }));
+        console.log('Found elements:', { source: !!sourceElement, target: !!targetElement });
         
-        // Small delay to let animation start
-        setTimeout(async () => {
-          // Refresh the time entries list to trigger potential merging
+        if (targetElement && sourceElement) {
+          const targetRect = targetElement.getBoundingClientRect();
+          const sourceRect = sourceElement.getBoundingClientRect();
+          const direction = targetRect.top < sourceRect.top ? 'up' : 'down';
+          
+          console.log('Starting slide animation', { direction, targetTop: targetRect.top, sourceTop: sourceRect.top });
+          
+          // Start sliding animation
+          setSlideDirection(direction);
+          setIsSliding(true);
+          
+          // After slide animation, start merge flash and refresh
+          setTimeout(async () => {
+            console.log('Slide complete, starting merge flash');
+            setIsSliding(false);
+            setIsMerging(true);
+            
+            // Trigger merge flash on target entry too
+            window.dispatchEvent(new CustomEvent('timeEntryMerging', {
+              detail: {
+                sourceEntryId: entry.id,
+                targetEntryId: targetEntry.id,
+                description: editDescription.trim(),
+                projectId: editProjectId,
+                date: entry.date
+              }
+            }));
+            
+            // End animation and refresh
+            setTimeout(async () => {
+              console.log('Animation complete, refreshing data');
+              setIsMerging(false);
+              setSlideDirection(null);
+              await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+            }, 600);
+          }, 500);
+        } else {
+          console.log('Could not find DOM elements, skipping animation');
           await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-        }, 100);
+        }
       } else {
         // Refresh immediately if no merge
         await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
