@@ -81,14 +81,22 @@ export default function EnhancedTimeEntry({
     const handleMergeAnimation = (event: CustomEvent) => {
       const { sourceEntryId, description, projectId, date } = event.detail;
       
+      console.log('Merge animation event received for entry', entry.id, 'Event details:', event.detail);
+      
       // Check if this entry is involved in the merge
       const isThisEntryInvolved = entry.id === sourceEntryId || 
         (entry.date === date && entry.description === description && entry.projectId === projectId);
       
+      console.log('Is this entry involved in merge?', isThisEntryInvolved, 'Entry:', { id: entry.id, description: entry.description, projectId: entry.projectId, date: entry.date });
+      
       if (isThisEntryInvolved) {
+        console.log('Starting merge animation for entry', entry.id);
         setIsMerging(true);
         // Reset after animation
-        setTimeout(() => setIsMerging(false), 600);
+        setTimeout(() => {
+          console.log('Ending merge animation for entry', entry.id);
+          setIsMerging(false);
+        }, 600);
       }
     };
 
@@ -332,12 +340,17 @@ export default function EnhancedTimeEntry({
     try {
       // Check if this would create a merge by looking for existing entries
       const project = projects.find(p => p.id === editProjectId);
+      console.log('Checking for merge. Edit data:', { description: editDescription.trim(), projectId: editProjectId, date: entry.date });
+      console.log('Available entries:', allTimeEntries.map(e => ({ id: e.id, description: e.description, projectId: e.projectId, date: e.date })));
+      
       const willMerge = allTimeEntries.some((existingEntry: any) => 
         existingEntry.id !== entry.id &&
         existingEntry.date === entry.date &&
         existingEntry.description === editDescription.trim() &&
         existingEntry.projectId === editProjectId
       );
+      
+      console.log('Will merge?', willMerge);
 
       // Update all blocks in the group with new details
       const updateData = {
@@ -356,8 +369,9 @@ export default function EnhancedTimeEntry({
         await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
       }
 
-      // If merging will happen, trigger the merge animation
+      // If merging will happen, trigger the merge animation before refresh
       if (willMerge) {
+        console.log('Triggering merge animation for entry', entry.id);
         // Dispatch a custom event to trigger merge animation
         window.dispatchEvent(new CustomEvent('timeEntryMerging', {
           detail: {
@@ -367,10 +381,16 @@ export default function EnhancedTimeEntry({
             date: entry.date
           }
         }));
+        
+        // Small delay to let animation start
+        setTimeout(async () => {
+          // Refresh the time entries list to trigger potential merging
+          await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+        }, 100);
+      } else {
+        // Refresh immediately if no merge
+        await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
       }
-
-      // Refresh the time entries list to trigger potential merging
-      await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
       
       setIsEditingEntry(false);
       toast({
