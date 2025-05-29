@@ -26,6 +26,7 @@ interface TimeEntryRowProps {
   onDelete: (id: number) => void;
   onPlay?: (description: string, projectId: number) => void;
   isNew?: boolean;
+  allTimeEntries?: Array<TimeEntry & { client?: Client; project?: Project; }>;
 }
 
 export default function TimeEntryRow({
@@ -35,7 +36,8 @@ export default function TimeEntryRow({
   timeFormat,
   onDelete,
   onPlay,
-  isNew = false
+  isNew = false,
+  allTimeEntries = []
 }: TimeEntryRowProps) {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
@@ -57,6 +59,63 @@ export default function TimeEntryRow({
 
   const handleEdit = async () => {
     try {
+      console.log('🚀 TimeEntry handleEdit called!');
+      
+      // Check for merge conditions BEFORE updating
+      const willMerge = allTimeEntries?.some((existingEntry: any) => 
+        existingEntry.id !== entry.id &&
+        existingEntry.date === entry.date &&
+        existingEntry.description === editedEntry.description &&
+        existingEntry.projectId === editedEntry.projectId
+      ) || false;
+      
+      console.log('Will merge with existing entry?', willMerge);
+      console.log('Current entry:', { id: entry.id, description: entry.description, projectId: entry.projectId, date: entry.date });
+      console.log('Edited entry:', { description: editedEntry.description, projectId: editedEntry.projectId });
+      console.log('All available entries:', allTimeEntries?.map(e => ({ id: e.id, description: e.description, projectId: e.projectId, date: e.date })));
+      
+      // Find target entry for animation
+      const targetEntry = allTimeEntries?.find((existingEntry: any) => 
+        existingEntry.id !== entry.id &&
+        existingEntry.date === entry.date &&
+        existingEntry.description === editedEntry.description &&
+        existingEntry.projectId === editedEntry.projectId
+      );
+      
+      console.log('Target entry for merge:', targetEntry);
+      
+      if (willMerge && targetEntry) {
+        console.log('🎯 MERGE DETECTED! Starting animation...');
+        
+        // Find the current and target DOM elements
+        const currentElement = document.querySelector(`[data-entry-id="${entry.id}"]`) as HTMLElement;
+        const targetElement = document.querySelector(`[data-entry-id="${targetEntry.id}"]`) as HTMLElement;
+        
+        if (currentElement && targetElement) {
+          console.log('🎬 Starting slide animation...');
+          
+          // Flash both entries blue
+          [currentElement, targetElement].forEach(el => {
+            el.classList.add('bg-blue-100');
+            setTimeout(() => el.classList.remove('bg-blue-100'), 1000);
+          });
+          
+          // Get positions for slide animation
+          const currentRect = currentElement.getBoundingClientRect();
+          const targetRect = targetElement.getBoundingClientRect();
+          const deltaY = targetRect.top - currentRect.top;
+          
+          console.log('Animation positions:', { currentRect, targetRect, deltaY });
+          
+          // Apply slide animation
+          currentElement.style.transform = `translateY(${deltaY}px)`;
+          currentElement.style.transition = 'transform 0.6s ease-in-out';
+          
+          // Wait for animation to complete before continuing
+          await new Promise(resolve => setTimeout(resolve, 600));
+        }
+      }
+      
       // Get the duration directly from our edited entry state which holds the correct decimal value
       let newDuration = parseFloat(editedEntry.duration || "0");
       
@@ -232,7 +291,7 @@ export default function TimeEntryRow({
 
   return (
     <>
-      <tr className={newEntryClass}>
+      <tr className={newEntryClass} data-entry-id={entry.id}>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.description}</td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.client?.name || "—"}</td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
