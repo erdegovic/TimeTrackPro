@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Edit, Copy, Trash2, Play } from "lucide-react";
+import { Edit, Copy, Trash2, Play, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TimeEntryNotes } from "./TimeEntryNotes";
 import { 
   Dialog, 
   DialogContent, 
@@ -255,6 +256,19 @@ export default function TimeEntryRow({
               <Play className="h-4 w-4" />
             </Button>
           )}
+          <TimeEntryNotes 
+            timeEntryId={entry.id}
+            trigger={
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-blue-600 hover:text-white hover:bg-blue-600"
+                title="Add or view notes"
+              >
+                <MessageSquare className="h-4 w-4" />
+              </Button>
+            }
+          />
           <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} className="text-primary hover:text-white hover:bg-primary">
             <Edit className="h-4 w-4" />
           </Button>
