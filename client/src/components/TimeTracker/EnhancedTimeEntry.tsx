@@ -498,12 +498,21 @@ export default function EnhancedTimeEntry({
                 {groupedEntry.description}
               </div>
               <div className="text-xs text-gray-500">
-                <span style={{ color: groupedEntry.project?.color || "#000000" }}>
-                  {groupedEntry.project?.name}
-                </span>
-                {groupedEntry.client && (
+                {/* Always show project name with color */}
+                {groupedEntry.project && (
+                  <span style={{ color: groupedEntry.project.color || "#000000" }}>
+                    {groupedEntry.project.name}
+                  </span>
+                )}
+                {/* Always show client name if project exists (since all projects have clients) */}
+                {groupedEntry.project && groupedEntry.client && (
                   <span className="ml-2">• {groupedEntry.client.name}</span>
                 )}
+                {/* Fallback: if no client data but we have project, find client from projects */}
+                {groupedEntry.project && !groupedEntry.client && (() => {
+                  const foundClient = clients.find(c => c.id === groupedEntry.project?.clientId);
+                  return foundClient ? <span className="ml-2">• {foundClient.name}</span> : null;
+                })()}
               </div>
             </>
           )}
