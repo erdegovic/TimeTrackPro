@@ -282,7 +282,9 @@ export default function TimeEntryList() {
       }
       
       acc[groupKey].entries.push(entry);
-      acc[groupKey].totalHours += Number(entry.duration || 0);
+      // Use exactDuration for grouped entries, fall back to duration for single entries
+      const entryDuration = entry.exactDuration !== undefined ? entry.exactDuration : Number(entry.duration || 0);
+      acc[groupKey].totalHours += entryDuration;
     });
     
     return acc;
