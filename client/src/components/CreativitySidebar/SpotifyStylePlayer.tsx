@@ -10,62 +10,97 @@ interface Track {
   albumArt: string;
 }
 
-const musicList: Track[] = [
+interface Playlist {
+  id: string;
+  name: string;
+  tracks: Track[];
+}
+
+const playlists: Playlist[] = [
   {
-    id: "focus_1",
-    title: "Ocean Waves",
-    artist: "Nature Sounds",
-    duration: "10:00",
-    audioUrl: "/audio/focus/ocean-waves.mp3",
-    albumArt: "https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=300&h=300&fit=crop&crop=center"
+    id: "focus",
+    name: "Focus",
+    tracks: [
+      {
+        id: "focus_1",
+        title: "Ocean Waves",
+        artist: "Nature Sounds",
+        duration: "10:00",
+        audioUrl: "/audio/focus/ocean-waves.mp3",
+        albumArt: "https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=300&h=300&fit=crop&crop=center"
+      },
+      {
+        id: "focus_2",
+        title: "Forest Rain",
+        artist: "Ambient Collective", 
+        duration: "12:30",
+        audioUrl: "/audio/focus/forest-rain.mp3",
+        albumArt: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=300&h=300&fit=crop&crop=center"
+      },
+      {
+        id: "focus_3",
+        title: "White Noise",
+        artist: "Focus Audio",
+        duration: "15:00",
+        audioUrl: "/audio/focus/white-noise.mp3",
+        albumArt: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=300&h=300&fit=crop&crop=center"
+      }
+    ]
   },
   {
-    id: "focus_2",
-    title: "Forest Rain",
-    artist: "Ambient Collective", 
-    duration: "12:30",
-    audioUrl: "/audio/focus/forest-rain.mp3",
-    albumArt: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=300&h=300&fit=crop&crop=center"
+    id: "meditation",
+    name: "Meditation",
+    tracks: [
+      {
+        id: "meditation_1",
+        title: "Tibetan Bowls",
+        artist: "Zen Masters",
+        duration: "18:00",
+        audioUrl: "/audio/meditation/tibetan-bowls.mp3",
+        albumArt: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=300&fit=crop&crop=center"
+      },
+      {
+        id: "meditation_2",
+        title: "Deep Breathing",
+        artist: "Mindful Audio",
+        duration: "15:30",
+        audioUrl: "/audio/meditation/deep-breathing.mp3",
+        albumArt: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=300&h=300&fit=crop&crop=center"
+      }
+    ]
   },
   {
-    id: "focus_3",
-    title: "White Noise",
-    artist: "Focus Audio",
-    duration: "15:00",
-    audioUrl: "/audio/focus/white-noise.mp3",
-    albumArt: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=300&h=300&fit=crop&crop=center"
-  },
-  {
-    id: "creative_1",
-    title: "Ambient Synths",
-    artist: "Creative Flow",
-    duration: "14:20",
-    audioUrl: "/audio/creative/ambient-synths.mp3",
-    albumArt: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&h=300&fit=crop&crop=center"
-  },
-  {
-    id: "creative_2",
-    title: "Gentle Piano",
-    artist: "Mindful Music",
-    duration: "11:15", 
-    audioUrl: "/audio/creative/gentle-piano.mp3",
-    albumArt: "https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?w=300&h=300&fit=crop&crop=center"
-  },
-  {
-    id: "meditation_1",
-    title: "Tibetan Bowls",
-    artist: "Zen Masters",
-    duration: "18:00",
-    audioUrl: "/audio/meditation/tibetan-bowls.mp3",
-    albumArt: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=300&fit=crop&crop=center"
+    id: "nature",
+    name: "Nature",
+    tracks: [
+      {
+        id: "nature_1",
+        title: "Ambient Synths",
+        artist: "Creative Flow",
+        duration: "14:20",
+        audioUrl: "/audio/creative/ambient-synths.mp3",
+        albumArt: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&h=300&fit=crop&crop=center"
+      },
+      {
+        id: "nature_2",
+        title: "Gentle Piano",
+        artist: "Mindful Music",
+        duration: "11:15", 
+        audioUrl: "/audio/creative/gentle-piano.mp3",
+        albumArt: "https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?w=300&h=300&fit=crop&crop=center"
+      }
+    ]
   }
 ];
+
+const musicList: Track[] = playlists.flatMap(playlist => playlist.tracks);
 
 export default function SpotifyStylePlayer() {
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState("0:00");
   const [duration, setDuration] = useState(0);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
@@ -215,89 +250,144 @@ export default function SpotifyStylePlayer() {
     }
   };
 
+  // Show playlist selection first
+  if (!selectedPlaylist) {
+    return (
+      <div className="w-full space-y-3">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Music for Focus</h3>
+        {playlists.map((playlist) => (
+          <div
+            key={playlist.id}
+            onClick={() => setSelectedPlaylist(playlist.id)}
+            className="group cursor-pointer rounded-xl overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-lg bg-gradient-to-r from-tickd-primary/10 to-tickd-primary/5 hover:from-tickd-primary/20 hover:to-tickd-primary/10 border border-tickd-primary/20"
+          >
+            <div className="p-4 text-gray-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-base">{playlist.name}</h4>
+                  <p className="text-gray-600 text-sm">{playlist.tracks.length} tracks</p>
+                </div>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <div className="bg-tickd-primary/20 backdrop-blur-sm rounded-full p-2">
+                    <Play className="h-4 w-4 text-tickd-primary" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const currentPlaylist = playlists.find(p => p.id === selectedPlaylist);
+  const playlistTracks = currentPlaylist?.tracks || [];
+  const currentPlaylistTrack = playlistTracks[currentTrackIndex] || currentTrack;
+
   return (
-    <div className="w-full bg-gradient-to-b from-gray-50 to-gray-100 rounded-2xl overflow-hidden shadow-lg border border-gray-200">
+    <div className="w-full h-full flex flex-col bg-gradient-to-b from-gray-50 to-gray-100 rounded-2xl overflow-hidden shadow-lg border border-gray-200">
       {/* Current Song Section */}
-      <div className="bg-white rounded-2xl m-3 p-4 shadow-sm border border-gray-100">
-        <audio ref={audioRef}>
-          <source src={currentTrack.audioUrl} type="audio/mpeg" />
-          Your browser does not support the audio element.
-        </audio>
-        
-        {/* Album Art */}
-        <div className="relative mx-auto w-32 h-24 mb-4 rounded-lg overflow-hidden shadow-md">
-          <img 
-            src={currentTrack.albumArt} 
-            alt={currentTrack.title}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='96' viewBox='0 0 128 96'%3E%3Crect fill='%23f3f4f6'/%3E%3Ctext y='50%25' x='50%25' dy='0.35em' text-anchor='middle' fill='%236b7280' font-size='24'%3E🎵%3C/text%3E%3C/svg%3E";
-            }}
-          />
-        </div>
-
-        {/* Song Info */}
-        <div className="text-center mb-4">
-          <h3 className="text-base font-semibold mb-1 text-gray-900 truncate">{currentTrack.title}</h3>
-          <p className="text-tickd-primary font-medium text-sm truncate">{currentTrack.artist}</p>
-        </div>
-
-        {/* Time Display */}
-        <div className="flex justify-between text-xs text-gray-500 mb-2">
-          <span>{currentTime}</span>
-          <span>{currentTrack.duration}</span>
-        </div>
-
-        {/* Timeline */}
+      <div className="relative rounded-2xl m-3 p-4 shadow-sm border border-gray-100 overflow-hidden">
+        {/* Blurred background */}
         <div 
-          ref={timelineRef}
-          className="relative mx-auto w-full h-1 bg-tickd-primary/30 rounded-full cursor-pointer mb-4 hover:h-1.5 transition-all"
-        >
-          <div 
-            ref={playheadRef}
-            className="relative z-10 w-0 h-full rounded-full bg-tickd-primary"
-          />
-          <div 
-            ref={hoverPlayheadRef}
-            className="absolute z-0 top-0 w-0 h-full opacity-0 rounded-full bg-tickd-primary/60 transition-opacity hover:opacity-100"
-            data-content="0:00"
-          />
-        </div>
+          className="absolute inset-0 bg-cover bg-center opacity-20 blur-md scale-110"
+          style={{
+            backgroundImage: `url(${currentPlaylistTrack.albumArt})`,
+          }}
+        />
+        <div className="absolute inset-0 bg-white/80" />
+        
+        {/* Content */}
+        <div className="relative z-10">
+          <audio ref={audioRef}>
+            <source src={currentPlaylistTrack.audioUrl} type="audio/mpeg" />
+            Your browser does not support the audio element.
+          </audio>
+          
+          {/* Back button */}
+          <button
+            onClick={() => setSelectedPlaylist(null)}
+            className="mb-3 text-gray-600 hover:text-tickd-primary transition-colors"
+          >
+            ← Back to playlists
+          </button>
+          
+          {/* Album Art */}
+          <div className="relative mx-auto w-32 h-24 mb-4 rounded-lg overflow-hidden shadow-md">
+            <img 
+              src={currentPlaylistTrack.albumArt} 
+              alt={currentPlaylistTrack.title}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='96' viewBox='0 0 128 96'%3E%3Crect fill='%23f3f4f6'/%3E%3Ctext y='50%25' x='50%25' dy='0.35em' text-anchor='middle' fill='%236b7280' font-size='24'%3E🎵%3C/text%3E%3C/svg%3E";
+              }}
+            />
+          </div>
 
-        {/* Controls */}
-        <div className="flex items-center justify-center gap-4">
-          <button
-            onClick={prevSong}
-            className="text-gray-700 hover:text-tickd-primary hover:scale-110 transition-all"
+          {/* Song Info */}
+          <div className="text-center mb-4">
+            <h3 className="text-base font-semibold mb-1 text-gray-900 truncate">{currentPlaylistTrack.title}</h3>
+            <p className="text-tickd-primary font-medium text-sm truncate">{currentPlaylistTrack.artist}</p>
+          </div>
+
+          {/* Time Display */}
+          <div className="flex justify-between text-xs text-gray-500 mb-2">
+            <span>{currentTime}</span>
+            <span>{currentPlaylistTrack.duration}</span>
+          </div>
+
+          {/* Timeline */}
+          <div 
+            ref={timelineRef}
+            className="relative mx-auto w-full h-1 bg-tickd-primary/30 rounded-full cursor-pointer mb-4 hover:h-1.5 transition-all"
           >
-            <SkipBack className="w-5 h-5" />
-          </button>
-          
-          <button
-            onClick={playOrPause}
-            className="w-10 h-10 bg-tickd-primary hover:bg-tickd-primary/90 rounded-full flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all"
-          >
-            {!isPlaying ? (
-              <Play className="w-4 h-4 ml-0.5" />
-            ) : (
-              <Pause className="w-4 h-4" />
-            )}
-          </button>
-          
-          <button
-            onClick={nextSong}
-            className="text-gray-700 hover:text-tickd-primary hover:scale-110 transition-all"
-          >
-            <SkipForward className="w-5 h-5" />
-          </button>
+            <div 
+              ref={playheadRef}
+              className="relative z-10 w-0 h-full rounded-full bg-tickd-primary"
+            />
+            <div 
+              ref={hoverPlayheadRef}
+              className="absolute z-0 top-0 w-0 h-full opacity-0 rounded-full bg-tickd-primary/60 transition-opacity hover:opacity-100"
+              data-content="0:00"
+            />
+          </div>
+
+          {/* Controls */}
+          <div className="flex items-center justify-center gap-4">
+            <button
+              onClick={prevSong}
+              className="text-gray-700 hover:text-tickd-primary hover:scale-110 transition-all"
+            >
+              <SkipBack className="w-5 h-5" />
+            </button>
+            
+            <button
+              onClick={playOrPause}
+              className="w-10 h-10 bg-tickd-primary hover:bg-tickd-primary/90 rounded-full flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all"
+            >
+              {!isPlaying ? (
+                <Play className="w-4 h-4 ml-0.5" />
+              ) : (
+                <Pause className="w-4 h-4" />
+              )}
+            </button>
+            
+            <button
+              onClick={nextSong}
+              className="text-gray-700 hover:text-tickd-primary hover:scale-110 transition-all"
+            >
+              <SkipForward className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Playlist */}
-      <div className="p-3 max-h-40 overflow-y-auto">
+      <div className="flex-1 p-3 overflow-y-auto">
+        <h4 className="font-medium text-gray-700 text-sm mb-2">{currentPlaylist?.name}</h4>
         <div className="space-y-1">
-          {musicList.map((track, index) => (
+          {playlistTracks.map((track, index) => (
             <div
               key={track.id}
               onClick={() => clickAudio(index)}
