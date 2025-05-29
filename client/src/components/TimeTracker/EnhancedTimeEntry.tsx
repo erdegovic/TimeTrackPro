@@ -498,6 +498,17 @@ export default function EnhancedTimeEntry({
                 {groupedEntry.description}
               </div>
               <div className="text-xs text-gray-500">
+                {(() => {
+                  console.log(`Entry ${entry.id} display data:`, {
+                    hasProject: !!groupedEntry.project,
+                    hasClient: !!groupedEntry.client,
+                    projectName: groupedEntry.project?.name,
+                    clientName: groupedEntry.client?.name,
+                    projectClientId: groupedEntry.project?.clientId,
+                    availableClients: clients.map(c => ({ id: c.id, name: c.name }))
+                  });
+                  return null;
+                })()}
                 {/* Always show project name with color */}
                 {groupedEntry.project && (
                   <span style={{ color: groupedEntry.project.color || "#000000" }}>
@@ -511,6 +522,7 @@ export default function EnhancedTimeEntry({
                 {/* Fallback: if no client data but we have project, find client from projects */}
                 {groupedEntry.project && !groupedEntry.client && (() => {
                   const foundClient = clients.find(c => c.id === groupedEntry.project?.clientId);
+                  console.log(`Entry ${entry.id}: Missing client, found fallback:`, foundClient);
                   return foundClient ? <span className="ml-2">• {foundClient.name}</span> : null;
                 })()}
               </div>
