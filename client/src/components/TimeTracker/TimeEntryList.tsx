@@ -511,21 +511,39 @@ export default function TimeEntryList() {
           
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-gray-700">Date Range:</label>
-            <input
-              ref={startDateRefDesktop}
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="relative">
+              <input
+                ref={startDateRefDesktop}
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="sr-only"
+              />
+              <button
+                onClick={() => startDateRefDesktop.current?.click()}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <Calendar className="w-4 h-4" />
+                {startDate ? new Date(startDate).toLocaleDateString() : "Start"}
+              </button>
+            </div>
             <span className="text-gray-500">to</span>
-            <input
-              ref={endDateRefDesktop}
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="relative">
+              <input
+                ref={endDateRefDesktop}
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="sr-only"
+              />
+              <button
+                onClick={() => endDateRefDesktop.current?.click()}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <Calendar className="w-4 h-4" />
+                {endDate ? new Date(endDate).toLocaleDateString() : "End"}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -567,21 +585,39 @@ export default function TimeEntryList() {
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">Date Range:</label>
             <div className="flex items-center gap-2">
-              <input
-                ref={startDateRefMedium}
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="relative">
+                <input
+                  ref={startDateRefMedium}
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="sr-only"
+                />
+                <button
+                  onClick={() => startDateRefMedium.current?.click()}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <Calendar className="w-4 h-4" />
+                  {startDate ? new Date(startDate).toLocaleDateString() : "Start"}
+                </button>
+              </div>
               <span className="text-gray-500">to</span>
-              <input
-                ref={endDateRefMedium}
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="relative">
+                <input
+                  ref={endDateRefMedium}
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="sr-only"
+                />
+                <button
+                  onClick={() => endDateRefMedium.current?.click()}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <Calendar className="w-4 h-4" />
+                  {endDate ? new Date(endDate).toLocaleDateString() : "End"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -622,21 +658,39 @@ export default function TimeEntryList() {
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">Date Range:</label>
             <div className="flex items-center gap-2">
-              <input
-                ref={startDateRefMobile}
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="relative">
+                <input
+                  ref={startDateRefMobile}
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="sr-only"
+                />
+                <button
+                  onClick={() => startDateRefMobile.current?.click()}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <Calendar className="w-4 h-4" />
+                  {startDate ? new Date(startDate).toLocaleDateString() : "Start"}
+                </button>
+              </div>
               <span className="text-gray-500">to</span>
-              <input
-                ref={endDateRefMobile}
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="relative">
+                <input
+                  ref={endDateRefMobile}
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="sr-only"
+                />
+                <button
+                  onClick={() => endDateRefMobile.current?.click()}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <Calendar className="w-4 h-4" />
+                  {endDate ? new Date(endDate).toLocaleDateString() : "End"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
