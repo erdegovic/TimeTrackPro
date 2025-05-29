@@ -38,7 +38,7 @@ export function NotesButton({ timeEntryId }: { timeEntryId: number }) {
           }`}
           title={hasNotes ? "View notes" : "Add note"}
         >
-          <MessageSquare className={`h-4 w-4 ${hasNotes ? 'fill-current' : ''}`} />
+          <MessageSquare className={`h-4 w-4 ${hasNotes ? 'fill-current opacity-70' : ''}`} />
         </Button>
       }
     />
