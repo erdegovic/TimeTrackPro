@@ -4,6 +4,7 @@ import {
   Client, InsertClient, clients,
   Project, InsertProject, projects,
   TimeEntry, InsertTimeEntry, timeEntries,
+  TimeEntryNote, InsertTimeEntryNote, timeEntryNotes,
   Invoice, InsertInvoice, invoices,
   Settings, InsertSettings, settings,
   creativityNotes, weeklyGoals,
@@ -627,5 +628,38 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWeeklyGoal(id: number): Promise<void> {
     await db.delete(schema.weeklyGoals).where(eq(schema.weeklyGoals.id, id));
+  }
+
+  // Time Entry Notes methods
+  async getTimeEntryNotes(timeEntryId: number): Promise<TimeEntryNote[]> {
+    return await db.select()
+      .from(timeEntryNotes)
+      .where(eq(timeEntryNotes.timeEntryId, timeEntryId))
+      .orderBy(desc(timeEntryNotes.createdAt));
+  }
+
+  async getAllTimeEntryNotes(userId: number): Promise<TimeEntryNote[]> {
+    return await db.select()
+      .from(timeEntryNotes)
+      .where(eq(timeEntryNotes.userId, userId))
+      .orderBy(desc(timeEntryNotes.createdAt));
+  }
+
+  async createTimeEntryNote(noteData: InsertTimeEntryNote): Promise<TimeEntryNote> {
+    const [note] = await db.insert(timeEntryNotes).values(noteData).returning();
+    return note;
+  }
+
+  async updateTimeEntryNote(id: number, noteData: Partial<InsertTimeEntryNote>): Promise<TimeEntryNote | undefined> {
+    const [note] = await db.update(timeEntryNotes)
+      .set({ ...noteData, updatedAt: new Date() })
+      .where(eq(timeEntryNotes.id, id))
+      .returning();
+    return note;
+  }
+
+  async deleteTimeEntryNote(id: number): Promise<boolean> {
+    const result = await db.delete(timeEntryNotes).where(eq(timeEntryNotes.id, id));
+    return (result.rowCount || 0) > 0;
   }
 }

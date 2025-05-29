@@ -5,6 +5,7 @@ import {
   insertClientSchema, 
   insertProjectSchema, 
   insertTimeEntrySchema, 
+  insertTimeEntryNoteSchema,
   insertInvoiceSchema, 
   insertSettingsSchema,
   timeFormatEnum,
@@ -676,6 +677,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error generating report:', error);
       res.status(500).json({ message: 'Failed to generate report' });
+    }
+  });
+  
+  // Time Entry Notes API
+  app.get("/api/time-entries/:timeEntryId/notes", authenticate, async (req: Request, res: Response) => {
+    try {
+      const timeEntryId = parseInt(req.params.timeEntryId);
+      const userId = req.session?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      
+      // Verify the time entry belongs to the user
+      const timeEntry = await storage.getTimeEntry(timeEntryId);
+      if (!timeEntry || timeEntry.userId !== userId) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+      
+      const notes = await storage.getTimeEntryNotes(timeEntryId);
+      res.json(notes);
+    } catch (error) {
+      console.error('Error getting time entry notes:', error);
+      res.status(500).json({ message: 'Failed to fetch notes' });
+    }
+  });
+  
+  app.get("/api/time-entry-notes", authenticate, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      
+      const notes = await storage.getAllTimeEntryNotes(userId);
+      res.json(notes);
+    } catch (error) {
+      console.error('Error getting all time entry notes:', error);
+      res.status(500).json({ message: 'Failed to fetch notes' });
+    }
+  });
+  
+  app.post("/api/time-entries/:timeEntryId/notes", authenticate, async (req: Request, res: Response) => {
+    try {
+      const timeEntryId = parseInt(req.params.timeEntryId);
+      const userId = req.session?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      
+      // Verify the time entry belongs to the user
+      const timeEntry = await storage.getTimeEntry(timeEntryId);
+      if (!timeEntry || timeEntry.userId !== userId) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+      
+      const noteData = insertTimeEntryNoteSchema.parse({
+        timeEntryId,
+        content: req.body.content,
+        userId
+      });
+      
+      const note = await storage.createTimeEntryNote(noteData);
+      res.status(201).json(note);
+    } catch (error) {
+      console.error('Error creating time entry note:', error);
+      res.status(500).json({ message: 'Failed to create note' });
+    }
+  });
+  
+  app.put("/api/time-entry-notes/:id", authenticate, async (req: Request, res: Response) => {
+    try {
+      const noteId = parseInt(req.params.id);
+      const userId = req.session?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      
+      // First get all user notes to verify ownership
+      const userNotes = await storage.getAllTimeEntryNotes(userId);
+      const noteExists = userNotes.some(note => note.id === noteId);
+      
+      if (!noteExists) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+      
+      const noteData = {
+        content: req.body.content
+      };
+      
+      const updatedNote = await storage.updateTimeEntryNote(noteId, noteData);
+      
+      if (!updatedNote) {
+        return res.status(404).json({ message: 'Note not found' });
+      }
+      
+      res.json(updatedNote);
+    } catch (error) {
+      console.error('Error updating time entry note:', error);
+      res.status(500).json({ message: 'Failed to update note' });
+    }
+  });
+  
+  app.delete("/api/time-entry-notes/:id", authenticate, async (req: Request, res: Response) => {
+    try {
+      const noteId = parseInt(req.params.id);
+      const userId = req.session?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      
+      // First get all user notes to verify ownership
+      const userNotes = await storage.getAllTimeEntryNotes(userId);
+      const noteExists = userNotes.some(note => note.id === noteId);
+      
+      if (!noteExists) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+      
+      const deleted = await storage.deleteTimeEntryNote(noteId);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: 'Note not found' });
+      }
+      
+      res.json({ message: 'Note deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting time entry note:', error);
+      res.status(500).json({ message: 'Failed to delete note' });
     }
   });
   

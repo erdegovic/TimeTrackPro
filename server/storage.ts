@@ -2,6 +2,7 @@ import {
   Client, InsertClient, clients,
   Project, InsertProject, projects,
   TimeEntry, InsertTimeEntry, timeEntries,
+  TimeEntryNote, InsertTimeEntryNote, timeEntryNotes,
   Invoice, InsertInvoice, invoices,
   Settings, InsertSettings, settings,
   User, InsertUser, users, 
