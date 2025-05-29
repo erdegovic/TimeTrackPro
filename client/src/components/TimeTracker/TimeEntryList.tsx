@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { 
@@ -41,6 +41,14 @@ export default function TimeEntryList() {
   const [endDate, setEndDate] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [newEntryIds, setNewEntryIds] = useState<number[]>([]);
+  
+  // Refs for date inputs
+  const startDateRefDesktop = useRef<HTMLInputElement>(null);
+  const endDateRefDesktop = useRef<HTMLInputElement>(null);
+  const startDateRefMedium = useRef<HTMLInputElement>(null);
+  const endDateRefMedium = useRef<HTMLInputElement>(null);
+  const startDateRefMobile = useRef<HTMLInputElement>(null);
+  const endDateRefMobile = useRef<HTMLInputElement>(null);
 
   // Fetch time entries
   const { data: timeEntries = [], isLoading: isLoadingEntries, refetch: refetchTimeEntries } = useQuery<TimeEntry[]>({
@@ -503,39 +511,37 @@ export default function TimeEntryList() {
           
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-gray-700">Date Range:</label>
-            <div className="relative">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                id="start-date-picker-desktop"
-              />
-              <button
-                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 pointer-events-none"
-                title={startDate || "Select start date"}
-              >
-                <Calendar className="w-4 h-4" />
-                {startDate ? new Date(startDate).toLocaleDateString() : "Start"}
-              </button>
-            </div>
+            <input
+              ref={startDateRefDesktop}
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="sr-only"
+            />
+            <button
+              onClick={() => startDateRefDesktop.current?.showPicker?.() || startDateRefDesktop.current?.focus()}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title={startDate || "Select start date"}
+            >
+              <Calendar className="w-4 h-4" />
+              {startDate ? new Date(startDate).toLocaleDateString() : "Start"}
+            </button>
             <span className="text-gray-500">to</span>
-            <div className="relative">
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                id="end-date-picker-desktop"
-              />
-              <button
-                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 pointer-events-none"
-                title={endDate || "Select end date"}
-              >
-                <Calendar className="w-4 h-4" />
-                {endDate ? new Date(endDate).toLocaleDateString() : "End"}
-              </button>
-            </div>
+            <input
+              ref={endDateRefDesktop}
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="sr-only"
+            />
+            <button
+              onClick={() => endDateRefDesktop.current?.showPicker?.() || endDateRefDesktop.current?.focus()}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title={endDate || "Select end date"}
+            >
+              <Calendar className="w-4 h-4" />
+              {endDate ? new Date(endDate).toLocaleDateString() : "End"}
+            </button>
           </div>
         </div>
 
@@ -577,39 +583,37 @@ export default function TimeEntryList() {
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">Date Range:</label>
             <div className="flex items-center gap-2">
-              <div className="relative">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  id="start-date-picker-medium"
-                />
-                <button
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 pointer-events-none"
-                  title={startDate || "Select start date"}
-                >
-                  <Calendar className="w-4 h-4" />
-                  {startDate ? new Date(startDate).toLocaleDateString() : "Start"}
-                </button>
-              </div>
+              <input
+                ref={startDateRefMedium}
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="sr-only"
+              />
+              <button
+                onClick={() => startDateRefMedium.current?.showPicker?.() || startDateRefMedium.current?.focus()}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                title={startDate || "Select start date"}
+              >
+                <Calendar className="w-4 h-4" />
+                {startDate ? new Date(startDate).toLocaleDateString() : "Start"}
+              </button>
               <span className="text-gray-500">to</span>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  id="end-date-picker-medium"
-                />
-                <button
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 pointer-events-none"
-                  title={endDate || "Select end date"}
-                >
-                  <Calendar className="w-4 h-4" />
-                  {endDate ? new Date(endDate).toLocaleDateString() : "End"}
-                </button>
-              </div>
+              <input
+                ref={endDateRefMedium}
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="sr-only"
+              />
+              <button
+                onClick={() => endDateRefMedium.current?.showPicker?.() || endDateRefMedium.current?.focus()}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                title={endDate || "Select end date"}
+              >
+                <Calendar className="w-4 h-4" />
+                {endDate ? new Date(endDate).toLocaleDateString() : "End"}
+              </button>
             </div>
           </div>
         </div>
@@ -650,39 +654,37 @@ export default function TimeEntryList() {
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">Date Range:</label>
             <div className="flex items-center gap-2">
-              <div className="relative">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  id="start-date-picker-mobile"
-                />
-                <button
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 pointer-events-none"
-                  title={startDate || "Select start date"}
-                >
-                  <Calendar className="w-4 h-4" />
-                  {startDate ? new Date(startDate).toLocaleDateString() : "Start"}
-                </button>
-              </div>
+              <input
+                ref={startDateRefMobile}
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="sr-only"
+              />
+              <button
+                onClick={() => startDateRefMobile.current?.showPicker?.() || startDateRefMobile.current?.focus()}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                title={startDate || "Select start date"}
+              >
+                <Calendar className="w-4 h-4" />
+                {startDate ? new Date(startDate).toLocaleDateString() : "Start"}
+              </button>
               <span className="text-gray-500">to</span>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  id="end-date-picker-mobile"
-                />
-                <button
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 pointer-events-none"
-                  title={endDate || "Select end date"}
-                >
-                  <Calendar className="w-4 h-4" />
-                  {endDate ? new Date(endDate).toLocaleDateString() : "End"}
-                </button>
-              </div>
+              <input
+                ref={endDateRefMobile}
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="sr-only"
+              />
+              <button
+                onClick={() => endDateRefMobile.current?.showPicker?.() || endDateRefMobile.current?.focus()}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                title={endDate || "Select end date"}
+              >
+                <Calendar className="w-4 h-4" />
+                {endDate ? new Date(endDate).toLocaleDateString() : "End"}
+              </button>
             </div>
           </div>
         </div>
