@@ -204,6 +204,8 @@ export const insertTimeEntrySchema = createInsertSchema(timeEntries)
 export const timeEntryUpdateSchema = z.object({
   description: z.string().optional(),
   projectId: z.coerce.number().optional(),
+  startTime: z.string().optional(),    // Add startTime to schema
+  endTime: z.string().optional(),      // Add endTime to schema
   duration: z.string().optional(),
   amount: z.string().optional(),      // Add amount to schema
   hourlyRate: z.string().optional(),  // Add hourly rate to schema
