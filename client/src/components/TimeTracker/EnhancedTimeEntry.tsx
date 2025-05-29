@@ -195,8 +195,12 @@ export default function EnhancedTimeEntry({
         duration: duration.toFixed(6)
       };
 
+      // Extract the actual entry ID from the blockId (format: "block-{entryId}")
+      const actualEntryId = blockId.replace('block-', '');
+      
       console.log('Sending time update:', updateData);
-      const response = await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
+      console.log('Updating block with ID:', actualEntryId);
+      const response = await apiRequest("PUT", `/api/time-entries/${actualEntryId}`, updateData);
       console.log('Server response:', response);
 
       // Wait for server update before refreshing UI
