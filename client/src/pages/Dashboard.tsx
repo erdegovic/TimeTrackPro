@@ -87,7 +87,6 @@ export default function Dashboard() {
   });
 
   const handleCurrencyChange = (newCurrency: string) => {
-    setDisplayCurrency(newCurrency);
     updateCurrencyMutation.mutate(newCurrency);
   };
   
@@ -102,6 +101,9 @@ export default function Dashboard() {
       }
     }
   }, [settings]);
+
+  // Use settings currency directly, fallback to state
+  const currentCurrency = (settings as any)?.defaultCurrency || displayCurrency;
 
   // Calculate total hours for this week - ALWAYS use duration field for edited entries
   const weeklyHours = weekEntries.reduce((total, entry) => {
@@ -138,7 +140,7 @@ export default function Dashboard() {
       const amount = Number(entry.duration || 0) * Number(project.hourlyRate || 0);
       
       // If the currencies are the same, no conversion needed
-      if (projectCurrency === displayCurrency) {
+      if (projectCurrency === currentCurrency) {
         return total + amount;
       }
       
@@ -146,7 +148,7 @@ export default function Dashboard() {
       // First to USD (as base currency)
       const amountInUSD = projectCurrency === 'USD' ? amount : amount / conversionRates[projectCurrency];
       // Then from USD to display currency
-      const inDisplayCurrency = displayCurrency === 'USD' ? amountInUSD : amountInUSD * conversionRates[displayCurrency];
+      const inDisplayCurrency = currentCurrency === 'USD' ? amountInUSD : amountInUSD * conversionRates[currentCurrency];
       
       return total + inDisplayCurrency;
     }
@@ -260,13 +262,13 @@ export default function Dashboard() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="mb-2">
               <CurrencySelector
-                selectedCurrency={displayCurrency}
+                selectedCurrency={currentCurrency}
                 onCurrencyChange={handleCurrencyChange}
-                className="text-2xl font-bold"
+                className="mb-1"
               />
-              <span className="text-2xl font-bold">{monthlyBillableAmount.toFixed(2)}</span>
+              <div className="text-2xl font-bold">{monthlyBillableAmount.toFixed(2)}</div>
             </div>
             <p className="text-xs text-muted-foreground">
               For {format(new Date(monthStart), "MMMM yyyy")}
