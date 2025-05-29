@@ -30,7 +30,7 @@ export function TimeEntryNotes({ timeEntryId, trigger }: TimeEntryNotesProps) {
 
   const createNoteMutation = useMutation({
     mutationFn: async (content: string) => {
-      return apiRequest(`/api/time-entries/${timeEntryId}/notes`, 'POST', { content });
+      return apiRequest('POST', `/api/time-entries/${timeEntryId}/notes`, { content });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/time-entries/${timeEntryId}/notes`] });
@@ -52,7 +52,7 @@ export function TimeEntryNotes({ timeEntryId, trigger }: TimeEntryNotesProps) {
 
   const updateNoteMutation = useMutation({
     mutationFn: async ({ id, content }: { id: number; content: string }) => {
-      return apiRequest(`/api/time-entry-notes/${id}`, 'PUT', { content });
+      return apiRequest('PUT', `/api/time-entry-notes/${id}`, { content });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/time-entries/${timeEntryId}/notes`] });
@@ -75,7 +75,7 @@ export function TimeEntryNotes({ timeEntryId, trigger }: TimeEntryNotesProps) {
 
   const deleteNoteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/time-entry-notes/${id}`, 'DELETE');
+      return apiRequest('DELETE', `/api/time-entry-notes/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/time-entries/${timeEntryId}/notes`] });
