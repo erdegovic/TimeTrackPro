@@ -69,7 +69,7 @@ export default function Dashboard() {
   // Currency update mutation
   const updateCurrencyMutation = useMutation({
     mutationFn: (newCurrency: string) => 
-      apiRequest("/api/settings", "PUT", { defaultCurrency: newCurrency }),
+      apiRequest("PUT", "/api/settings", { defaultCurrency: newCurrency }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       toast({
