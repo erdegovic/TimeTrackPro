@@ -20,6 +20,7 @@ import { TimeEntry, Client, Project } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTimeTracker } from "@/hooks/useTimeTracker";
 import { useToast } from "@/hooks/use-toast";
+import { CurrencySelector } from "@/components/ui/CurrencySelector";
 import TimeEntryRow from "./TimeEntry";
 import EnhancedTimeEntry from "./EnhancedTimeEntry";
 
@@ -52,6 +53,30 @@ export default function TimeEntryList() {
   const { data: settings } = useQuery({
     queryKey: ["/api/settings"],
   });
+
+  // Currency update mutation
+  const updateCurrencyMutation = useMutation({
+    mutationFn: (newCurrency: string) => 
+      apiRequest("/api/settings", "PUT", { defaultCurrency: newCurrency }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      toast({
+        title: "Currency updated",
+        description: "Default currency has been changed successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update currency.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCurrencyChange = (newCurrency: string) => {
+    updateCurrencyMutation.mutate(newCurrency);
+  };
 
   // Debug logging to track the issue
   console.log(`[TimeEntryList] Received ${timeEntries.length} time entries from API`);
@@ -628,14 +653,17 @@ export default function TimeEntryList() {
                   </span>
                   {groupBy === "date" && (() => {
                     const dailyEarnings = calculateDailyEarnings(group.entries);
-                    const currency = settings?.defaultCurrency || "USD";
+                    const currency = (settings as any)?.defaultCurrency || "USD";
                     return dailyEarnings > 0 ? (
-                      <span 
-                        className="text-sm font-medium text-green-600 cursor-help" 
-                        title={`Daily earnings in ${currency}. Change default currency in settings.`}
-                      >
-                        {currency} {dailyEarnings.toFixed(2)}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <CurrencySelector
+                          selectedCurrency={currency}
+                          onCurrencyChange={handleCurrencyChange}
+                        />
+                        <span className="text-sm font-medium text-green-600">
+                          {dailyEarnings.toFixed(2)}
+                        </span>
+                      </div>
                     ) : null;
                   })()}
                 </div>
