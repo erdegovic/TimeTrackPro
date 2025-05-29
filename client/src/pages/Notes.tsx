@@ -21,7 +21,7 @@ export default function Notes() {
   });
 
   // Group notes by time entry
-  const entriesWithNotes = timeEntries.filter((entry: any) => 
+  const entriesWithNotes = (timeEntries as any[]).filter((entry: any) => 
     allNotes.some(note => note.timeEntryId === entry.id)
   );
 
@@ -84,7 +84,7 @@ export default function Notes() {
                         )}
                         <div className="flex items-center">
                           <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                          <span>{new Date(entry.date).toLocaleDateString()}</span>
+                          <span>{new Date(entry.date || entry.startTime).toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center">
                           <Clock className="h-4 w-4 mr-2 text-gray-400" />
@@ -106,7 +106,7 @@ export default function Notes() {
                           {note.content}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          {new Date(note.createdAt).toLocaleString()}
+                          {note.createdAt ? new Date(note.createdAt).toLocaleString() : 'No date'}
                         </p>
                       </div>
                     ))}
