@@ -509,37 +509,36 @@ export default function TimeEntryList() {
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm h-auto"
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm h-auto min-w-[200px] justify-start"
                 >
                   <Calendar className="w-4 h-4" />
-                  {startDate ? format(new Date(startDate), "MMM d, yyyy") : "Start"}
+                  {startDate && endDate ? (
+                    `${format(new Date(startDate), "MMM d")} - ${format(new Date(endDate), "MMM d, yyyy")}`
+                  ) : startDate ? (
+                    `${format(new Date(startDate), "MMM d, yyyy")} - Select end`
+                  ) : (
+                    "Select date range"
+                  )}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <CalendarComponent
-                  mode="single"
-                  selected={startDate ? new Date(startDate) : undefined}
-                  onSelect={(date) => setStartDate(date ? format(date, "yyyy-MM-dd") : "")}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            <span className="text-gray-500">to</span>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm h-auto"
-                >
-                  <Calendar className="w-4 h-4" />
-                  {endDate ? format(new Date(endDate), "MMM d, yyyy") : "End"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarComponent
-                  mode="single"
-                  selected={endDate ? new Date(endDate) : undefined}
-                  onSelect={(date) => setEndDate(date ? format(date, "yyyy-MM-dd") : "")}
+                  mode="range"
+                  selected={{
+                    from: startDate ? new Date(startDate) : undefined,
+                    to: endDate ? new Date(endDate) : undefined,
+                  }}
+                  onSelect={(range) => {
+                    if (range?.from) {
+                      setStartDate(format(range.from, "yyyy-MM-dd"));
+                    }
+                    if (range?.to) {
+                      setEndDate(format(range.to, "yyyy-MM-dd"));
+                    } else if (range?.from && !range?.to) {
+                      setEndDate("");
+                    }
+                  }}
+                  numberOfMonths={2}
                   initialFocus
                 />
               </PopoverContent>
