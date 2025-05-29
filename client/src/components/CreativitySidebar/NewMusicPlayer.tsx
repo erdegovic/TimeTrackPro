@@ -22,7 +22,7 @@ interface Playlist {
   emoji: string;
 }
 
-// Initialize with placeholder tracks - will be replaced with uploaded files
+// Professional ambient music tracks - to be provided as MP3 files
 const initialPlaylists: Playlist[] = [
   {
     id: "focus",
@@ -31,7 +31,42 @@ const initialPlaylists: Playlist[] = [
     color: "from-blue-500 to-purple-600",
     emoji: "🎯",
     tracks: [
-      { id: "f1", title: "Upload your focus music", artist: "Envato Elements", duration: "0:00", description: "Upload MP3 files from Envato Elements for focus music" },
+      { 
+        id: "focus_1", 
+        title: "Ocean Waves", 
+        artist: "Nature Sounds", 
+        duration: "10:00", 
+        description: "Gentle ocean waves for deep focus",
+        audioUrl: "/audio/focus/ocean-waves.mp3",
+        filename: "ocean-waves.mp3"
+      },
+      { 
+        id: "focus_2", 
+        title: "Forest Rain", 
+        artist: "Ambient Collective", 
+        duration: "12:30", 
+        description: "Light rain in a peaceful forest",
+        audioUrl: "/audio/focus/forest-rain.mp3",
+        filename: "forest-rain.mp3"
+      },
+      { 
+        id: "focus_3", 
+        title: "White Noise", 
+        artist: "Focus Audio", 
+        duration: "15:00", 
+        description: "Pure white noise for concentration",
+        audioUrl: "/audio/focus/white-noise.mp3",
+        filename: "white-noise.mp3"
+      },
+      { 
+        id: "focus_4", 
+        title: "Cafe Ambience", 
+        artist: "Urban Sounds", 
+        duration: "8:45", 
+        description: "Coffee shop atmosphere for productivity",
+        audioUrl: "/audio/focus/cafe-ambience.mp3",
+        filename: "cafe-ambience.mp3"
+      }
     ]
   },
   {
@@ -41,7 +76,42 @@ const initialPlaylists: Playlist[] = [
     color: "from-pink-500 to-orange-500",
     emoji: "🎨",
     tracks: [
-      { id: "c1", title: "Upload your creative music", artist: "Envato Elements", duration: "0:00", description: "Upload MP3 files from Envato Elements for creative work" },
+      { 
+        id: "creative_1", 
+        title: "Ambient Synths", 
+        artist: "Creative Flow", 
+        duration: "14:20", 
+        description: "Ethereal synthesizer ambience",
+        audioUrl: "/audio/creative/ambient-synths.mp3",
+        filename: "ambient-synths.mp3"
+      },
+      { 
+        id: "creative_2", 
+        title: "Gentle Piano", 
+        artist: "Mindful Music", 
+        duration: "11:15", 
+        description: "Soft piano melodies for inspiration",
+        audioUrl: "/audio/creative/gentle-piano.mp3",
+        filename: "gentle-piano.mp3"
+      },
+      { 
+        id: "creative_3", 
+        title: "Nature Harmony", 
+        artist: "Organic Audio", 
+        duration: "13:40", 
+        description: "Birds and wind for creative flow",
+        audioUrl: "/audio/creative/nature-harmony.mp3",
+        filename: "nature-harmony.mp3"
+      },
+      { 
+        id: "creative_4", 
+        title: "Ethereal Pads", 
+        artist: "Atmospheric Music", 
+        duration: "16:30", 
+        description: "Dreamy soundscapes for imagination",
+        audioUrl: "/audio/creative/ethereal-pads.mp3",
+        filename: "ethereal-pads.mp3"
+      }
     ]
   },
   {
@@ -51,7 +121,42 @@ const initialPlaylists: Playlist[] = [
     color: "from-green-500 to-teal-500",
     emoji: "🧘",
     tracks: [
-      { id: "m1", title: "Upload your meditation music", artist: "Envato Elements", duration: "0:00", description: "Upload MP3 files from Envato Elements for meditation" },
+      { 
+        id: "meditation_1", 
+        title: "Tibetan Bowls", 
+        artist: "Zen Masters", 
+        duration: "18:00", 
+        description: "Traditional singing bowls",
+        audioUrl: "/audio/meditation/tibetan-bowls.mp3",
+        filename: "tibetan-bowls.mp3"
+      },
+      { 
+        id: "meditation_2", 
+        title: "Deep Meditation", 
+        artist: "Inner Peace", 
+        duration: "20:30", 
+        description: "Low frequency meditation tones",
+        audioUrl: "/audio/meditation/deep-meditation.mp3",
+        filename: "deep-meditation.mp3"
+      },
+      { 
+        id: "meditation_3", 
+        title: "Breath Flow", 
+        artist: "Mindfulness Audio", 
+        duration: "9:15", 
+        description: "Guided breathing ambience",
+        audioUrl: "/audio/meditation/breath-flow.mp3",
+        filename: "breath-flow.mp3"
+      },
+      { 
+        id: "meditation_4", 
+        title: "Temple Bells", 
+        artist: "Sacred Sounds", 
+        duration: "22:45", 
+        description: "Peaceful temple atmosphere",
+        audioUrl: "/audio/meditation/temple-bells.mp3",
+        filename: "temple-bells.mp3"
+      }
     ]
   }
 ];
@@ -67,7 +172,6 @@ export default function NewMusicPlayer() {
 
   // HTML audio element for playing real audio files
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Initialize audio element
   useEffect(() => {
@@ -103,57 +207,7 @@ export default function NewMusicPlayer() {
     }
   }, [volume]);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !file.type.startsWith('audio/')) {
-      alert('Please select a valid audio file (MP3, WAV, etc.)');
-      return;
-    }
 
-    const audioUrl = URL.createObjectURL(file);
-    const trackId = `${selectedPlaylist.id}_${Date.now()}`;
-    
-    // Create audio element to get duration
-    const tempAudio = new Audio(audioUrl);
-    tempAudio.addEventListener('loadedmetadata', () => {
-      const minutes = Math.floor(tempAudio.duration / 60);
-      const seconds = Math.floor(tempAudio.duration % 60);
-      const durationStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-      
-      const newTrack: Track = {
-        id: trackId,
-        title: file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
-        artist: "Envato Elements",
-        duration: durationStr,
-        description: `Uploaded from ${file.name}`,
-        audioUrl: audioUrl,
-        filename: file.name
-      };
-
-      // Update the playlist with the new track
-      const updatedPlaylists = playlists.map(playlist => {
-        if (playlist.id === selectedPlaylist.id) {
-          const updatedTracks = playlist.tracks.filter(t => !t.title.includes("Upload your"));
-          return {
-            ...playlist,
-            tracks: [...updatedTracks, newTrack]
-          };
-        }
-        return playlist;
-      });
-
-      setPlaylists(updatedPlaylists);
-      
-      // Update selected playlist
-      const updatedSelectedPlaylist = updatedPlaylists.find(p => p.id === selectedPlaylist.id);
-      if (updatedSelectedPlaylist) {
-        setSelectedPlaylist(updatedSelectedPlaylist);
-      }
-      
-      // Auto-select the new track
-      setCurrentTrack(newTrack);
-    });
-  };
 
   const playTrack = (track: Track) => {
     if (!track.audioUrl || !audioRef.current) return;
@@ -182,24 +236,15 @@ export default function NewMusicPlayer() {
       if (currentTrack && currentTrack.audioUrl) {
         playTrack(currentTrack);
       } else {
-        // Find first track with audio file
-        const trackWithAudio = selectedPlaylist.tracks.find(t => t.audioUrl);
-        if (trackWithAudio) {
-          setCurrentTrack(trackWithAudio);
-          playTrack(trackWithAudio);
-        } else {
-          alert('Please upload an audio file first using the upload button');
-        }
+        // Start with first track
+        const firstTrack = selectedPlaylist.tracks[0];
+        setCurrentTrack(firstTrack);
+        playTrack(firstTrack);
       }
     }
   };
 
   const handleTrackSelect = (track: Track) => {
-    if (!track.audioUrl) {
-      alert('This track has no audio file. Please upload one.');
-      return;
-    }
-    
     setCurrentTrack(track);
     if (isPlaying) {
       stopSound();
@@ -343,31 +388,11 @@ export default function NewMusicPlayer() {
         </div>
       )}
 
-      {/* Upload Section */}
+      {/* Music Library */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="font-medium text-gray-700">Music Library</h4>
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <Upload className="h-4 w-4" />
-            Upload Music
-          </Button>
-        </div>
-        
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="audio/*"
-          onChange={handleFileUpload}
-          className="hidden"
-        />
-        
+        <h4 className="font-medium text-gray-700">Music Library</h4>
         <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-          Upload MP3, WAV, or other audio files from Envato Elements for high-quality focus, creative, and meditation music.
+          Professional ambient music collection curated for focus, creativity, and meditation.
         </div>
       </div>
 
@@ -391,20 +416,14 @@ export default function NewMusicPlayer() {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="text-sm text-gray-500">{track.duration}</div>
-                  {track.audioUrl ? (
-                    <Button
-                      onClick={() => handleTrackSelect(track)}
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                    >
-                      <Play className="h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <div className="text-xs text-orange-500 bg-orange-50 px-2 py-1 rounded">
-                      Upload needed
-                    </div>
-                  )}
+                  <Button
+                    onClick={() => handleTrackSelect(track)}
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                  >
+                    <Play className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </div>
