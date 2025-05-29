@@ -588,7 +588,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Parse and update the entry
       const data = timeEntryUpdateSchema.parse(req.body);
+      console.log('Updating time entry with data:', JSON.stringify(data, null, 2));
       const timeEntry = await storage.updateTimeEntry(id, data);
+      console.log('Updated time entry result:', JSON.stringify(timeEntry, null, 2));
       
       res.json(timeEntry);
     } catch (error) {

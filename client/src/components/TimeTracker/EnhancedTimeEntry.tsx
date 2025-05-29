@@ -195,7 +195,9 @@ export default function EnhancedTimeEntry({
         duration: duration.toFixed(6)
       };
 
-      await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
+      console.log('Sending time update:', updateData);
+      const response = await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
+      console.log('Server response:', response);
 
       // Wait for server update before refreshing UI
       await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
