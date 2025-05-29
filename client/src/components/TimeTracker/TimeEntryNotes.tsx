@@ -1,14 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { FileText, Plus, Edit2, Trash2, Save, X, MessageSquare, Volume2, VolumeX } from 'lucide-react';
+import { FileText, Plus, Edit2, Trash2, Save, X, MessageSquare, Mic, MicOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { format } from 'date-fns';
 import type { TimeEntryNote } from '@shared/schema';
+
+// TypeScript declarations for Speech Recognition API
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
 
 interface TimeEntryNotesProps {
   timeEntryId: number;
@@ -50,7 +58,8 @@ export function TimeEntryNotes({ timeEntryId, trigger }: TimeEntryNotesProps) {
   const [newNoteContent, setNewNoteContent] = useState('');
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingContent, setEditingContent] = useState('');
-  const [speakingNoteId, setSpeakingNoteId] = useState<number | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -58,6 +67,60 @@ export function TimeEntryNotes({ timeEntryId, trigger }: TimeEntryNotesProps) {
     queryKey: [`/api/time-entries/${timeEntryId}/notes`],
     enabled: isOpen,
   });
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+      
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setNewNoteContent(prev => prev + (prev ? ' ' : '') + transcript);
+        setIsRecording(false);
+      };
+      
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        setIsRecording(false);
+        toast({
+          title: "Voice recording failed",
+          description: "Please try again or check your microphone permissions.",
+          variant: "destructive",
+        });
+      };
+      
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+      
+      setRecognition(recognition);
+    }
+  }, [toast]);
+
+  const startRecording = () => {
+    if (recognition && !isRecording) {
+      setIsRecording(true);
+      recognition.start();
+    } else if (!recognition) {
+      toast({
+        title: "Speech recognition not supported",
+        description: "Your browser doesn't support speech recognition.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopRecording = () => {
+    if (recognition && isRecording) {
+      recognition.stop();
+      setIsRecording(false);
+    }
+  };
 
   const createNoteMutation = useMutation({
     mutationFn: async (content: string) => {
