@@ -22,6 +22,7 @@ function formatTimeFromDecimal(decimalHours: number): string {
 }
 
 export default function Dashboard() {
+  const { toast } = useToast();
   const [timeFormat, setTimeFormat] = useState<"decimal" | "time">("decimal");
   const [displayCurrency, setDisplayCurrency] = useState<string>("USD");
   const today = new Date();
@@ -64,6 +65,31 @@ export default function Dashboard() {
   const { data: settings } = useQuery<Settings>({
     queryKey: ["/api/settings"],
   });
+
+  // Currency update mutation
+  const updateCurrencyMutation = useMutation({
+    mutationFn: (newCurrency: string) => 
+      apiRequest("/api/settings", "PUT", { defaultCurrency: newCurrency }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      toast({
+        title: "Currency updated",
+        description: "Default currency has been changed successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update currency.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCurrencyChange = (newCurrency: string) => {
+    setDisplayCurrency(newCurrency);
+    updateCurrencyMutation.mutate(newCurrency);
+  };
   
   // Update state when settings are loaded
   useEffect(() => {
@@ -234,7 +260,14 @@ export default function Dashboard() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(monthlyBillableAmount, displayCurrency)}</div>
+            <div className="flex items-center gap-2 mb-2">
+              <CurrencySelector
+                selectedCurrency={displayCurrency}
+                onCurrencyChange={handleCurrencyChange}
+                className="text-2xl font-bold"
+              />
+              <span className="text-2xl font-bold">{monthlyBillableAmount.toFixed(2)}</span>
+            </div>
             <p className="text-xs text-muted-foreground">
               For {format(new Date(monthStart), "MMMM yyyy")}
             </p>
