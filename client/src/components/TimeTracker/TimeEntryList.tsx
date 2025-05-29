@@ -36,7 +36,8 @@ export default function TimeEntryList() {
   } = useTimeTracker();
   const [timeFormat, setTimeFormat] = useState<"decimal" | "time">("time");
   const [groupBy, setGroupBy] = useState<"date" | "project" | "client">("date");
-  const [filterDate, setFilterDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [newEntryIds, setNewEntryIds] = useState<number[]>([]);
 
@@ -45,6 +46,11 @@ export default function TimeEntryList() {
     queryKey: ["/api/time-entries"],
     staleTime: 0, // Always fetch fresh data
     cacheTime: 0   // Don't cache results
+  });
+
+  // Fetch settings for currency information
+  const { data: settings } = useQuery({
+    queryKey: ["/api/settings"],
   });
 
   // Debug logging to track the issue
@@ -151,15 +157,26 @@ export default function TimeEntryList() {
     return sessionGroups;
   }, [timeEntries, projects, clients]);
 
-  // Enhanced time entries with client and project data and ALWAYS use the 
-  // stored duration value to ensure edited values are used
+  // Enhanced time entries with client and project data, filtering by date range
   const enhancedEntries = useMemo(() => {
     // Don't process if any data is still loading
     if (isDataLoading) {
       return [];
     }
 
-    return timeEntries.map(entry => {
+    let filteredEntries = timeEntries;
+    
+    // Apply date range filtering
+    if (startDate || endDate) {
+      filteredEntries = timeEntries.filter(entry => {
+        const entryDate = entry.date;
+        if (startDate && entryDate < startDate) return false;
+        if (endDate && entryDate > endDate) return false;
+        return true;
+      });
+    }
+
+    return filteredEntries.map(entry => {
       const project = projects.find(p => p.id === entry.projectId);
       const client = project ? clients.find(c => c.id === project.clientId) : undefined;
       
@@ -178,7 +195,7 @@ export default function TimeEntryList() {
         exactDuration: duration 
       };
     });
-  }, [timeEntries, projects, clients, isDataLoading]);
+  }, [timeEntries, projects, clients, isDataLoading, startDate, endDate]);
 
   // First group by date
   const dateGroups = enhancedEntries.reduce((acc, entry) => {
@@ -401,14 +418,22 @@ export default function TimeEntryList() {
             </div>
           </div>
           
-          <div className="flex items-center">
-            <label htmlFor="filter-date" className="mr-2 text-sm font-medium text-gray-700">Date:</label>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">Date Range:</label>
             <Input
               type="date"
-              id="filter-date"
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
-              className="w-40"
+              placeholder="Start date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-36"
+            />
+            <span className="text-gray-500">to</span>
+            <Input
+              type="date"
+              placeholder="End date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-36"
             />
           </div>
         </div>
@@ -448,14 +473,22 @@ export default function TimeEntryList() {
             </div>
           </div>
           
-          <div className="flex items-center">
-            <label htmlFor="filter-date-md" className="mr-2 text-sm font-medium text-gray-700">Date:</label>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">Date Range:</label>
             <Input
               type="date"
-              id="filter-date-md"
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
-              className="w-40"
+              placeholder="Start date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-32"
+            />
+            <span className="text-gray-500">to</span>
+            <Input
+              type="date"
+              placeholder="End date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-32"
             />
           </div>
         </div>
@@ -493,15 +526,25 @@ export default function TimeEntryList() {
             </div>
           </div>
           
-          <div className="flex items-center">
-            <label htmlFor="filter-date-mobile" className="mr-2 text-sm font-medium text-gray-700">Date:</label>
-            <Input
-              type="date"
-              id="filter-date-mobile"
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
-              className="w-40"
-            />
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700">Date Range:</label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                placeholder="Start date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="flex-1"
+              />
+              <span className="text-gray-500">to</span>
+              <Input
+                type="date"
+                placeholder="End date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="flex-1"
+              />
+            </div>
           </div>
         </div>
       </div>
