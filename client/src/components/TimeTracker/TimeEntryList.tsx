@@ -556,23 +556,27 @@ export default function TimeEntryList() {
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">Date Range:</label>
-            <Input
-              type="date"
-              placeholder="Start date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-32"
-            />
-            <span className="text-gray-500">to</span>
-            <Input
-              type="date"
-              placeholder="End date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-32"
-            />
+            <div className="flex flex-col gap-2">
+              <Input
+                type="date"
+                placeholder="Start date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full"
+              />
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500 text-sm">to</span>
+                <Input
+                  type="date"
+                  placeholder="End date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
