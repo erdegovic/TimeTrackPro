@@ -120,7 +120,7 @@ export default function EnhancedTimeEntry({
         isExpanded: false
       });
     }
-  }, [entry, sessionGroup]);
+  }, [entry, sessionGroup, entry.startTime, entry.endTime, entry.duration]);
 
   const formatTime = (date: Date) => {
     return format(date, 'h:mmaa').toLowerCase();
