@@ -369,7 +369,15 @@ export default function EnhancedTimeEntry({
   };
 
   const handleSaveEntry = async () => {
-    if (!groupedEntry || !editDescription.trim()) return;
+    console.log('🚀 handleSaveEntry called!');
+    console.log('Grouped entry exists:', !!groupedEntry);
+    console.log('Edit description:', editDescription);
+    console.log('Edit description trimmed:', editDescription.trim());
+    
+    if (!groupedEntry || !editDescription.trim()) {
+      console.log('Early return - missing data');
+      return;
+    }
 
     try {
       console.log('=== SAVE ENTRY START ===');
