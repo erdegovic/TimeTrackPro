@@ -372,10 +372,11 @@ export default function EnhancedTimeEntry({
     if (!groupedEntry || !editDescription.trim()) return;
 
     try {
-      // Check if this would create a merge by looking for existing entries
-      const project = projects.find(p => p.id === editProjectId);
-      console.log('Checking for merge. Edit data:', { description: editDescription.trim(), projectId: editProjectId, date: entry.date });
-      console.log('Available entries:', allTimeEntries?.map(e => ({ id: e.id, description: e.description, projectId: e.projectId, date: e.date })));
+      console.log('=== SAVE ENTRY START ===');
+      console.log('Current entry:', { id: entry.id, description: entry.description, projectId: entry.projectId, date: entry.date });
+      console.log('Edit data:', { description: editDescription.trim(), projectId: editProjectId, date: entry.date });
+      console.log('All time entries available:', allTimeEntries?.length || 0);
+      console.log('All entries detail:', allTimeEntries?.map(e => ({ id: e.id, description: e.description, projectId: e.projectId, date: e.date })));
       
       const willMerge = allTimeEntries?.some((existingEntry: any) => 
         existingEntry.id !== entry.id &&
@@ -394,7 +395,7 @@ export default function EnhancedTimeEntry({
         existingEntry.projectId === editProjectId
       );
       
-      console.log('Target entry for merge:', targetEntry);
+      console.log('Target entry found:', targetEntry);
 
       // Update all blocks in the group with new details
       const updateData = {
