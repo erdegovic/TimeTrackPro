@@ -253,12 +253,29 @@ export function TimeEntryNotes({ timeEntryId, trigger }: TimeEntryNotesProps) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Textarea
-                placeholder="Write your note..."
-                value={newNoteContent}
-                onChange={(e) => setNewNoteContent(e.target.value)}
-                className="min-h-[80px]"
-              />
+              <div className="flex gap-2">
+                <Textarea
+                  placeholder="Write your note..."
+                  value={newNoteContent}
+                  onChange={(e) => setNewNoteContent(e.target.value)}
+                  className="min-h-[80px] flex-1"
+                />
+                <Button
+                  onClick={isRecording ? stopRecording : startRecording}
+                  variant={isRecording ? "destructive" : "outline"}
+                  size="sm"
+                  className="h-10 w-10 p-0 self-start mt-1"
+                  disabled={!recognition}
+                  title={isRecording ? "Stop recording" : "Start voice recording"}
+                >
+                  {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </Button>
+              </div>
+              {isRecording && (
+                <div className="text-sm text-orange-600 animate-pulse">
+                  🎤 Listening... Speak now
+                </div>
+              )}
               <Button
                 onClick={handleCreateNote}
                 disabled={!newNoteContent.trim() || createNoteMutation.isPending}
