@@ -43,6 +43,7 @@ interface EnhancedTimeEntryProps {
   isNew?: boolean;
   isTracking?: boolean;
   onStop?: () => void;
+  allTimeEntries?: Array<TimeEntry & { client?: Client; project?: Project; }>;
 }
 
 export default function EnhancedTimeEntry({
@@ -68,6 +69,7 @@ export default function EnhancedTimeEntry({
   const [editDescription, setEditDescription] = useState("");
   const [editClientId, setEditClientId] = useState<number | undefined>();
   const [editProjectId, setEditProjectId] = useState<number | undefined>();
+  const [isMerging, setIsMerging] = useState(false);
 
   // Listen for timer state changes to force UI updates
   useEffect(() => {
@@ -75,11 +77,28 @@ export default function EnhancedTimeEntry({
       setForceUpdate(prev => prev + 1);
     };
 
+    const handleMergeAnimation = (event: CustomEvent) => {
+      const { sourceEntryId, description, projectId, date } = event.detail;
+      
+      // Check if this entry is involved in the merge
+      const isThisEntryInvolved = entry.id === sourceEntryId || 
+        (entry.date === date && entry.description === description && entry.projectId === projectId);
+      
+      if (isThisEntryInvolved) {
+        setIsMerging(true);
+        // Reset after animation
+        setTimeout(() => setIsMerging(false), 600);
+      }
+    };
+
     window.addEventListener('timerStateChanged', handleTimerStateChange as EventListener);
+    window.addEventListener('timeEntryMerging', handleMergeAnimation as EventListener);
+    
     return () => {
       window.removeEventListener('timerStateChanged', handleTimerStateChange as EventListener);
+      window.removeEventListener('timeEntryMerging', handleMergeAnimation as EventListener);
     };
-  }, []);
+  }, [entry.id, entry.date, entry.description, entry.projectId]);
 
   // Check if this entry is currently being tracked
   const isCurrentlyTracking = globalIsTracking && 
@@ -310,6 +329,15 @@ export default function EnhancedTimeEntry({
     if (!groupedEntry || !editDescription.trim()) return;
 
     try {
+      // Check if this would create a merge by looking for existing entries
+      const project = projects.find(p => p.id === editProjectId);
+      const willMerge = allTimeEntries ? allTimeEntries.some(existingEntry => 
+        existingEntry.id !== entry.id &&
+        existingEntry.date === entry.date &&
+        existingEntry.description === editDescription.trim() &&
+        existingEntry.projectId === editProjectId
+      ) : false;
+
       // Update all blocks in the group with new details
       const updateData = {
         description: editDescription.trim(),
@@ -327,13 +355,26 @@ export default function EnhancedTimeEntry({
         await apiRequest("PUT", `/api/time-entries/${entry.id}`, updateData);
       }
 
+      // If merging will happen, trigger the merge animation
+      if (willMerge) {
+        // Dispatch a custom event to trigger merge animation
+        window.dispatchEvent(new CustomEvent('timeEntryMerging', {
+          detail: {
+            sourceEntryId: entry.id,
+            description: editDescription.trim(),
+            projectId: editProjectId,
+            date: entry.date
+          }
+        }));
+      }
+
       // Refresh the time entries list to trigger potential merging
       await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
       
       setIsEditingEntry(false);
       toast({
         title: "Entry updated",
-        description: "Time entry has been updated successfully.",
+        description: willMerge ? "Time entries merged successfully!" : "Time entry has been updated successfully.",
       });
     } catch (error) {
       toast({
