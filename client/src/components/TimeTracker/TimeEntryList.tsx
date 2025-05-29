@@ -42,11 +42,16 @@ export default function TimeEntryList() {
 
   // Fetch time entries
   const { data: timeEntries = [], isLoading: isLoadingEntries, refetch: refetchTimeEntries } = useQuery<TimeEntry[]>({
-    queryKey: ["/api/time-entries"]
+    queryKey: ["/api/time-entries"],
+    staleTime: 0, // Always fetch fresh data
+    cacheTime: 0   // Don't cache results
   });
 
   // Debug logging to track the issue
   console.log(`[TimeEntryList] Received ${timeEntries.length} time entries from API`);
+  if (timeEntries.length < 10) {
+    console.log(`[TimeEntryList] Full API response:`, timeEntries);
+  }
 
   // Listen for timer updates to refresh total times immediately
   useEffect(() => {
