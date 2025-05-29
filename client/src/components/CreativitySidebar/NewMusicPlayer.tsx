@@ -179,71 +179,73 @@ export default function NewMusicPlayer() {
     if (isPlaying) {
       stopSound();
     } else {
-      if (currentTrack) {
-        generateAmbientSound(currentTrack);
+      if (currentTrack && currentTrack.audioUrl) {
+        playTrack(currentTrack);
       } else {
-        // Start with first track
-        const firstTrack = selectedPlaylist.tracks[0];
-        setCurrentTrack(firstTrack);
-        generateAmbientSound(firstTrack);
+        // Find first track with audio file
+        const trackWithAudio = selectedPlaylist.tracks.find(t => t.audioUrl);
+        if (trackWithAudio) {
+          setCurrentTrack(trackWithAudio);
+          playTrack(trackWithAudio);
+        } else {
+          alert('Please upload an audio file first using the upload button');
+        }
       }
     }
   };
 
   const handleTrackSelect = (track: Track) => {
+    if (!track.audioUrl) {
+      alert('This track has no audio file. Please upload one.');
+      return;
+    }
+    
     setCurrentTrack(track);
     if (isPlaying) {
       stopSound();
-      setTimeout(() => generateAmbientSound(track), 100);
+      setTimeout(() => playTrack(track), 100);
     }
   };
 
   const handleNext = () => {
     if (!currentTrack) return;
     
-    const currentIndex = selectedPlaylist.tracks.findIndex(t => t.id === currentTrack.id);
-    const nextIndex = (currentIndex + 1) % selectedPlaylist.tracks.length;
-    const nextTrack = selectedPlaylist.tracks[nextIndex];
+    const tracksWithAudio = selectedPlaylist.tracks.filter(t => t.audioUrl);
+    const currentIndex = tracksWithAudio.findIndex(t => t.id === currentTrack.id);
+    const nextIndex = (currentIndex + 1) % tracksWithAudio.length;
+    const nextTrack = tracksWithAudio[nextIndex];
     
-    setCurrentTrack(nextTrack);
-    if (isPlaying) {
-      stopSound();
-      setTimeout(() => generateAmbientSound(nextTrack), 100);
+    if (nextTrack) {
+      setCurrentTrack(nextTrack);
+      if (isPlaying) {
+        stopSound();
+        setTimeout(() => playTrack(nextTrack), 100);
+      }
     }
   };
 
   const handlePrevious = () => {
     if (!currentTrack) return;
     
-    const currentIndex = selectedPlaylist.tracks.findIndex(t => t.id === currentTrack.id);
-    const prevIndex = currentIndex === 0 ? selectedPlaylist.tracks.length - 1 : currentIndex - 1;
-    const prevTrack = selectedPlaylist.tracks[prevIndex];
+    const tracksWithAudio = selectedPlaylist.tracks.filter(t => t.audioUrl);
+    const currentIndex = tracksWithAudio.findIndex(t => t.id === currentTrack.id);
+    const prevIndex = currentIndex === 0 ? tracksWithAudio.length - 1 : currentIndex - 1;
+    const prevTrack = tracksWithAudio[prevIndex];
     
-    setCurrentTrack(prevTrack);
-    if (isPlaying) {
-      stopSound();
-      setTimeout(() => generateAmbientSound(prevTrack), 100);
+    if (prevTrack) {
+      setCurrentTrack(prevTrack);
+      if (isPlaying) {
+        stopSound();
+        setTimeout(() => playTrack(prevTrack), 100);
+      }
     }
   };
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (oscillatorRef.current) {
-        oscillatorRef.current.stop();
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-    };
-  }, []);
-
-  // Update volume
-  useEffect(() => {
-    if (gainNodeRef.current && isPlaying) {
-      gainNodeRef.current.gain.value = volume[0] / 100 * 0.3;
-    }
-  }, [volume, isPlaying]);
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
     <div className="space-y-6">
@@ -341,35 +343,94 @@ export default function NewMusicPlayer() {
         </div>
       )}
 
+      {/* Upload Section */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="font-medium text-gray-700">Music Library</h4>
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <Upload className="h-4 w-4" />
+            Upload Music
+          </Button>
+        </div>
+        
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/*"
+          onChange={handleFileUpload}
+          className="hidden"
+        />
+        
+        <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+          Upload MP3, WAV, or other audio files from Envato Elements for high-quality focus, creative, and meditation music.
+        </div>
+      </div>
+
       {/* Track List */}
       <div className="space-y-2">
         <h4 className="font-medium text-gray-700">Tracks</h4>
         <div className="space-y-2">
           {selectedPlaylist.tracks.map((track) => (
-            <button
+            <div
               key={track.id}
-              onClick={() => handleTrackSelect(track)}
-              className={`w-full p-3 rounded-lg border text-left transition-all duration-200 ${
+              className={`p-3 rounded-lg border transition-all duration-200 ${
                 currentTrack?.id === track.id
                   ? 'border-tickd-primary bg-tickd-primary/10'
-                  : 'border-gray-200 hover:border-tickd-primary/50 hover:bg-gray-50'
+                  : 'border-gray-200'
               }`}
             >
               <div className="flex items-center justify-between">
-                <div>
+                <div className="flex-1">
                   <div className="font-medium text-gray-800">{track.title}</div>
                   <div className="text-sm text-gray-600">{track.artist}</div>
                 </div>
-                <div className="text-sm text-gray-500">{track.duration}</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-sm text-gray-500">{track.duration}</div>
+                  {track.audioUrl ? (
+                    <Button
+                      onClick={() => handleTrackSelect(track)}
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                    >
+                      <Play className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <div className="text-xs text-orange-500 bg-orange-50 px-2 py-1 rounded">
+                      Upload needed
+                    </div>
+                  )}
+                </div>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       </div>
 
-      {isPlaying && (
+      {/* Progress Bar for current track */}
+      {currentTrack && currentTrack.audioUrl && duration > 0 && (
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm text-gray-600">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-tickd-primary h-2 rounded-full transition-all duration-300"
+              style={{ width: `${(currentTime / duration) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {isPlaying && currentTrack && (
         <div className="text-center text-sm text-tickd-primary font-medium">
-          🎵 Now playing ambient sounds...
+          🎵 Now playing: {currentTrack.title}
         </div>
       )}
     </div>
