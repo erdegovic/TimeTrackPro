@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Edit, Copy, Trash2, Play, Square, ChevronDown, ChevronRight, Calendar, Check, Save, X, MessageSquare } from "lucide-react";
+import { Edit, Copy, Trash2, Play, Square, ChevronDown, ChevronRight, Calendar, Check, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTimerContext } from "@/context/TimerContext";
 import { TimeEntry, Client, Project } from "@shared/schema";
 import { format, parse, isValid } from "date-fns";
-import { TimeEntryNotes } from "./TimeEntryNotes";
+import { NotesButton } from "./TimeEntryNotes";
 
 interface TimeBlock {
   id: string;
@@ -635,19 +635,7 @@ export default function EnhancedTimeEntry({
                     {isCurrentlyTracking ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                   </Button>
                 )}
-                <TimeEntryNotes 
-                  timeEntryId={entry.id}
-                  trigger={
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-blue-600 hover:text-white hover:bg-blue-600"
-                      title="Add or view notes"
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                    </Button>
-                  }
-                />
+                <NotesButton timeEntryId={entry.id} />
                 <Button 
                   variant="ghost" 
                   size="icon"

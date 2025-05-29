@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { FileText, Plus, Edit2, Trash2, Save, X } from 'lucide-react';
+import { FileText, Plus, Edit2, Trash2, Save, X, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { format } from 'date-fns';
@@ -13,6 +13,36 @@ import type { TimeEntryNote } from '@shared/schema';
 interface TimeEntryNotesProps {
   timeEntryId: number;
   trigger?: React.ReactNode;
+}
+
+// Smart notes button that checks if notes exist and styles accordingly
+export function NotesButton({ timeEntryId }: { timeEntryId: number }) {
+  const { data: notes = [] } = useQuery<TimeEntryNote[]>({
+    queryKey: [`/api/time-entries/${timeEntryId}/notes`],
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  const hasNotes = notes.length > 0;
+
+  return (
+    <TimeEntryNotes 
+      timeEntryId={timeEntryId}
+      trigger={
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`h-8 w-8 ${
+            hasNotes 
+              ? 'text-orange-600 hover:text-white hover:bg-orange-600' 
+              : 'text-orange-500 hover:text-white hover:bg-orange-500'
+          }`}
+          title={hasNotes ? "View notes" : "Add note"}
+        >
+          <MessageSquare className={`h-4 w-4 ${hasNotes ? 'fill-current' : ''}`} />
+        </Button>
+      }
+    />
+  );
 }
 
 export function TimeEntryNotes({ timeEntryId, trigger }: TimeEntryNotesProps) {
