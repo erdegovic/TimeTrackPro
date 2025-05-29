@@ -9,7 +9,7 @@ import {
   creativityNotes, weeklyGoals,
   ReportFilters
 } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import * as schema from "@shared/schema";
 import { eq, and, between, desc, sql, like } from "drizzle-orm";
 import { IStorage } from "./storage";
@@ -182,11 +182,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTimeEntriesByUser(userId: number): Promise<TimeEntry[]> {
-    return await db
-      .select()
-      .from(timeEntries)
-      .where(eq(timeEntries.userId, userId))
-      .orderBy(desc(timeEntries.date));
+    console.log(`[DB] Querying time entries for user ${userId}`);
+    
+    try {
+      // Use a raw SQL query to bypass any potential caching issues
+      const result = await db.execute(sql`
+        SELECT * FROM ${timeEntries} 
+        WHERE ${timeEntries.userId} = ${userId} 
+        ORDER BY ${timeEntries.date} DESC, ${timeEntries.id} DESC
+      `);
+      
+      console.log(`[DB] Raw query returned ${result.length} entries for user ${userId}`);
+      
+      // Also log some sample entries for debugging
+      if (result.length > 0) {
+        console.log(`[DB] Sample entries:`, result.slice(0, 3).map((e: any) => ({ id: e.id, description: e.description, date: e.date })));
+      }
+      
+      return result as TimeEntry[];
+    } catch (error) {
+      console.error(`[DB] Error querying time entries for user ${userId}:`, error);
+      
+      // Fallback to the original query
+      const fallbackResult = await db
+        .select()
+        .from(timeEntries)
+        .where(eq(timeEntries.userId, userId))
+        .orderBy(desc(timeEntries.date));
+      
+      console.log(`[DB] Fallback query returned ${fallbackResult.length} entries for user ${userId}`);
+      return fallbackResult;
+    }
   }
 
   async getTimeEntriesByProject(projectId: number): Promise<TimeEntry[]> {
