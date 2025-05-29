@@ -110,22 +110,14 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     const duration = (endTime - startTime) / 1000 / 3600; // Convert to hours
 
     try {
-      // Validate required fields before sending
-      if (!selectedProjectId || selectedProjectId === 0) {
-        toast({
-          title: "Error saving time entry",
-          description: "Please select a project before tracking time",
-          variant: "destructive",
-        });
-        return;
-      }
+      // No validation needed - projectId is now optional
 
       const response = await fetch("/api/tracker/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           description,
-          projectId: selectedProjectId,
+          projectId: selectedProjectId || null,
           startTime: new Date(startTime).toISOString(),
           endTime: new Date(endTime).toISOString(),
           duration: duration.toString(),
