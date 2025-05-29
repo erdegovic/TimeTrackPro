@@ -1,29 +1,18 @@
-import { useState, useEffect, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState } from "react";
 import { format } from "date-fns";
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Calendar, ChevronDown, ChevronUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { useCreativitySidebar } from "@/components/layouts/AppLayout";
-import { Button } from "@/components/ui/button";
-import { Edit, Copy, Trash2, Play, Calendar } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { TimeEntry, Client, Project } from "@shared/schema";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useCreativitySidebar } from "@/components/layouts/AppLayout";
 import { useTimeTracker } from "@/hooks/useTimeTracker";
 import { useToast } from "@/hooks/use-toast";
 import { CurrencySelector } from "@/components/ui/CurrencySelector";
-import TimeEntryRow from "./TimeEntry";
 import CleanTimeEntry from "./CleanTimeEntry";
 
 export default function TimeEntryList() {
@@ -43,13 +32,21 @@ export default function TimeEntryList() {
   const [endDate, setEndDate] = useState("");
   const [dateSelectionState, setDateSelectionState] = useState<"none" | "start" | "complete">("none");
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [newEntryIds, setNewEntryIds] = useState<number[]>([]);
 
   // Fetch time entries
-  const { data: timeEntries = [], isLoading: isLoadingEntries, refetch: refetchTimeEntries } = useQuery<TimeEntry[]>({
+  const { data: timeEntries = [], isLoading: isLoadingEntries } = useQuery<TimeEntry[]>({
     queryKey: ["/api/time-entries"],
-    staleTime: 0, // Always fetch fresh data
-    cacheTime: 0   // Don't cache results
+    staleTime: 0,
+  });
+
+  // Fetch clients
+  const { data: clients = [], isLoading: isLoadingClients } = useQuery<Client[]>({
+    queryKey: ["/api/clients"],
+  });
+
+  // Fetch projects
+  const { data: projects = [], isLoading: isLoadingProjects } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
   });
 
   // Fetch settings for currency information
@@ -57,175 +54,30 @@ export default function TimeEntryList() {
     queryKey: ["/api/settings"],
   });
 
-  // Currency update mutation
-  const updateCurrencyMutation = useMutation({
-    mutationFn: (newCurrency: string) => 
-      apiRequest("PUT", "/api/settings", { defaultCurrency: newCurrency }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-      toast({
-        title: "Currency updated",
-        description: "Default currency has been changed successfully.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to update currency.",
-        variant: "destructive",
-      });
-    },
-  });
+  const isDataLoading = isLoadingEntries || isLoadingClients || isLoadingProjects;
 
-  const handleCurrencyChange = (newCurrency: string) => {
-    updateCurrencyMutation.mutate(newCurrency);
-  };
-
-  // Debug logging to track the issue
-  console.log(`[TimeEntryList] Received ${timeEntries.length} time entries from API`);
-  if (timeEntries.length < 10) {
-    console.log(`[TimeEntryList] Full API response:`, timeEntries);
-  }
-
-  // Listen for timer updates to refresh total times immediately
-  useEffect(() => {
-    const handleTimeEntryUpdate = () => {
-      refetchTimeEntries();
-    };
-
-    window.addEventListener('timeEntryUpdated', handleTimeEntryUpdate);
-    return () => window.removeEventListener('timeEntryUpdated', handleTimeEntryUpdate);
-  }, [refetchTimeEntries]);
-  
-  // Track new entries for highlighting
-  useEffect(() => {
-    if (timeEntries.length > 0) {
-      // Find the most recently created entry
-      const latestEntry = timeEntries.reduce((latest, current) => {
-        const latestDate = new Date(latest.endTime || latest.date);
-        const currentDate = new Date(current.endTime || current.date);
-        return currentDate > latestDate ? current : latest;
-      }, timeEntries[0]);
-      
-      // If the latest entry is new (within last 5 seconds) and not already highlighted
-      const now = new Date();
-      const entryTime = new Date(latestEntry.endTime || latestEntry.date);
-      const isRecent = (now.getTime() - entryTime.getTime()) < 5000; // 5 seconds
-      
-      if (isRecent && !newEntryIds.includes(latestEntry.id)) {
-        setNewEntryIds(prev => [...prev, latestEntry.id]);
-      }
-    }
-  }, [timeEntries]);
-
-  // Listen for manual highlight triggers from timer updates
-  useEffect(() => {
-    const handleHighlight = (event: CustomEvent) => {
-      const { entryId } = event.detail;
-      if (entryId && !newEntryIds.includes(entryId)) {
-        setNewEntryIds(prev => [...prev, entryId]);
-      }
-    };
-
-    window.addEventListener('timeEntryHighlight', handleHighlight as EventListener);
-    return () => window.removeEventListener('timeEntryHighlight', handleHighlight as EventListener);
-  }, [newEntryIds]);
-  
-  // Effect to remove the highlight after it fades away
-  useEffect(() => {
-    if (newEntryIds.length > 0) {
-      const timer = setTimeout(() => {
-        setNewEntryIds([]);
-      }, 3000); // Remove highlight after 3 seconds
-      
-      return () => clearTimeout(timer);
-    }
-  }, [newEntryIds]);
-
-  // Fetch clients
-  const { data: clients = [], isLoading: clientsLoading } = useQuery<Client[]>({
-    queryKey: ["/api/clients"],
-  });
-
-  // Fetch projects
-  const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
-  });
-
-  // Don't process entries until all data is loaded
-  const isDataLoading = isLoadingEntries || clientsLoading || projectsLoading;
-
-  // Group entries by description, project, and date for session grouping
-  const groupedSessions = useMemo(() => {
-    // Don't process if any data is still loading
-    if (isDataLoading || !clients.length || !projects.length) {
-      return new Map<string, any[]>();
-    }
-
-    const sessionGroups = new Map<string, any[]>();
-    
-    timeEntries.forEach(entry => {
+  // Enhanced entries with client and project data
+  const enhancedEntries = timeEntries
+    .filter(entry => {
+      if (!startDate && !endDate) return true;
+      if (startDate && !endDate) return entry.date >= startDate;
+      if (!startDate && endDate) return entry.date <= endDate;
+      return entry.date >= startDate && entry.date <= endDate;
+    })
+    .map(entry => {
       const project = projects.find(p => p.id === entry.projectId);
       const client = project ? clients.find(c => c.id === project.clientId) : undefined;
-      
-      // Create a unique key for grouping: description + project + date
-      const groupKey = `${entry.description || ''}-${entry.projectId}-${entry.date}`;
-      
-      if (!sessionGroups.has(groupKey)) {
-        sessionGroups.set(groupKey, []);
-      }
-      
-      sessionGroups.get(groupKey)!.push({
-        ...entry,
-        project,
-        client
-      });
-    });
-    
-    return sessionGroups;
-  }, [timeEntries, projects, clients]);
-
-  // Enhanced time entries with client and project data, filtering by date range
-  const enhancedEntries = useMemo(() => {
-    // Don't process if any data is still loading
-    if (isDataLoading) {
-      return [];
-    }
-
-    let filteredEntries = timeEntries;
-    
-    // Apply date range filtering
-    if (startDate || endDate) {
-      filteredEntries = timeEntries.filter(entry => {
-        const entryDate = entry.date;
-        if (startDate && entryDate < startDate) return false;
-        if (endDate && entryDate > endDate) return false;
-        return true;
-      });
-    }
-
-    return filteredEntries.map(entry => {
-      const project = projects.find(p => p.id === entry.projectId);
-      const client = project ? clients.find(c => c.id === project.clientId) : undefined;
-      
-      // ALWAYS use the stored duration field as the source of truth
-      // This ensures that manually edited durations are reflected in totals
       const duration = Number(entry.duration || 0);
-      
-      // Log the entry details for debugging
-      console.log(`Entry ${entry.id}: using stored duration ${duration} hours`);
       
       return { 
         ...entry, 
         project, 
         client, 
-        // Store the duration in a consistent field
         exactDuration: duration 
       };
     });
-  }, [timeEntries, projects, clients, isDataLoading, startDate, endDate]);
 
-  // First group by date
+  // Group entries by date
   const dateGroups = enhancedEntries.reduce((acc, entry) => {
     const dateKey = entry.date;
     if (!acc[dateKey]) {
@@ -235,61 +87,8 @@ export default function TimeEntryList() {
     return acc;
   }, {} as Record<string, typeof enhancedEntries>);
 
-  // Then within each date, group by project+description for session merging
-  const sessionGroupedEntries = Object.entries(dateGroups).map(([date, entries]) => {
-    // Group entries by project + description combination
-    const sessionGroups = entries.reduce((acc, entry) => {
-      const sessionKey = `${entry.projectId}-${entry.description}`;
-      if (!acc[sessionKey]) {
-        acc[sessionKey] = [];
-      }
-      acc[sessionKey].push(entry);
-      return acc;
-    }, {} as Record<string, typeof entries>);
-
-    // Convert session groups to enhanced time entry format
-    const processedEntries = Object.values(sessionGroups).map(sessionEntries => {
-      if (sessionEntries.length === 1) {
-        // Single entry - show as normal
-        return sessionEntries[0];
-      } else {
-        // Multiple entries - create grouped entry with blocks
-        const sortedEntries = sessionEntries.sort((a, b) => 
-          new Date(a.startTime!).getTime() - new Date(b.startTime!).getTime()
-        );
-        
-        const blocks = sortedEntries.map(entry => ({
-          id: entry.id.toString(),
-          startTime: new Date(entry.startTime!),
-          endTime: new Date(entry.endTime!),
-          duration: Number(entry.duration || 0)
-        }));
-
-        const totalDuration = blocks.reduce((sum, block) => sum + block.duration, 0);
-        const earliestStart = blocks[0].startTime;
-        const latestEnd = blocks[blocks.length - 1].endTime;
-
-        return {
-          ...sortedEntries[0], // Use first entry as base
-          sessionGroup: sessionEntries,
-          blocks,
-          totalDuration,
-          sessionCount: sessionEntries.length,
-          overallStartTime: earliestStart,
-          overallEndTime: latestEnd,
-          exactDuration: totalDuration
-        };
-      }
-    });
-
-    return {
-      date,
-      entries: processedEntries
-    };
-  });
-
   // Group entries by date, project, or client for display grouping
-  const groupedEntries = sessionGroupedEntries.reduce((acc, { date, entries }) => {
+  const groupedEntries = Object.entries(dateGroups).reduce((acc, [date, entries]) => {
     entries.forEach(entry => {
       let groupKey = "";
       let groupLabel = "";
@@ -311,7 +110,7 @@ export default function TimeEntryList() {
           groupLabel = format(entryDate, "MMMM d, yyyy");
         }
       } else if (groupBy === "project") {
-        groupKey = entry.projectId.toString();
+        groupKey = (entry.projectId || "unknown").toString();
         groupLabel = entry.project?.name || "Unknown Project";
       } else if (groupBy === "client") {
         groupKey = (entry.project?.clientId || "unknown").toString();
@@ -319,83 +118,38 @@ export default function TimeEntryList() {
       }
       
       if (!acc[groupKey]) {
-        acc[groupKey] = {
-          label: groupLabel,
-          entries: [],
-          totalHours: 0
-        };
+        acc[groupKey] = { label: groupLabel, entries: [], totalHours: 0 };
       }
-      
       acc[groupKey].entries.push(entry);
-      // Use exactDuration for grouped entries, fall back to duration for single entries
-      const entryDuration = entry.exactDuration !== undefined ? entry.exactDuration : Number(entry.duration || 0);
-      acc[groupKey].totalHours += entryDuration;
+      acc[groupKey].totalHours += entry.exactDuration;
     });
-    
     return acc;
-  }, {} as Record<string, { label: string; entries: any[]; totalHours: number }>);
+  }, {} as Record<string, { label: string; entries: typeof enhancedEntries; totalHours: number }>);
 
-  // Sort entries within each group (newest first)
-  Object.values(groupedEntries).forEach(group => {
-    group.entries.sort((a, b) => {
-      // Sort by ID in descending order (newest entries have higher IDs)
-      return b.id - a.id;
-    });
-  });
-
-  // Currency conversion rates (simplified for demo - in production, use a real API)
-  const exchangeRates: Record<string, number> = {
-    USD: 1,
-    EUR: 0.92,
-    GBP: 0.79,
-    CAD: 1.35,
-    AUD: 1.52,
-    JPY: 150,
-    CHF: 0.91,
-    CNY: 7.2
-  };
-
-  // Function to convert currency
-  const convertCurrency = (amount: number, fromCurrency: string, toCurrency: string) => {
-    if (fromCurrency === toCurrency) return amount;
-    
-    // Convert to USD first, then to target currency
-    const usdAmount = amount / (exchangeRates[fromCurrency] || 1);
-    return usdAmount * (exchangeRates[toCurrency] || 1);
-  };
-
-  // Function to calculate daily earnings with proper currency conversion
-  const calculateDailyEarnings = (entries: any[]) => {
-    const defaultCurrency = (settings as any)?.defaultCurrency || "USD";
+  // Calculate daily earnings with currency conversion
+  const calculateDailyEarnings = (entries: typeof enhancedEntries) => {
+    const currency = (settings as any)?.defaultCurrency || "USD";
     
     return entries.reduce((total, entry) => {
-      const duration = entry.exactDuration !== undefined ? entry.exactDuration : Number(entry.duration || 0);
+      if (!entry.project?.hourlyRate || !entry.exactDuration) return total;
       
-      // Get hourly rate and currency from project or client
-      let hourlyRate = 0;
-      let projectCurrency = defaultCurrency;
+      const rate = Number(entry.project.hourlyRate);
+      const earnings = entry.exactDuration * rate;
       
-      if (entry.project?.hourlyRate) {
-        hourlyRate = Number(entry.project.hourlyRate);
-        // Projects inherit currency from their client
-        projectCurrency = entry.client?.currency || defaultCurrency;
-      } else if (entry.client?.hourlyRate) {
-        hourlyRate = Number(entry.client.hourlyRate);
-        projectCurrency = entry.client?.currency || defaultCurrency;
+      // Convert to display currency if needed (project currency feature not implemented yet)
+      let convertedEarnings = earnings;
+        // Simple conversion for demo - in real app, use actual exchange rates
+        const conversionRates: Record<string, number> = {
+          'USD': 1, 'EUR': 0.85, 'GBP': 0.73, 'JPY': 110, 'CAD': 1.25, 
+          'AUD': 1.35, 'CHF': 0.92, 'CNY': 6.45, 'SEK': 8.6, 'NZD': 1.4,
+          'MXN': 20, 'SGD': 1.35, 'HKD': 7.8, 'NOK': 8.5, 'ILS': 3.2,
+          'TRY': 8.5, 'RUB': 75, 'INR': 74, 'BRL': 5.2, 'ZAR': 14.5, 'RSD': 100
+        };
+        
+        const fromRate = conversionRates[entry.project.currency] || 1;
+        const toRate = conversionRates[currency] || 1;
+        convertedEarnings = earnings * (toRate / fromRate);
       }
-      
-      // Skip entries with no rate
-      if (hourlyRate === 0) {
-        return total;
-      }
-      
-      // Calculate earnings in project currency
-      const projectEarnings = duration * hourlyRate;
-      
-      // Convert to default display currency
-      const convertedEarnings = convertCurrency(projectEarnings, projectCurrency, defaultCurrency);
-      
-      console.log(`[Currency Debug] Entry ${entry.id}: ${duration}h × ${hourlyRate} ${projectCurrency} = ${projectEarnings} ${projectCurrency} → ${convertedEarnings} ${defaultCurrency}`);
       
       return total + convertedEarnings;
     }, 0);
@@ -407,13 +161,6 @@ export default function TimeEntryList() {
       return new Date(b[0]).getTime() - new Date(a[0]).getTime();
     }
     return a[1].label.localeCompare(b[1].label);
-  });
-
-  // Debug logging to track the grouping issue
-  console.log(`[TimeEntryList] Grouped entries:`, Object.keys(groupedEntries));
-  console.log(`[TimeEntryList] Total groups: ${sortedGroups.length}`);
-  sortedGroups.forEach(([key, group]) => {
-    console.log(`[TimeEntryList] Group "${key}": ${group.entries.length} entries`);
   });
 
   // Delete mutation
@@ -445,55 +192,64 @@ export default function TimeEntryList() {
     }
   };
 
-  // Handle play button click - use direct timer hook for synchronization
+  // Handle play button click
   const handlePlay = (description: string, projectId: number) => {
-    // Find the project to get the client ID
     const project = projects.find(p => p.id === projectId);
     const clientId = project?.clientId;
-    
-    // First, populate the main tracker form with all the data
+
     setDescription(description);
     setSelectedProjectId(projectId);
     if (clientId) {
       setSelectedClientId(clientId);
     }
     
-    // Then start the timer with the data for complete synchronization
-    startTimerWithData(description, projectId);
-    
-    toast({
-      title: "Timer started",
-      description: `Started tracking: ${description}`,
-    });
+    startTimerWithData(description, projectId, clientId);
+  };
+
+  // Handle currency change
+  const handleCurrencyChange = async (currency: string) => {
+    try {
+      await apiRequest("PUT", "/api/settings", {
+        defaultCurrency: currency
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+    } catch (error) {
+      console.error("Failed to update currency:", error);
+    }
+  };
+
+  const formatTimeFromDecimal = (decimalHours: number): string => {
+    const totalMinutes = Math.round(decimalHours * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   };
 
   return (
-    <>
-      {/* Time View Toggle - Added more spacing from main tracker */}
-      <div className="flex flex-col gap-4 mb-4 mt-8">
-        {/* Large screens: All controls in one row */}
-        <div className={`hidden ${creativitySidebarCollapsed ? 'lg:flex' : 'xl:flex'} items-center gap-4`}>
-          <div className="flex items-center">
-            <label htmlFor="time-format" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
-            <div className="relative inline-block w-32">
+    <div className="space-y-6">
+      {/* Controls */}
+      <div className="space-y-4">
+        {/* Large screens: Everything in one row */}
+        <div className={`${creativitySidebarCollapsed ? 'hidden lg:flex' : 'hidden xl:flex'} items-center justify-between`}>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center">
+              <label htmlFor="time-format-lg" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
               <Select value={timeFormat} onValueChange={(val: "decimal" | "time") => setTimeFormat(val)}>
-                <SelectTrigger id="time-format">
+                <SelectTrigger id="time-format-lg" className="w-32">
                   <SelectValue placeholder="Select format" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="decimal">Decimal (1.5h)</SelectItem>
-                  <SelectItem value="time">Time (1:30)</SelectItem>
+                  <SelectItem value="time">Time</SelectItem>
+                  <SelectItem value="decimal">Decimal</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          
-          <div className="flex items-center">
-            <label htmlFor="group-by" className="mr-2 text-sm font-medium text-gray-700">Group by:</label>
-            <div className="relative inline-block w-32">
+            
+            <div className="flex items-center">
+              <label htmlFor="group-by-lg" className="mr-2 text-sm font-medium text-gray-700">Group by:</label>
               <Select value={groupBy} onValueChange={(val: "date" | "project" | "client") => setGroupBy(val)}>
-                <SelectTrigger id="group-by">
-                  <SelectValue placeholder="Select grouping" />
+                <SelectTrigger id="group-by-lg" className="w-32">
+                  <SelectValue placeholder="Group by" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="date">Date</SelectItem>
@@ -525,26 +281,22 @@ export default function TimeEntryList() {
               <PopoverContent className="w-auto p-0" align="start">
                 <CalendarComponent
                   mode="single"
-                  selected={undefined} // Don't use built-in selection
+                  selected={undefined}
                   onSelect={(date) => {
                     if (!date) return;
                     
                     const clickedDate = format(date, "yyyy-MM-dd");
                     
                     if (dateSelectionState === "none") {
-                      // First click - set start date
                       setStartDate(clickedDate);
                       setEndDate("");
                       setDateSelectionState("start");
                     } else if (dateSelectionState === "start") {
-                      // Second click - set end date
                       if (clickedDate === startDate) {
-                        // Clicking same date - reset
                         setStartDate("");
                         setEndDate("");
                         setDateSelectionState("none");
                       } else {
-                        // Different date - set as end date (ensure proper order)
                         if (new Date(clickedDate) < new Date(startDate)) {
                           setStartDate(clickedDate);
                           setEndDate(startDate);
@@ -554,7 +306,6 @@ export default function TimeEntryList() {
                         setDateSelectionState("complete");
                       }
                     } else {
-                      // Third click - reset and start new selection
                       setStartDate(clickedDate);
                       setEndDate("");
                       setDateSelectionState("start");
@@ -588,110 +339,23 @@ export default function TimeEntryList() {
           </div>
         </div>
 
-        {/* Medium screens: Date moves to separate row */}
-        <div className={`${creativitySidebarCollapsed ? 'hidden md:block lg:hidden' : 'hidden lg:block xl:hidden'}`}>
-          <div className="flex items-center gap-4 mb-3">
-            <div className="flex items-center">
-              <label htmlFor="time-format-md" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
-              <div className="relative inline-block w-32">
-                <Select value={timeFormat} onValueChange={(val: "decimal" | "time") => setTimeFormat(val)}>
-                  <SelectTrigger id="time-format-md">
-                    <SelectValue placeholder="Select format" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="decimal">Decimal (1.5h)</SelectItem>
-                    <SelectItem value="time">Time (1:30)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <div className="flex items-center">
-              <label htmlFor="group-by-md" className="mr-2 text-sm font-medium text-gray-700">Group by:</label>
-              <div className="relative inline-block w-32">
-                <Select value={groupBy} onValueChange={(val: "date" | "project" | "client") => setGroupBy(val)}>
-                  <SelectTrigger id="group-by-md">
-                    <SelectValue placeholder="Select grouping" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="date">Date</SelectItem>
-                    <SelectItem value="project">Project</SelectItem>
-                    <SelectItem value="client">Client</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          
+        {/* Small screens: Stack vertically */}
+        <div className={`${creativitySidebarCollapsed ? 'lg:hidden' : 'xl:hidden'} space-y-3`}>
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-gray-700">Date Range:</label>
+            <label className="text-sm font-medium text-gray-700">Format & Grouping:</label>
             <div className="flex items-center gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm h-auto"
-                  >
-                    <Calendar className="w-4 h-4" />
-                    {startDate ? format(new Date(startDate), "MMM d, yyyy") : "Start"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={startDate ? new Date(startDate) : undefined}
-                    onSelect={(date) => setStartDate(date ? format(date, "yyyy-MM-dd") : "")}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <span className="text-gray-500">to</span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm h-auto"
-                  >
-                    <Calendar className="w-4 h-4" />
-                    {endDate ? format(new Date(endDate), "MMM d, yyyy") : "End"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={endDate ? new Date(endDate) : undefined}
-                    onSelect={(date) => setEndDate(date ? format(date, "yyyy-MM-dd") : "")}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-        </div>
-
-        {/* Small screens: All controls stacked vertically */}
-        <div className={`${creativitySidebarCollapsed ? 'md:hidden' : 'lg:hidden'} flex flex-col gap-3`}>
-          <div className="flex items-center">
-            <label htmlFor="time-format-mobile" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
-            <div className="relative inline-block w-32">
               <Select value={timeFormat} onValueChange={(val: "decimal" | "time") => setTimeFormat(val)}>
-                <SelectTrigger id="time-format-mobile">
-                  <SelectValue placeholder="Select format" />
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Format" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="decimal">Decimal (1.5h)</SelectItem>
-                  <SelectItem value="time">Time (1:30)</SelectItem>
+                  <SelectItem value="time">Time</SelectItem>
+                  <SelectItem value="decimal">Decimal</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          </div>
-          
-          <div className="flex items-center">
-            <label htmlFor="group-by-mobile" className="mr-2 text-sm font-medium text-gray-700">Group by:</label>
-            <div className="relative inline-block w-32">
               <Select value={groupBy} onValueChange={(val: "date" | "project" | "client") => setGroupBy(val)}>
-                <SelectTrigger id="group-by-mobile">
-                  <SelectValue placeholder="Select grouping" />
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Group by" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="date">Date</SelectItem>
@@ -704,53 +368,86 @@ export default function TimeEntryList() {
           
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">Date Range:</label>
-            <div className="flex items-center gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm h-auto"
-                  >
-                    <Calendar className="w-4 h-4" />
-                    {startDate ? format(new Date(startDate), "MMM d, yyyy") : "Start"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={startDate ? new Date(startDate) : undefined}
-                    onSelect={(date) => setStartDate(date ? format(date, "yyyy-MM-dd") : "")}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <span className="text-gray-500">to</span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm h-auto"
-                  >
-                    <Calendar className="w-4 h-4" />
-                    {endDate ? format(new Date(endDate), "MMM d, yyyy") : "End"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={endDate ? new Date(endDate) : undefined}
-                    onSelect={(date) => setEndDate(date ? format(date, "yyyy-MM-dd") : "")}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm h-auto justify-start"
+                >
+                  <Calendar className="w-4 h-4" />
+                  {startDate && endDate ? (
+                    `${format(new Date(startDate), "MMM d")} - ${format(new Date(endDate), "MMM d, yyyy")}`
+                  ) : startDate ? (
+                    `${format(new Date(startDate), "MMM d, yyyy")} - Select end`
+                  ) : (
+                    "Select date range"
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={undefined}
+                  onSelect={(date) => {
+                    if (!date) return;
+                    
+                    const clickedDate = format(date, "yyyy-MM-dd");
+                    
+                    if (dateSelectionState === "none") {
+                      setStartDate(clickedDate);
+                      setEndDate("");
+                      setDateSelectionState("start");
+                    } else if (dateSelectionState === "start") {
+                      if (clickedDate === startDate) {
+                        setStartDate("");
+                        setEndDate("");
+                        setDateSelectionState("none");
+                      } else {
+                        if (new Date(clickedDate) < new Date(startDate)) {
+                          setStartDate(clickedDate);
+                          setEndDate(startDate);
+                        } else {
+                          setEndDate(clickedDate);
+                        }
+                        setDateSelectionState("complete");
+                      }
+                    } else {
+                      setStartDate(clickedDate);
+                      setEndDate("");
+                      setDateSelectionState("start");
+                    }
+                  }}
+                  numberOfMonths={1}
+                  initialFocus
+                  modifiers={{
+                    selectedStart: (date) => {
+                      if (!startDate) return false;
+                      return format(date, "yyyy-MM-dd") === startDate;
+                    },
+                    selectedEnd: (date) => {
+                      if (!endDate) return false;
+                      return format(date, "yyyy-MM-dd") === endDate;
+                    },
+                    selectedRange: (date) => {
+                      if (!startDate || !endDate) return false;
+                      const dateStr = format(date, "yyyy-MM-dd");
+                      return dateStr > startDate && dateStr < endDate;
+                    }
+                  }}
+                  modifiersClassNames={{
+                    selectedStart: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+                    selectedEnd: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+                    selectedRange: "bg-primary/20 hover:bg-primary/30"
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </div>
       
       {/* Time Entries */}
-      {isLoadingEntries ? (
+      {isDataLoading ? (
         <div className="flex justify-center items-center h-40">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
@@ -787,119 +484,39 @@ export default function TimeEntryList() {
               </div>
             </div>
             
-            {/* Enhanced Time Entry List - Clockify Style with Session Grouping */}
+            {/* Clean Time Entry List - Mobile Responsive */}
             <div className="bg-white">
-              {group.entries.map((entry) => (
-                <EnhancedTimeEntry
-                  key={`entry-${entry.id}`}
-                  entry={entry}
-                  sessionGroup={entry.sessionGroup}
-                  clients={clients}
-                  projects={projects}
-                  timeFormat={timeFormat}
-                  onDelete={(id) => setDeleteId(id)}
-                  onPlay={handlePlay}
-                  isNew={newEntryIds.includes(entry.id)}
-                  isTracking={isTracking}
-                  onStop={stopTimer}
-                  allTimeEntries={enhancedEntries}
-                />
-              ))}
-            </div>
-
-            {/* Mobile Card View - only on very small screens */}
-            <div className="sm:hidden space-y-3">
               {group.entries.map((entry) => {
-                const formatDuration = (duration: string | number) => {
-                  const numDuration = typeof duration === "string" ? parseFloat(duration) : duration;
-                  if (timeFormat === "decimal") {
-                    return `${numDuration.toFixed(2)}h`;
-                  } else {
-                    const hours = Math.floor(numDuration);
-                    const minutes = Math.floor((numDuration - hours) * 60);
-                    const seconds = Math.round(((numDuration - hours) * 60 - minutes) * 60);
-                    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                  }
+                // Transform entry to match CleanTimeEntry interface
+                const groupedEntry = {
+                  id: entry.id,
+                  description: entry.description,
+                  project: entry.project,
+                  client: entry.client,
+                  blocks: [{
+                    id: entry.id.toString(),
+                    startTime: entry.startTime,
+                    endTime: entry.endTime || new Date(),
+                    duration: Number(entry.duration || 0)
+                  }],
+                  totalDuration: Number(entry.duration || 0),
+                  date: entry.date,
+                  isExpanded: false
                 };
 
                 return (
-                  <div 
-                    key={entry.id} 
-                    className={`tickd-card-subtle tickd-spacing-md ${newEntryIds.includes(entry.id) ? 'animate-highlight' : ''}`}
-                  >
-                    {/* First line: Description and Time */}
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1 mr-4">
-                        <p className="font-medium text-gray-900 text-sm">{entry.description}</p>
-                      </div>
-                      <div className="font-mono font-semibold text-gray-900 text-sm">
-                        {formatDuration(entry.duration || 0)}
-                      </div>
-                    </div>
-                    
-                    {/* Second line: Client, Project, and Actions */}
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs text-gray-500">
-                        <span className="font-medium">{entry.client?.name || "—"}</span>
-                        <span className="hidden sm:inline">•</span>
-                        <span style={{ color: (entry.project as any)?.color || "#6B7280" }}>
-                          {entry.project?.name || "—"}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center space-x-1">
-                        {handlePlay && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => {
-                              if (isTracking) {
-                                stopTimer();
-                              } else {
-                                handlePlay(entry.description || "", entry.projectId);
-                              }
-                            }}
-                            className={isTracking ? "text-red-600 hover:text-white hover:bg-red-600 h-8 w-8 p-0" : "text-green-600 hover:text-white hover:bg-green-600 h-8 w-8 p-0"}
-                            title={isTracking ? "Stop timer" : "Continue tracking this task"}
-                          >
-                            <Play className="h-3 w-3" />
-                          </Button>
-                        )}
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => {
-                            // Trigger edit via the TimeEntryRow component
-                            const editEvent = new CustomEvent('editEntry', { detail: { entryId: entry.id } });
-                            window.dispatchEvent(editEvent);
-                          }}
-                          className="text-primary hover:text-white hover:bg-primary h-8 w-8 p-0"
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => {
-                            // Trigger duplicate via the TimeEntryRow component
-                            const duplicateEvent = new CustomEvent('duplicateEntry', { detail: { entryId: entry.id } });
-                            window.dispatchEvent(duplicateEvent);
-                          }}
-                          className="text-gray-500 hover:text-white hover:bg-gray-500 h-8 w-8 p-0"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => setDeleteId(entry.id)}
-                          className="text-destructive hover:text-white hover:bg-destructive h-8 w-8 p-0"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                  <CleanTimeEntry
+                    key={`entry-${entry.id}`}
+                    entry={groupedEntry}
+                    clients={clients}
+                    projects={projects}
+                    timeFormat={timeFormat}
+                    onDelete={(id) => setDeleteId(id)}
+                    onPlay={handlePlay}
+                    isTracking={isTracking}
+                    onStop={stopTimer}
+                    isGrouped={false}
+                  />
                 );
               })}
             </div>
@@ -908,31 +525,20 @@ export default function TimeEntryList() {
       )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
+      <AlertDialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Time Entry</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the selected time entry.
+              Are you sure you want to delete this time entry? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground">
-              Delete
-            </AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
-}
-
-// Helper function to format decimal hours to HH:MM:SS
-function formatTimeFromDecimal(decimalHours: number): string {
-  const hours = Math.floor(decimalHours);
-  const minutes = Math.floor((decimalHours - hours) * 60);
-  const seconds = Math.round(((decimalHours - hours) * 60 - minutes) * 60);
-  
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
