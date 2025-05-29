@@ -21,7 +21,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTimeTracker } from "@/hooks/useTimeTracker";
 import { useToast } from "@/hooks/use-toast";
 import TimeEntryRow from "./TimeEntry";
-import AnimatedTimeEntry from "./AnimatedTimeEntry";
+import EnhancedTimeEntry from "./EnhancedTimeEntry";
 
 export default function TimeEntryList() {
   const { toast } = useToast();
@@ -528,7 +528,7 @@ export default function TimeEntryList() {
             {/* Enhanced Time Entry List - Clockify Style with Session Grouping */}
             <div className="bg-white">
               {group.entries.map((entry) => (
-                <AnimatedTimeEntry
+                <EnhancedTimeEntry
                   key={`entry-${entry.id}`}
                   entry={entry}
                   sessionGroup={entry.sessionGroup}
