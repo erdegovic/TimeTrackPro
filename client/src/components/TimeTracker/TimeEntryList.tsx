@@ -41,6 +41,7 @@ export default function TimeEntryList() {
   const [groupBy, setGroupBy] = useState<"date" | "project" | "client">("date");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [dateSelectionState, setDateSelectionState] = useState<"none" | "start" | "complete">("none");
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [newEntryIds, setNewEntryIds] = useState<number[]>([]);
 
@@ -524,22 +525,24 @@ export default function TimeEntryList() {
               <PopoverContent className="w-auto p-0" align="start">
                 <CalendarComponent
                   mode="single"
-                  selected={startDate ? new Date(startDate) : undefined}
+                  selected={undefined} // Don't use built-in selection
                   onSelect={(date) => {
                     if (!date) return;
                     
                     const clickedDate = format(date, "yyyy-MM-dd");
                     
-                    if (!startDate) {
+                    if (dateSelectionState === "none") {
                       // First click - set start date
                       setStartDate(clickedDate);
                       setEndDate("");
-                    } else if (!endDate) {
-                      // Second click - set end date or reset if same date
+                      setDateSelectionState("start");
+                    } else if (dateSelectionState === "start") {
+                      // Second click - set end date
                       if (clickedDate === startDate) {
                         // Clicking same date - reset
                         setStartDate("");
                         setEndDate("");
+                        setDateSelectionState("none");
                       } else {
                         // Different date - set as end date (ensure proper order)
                         if (new Date(clickedDate) < new Date(startDate)) {
@@ -548,27 +551,36 @@ export default function TimeEntryList() {
                         } else {
                           setEndDate(clickedDate);
                         }
+                        setDateSelectionState("complete");
                       }
                     } else {
                       // Third click - reset and start new selection
                       setStartDate(clickedDate);
                       setEndDate("");
+                      setDateSelectionState("start");
                     }
                   }}
                   numberOfMonths={2}
                   initialFocus
                   modifiers={{
-                    selected: (date) => {
-                      if (!startDate && !endDate) return false;
+                    selectedStart: (date) => {
+                      if (!startDate) return false;
+                      return format(date, "yyyy-MM-dd") === startDate;
+                    },
+                    selectedEnd: (date) => {
+                      if (!endDate) return false;
+                      return format(date, "yyyy-MM-dd") === endDate;
+                    },
+                    selectedRange: (date) => {
+                      if (!startDate || !endDate) return false;
                       const dateStr = format(date, "yyyy-MM-dd");
-                      if (startDate && endDate) {
-                        return dateStr >= startDate && dateStr <= endDate;
-                      }
-                      return dateStr === startDate;
+                      return dateStr > startDate && dateStr < endDate;
                     }
                   }}
                   modifiersClassNames={{
-                    selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground"
+                    selectedStart: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+                    selectedEnd: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+                    selectedRange: "bg-primary/20 hover:bg-primary/30"
                   }}
                 />
               </PopoverContent>
