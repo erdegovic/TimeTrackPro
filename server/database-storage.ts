@@ -327,6 +327,14 @@ export class DatabaseStorage implements IStorage {
     id: number,
     entryData: Partial<InsertTimeEntry>
   ): Promise<TimeEntry | undefined> {
+    // Convert string timestamps to Date objects if present
+    if (entryData.startTime && typeof entryData.startTime === 'string') {
+      entryData.startTime = new Date(entryData.startTime);
+    }
+    if (entryData.endTime && typeof entryData.endTime === 'string') {
+      entryData.endTime = new Date(entryData.endTime);
+    }
+
     // Handle date change if it's present
     if (entryData.date) {
       const date = entryData.date;
