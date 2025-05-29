@@ -109,17 +109,25 @@ export default function TimeEntryList() {
   }, [newEntryIds]);
 
   // Fetch clients
-  const { data: clients = [] } = useQuery<Client[]>({
+  const { data: clients = [], isLoading: clientsLoading } = useQuery<Client[]>({
     queryKey: ["/api/clients"],
   });
 
   // Fetch projects
-  const { data: projects = [] } = useQuery<Project[]>({
+  const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
 
+  // Don't process entries until all data is loaded
+  const isDataLoading = isLoadingEntries || clientsLoading || projectsLoading;
+
   // Group entries by description, project, and date for session grouping
   const groupedSessions = useMemo(() => {
+    // Don't process if any data is still loading
+    if (isDataLoading || !clients.length || !projects.length) {
+      return new Map<string, any[]>();
+    }
+
     const sessionGroups = new Map<string, any[]>();
     
     timeEntries.forEach(entry => {
@@ -145,25 +153,32 @@ export default function TimeEntryList() {
 
   // Enhanced time entries with client and project data and ALWAYS use the 
   // stored duration value to ensure edited values are used
-  const enhancedEntries = timeEntries.map(entry => {
-    const project = projects.find(p => p.id === entry.projectId);
-    const client = project ? clients.find(c => c.id === project.clientId) : undefined;
-    
-    // ALWAYS use the stored duration field as the source of truth
-    // This ensures that manually edited durations are reflected in totals
-    const duration = Number(entry.duration || 0);
-    
-    // Log the entry details for debugging
-    console.log(`Entry ${entry.id}: using stored duration ${duration} hours`);
-    
-    return { 
-      ...entry, 
-      project, 
-      client, 
-      // Store the duration in a consistent field
-      exactDuration: duration 
-    };
-  });
+  const enhancedEntries = useMemo(() => {
+    // Don't process if any data is still loading
+    if (isDataLoading) {
+      return [];
+    }
+
+    return timeEntries.map(entry => {
+      const project = projects.find(p => p.id === entry.projectId);
+      const client = project ? clients.find(c => c.id === project.clientId) : undefined;
+      
+      // ALWAYS use the stored duration field as the source of truth
+      // This ensures that manually edited durations are reflected in totals
+      const duration = Number(entry.duration || 0);
+      
+      // Log the entry details for debugging
+      console.log(`Entry ${entry.id}: using stored duration ${duration} hours`);
+      
+      return { 
+        ...entry, 
+        project, 
+        client, 
+        // Store the duration in a consistent field
+        exactDuration: duration 
+      };
+    });
+  }, [timeEntries, projects, clients, isDataLoading]);
 
   // First group by date
   const dateGroups = enhancedEntries.reduce((acc, entry) => {
