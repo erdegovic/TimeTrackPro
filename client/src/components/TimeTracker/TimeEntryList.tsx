@@ -136,22 +136,7 @@ export default function TimeEntryList() {
       const rate = Number(entry.project.hourlyRate);
       const earnings = entry.exactDuration * rate;
       
-      // Convert to display currency if needed (project currency feature not implemented yet)
-      let convertedEarnings = earnings;
-        // Simple conversion for demo - in real app, use actual exchange rates
-        const conversionRates: Record<string, number> = {
-          'USD': 1, 'EUR': 0.85, 'GBP': 0.73, 'JPY': 110, 'CAD': 1.25, 
-          'AUD': 1.35, 'CHF': 0.92, 'CNY': 6.45, 'SEK': 8.6, 'NZD': 1.4,
-          'MXN': 20, 'SGD': 1.35, 'HKD': 7.8, 'NOK': 8.5, 'ILS': 3.2,
-          'TRY': 8.5, 'RUB': 75, 'INR': 74, 'BRL': 5.2, 'ZAR': 14.5, 'RSD': 100
-        };
-        
-        const fromRate = conversionRates[entry.project.currency] || 1;
-        const toRate = conversionRates[currency] || 1;
-        convertedEarnings = earnings * (toRate / fromRate);
-      }
-      
-      return total + convertedEarnings;
+      return total + earnings;
     }, 0);
   };
 
