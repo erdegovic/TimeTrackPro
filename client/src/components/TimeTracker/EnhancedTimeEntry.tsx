@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { Edit, Copy, Trash2, Play, Square, ChevronDown, ChevronRight } from "lucide-react";
+import { Edit, Copy, Trash2, Play, Square, ChevronDown, ChevronRight, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTimerContext } from "@/context/TimerContext";
@@ -254,6 +256,44 @@ export default function EnhancedTimeEntry({
     }
   };
 
+  const handleDateChange = async (newDate: Date) => {
+    if (!groupedEntry) return;
+
+    try {
+      const newDateString = format(newDate, 'yyyy-MM-dd');
+      
+      // For grouped entries, update all blocks to the new date
+      if (groupedEntry.blocks.length > 1) {
+        // Update all time entries in the group
+        for (const block of groupedEntry.blocks) {
+          const actualEntryId = block.id.replace('block-', '');
+          await apiRequest("PUT", `/api/time-entries/${actualEntryId}`, {
+            date: newDateString
+          });
+        }
+      } else {
+        // For individual entries, update the single entry
+        await apiRequest("PUT", `/api/time-entries/${entry.id}`, {
+          date: newDateString
+        });
+      }
+
+      // Refresh the time entries list
+      await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      
+      toast({
+        title: "Date updated",
+        description: `Time entry moved to ${format(newDate, 'MMM dd, yyyy')}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update date. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (!groupedEntry) return null;
 
   const isGrouped = groupedEntry.blocks.length > 1;
@@ -305,26 +345,54 @@ export default function EnhancedTimeEntry({
 
         {/* Time range display */}
         <div className="flex items-center space-x-4 text-sm">
-          {canEditDirectly ? (
-            <EditableTimeRange
-              startTime={groupedEntry.blocks[0].startTime}
-              endTime={groupedEntry.blocks[0].endTime}
-              onUpdate={(start, end) => updateTimeBlock(groupedEntry.blocks[0].id, start, end)}
-              isEditing={editingMainEntry}
-              onEditToggle={setEditingMainEntry}
-            />
-          ) : (
-            <div className="text-gray-500">
-              {(() => {
-                const sortedBlocks = [...groupedEntry.blocks].sort((a, b) => 
-                  a.startTime.getTime() - b.startTime.getTime()
-                );
-                const firstStart = sortedBlocks[0]?.startTime;
-                const lastEnd = sortedBlocks[sortedBlocks.length - 1]?.endTime;
-                return `${formatTime(firstStart)} - ${formatTime(lastEnd)}`;
-              })()}
-            </div>
-          )}
+          <div className="flex items-center space-x-2">
+            {canEditDirectly ? (
+              <EditableTimeRange
+                startTime={groupedEntry.blocks[0].startTime}
+                endTime={groupedEntry.blocks[0].endTime}
+                onUpdate={(start, end) => updateTimeBlock(groupedEntry.blocks[0].id, start, end)}
+                isEditing={editingMainEntry}
+                onEditToggle={setEditingMainEntry}
+              />
+            ) : (
+              <div className="text-gray-500">
+                {(() => {
+                  const sortedBlocks = [...groupedEntry.blocks].sort((a, b) => 
+                    a.startTime.getTime() - b.startTime.getTime()
+                  );
+                  const firstStart = sortedBlocks[0]?.startTime;
+                  const lastEnd = sortedBlocks[sortedBlocks.length - 1]?.endTime;
+                  return `${formatTime(firstStart)} - ${formatTime(lastEnd)}`;
+                })()}
+              </div>
+            )}
+            
+            {/* Calendar icon for date selection */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+                >
+                  <Calendar className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={new Date(groupedEntry.date)}
+                  onSelect={(date) => {
+                    if (date) {
+                      handleDateChange(date);
+                    }
+                  }}
+                  disabled={(date) => date > new Date()}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
 
           {/* Total duration */}
           <div className="font-mono font-medium text-gray-900 min-w-[80px] text-right">
