@@ -525,6 +525,7 @@ export default function TimeEntryList() {
                   isNew={newEntryIds.includes(entry.id)}
                   isTracking={isTracking}
                   onStop={stopTimer}
+                  allTimeEntries={enhancedEntries}
                 />
               ))}
             </div>

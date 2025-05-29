@@ -56,7 +56,8 @@ export default function EnhancedTimeEntry({
   onPlay,
   isNew = false,
   isTracking: timerIsActive = false,
-  onStop
+  onStop,
+  allTimeEntries = []
 }: EnhancedTimeEntryProps) {
   const { toast } = useToast();
   const { isTracking: globalIsTracking, description: currentDescription, selectedProjectId, stopTimer, startTimerWithData } = useTimerContext();
@@ -331,12 +332,12 @@ export default function EnhancedTimeEntry({
     try {
       // Check if this would create a merge by looking for existing entries
       const project = projects.find(p => p.id === editProjectId);
-      const willMerge = allTimeEntries ? allTimeEntries.some(existingEntry => 
+      const willMerge = allTimeEntries.some((existingEntry: any) => 
         existingEntry.id !== entry.id &&
         existingEntry.date === entry.date &&
         existingEntry.description === editDescription.trim() &&
         existingEntry.projectId === editProjectId
-      ) : false;
+      );
 
       // Update all blocks in the group with new details
       const updateData = {
@@ -398,9 +399,9 @@ export default function EnhancedTimeEntry({
   const canEditDirectly = !isGrouped;
 
   return (
-    <div className={`border-b border-gray-200 ${isNew ? 'bg-green-50' : ''}`}>
+    <div className={`border-b border-gray-200 transition-all duration-300 ${isNew ? 'bg-green-50' : ''} ${isMerging ? 'bg-blue-100 border-blue-300 shadow-lg' : ''}`}>
       {/* Main entry row */}
-      <div className="flex items-center px-6 py-4 hover:bg-gray-50">
+      <div className={`flex items-center px-6 py-4 hover:bg-gray-50 transition-colors ${isMerging ? 'animate-pulse' : ''}`}>
         {/* Expand/collapse button for grouped entries */}
         <div className="w-8 flex justify-center">
           {isGrouped ? (
