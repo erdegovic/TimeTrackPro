@@ -111,6 +111,16 @@ export const timeEntries = pgTable("time_entries", {
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
 });
 
+// Time entry notes table
+export const timeEntryNotes = pgTable("time_entry_notes", {
+  id: serial("id").primaryKey(),
+  timeEntryId: integer("time_entry_id").notNull().references(() => timeEntries.id, { onDelete: 'cascade' }),
+  content: text("content").notNull(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Settings table
 export const settings = pgTable("settings", {
   id: serial("id").primaryKey(),
@@ -199,6 +209,7 @@ export const insertProjectSchema = createInsertSchema(projects).omit({ id: true 
 export const insertTimeEntrySchema = createInsertSchema(timeEntries)
   .omit({ id: true, invoiceId: true })
   .partial();
+export const insertTimeEntryNoteSchema = createInsertSchema(timeEntryNotes).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Create a more flexible schema specifically for updates
 export const timeEntryUpdateSchema = z.object({
@@ -234,6 +245,9 @@ export type InsertProject = z.infer<typeof insertProjectSchema>;
 
 export type TimeEntry = typeof timeEntries.$inferSelect;
 export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;
+
+export type TimeEntryNote = typeof timeEntryNotes.$inferSelect;
+export type InsertTimeEntryNote = z.infer<typeof insertTimeEntryNoteSchema>;
 
 export type Invoice = typeof invoices.$inferSelect;
 export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;

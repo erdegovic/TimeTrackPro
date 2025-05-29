@@ -67,6 +67,13 @@ export interface IStorage {
   getSettings(): Promise<Settings | undefined>;
   updateSettings(settings: Partial<InsertSettings>): Promise<Settings>;
 
+  // Time Entry Notes
+  getTimeEntryNotes(timeEntryId: number): Promise<TimeEntryNote[]>;
+  getAllTimeEntryNotes(userId: number): Promise<TimeEntryNote[]>;
+  createTimeEntryNote(note: InsertTimeEntryNote): Promise<TimeEntryNote>;
+  updateTimeEntryNote(id: number, note: Partial<InsertTimeEntryNote>): Promise<TimeEntryNote | undefined>;
+  deleteTimeEntryNote(id: number): Promise<boolean>;
+
   // Creativity Features
   getCreativityNotes(userId: number): Promise<any[]>;
   createCreativityNote(note: any): Promise<any>;
