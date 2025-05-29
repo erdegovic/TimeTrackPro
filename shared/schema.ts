@@ -97,7 +97,7 @@ export const projects = pgTable("projects", {
 export const timeEntries = pgTable("time_entries", {
   id: serial("id").primaryKey(),
   description: text("description").notNull(),
-  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  projectId: integer("project_id").references(() => projects.id, { onDelete: 'cascade' }),
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time"),
   duration: numeric("duration", { precision: 10, scale: 6 }), // Duration in hours with second precision

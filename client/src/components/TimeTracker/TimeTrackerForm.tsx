@@ -269,7 +269,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
                 description={description}
                 projectId={selectedProjectId || undefined}
                 clientId={selectedClientId || undefined}
-                isDisabled={!description || !selectedProjectId}
+                isDisabled={!description}
                 onStop={async (data) => {
                   console.log("Timer stopped with data:", data);
                   
@@ -462,7 +462,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
                 description={description}
                 projectId={selectedProjectId || undefined}
                 clientId={selectedClientId || undefined}
-                isDisabled={!description || !selectedProjectId}
+                isDisabled={!description}
                 onStop={async (data) => {
                   console.log("Timer stopped with data:", data);
                   
