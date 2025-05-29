@@ -1,4 +1,19 @@
 /**
+ * Format duration from decimal hours to readable format
+ */
+export function formatDuration(hours: number | string): string {
+  const numHours = typeof hours === 'string' ? parseFloat(hours) : hours;
+  if (isNaN(numHours)) return '0:00:00';
+  
+  const totalSeconds = Math.round(numHours * 3600);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+/**
  * Format time value into a string
  * Handles formatting in either decimal format or HH:MM:SS format
  * Can accept either seconds or decimal hours as input

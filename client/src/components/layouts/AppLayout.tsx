@@ -15,7 +15,8 @@ import {
   X,
   Timer,
   LogOut,
-  User
+  User,
+  MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -255,6 +256,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
               </NavItem>
               <NavItem href="/projects" icon={<Folder className="w-5 h-5" />} isActive={location === '/projects'}>
                 Projects
+              </NavItem>
+              <NavItem href="/notes" icon={<MessageSquare className="w-5 h-5" />} isActive={location === '/notes'}>
+                Notes
               </NavItem>
               <NavItem href="/settings" icon={<Settings className="w-5 h-5" />} isActive={location === '/settings'}>
                 Settings
