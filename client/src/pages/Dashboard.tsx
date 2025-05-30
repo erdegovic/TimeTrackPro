@@ -155,21 +155,35 @@ export default function Dashboard() {
     return total;
   }, 0);
 
-  // Group by projects for pie chart with colors
+  // Group by projects for pie chart with colors, including unassigned entries
   const projectData = monthEntries.reduce((acc, entry) => {
     const project = projects.find(p => p.id === entry.projectId);
-    if (!project) return acc;
-
-    const existingProject = acc.find(item => item.id === project.id);
-    if (existingProject) {
-      existingProject.hours += Number(entry.duration || 0);
+    
+    if (!project) {
+      // Handle unassigned entries
+      const existingUnassigned = acc.find(item => item.id === -1);
+      if (existingUnassigned) {
+        existingUnassigned.hours += Number(entry.duration || 0);
+      } else {
+        acc.push({
+          id: -1,
+          name: 'Unassigned',
+          hours: Number(entry.duration || 0),
+          color: '#9CA3AF', // Gray color for unassigned
+        });
+      }
     } else {
-      acc.push({
-        id: project.id,
-        name: project.name,
-        hours: Number(entry.duration || 0),
-        color: project.color || '#8884d8',
-      });
+      const existingProject = acc.find(item => item.id === project.id);
+      if (existingProject) {
+        existingProject.hours += Number(entry.duration || 0);
+      } else {
+        acc.push({
+          id: project.id,
+          name: project.name,
+          hours: Number(entry.duration || 0),
+          color: project.color || '#8884d8',
+        });
+      }
     }
     return acc;
   }, [] as { id: number; name: string; hours: number; color: string }[]);
@@ -348,46 +362,69 @@ export default function Dashboard() {
             <CardTitle>Time by Project</CardTitle>
             <CardDescription>Distribution of hours across projects</CardDescription>
           </CardHeader>
-          <CardContent className="flex justify-center">
-            <div className="h-[300px] w-[280px]">
-              {projectData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={projectData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      paddingAngle={2}
-                      dataKey="hours"
-                      nameKey="name"
-                      label={({ name, percent }) => {
-                        // Truncate long project names to fit in the chart
-                        const displayName = name.length > 12 ? name.substring(0, 9) + '...' : name;
-                        return `${displayName} ${(percent * 100).toFixed(0)}%`;
-                      }}
-                      labelLine={false}
-                    >
-                      {projectData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => {
-                      const numValue = Number(value);
-                      return [
-                        timeFormat === "decimal" 
-                          ? `${numValue.toFixed(1)} hours` 
-                          : formatTimeFromDecimal(numValue),
-                        'Time'
-                      ];
-                    }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full w-full flex items-center justify-center text-gray-500">
-                  No project data available
+          <CardContent>
+            <div className="flex flex-col items-center">
+              <div className="h-[200px] w-[200px] mb-4">
+                {projectData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={projectData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={40}
+                        outerRadius={70}
+                        fill="#8884d8"
+                        paddingAngle={2}
+                        dataKey="hours"
+                        nameKey="name"
+                        label={({ name, percent }) => {
+                          // Show percentage only for cleaner look
+                          return `${(percent * 100).toFixed(0)}%`;
+                        }}
+                        labelLine={false}
+                      >
+                        {projectData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => {
+                        const numValue = Number(value);
+                        return [
+                          timeFormat === "decimal" 
+                            ? `${numValue.toFixed(1)} hours` 
+                            : formatTimeFromDecimal(numValue),
+                          'Time'
+                        ];
+                      }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-gray-500">
+                    No project data available
+                  </div>
+                )}
+              </div>
+              
+              {/* Legend */}
+              {projectData.length > 0 && (
+                <div className="w-full space-y-2">
+                  {projectData.map((project) => (
+                    <div key={project.id} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center space-x-2">
+                        <div 
+                          className="w-3 h-3 rounded-full flex-shrink-0" 
+                          style={{ backgroundColor: project.color }}
+                        />
+                        <span className="text-gray-700 truncate">{project.name}</span>
+                      </div>
+                      <span className="text-gray-500 font-medium">
+                        {timeFormat === "decimal" 
+                          ? `${project.hours.toFixed(1)}h` 
+                          : formatTimeFromDecimal(project.hours)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
