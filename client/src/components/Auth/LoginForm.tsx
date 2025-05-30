@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useLocation } from 'wouter';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle2 } from 'lucide-react';
@@ -14,6 +15,7 @@ import { CheckCircle2 } from 'lucide-react';
 const loginSchema = z.object({
   email: z.string().email("Valid email is required"),
   password: z.string().min(1, "Password is required"),
+  rememberMe: z.boolean().default(false),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -43,6 +45,7 @@ export default function LoginForm() {
     defaultValues: {
       email: '',
       password: '',
+      rememberMe: false,
     }
   });
 
@@ -143,6 +146,19 @@ export default function LoginForm() {
           {errors.password && (
             <p className="text-sm text-red-500">{errors.password.message}</p>
           )}
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="rememberMe"
+            {...register("rememberMe")}
+          />
+          <Label 
+            htmlFor="rememberMe" 
+            className="text-sm font-normal cursor-pointer"
+          >
+            Remember me
+          </Label>
         </div>
         
         <Button
