@@ -155,7 +155,7 @@ export default function Dashboard() {
     return total;
   }, 0);
 
-  // Group by projects for pie chart
+  // Group by projects for pie chart with colors
   const projectData = monthEntries.reduce((acc, entry) => {
     const project = projects.find(p => p.id === entry.projectId);
     if (!project) return acc;
@@ -168,26 +168,49 @@ export default function Dashboard() {
         id: project.id,
         name: project.name,
         hours: Number(entry.duration || 0),
+        color: project.color || '#8884d8',
       });
     }
     return acc;
-  }, [] as { id: number; name: string; hours: number }[]);
+  }, [] as { id: number; name: string; hours: number; color: string }[]);
 
-  // Daily hours for bar chart
+  // Sort project data by hours (descending) for better visualization
+  projectData.sort((a, b) => b.hours - a.hours);
+
+  // Daily hours for bar chart with project breakdown
   const dailyHoursData = weekEntries.reduce((acc, entry) => {
     const day = format(new Date(entry.date), "EEE");
+    const project = projects.find(p => p.id === entry.projectId);
+    const projectName = project?.name || 'Unknown Project';
+    const projectColor = project?.color || '#8884d8';
+    
     const existingDay = acc.find(item => item.day === day);
     
     if (existingDay) {
+      const existingProject = existingDay.projects.find(p => p.name === projectName);
+      if (existingProject) {
+        existingProject.hours += Number(entry.duration || 0);
+      } else {
+        existingDay.projects.push({
+          name: projectName,
+          hours: Number(entry.duration || 0),
+          color: projectColor,
+        });
+      }
       existingDay.hours += Number(entry.duration || 0);
     } else {
       acc.push({
         day,
         hours: Number(entry.duration || 0),
+        projects: [{
+          name: projectName,
+          hours: Number(entry.duration || 0),
+          color: projectColor,
+        }],
       });
     }
     return acc;
-  }, [] as { day: string; hours: number }[]);
+  }, [] as { day: string; hours: number; projects: { name: string; hours: number; color: string }[] }[]);
 
   // Sort dailyHoursData by day of week
   const daysOfWeekOrder = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -290,8 +313,8 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-12">
+        <Card className="col-span-5">
           <CardHeader>
             <CardTitle>Weekly Activity</CardTitle>
             <CardDescription>Your time tracking activity for this week</CardDescription>
@@ -326,7 +349,7 @@ export default function Dashboard() {
             <CardDescription>Distribution of hours across projects</CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
-            <div className="h-[300px] w-[300px]">
+            <div className="h-[300px] w-[280px]">
               {projectData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -334,21 +357,21 @@ export default function Dashboard() {
                       data={projectData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
+                      innerRadius={50}
+                      outerRadius={80}
                       fill="#8884d8"
                       paddingAngle={2}
                       dataKey="hours"
                       nameKey="name"
                       label={({ name, percent }) => {
                         // Truncate long project names to fit in the chart
-                        const displayName = name.length > 15 ? name.substring(0, 12) + '...' : name;
+                        const displayName = name.length > 12 ? name.substring(0, 9) + '...' : name;
                         return `${displayName} ${(percent * 100).toFixed(0)}%`;
                       }}
                       labelLine={false}
                     >
                       {projectData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
                     <Tooltip formatter={(value) => {
@@ -364,6 +387,56 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full w-full flex items-center justify-center text-gray-500">
+                  No project data available
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-4">
+          <CardHeader>
+            <CardTitle>Project Hours</CardTitle>
+            <CardDescription>Time breakdown by project this month</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {projectData.length > 0 ? (
+                projectData.map((project, index) => {
+                  const percentage = (project.hours / monthlyHours) * 100;
+                  return (
+                    <div key={project.id} className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center space-x-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: project.color }}
+                          />
+                          <span className="font-medium truncate">{project.name}</span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-gray-600">
+                          <span>
+                            {timeFormat === "decimal" 
+                              ? `${project.hours.toFixed(1)}h` 
+                              : formatTimeFromDecimal(project.hours)}
+                          </span>
+                          <span className="text-xs">({percentage.toFixed(1)}%)</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="h-2 rounded-full transition-all duration-300" 
+                          style={{ 
+                            width: `${percentage}%`,
+                            backgroundColor: project.color 
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="h-32 flex items-center justify-center text-gray-500">
                   No project data available
                 </div>
               )}
