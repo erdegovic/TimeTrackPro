@@ -432,15 +432,6 @@ export default function CreativityPanelPlayer() {
   const playlistTracks = currentPlaylist?.tracks || [];
   const currentPlaylistTrack = playlistTracks[currentTrackIndex] || currentTrack;
 
-  const getIntensityColor = (intensity?: string) => {
-    switch (intensity) {
-      case 'low': return 'text-green-500';
-      case 'medium': return 'text-yellow-500';
-      case 'high': return 'text-red-500';
-      default: return 'text-gray-400';
-    }
-  };
-
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -508,14 +499,6 @@ export default function CreativityPanelPlayer() {
               {currentPlaylistTrack.title}
             </motion.h3>
             <p className="text-tickd-primary font-medium text-sm truncate">{currentPlaylistTrack.artist}</p>
-            {currentPlaylistTrack.environment && (
-              <div className="flex items-center justify-center gap-2 mt-2">
-                <span className="text-xs text-gray-500">{currentPlaylistTrack.environment}</span>
-                <span className={`text-xs font-medium ${getIntensityColor(currentPlaylistTrack.intensity)}`}>
-                  {currentPlaylistTrack.intensity}
-                </span>
-              </div>
-            )}
           </div>
 
           {/* Time Display */}
@@ -555,7 +538,7 @@ export default function CreativityPanelPlayer() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={playOrPause}
-              className="w-12 h-12 bg-tickd-primary hover:bg-tickd-primary/90 rounded-full flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all"
+              className="w-12 h-12 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all"
             >
               <AnimatePresence mode="wait">
                 {!isPlaying ? (
@@ -646,25 +629,13 @@ export default function CreativityPanelPlayer() {
                 <p className="text-gray-800 font-medium text-sm truncate">
                   {track.title}
                 </p>
-                <div className="flex items-center gap-2">
-                  <p className="text-gray-500 text-xs truncate">
-                    {track.artist}
-                  </p>
-                  {track.environment && (
-                    <span className="text-xs text-gray-400">• {track.environment}</span>
-                  )}
-                </div>
+                <p className="text-gray-500 text-xs truncate">
+                  {track.artist}
+                </p>
               </div>
-              <div className="text-right">
-                <span className="text-gray-400 text-xs font-medium block">
-                  {currentTrackIndex === index ? currentTime : track.duration}
-                </span>
-                {track.intensity && (
-                  <span className={`text-xs ${getIntensityColor(track.intensity)}`}>
-                    {track.intensity}
-                  </span>
-                )}
-              </div>
+              <span className="text-gray-400 text-xs font-medium">
+                {currentTrackIndex === index ? currentTime : track.duration}
+              </span>
             </motion.div>
           ))}
         </div>

@@ -128,9 +128,9 @@ export default function CreativitySidebar({ isCollapsed = false, onToggle }: Cre
         {!isCollapsed && (
           <div className="p-4 border-t border-white/20">
             <div className="text-center">
-              <div className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-tickd-primary to-tickd-secondary rounded-full text-white text-sm font-medium shadow-lg">
-                <Sparkles className="w-4 h-4" />
-                <span>Boost Your Creativity</span>
+              <div className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full text-white text-sm font-medium shadow-lg">
+                <Sparkles className="w-4 h-4 text-white" />
+                <span className="text-white">Boost Your Creativity</span>
               </div>
             </div>
           </div>
