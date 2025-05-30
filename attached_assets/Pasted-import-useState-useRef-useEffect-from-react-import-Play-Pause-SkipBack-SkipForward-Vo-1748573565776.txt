@@ -388,38 +388,49 @@ export default function CreativityPanelPlayer() {
           Soundscapes for Creativity
         </motion.h3>
         
-        <div className="grid grid-cols-1 gap-4">
-          {playlists.map((playlist, index) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {playlists.map((playlist) => (
             <motion.div
               key={playlist.id}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: index * 0.1 }}
+              transition={{ duration: 0.3 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setSelectedPlaylist(playlist.id)}
-              className="group cursor-pointer rounded-xl overflow-hidden shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl"
+              className={`cursor-pointer rounded-xl overflow-hidden transition-all duration-300 shadow-md hover:shadow-lg bg-gradient-to-br ${playlist.colorScheme} border border-gray-200/50`}
             >
-              <div 
-                className={`relative bg-gradient-to-br ${playlist.colorScheme || 'from-gray-100 to-gray-200'} p-6 h-32`}
-                style={{
-                  backgroundImage: `url(${playlist.coverArt})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-black/40 to-black/60" />
-                <div className="relative z-10 text-white">
-                  <h4 className="font-bold text-lg mb-1">{playlist.name}</h4>
-                  <p className="text-white/90 text-sm mb-2 line-clamp-2">{playlist.description}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-white/80 text-xs">{playlist.tracks.length} tracks</span>
-                    <motion.div
-                      whileHover={{ scale: 1.1 }}
-                      className="bg-white/20 backdrop-blur-sm rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                    >
-                      <Play className="h-4 w-4 text-white" />
-                    </motion.div>
-                  </div>
+              <div className="relative h-40">
+                <img
+                  src={playlist.coverArt || playlist.tracks[0]?.albumArt}
+                  alt={playlist.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200' viewBox='0 0 400 200'%3E%3Crect fill='%23f3f4f6'/%3E%3Ctext y='50%25' x='50%25' dy='0.35em' text-anchor='middle' fill='%236b7280' font-size='24'%3E🎵%3C/text%3E%3C/svg%3E";
+                  }}
+                />
+                <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-all" />
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent">
+                  <h4 className="font-bold text-lg text-white">{playlist.name}</h4>
+                  <p className="text-gray-200 text-sm">{playlist.description}</p>
                 </div>
+                <motion.div 
+                  className="absolute top-4 right-4"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  whileHover={{ scale: 1.1 }}
+                >
+                  <div className="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg">
+                    <Play className="h-4 w-4 text-gray-800" />
+                  </div>
+                </motion.div>
+              </div>
+              <div className="p-3 text-gray-600 text-sm flex justify-between items-center">
+                <span>{playlist.tracks.length} soundscapes</span>
+                <span className="text-xs px-2 py-1 rounded-full bg-white/50">
+                  {playlist.tracks[0].intensity}
+                </span>
               </div>
             </motion.div>
           ))}
@@ -430,34 +441,19 @@ export default function CreativityPanelPlayer() {
 
   const currentPlaylist = playlists.find(p => p.id === selectedPlaylist);
   const playlistTracks = currentPlaylist?.tracks || [];
-  const currentPlaylistTrack = playlistTracks[currentTrackIndex] || currentTrack;
-
-  const getIntensityColor = (intensity?: string) => {
-    switch (intensity) {
-      case 'low': return 'text-green-500';
-      case 'medium': return 'text-yellow-500';
-      case 'high': return 'text-red-500';
-      default: return 'text-gray-400';
-    }
-  };
+  const currentPlaylistTrack = playlistTracks.find(t => t.id === currentTrack.id) || currentTrack;
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="w-full h-full flex flex-col bg-gradient-to-b from-gray-50 to-gray-100 rounded-2xl overflow-hidden shadow-lg border border-gray-200"
-    >
+    <div className="w-full h-full flex flex-col bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
       {/* Current Song Section */}
-      <div className="relative rounded-2xl m-3 p-4 shadow-sm border border-gray-100 overflow-hidden">
+      <div className={`relative p-4 border-b border-gray-100 bg-gradient-to-br ${currentPlaylist?.colorScheme}`}>
         {/* Blurred background */}
         <div 
-          className="absolute inset-0 bg-cover bg-center opacity-20 blur-md scale-110"
+          className="absolute inset-0 bg-cover bg-center opacity-10 blur-sm"
           style={{
             backgroundImage: `url(${currentPlaylistTrack.albumArt})`,
           }}
         />
-        <div className="absolute inset-0 bg-white/80" />
         
         {/* Content */}
         <div className="relative z-10">
@@ -466,25 +462,21 @@ export default function CreativityPanelPlayer() {
             Your browser does not support the audio element.
           </audio>
           
-          {/* Back button and playlist info */}
-          <div className="flex items-center justify-between mb-3">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setSelectedPlaylist(null)}
-              className="text-gray-600 hover:text-tickd-primary transition-colors text-sm"
-            >
-              ← Back
-            </motion.button>
-            <span className="text-xs text-gray-500 font-medium">{currentPlaylist?.name}</span>
-          </div>
+          {/* Back button */}
+          <motion.button
+            onClick={() => setSelectedPlaylist(null)}
+            whileHover={{ x: -2 }}
+            className="mb-4 flex items-center gap-1 text-gray-600 hover:text-gray-800 transition-colors text-sm"
+          >
+            ← Back to collections
+          </motion.button>
           
           {/* Album Art */}
           <motion.div 
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.4 }}
-            className="relative mx-auto w-32 h-24 mb-4 rounded-lg overflow-hidden shadow-md"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+            className="relative mx-auto w-40 h-40 mb-4 rounded-xl overflow-hidden shadow-lg"
           >
             <img 
               src={currentPlaylistTrack.albumArt} 
@@ -492,31 +484,50 @@ export default function CreativityPanelPlayer() {
               className="w-full h-full object-cover"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='96' viewBox='0 0 128 96'%3E%3Crect fill='%23f3f4f6'/%3E%3Ctext y='50%25' x='50%25' dy='0.35em' text-anchor='middle' fill='%236b7280' font-size='24'%3E🎵%3C/text%3E%3C/svg%3E";
+                target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Crect fill='%23f3f4f6'/%3E%3Ctext y='50%25' x='50%25' dy='0.35em' text-anchor='middle' fill='%236b7280' font-size='28'%3E🎵%3C/text%3E%3C/svg%3E";
               }}
             />
+            {isPlaying && (
+              <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                <div className="flex gap-1">
+                  <motion.div 
+                    className="w-1 h-3 bg-white rounded-full"
+                    animate={{ height: [3, 8, 3] }}
+                    transition={{ duration: 0.8, repeat: Infinity, repeatType: "reverse" }}
+                  />
+                  <motion.div 
+                    className="w-1 h-4 bg-white rounded-full"
+                    animate={{ height: [4, 10, 4] }}
+                    transition={{ duration: 0.8, repeat: Infinity, repeatType: "reverse", delay: 0.2 }}
+                  />
+                  <motion.div 
+                    className="w-1 h-2 bg-white rounded-full"
+                    animate={{ height: [2, 6, 2] }}
+                    transition={{ duration: 0.8, repeat: Infinity, repeatType: "reverse", delay: 0.4 }}
+                  />
+                </div>
+              </div>
+            )}
           </motion.div>
 
           {/* Song Info */}
-          <div className="text-center mb-4">
-            <motion.h3 
-              key={currentPlaylistTrack.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-base font-semibold mb-1 text-gray-900 truncate"
-            >
-              {currentPlaylistTrack.title}
-            </motion.h3>
-            <p className="text-tickd-primary font-medium text-sm truncate">{currentPlaylistTrack.artist}</p>
-            {currentPlaylistTrack.environment && (
-              <div className="flex items-center justify-center gap-2 mt-2">
-                <span className="text-xs text-gray-500">{currentPlaylistTrack.environment}</span>
-                <span className={`text-xs font-medium ${getIntensityColor(currentPlaylistTrack.intensity)}`}>
-                  {currentPlaylistTrack.intensity}
-                </span>
-              </div>
-            )}
-          </div>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="text-center mb-4"
+          >
+            <h3 className="text-lg font-bold mb-1 text-gray-900 truncate">{currentPlaylistTrack.title}</h3>
+            <p className="text-gray-600 font-medium text-sm truncate">{currentPlaylistTrack.artist}</p>
+            <div className="flex justify-center gap-2 mt-2">
+              <span className="text-xs bg-white/70 px-2 py-1 rounded-full text-gray-600">
+                {currentPlaylistTrack.environment}
+              </span>
+              <span className="text-xs bg-white/70 px-2 py-1 rounded-full text-gray-600">
+                {currentPlaylistTrack.intensity} intensity
+              </span>
+            </div>
+          </motion.div>
 
           {/* Time Display */}
           <div className="flex justify-between text-xs text-gray-500 mb-2">
@@ -527,148 +538,175 @@ export default function CreativityPanelPlayer() {
           {/* Timeline */}
           <div 
             ref={timelineRef}
-            className="relative mx-auto w-full h-1 bg-tickd-primary/30 rounded-full cursor-pointer mb-4 hover:h-1.5 transition-all"
+            className="relative mx-auto w-full h-2 bg-gray-200/70 rounded-full cursor-pointer mb-4 hover:h-2.5 transition-all"
           >
             <div 
               ref={playheadRef}
-              className="relative z-10 w-0 h-full rounded-full bg-tickd-primary"
+              className="relative z-10 w-0 h-full rounded-full bg-gray-700"
             />
             <div 
               ref={hoverPlayheadRef}
-              className="absolute z-0 top-0 w-0 h-full opacity-0 rounded-full bg-tickd-primary/60 transition-opacity hover:opacity-100"
+              className="absolute z-0 top-0 w-0 h-full opacity-0 rounded-full bg-gray-700/60 transition-opacity hover:opacity-100"
               data-content="0:00"
             />
           </div>
 
           {/* Controls */}
-          <div className="flex items-center justify-center gap-4 mb-3">
+          <div className="flex items-center justify-center gap-6 mb-2">
             <motion.button
+              onClick={prevSong}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={prevSong}
-              className="text-gray-700 hover:text-tickd-primary transition-all"
+              className="text-gray-700 hover:text-gray-900 transition-all"
             >
               <SkipBack className="w-5 h-5" />
             </motion.button>
             
             <motion.button
+              onClick={playOrPause}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={playOrPause}
-              className="w-12 h-12 bg-tickd-primary hover:bg-tickd-primary/90 rounded-full flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all"
+              className="w-12 h-12 bg-gray-800 hover:bg-gray-900 rounded-full flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all"
             >
-              <AnimatePresence mode="wait">
-                {!isPlaying ? (
-                  <motion.div
-                    key="play"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                  >
-                    <Play className="w-5 h-5 ml-0.5" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="pause"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                  >
-                    <Pause className="w-5 h-5" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {!isPlaying ? (
+                <Play className="w-5 h-5 ml-0.5" />
+              ) : (
+                <Pause className="w-5 h-5" />
+              )}
             </motion.button>
             
             <motion.button
+              onClick={nextSong}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={nextSong}
-              className="text-gray-700 hover:text-tickd-primary transition-all"
+              className="text-gray-700 hover:text-gray-900 transition-all"
             >
               <SkipForward className="w-5 h-5" />
             </motion.button>
           </div>
 
           {/* Volume Control */}
-          <div className="flex items-center justify-center gap-3">
-            <motion.button
+          <div className="flex items-center justify-center gap-2 mt-2">
+            <motion.button 
+              onClick={toggleMute}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={toggleMute}
-              className="text-gray-600 hover:text-tickd-primary transition-colors"
+              className="text-gray-700 hover:text-gray-900 transition-all"
+              onMouseEnter={() => setShowVolumeControl(true)}
+              onMouseLeave={() => setShowVolumeControl(false)}
             >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              {isMuted ? (
+                <VolumeX className="w-5 h-5" />
+              ) : (
+                <Volume2 className="w-5 h-5" />
+              )}
             </motion.button>
             
-            <div 
-              onClick={handleVolumeChange}
-              className="w-16 h-1 bg-gray-300 rounded-full cursor-pointer hover:bg-gray-400 transition-colors"
-            >
-              <div 
-                className="h-full bg-tickd-primary rounded-full transition-all"
-                style={{ width: `${isMuted ? 0 : volume * 100}%` }}
-              />
-            </div>
+            <AnimatePresence>
+              {showVolumeControl && (
+                <motion.div 
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: 96 }}
+                  exit={{ opacity: 0, width: 0 }}
+                  onClick={handleVolumeChange}
+                  className="relative h-2 bg-gray-200/70 rounded-full cursor-pointer overflow-hidden"
+                  onMouseEnter={() => setShowVolumeControl(true)}
+                  onMouseLeave={() => setShowVolumeControl(false)}
+                >
+                  <div 
+                    className="absolute h-full bg-gray-700 rounded-full"
+                    style={{ width: `${isMuted ? 0 : volume * 100}%` }}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
 
-      {/* Playlist */}
-      <div className="flex-1 p-3 overflow-y-auto">
-        <h4 className="font-medium text-gray-700 text-sm mb-2">{currentPlaylist?.name}</h4>
-        <div ref={playlistContainerRef} className="space-y-1">
-          {playlistTracks.map((track, index) => (
-            <motion.div
-              key={track.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.05 }}
-              onClick={() => clickAudio(index)}
-              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-white/60 ${
-                currentTrackIndex === index && !isPlaying 
-                  ? 'bg-white/40 border-l-2 border-tickd-primary' 
-                  : currentTrackIndex === index && isPlaying 
-                  ? 'bg-white/80 border-l-2 border-tickd-primary shadow-sm' 
-                  : ''
-              }`}
-            >
-              <img
-                src={track.albumArt}
-                alt={track.title}
-                className="w-10 h-10 rounded-lg object-cover"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect fill='%23f3f4f6'/%3E%3Ctext y='50%25' x='50%25' dy='0.35em' text-anchor='middle' fill='%236b7280' font-size='16'%3E🎵%3C/text%3E%3C/svg%3E";
-                }}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-gray-800 font-medium text-sm truncate">
-                  {track.title}
-                </p>
-                <div className="flex items-center gap-2">
-                  <p className="text-gray-500 text-xs truncate">
-                    {track.artist}
-                  </p>
-                  {track.environment && (
-                    <span className="text-xs text-gray-400">• {track.environment}</span>
+      {/* Playlist - Takes remaining height */}
+      <div className="flex-1 overflow-y-auto" ref={playlistContainerRef}>
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="font-semibold text-gray-800">{currentPlaylist?.name}</h4>
+            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+              {playlistTracks.length} soundscapes
+            </span>
+          </div>
+          
+          <div className="space-y-2">
+            {playlistTracks.map((track, index) => (
+              <motion.div
+                key={track.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, delay: index * 0.05 }}
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => clickAudio(index)}
+                className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                  currentTrackIndex === index
+                    ? 'bg-white shadow-sm border-l-4 border-gray-700'
+                    : 'hover:bg-gray-50/70'
+                }`}
+              >
+                <div className="relative flex-shrink-0">
+                  <img
+                    src={track.albumArt}
+                    alt={track.title}
+                    className="w-12 h-12 rounded-lg object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Crect fill='%23f3f4f6'/%3E%3Ctext y='50%25' x='50%25' dy='0.35em' text-anchor='middle' fill='%236b7280' font-size='20'%3E🎵%3C/text%3E%3C/svg%3E";
+                    }}
+                  />
+                  {currentTrackIndex === index && isPlaying && (
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                      <div className="flex gap-0.5">
+                        <motion.div 
+                          className="w-1 h-2 bg-white rounded-full"
+                          animate={{ height: [2, 6, 2] }}
+                          transition={{ duration: 0.8, repeat: Infinity, repeatType: "reverse" }}
+                        />
+                        <motion.div 
+                          className="w-1 h-3 bg-white rounded-full"
+                          animate={{ height: [3, 8, 3] }}
+                          transition={{ duration: 0.8, repeat: Infinity, repeatType: "reverse", delay: 0.2 }}
+                        />
+                        <motion.div 
+                          className="w-1 h-1.5 bg-white rounded-full"
+                          animate={{ height: [1.5, 5, 1.5] }}
+                          transition={{ duration: 0.8, repeat: Infinity, repeatType: "reverse", delay: 0.4 }}
+                        />
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
-              <div className="text-right">
-                <span className="text-gray-400 text-xs font-medium block">
-                  {currentTrackIndex === index ? currentTime : track.duration}
-                </span>
-                {track.intensity && (
-                  <span className={`text-xs ${getIntensityColor(track.intensity)}`}>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium truncate ${
+                    currentTrackIndex === index ? 'text-gray-900' : 'text-gray-700'
+                  }`}>
+                    {track.title}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {track.artist}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className={`text-xs font-medium ${
+                    currentTrackIndex === index ? 'text-gray-700' : 'text-gray-400'
+                  }`}>
+                    {currentTrackIndex === index ? currentTime : track.duration}
+                  </span>
+                  <span className="text-[10px] text-gray-400 mt-0.5">
                     {track.intensity}
                   </span>
-                )}
-              </div>
-            </motion.div>
-          ))}
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
