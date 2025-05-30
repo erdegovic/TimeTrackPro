@@ -191,6 +191,46 @@ export default function Dashboard() {
   // Sort project data by hours (descending) for better visualization
   projectData.sort((a, b) => b.hours - a.hours);
 
+  // Group by clients for client breakdown chart
+  const clientData = monthEntries.reduce((acc, entry) => {
+    const project = projects.find(p => p.id === entry.projectId);
+    
+    if (!project) {
+      // Handle unassigned entries
+      const existingUnassigned = acc.find(item => item.id === -1);
+      if (existingUnassigned) {
+        existingUnassigned.hours += Number(entry.duration || 0);
+      } else {
+        acc.push({
+          id: -1,
+          name: 'Unassigned',
+          hours: Number(entry.duration || 0),
+          color: '#9CA3AF', // Gray color for unassigned
+        });
+      }
+    } else {
+      const client = clients.find(c => c.id === project.clientId);
+      const clientName = client?.name || 'Unknown Client';
+      const clientColor = project.color || '#8884d8'; // Use project color for client
+      
+      const existingClient = acc.find(item => item.name === clientName);
+      if (existingClient) {
+        existingClient.hours += Number(entry.duration || 0);
+      } else {
+        acc.push({
+          id: client?.id || -2,
+          name: clientName,
+          hours: Number(entry.duration || 0),
+          color: clientColor,
+        });
+      }
+    }
+    return acc;
+  }, [] as { id: number; name: string; hours: number; color: string }[]);
+
+  // Sort client data by hours (descending) for better visualization
+  clientData.sort((a, b) => b.hours - a.hours);
+
   // Daily hours for bar chart with project breakdown
   const dailyHoursData = weekEntries.reduce((acc, entry) => {
     const day = format(new Date(entry.date), "EEE");
@@ -328,7 +368,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-12">
-        <Card className="col-span-5">
+        <Card className="col-span-6">
           <CardHeader>
             <CardTitle>Weekly Activity</CardTitle>
             <CardDescription>Your time tracking activity for this week</CardDescription>
@@ -364,7 +404,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <div className="h-[200px] w-[200px] mb-4">
+              <div className="h-[180px] w-[180px] mb-3">
                 {projectData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -372,17 +412,13 @@ export default function Dashboard() {
                         data={projectData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={40}
-                        outerRadius={70}
+                        innerRadius={35}
+                        outerRadius={65}
                         fill="#8884d8"
                         paddingAngle={2}
                         dataKey="hours"
                         nameKey="name"
-                        label={({ name, percent }) => {
-                          // Show percentage only for cleaner look
-                          return `${(percent * 100).toFixed(0)}%`;
-                        }}
-                        labelLine={false}
+                        label={false}
                       >
                         {projectData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -408,12 +444,12 @@ export default function Dashboard() {
               
               {/* Legend */}
               {projectData.length > 0 && (
-                <div className="w-full space-y-2">
-                  {projectData.map((project) => (
+                <div className="w-full space-y-1 max-h-24 overflow-y-auto">
+                  {projectData.slice(0, 4).map((project) => (
                     <div key={project.id} className="flex items-center justify-between text-xs">
                       <div className="flex items-center space-x-2">
                         <div 
-                          className="w-3 h-3 rounded-full flex-shrink-0" 
+                          className="w-2 h-2 rounded-full flex-shrink-0" 
                           style={{ backgroundColor: project.color }}
                         />
                         <span className="text-gray-700 truncate">{project.name}</span>
@@ -431,7 +467,80 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="col-span-4">
+        <Card className="col-span-3">
+          <CardHeader>
+            <CardTitle>Time by Client</CardTitle>
+            <CardDescription>Distribution of hours across clients</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center">
+              <div className="h-[180px] w-[180px] mb-3">
+                {clientData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={clientData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={35}
+                        outerRadius={65}
+                        fill="#8884d8"
+                        paddingAngle={2}
+                        dataKey="hours"
+                        nameKey="name"
+                        label={false}
+                      >
+                        {clientData.map((entry, index) => (
+                          <Cell key={`client-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => {
+                        const numValue = Number(value);
+                        return [
+                          timeFormat === "decimal" 
+                            ? `${numValue.toFixed(1)} hours` 
+                            : formatTimeFromDecimal(numValue),
+                          'Time'
+                        ];
+                      }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-gray-500">
+                    No client data available
+                  </div>
+                )}
+              </div>
+              
+              {/* Legend */}
+              {clientData.length > 0 && (
+                <div className="w-full space-y-1 max-h-24 overflow-y-auto">
+                  {clientData.slice(0, 4).map((client) => (
+                    <div key={client.id} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center space-x-2">
+                        <div 
+                          className="w-2 h-2 rounded-full flex-shrink-0" 
+                          style={{ backgroundColor: client.color }}
+                        />
+                        <span className="text-gray-700 truncate">{client.name}</span>
+                      </div>
+                      <span className="text-gray-500 font-medium">
+                        {timeFormat === "decimal" 
+                          ? `${client.hours.toFixed(1)}h` 
+                          : formatTimeFromDecimal(client.hours)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Project Hours Breakdown */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
           <CardHeader>
             <CardTitle>Project Hours</CardTitle>
             <CardDescription>Time breakdown by project this month</CardDescription>
@@ -475,6 +584,56 @@ export default function Dashboard() {
               ) : (
                 <div className="h-32 flex items-center justify-center text-gray-500">
                   No project data available
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Client Hours</CardTitle>
+            <CardDescription>Time breakdown by client this month</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {clientData.length > 0 ? (
+                clientData.map((client, index) => {
+                  const percentage = (client.hours / monthlyHours) * 100;
+                  return (
+                    <div key={client.id} className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center space-x-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: client.color }}
+                          />
+                          <span className="font-medium truncate">{client.name}</span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-gray-600">
+                          <span>
+                            {timeFormat === "decimal" 
+                              ? `${client.hours.toFixed(1)}h` 
+                              : formatTimeFromDecimal(client.hours)}
+                          </span>
+                          <span className="text-xs">({percentage.toFixed(1)}%)</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="h-2 rounded-full transition-all duration-300" 
+                          style={{ 
+                            width: `${percentage}%`,
+                            backgroundColor: client.color 
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="h-32 flex items-center justify-center text-gray-500">
+                  No client data available
                 </div>
               )}
             </div>
