@@ -154,9 +154,12 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {reportData.weeklyData.map((weekData) => (
-                <>
-                  <tr key={`week-${weekData.weekNumber}`} className="bg-gray-50 font-semibold">
+              {reportData.weeklyData.flatMap((weekData) => {
+                const weekRows = [];
+                
+                // Week header row
+                weekRows.push(
+                  <tr key={`week-header-${weekData.weekNumber}-${weekData.weekLabel}`} className="bg-gray-50 font-semibold">
                     <td colSpan={7} className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
                       {weekData.weekLabel}
                     </td>
@@ -165,9 +168,20 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                         filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
                     </td>
                   </tr>
+                );
+                
+                // Entry rows for this week
+                weekData.entries.forEach((entry, index) => {
+                  const duration = typeof entry.adjustedDuration === 'number' 
+                    ? entry.adjustedDuration 
+                    : typeof entry.duration === 'number' 
+                      ? entry.duration 
+                      : parseFloat(String(entry.duration) || '0');
                   
-                  {weekData.entries.map((entry, index) => (
-                    <tr key={`entry-${entry.id}-${index}`}>
+                  console.log(`[ReportTable] Entry ${entry.id}: duration=${entry.duration}, adjustedDuration=${entry.adjustedDuration}, calculated=${duration}`);
+                  
+                  weekRows.push(
+                    <tr key={`entry-${entry.id}-${weekData.weekNumber}-${index}`}>
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
                         Week {weekData.weekNumber}
                       </td>
@@ -186,27 +200,22 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                         </span>
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
-                        {formatTime(
-                          typeof entry.adjustedDuration === 'number' 
-                            ? entry.adjustedDuration 
-                            : typeof entry.duration === 'number' 
-                              ? entry.duration 
-                              : parseFloat(entry.duration || '0'), 
-                          filters.timeFormat
-                        )}
+                        {formatTime(duration, filters.timeFormat)}
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {formatCurrency(parseFloat(entry.hourlyRate), 
+                        {formatCurrency(parseFloat(String(entry.hourlyRate) || '0'), 
                           filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {formatCurrency(parseFloat(entry.amount), 
+                        {formatCurrency(parseFloat(String(entry.amount) || '0'), 
                           filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
                       </td>
                     </tr>
-                  ))}
-                </>
-              ))}
+                  );
+                });
+                
+                return weekRows;
+              })}
               
               <tr className="bg-gray-100 font-semibold">
                 <td colSpan={5} className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
