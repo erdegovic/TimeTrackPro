@@ -336,17 +336,15 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Billable Amount</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CurrencySelector
+              selectedCurrency={currentCurrency}
+              onCurrencyChange={handleCurrencyChange}
+              className="text-xs"
+              compact={true}
+            />
           </CardHeader>
           <CardContent>
-            <div className="mb-2">
-              <CurrencySelector
-                selectedCurrency={currentCurrency}
-                onCurrencyChange={handleCurrencyChange}
-                className="mb-1"
-              />
-              <div className="text-2xl font-bold">{monthlyBillableAmount.toFixed(2)}</div>
-            </div>
+            <div className="text-2xl font-bold">{monthlyBillableAmount.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
               For {format(new Date(monthStart), "MMMM yyyy")}
             </p>

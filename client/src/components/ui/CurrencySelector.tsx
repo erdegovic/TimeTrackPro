@@ -35,9 +35,10 @@ interface CurrencySelectorProps {
   selectedCurrency: string;
   onCurrencyChange: (currency: string) => void;
   className?: string;
+  compact?: boolean;
 }
 
-export function CurrencySelector({ selectedCurrency, onCurrencyChange, className = '' }: CurrencySelectorProps) {
+export function CurrencySelector({ selectedCurrency, onCurrencyChange, className = '', compact = false }: CurrencySelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -78,12 +79,24 @@ export function CurrencySelector({ selectedCurrency, onCurrencyChange, className
     <div className={`relative ${className}`} ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-1 px-2 py-1 text-sm font-medium text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors cursor-pointer"
+        className={`inline-flex items-center gap-1 px-2 py-1 font-medium text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors cursor-pointer ${
+          compact ? 'text-xs' : 'text-sm'
+        }`}
         type="button"
       >
-        <span>{selectedCurrencyInfo?.symbol || selectedCurrency}</span>
-        <span>{selectedCurrency}</span>
-        <ChevronDown className="w-3 h-3" />
+        {compact ? (
+          <>
+            <span>{selectedCurrencyInfo?.symbol || selectedCurrency}</span>
+            <span>{selectedCurrency}</span>
+            <ChevronDown className="w-3 h-3" />
+          </>
+        ) : (
+          <>
+            <span>{selectedCurrencyInfo?.symbol || selectedCurrency}</span>
+            <span>{selectedCurrency}</span>
+            <ChevronDown className="w-3 h-3" />
+          </>
+        )}
       </button>
 
       {isOpen && (
