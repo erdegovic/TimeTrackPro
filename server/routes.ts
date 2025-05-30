@@ -726,6 +726,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       }));
       
+      // Group entries by weeks
+      const weeklyData = enrichedEntries.reduce((acc: any, entry) => {
+        const entryDate = new Date(entry.date);
+        const startOfYear = new Date(entryDate.getFullYear(), 0, 1);
+        const daysSinceStart = Math.floor((entryDate.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+        const weekNumber = Math.ceil((daysSinceStart + startOfYear.getDay() + 1) / 7);
+        
+        const weekKey = `${entryDate.getFullYear()}-W${weekNumber}`;
+        const weekLabel = `Week ${weekNumber}, ${entryDate.getFullYear()}`;
+        
+        if (!acc[weekKey]) {
+          acc[weekKey] = {
+            weekNumber: weekNumber,
+            weekLabel: weekLabel,
+            entries: [],
+            totalHours: 0,
+            totalAmount: 0
+          };
+        }
+        
+        acc[weekKey].entries.push(entry);
+        acc[weekKey].totalHours += parseFloat(entry.duration || "0");
+        acc[weekKey].totalAmount += parseFloat(entry.amount || "0");
+        
+        return acc;
+      }, {});
+      
+      // Sort weekly data by week number
+      const sortedWeeklyData = Object.values(weeklyData).sort((a: any, b: any) => b.weekNumber - a.weekNumber);
+      
       // Calculate totals
       const totalHours = enrichedEntries.reduce((sum, entry) => sum + parseFloat(entry.duration || "0"), 0);
       const totalAmount = enrichedEntries.reduce((sum, entry) => sum + parseFloat(entry.amount || "0"), 0);
@@ -733,7 +763,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Structure the response to match the expected format
       const reportData = {
         timeEntries: enrichedEntries,
-        weeklyData: [], // This will be calculated on the frontend
+        weeklyData: sortedWeeklyData,
         totalHours: totalHours,
         totalAmount: totalAmount,
         timeFormat: filters.timeFormat || "decimal",
