@@ -167,7 +167,7 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
         styles: { fillColor: [240, 240, 240], fontStyle: 'bold' }
       },
       {
-        content: formatTime(weekData.totalDuration, filters.timeFormat),
+        content: formatTime(weekData.totalHours || 0, filters.timeFormat),
         styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
       }
     ]);
@@ -182,7 +182,12 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
         entry.description,
         entry.client?.name || '—',
         entry.project?.name || '—',
-        formatTime(entry.adjustedDuration || entry.duration, filters.timeFormat),
+        formatTime(
+          entry.adjustedDuration || 
+          parseFloat(entry.duration) || 
+          0, 
+          filters.timeFormat
+        ),
         formatCurrency(parseFloat(entry.amount), clientCurrency)
       ]);
     });
