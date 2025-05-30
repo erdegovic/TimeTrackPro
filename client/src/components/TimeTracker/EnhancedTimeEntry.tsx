@@ -71,6 +71,8 @@ export default function EnhancedTimeEntry({
   const [editDescription, setEditDescription] = useState("");
   const [editClientId, setEditClientId] = useState<number | undefined>();
   const [editProjectId, setEditProjectId] = useState<number | undefined>();
+  const [editingDuration, setEditingDuration] = useState(false);
+  const [durationInput, setDurationInput] = useState("");
   const [isMerging, setIsMerging] = useState(false);
 
   // Listen for timer state changes to force UI updates
@@ -163,21 +165,33 @@ export default function EnhancedTimeEntry({
   };
 
   const formatDuration = (hours: number) => {
-    if (timeFormat === "decimal") {
-      return `${hours.toFixed(2)}h`;
-    } else {
-      const totalSeconds = Math.round(hours * 3600);
-      const h = Math.floor(totalSeconds / 3600);
-      const m = Math.floor((totalSeconds % 3600) / 60);
-      const s = totalSeconds % 60;
-      
-      if (h > 0) {
-        return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-      } else if (m > 0) {
-        return `${m}:${s.toString().padStart(2, '0')}`;
-      }
-      return `${s}s`;
+    // Always use HH:MM:SS format for display
+    const totalSeconds = Math.round(hours * 3600);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const parseDurationInput = (input: string): number => {
+    // Parse HH:MM:SS format
+    const parts = input.split(':').map(p => parseInt(p.trim()) || 0);
+    
+    if (parts.length === 3) {
+      // HH:MM:SS
+      const [hours, minutes, seconds] = parts;
+      return hours + (minutes / 60) + (seconds / 3600);
+    } else if (parts.length === 2) {
+      // MM:SS (assume no hours)
+      const [minutes, seconds] = parts;
+      return (minutes / 60) + (seconds / 3600);
+    } else if (parts.length === 1) {
+      // Just seconds
+      return parts[0] / 3600;
     }
+    
+    return 0;
   };
 
   const parseTimeInput = (timeStr: string, baseDate: Date): Date => {
@@ -288,6 +302,63 @@ export default function EnhancedTimeEntry({
         variant: "destructive",
       });
     }
+  };
+
+  const updateDuration = async (newDuration: number) => {
+    if (!groupedEntry || newDuration <= 0) return;
+
+    try {
+      // For single entries, adjust the end time based on new duration
+      if (groupedEntry.blocks.length === 1) {
+        const block = groupedEntry.blocks[0];
+        const newEndTime = new Date(block.startTime.getTime() + (newDuration * 60 * 60 * 1000));
+        
+        await updateTimeBlock(block.id, block.startTime, newEndTime);
+      } else {
+        // For grouped entries, proportionally adjust all blocks
+        const currentTotal = groupedEntry.totalDuration;
+        const ratio = newDuration / currentTotal;
+        
+        for (const block of groupedEntry.blocks) {
+          const newBlockDuration = block.duration * ratio;
+          const newEndTime = new Date(block.startTime.getTime() + (newBlockDuration * 60 * 60 * 1000));
+          await updateTimeBlock(block.id, block.startTime, newEndTime);
+        }
+      }
+      
+      setEditingDuration(false);
+      setDurationInput("");
+      
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update duration. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDurationEdit = () => {
+    setDurationInput(formatDuration(groupedEntry?.totalDuration || 0));
+    setEditingDuration(true);
+  };
+
+  const handleDurationSave = () => {
+    const newDuration = parseDurationInput(durationInput);
+    if (newDuration > 0) {
+      updateDuration(newDuration);
+    } else {
+      toast({
+        title: "Invalid duration",
+        description: "Please enter a valid time in HH:MM:SS format.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDurationCancel = () => {
+    setEditingDuration(false);
+    setDurationInput("");
   };
 
   const handleDateChange = async (newDate: Date) => {
@@ -576,9 +647,50 @@ export default function EnhancedTimeEntry({
             </Popover>
           </div>
 
-          {/* Total duration */}
+          {/* Total duration - editable */}
           <div className="font-mono font-medium text-gray-900 min-w-[80px] text-right">
-            {formatDuration(groupedEntry.totalDuration)}
+            {editingDuration ? (
+              <div className="flex items-center space-x-1">
+                <Input
+                  value={durationInput}
+                  onChange={(e) => setDurationInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleDurationSave();
+                    } else if (e.key === 'Escape') {
+                      handleDurationCancel();
+                    }
+                  }}
+                  className="w-20 h-6 text-xs font-mono text-center"
+                  placeholder="0:00:00"
+                  autoFocus
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDurationSave}
+                  className="h-6 w-6 p-0 text-green-600 hover:text-white hover:bg-green-600"
+                >
+                  <Check className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDurationCancel}
+                  className="h-6 w-6 p-0 text-gray-500 hover:text-white hover:bg-gray-500"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <button
+                onClick={handleDurationEdit}
+                className="hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+                title="Click to edit duration"
+              >
+                {formatDuration(groupedEntry.totalDuration)}
+              </button>
+            )}
           </div>
 
           {/* Action buttons */}
