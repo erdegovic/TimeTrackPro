@@ -250,8 +250,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(timeEntries.date));
   }
 
-  async getTimeEntriesByFilters(filters: ReportFilters): Promise<TimeEntry[]> {
+  async getTimeEntriesByFilters(filters: ReportFilters & { userId?: number }): Promise<TimeEntry[]> {
     let whereConditions = [];
+
+    // Filter by user ID (most important)
+    if (filters.userId) {
+      whereConditions.push(eq(timeEntries.userId, filters.userId));
+    }
 
     // Filter by client (through projects)
     if (filters.clientId) {
@@ -278,8 +283,10 @@ export class DatabaseStorage implements IStorage {
       );
     }
 
-    // Only get non-invoiced entries
-    whereConditions.push(sql`${timeEntries.invoiceId} IS NULL`);
+    // Only filter by invoice status if specifically requested
+    if (filters.excludeInvoiced) {
+      whereConditions.push(sql`${timeEntries.invoiceId} IS NULL`);
+    }
 
     const query = db
       .select()

@@ -643,35 +643,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { clientId, projectId, startDate, endDate, timeFormat, roundingType, timeAdjustment } = req.body;
       
-      // Create filters object
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+      
+      console.log(`[Reports] Generating report for user ${userId} with filters:`, {
+        clientId, projectId, startDate, endDate, timeFormat, roundingType, timeAdjustment
+      });
+      
+      // Create filters object including userId
       const filters = {
+        userId,
         clientId: clientId ? parseInt(clientId) : undefined,
         projectId: projectId ? parseInt(projectId) : undefined,
         startDate,
         endDate,
         timeFormat: timeFormat as "decimal" | "time",
         roundingType: roundingType as "none" | "nearest_tenth" | "nearest_quarter" | "nearest_half",
-        timeAdjustment
+        timeAdjustment,
+        excludeInvoiced: false // Include all entries, not just non-invoiced ones
       };
       
       const entries = await storage.getTimeEntriesByFilters(filters);
       
-      // Filter entries by user ID directly from database query
-      const userId = req.session?.userId;
-      if (!userId) {
-        return res.status(401).json({ message: 'User not authenticated' });
-      }
-      const userEntries = entries.filter(entry => entry.userId === userId);
+      console.log(`[Reports] Found ${entries.length} entries for user ${userId}`);
       
       // Structure the response to match the expected format
       const reportData = {
-        timeEntries: userEntries,
+        timeEntries: entries,
         weeklyData: [], // This will be calculated on the frontend
         totalHours: 0,
         totalAmount: 0,
         timeFormat: filters.timeFormat || "decimal",
         roundingType: filters.roundingType || "none"
       };
+      
+      console.log(`[Reports] Returning report data with ${reportData.timeEntries.length} entries`);
       
       res.json(reportData);
     } catch (error) {

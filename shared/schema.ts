@@ -273,6 +273,7 @@ export type ReportFilters = {
   timeFormat: TimeFormat;
   roundingType: RoundingType;
   timeAdjustment?: TimeAdjustment;
+  excludeInvoiced?: boolean;
 };
 
 export type InvoiceTemplate = {
