@@ -669,17 +669,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[Reports] Found ${entries.length} entries for user ${userId}`);
       
+      // Get all projects and clients for enrichment
+      const projects = await storage.getProjectsByUser(userId);
+      const clients = await storage.getClientsByUser(userId);
+      const settings = await storage.getSettings();
+      
+      // Enrich entries with client and project data, including rate calculations
+      const enrichedEntries = await Promise.all(entries.map(async (entry) => {
+        const project = projects.find(p => p.id === entry.projectId);
+        const client = clients.find(c => c.id === project?.clientId);
+        
+        // Calculate duration in hours
+        let durationHours = 0;
+        if (entry.startTime && entry.endTime) {
+          const start = new Date(entry.startTime);
+          const end = new Date(entry.endTime);
+          durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        } else if (entry.duration) {
+          durationHours = parseFloat(entry.duration);
+        }
+        
+        // Get hourly rate and calculate amount
+        const hourlyRateValue = parseFloat(project?.hourlyRate || "0");
+        const amount = durationHours * hourlyRateValue;
+        
+        // Convert currency if needed
+        let convertedAmount = amount;
+        const projectCurrency = project?.currency || client?.currency || 'USD';
+        const displayCurrency = settings?.currency || 'USD';
+        
+        if (projectCurrency !== displayCurrency && amount > 0) {
+          try {
+            const conversionRates: { [key: string]: number } = {
+              'USD': 1.0, 'EUR': 0.92, 'GBP': 0.79, 'CAD': 1.36, 'AUD': 1.53,
+              'JPY': 149.0, 'CHF': 0.88, 'CNY': 7.24, 'SEK': 10.9, 'NOK': 10.8,
+              'DKK': 6.86, 'PLN': 4.05, 'CZK': 23.2, 'HUF': 384.0, 'RSD': 110.0,
+              'BGN': 1.80, 'RON': 4.57, 'HRK': 6.93, 'RUB': 92.0, 'TRY': 29.0,
+              'BRL': 5.8, 'MXN': 18.1, 'INR': 83.0, 'KRW': 1340.0, 'SGD': 1.35
+            };
+            
+            const fromRate = conversionRates[projectCurrency] || 1;
+            const toRate = conversionRates[displayCurrency] || 1;
+            convertedAmount = (amount / fromRate) * toRate;
+          } catch (error) {
+            console.error('Currency conversion error:', error);
+          }
+        }
+        
+        return {
+          ...entry,
+          client,
+          project,
+          hourlyRate: project?.hourlyRate || "0",
+          amount: convertedAmount.toFixed(2),
+          duration: durationHours.toFixed(2)
+        };
+      }));
+      
+      // Calculate totals
+      const totalHours = enrichedEntries.reduce((sum, entry) => sum + parseFloat(entry.duration || "0"), 0);
+      const totalAmount = enrichedEntries.reduce((sum, entry) => sum + parseFloat(entry.amount || "0"), 0);
+      
       // Structure the response to match the expected format
       const reportData = {
-        timeEntries: entries,
+        timeEntries: enrichedEntries,
         weeklyData: [], // This will be calculated on the frontend
-        totalHours: 0,
-        totalAmount: 0,
+        totalHours: totalHours,
+        totalAmount: totalAmount,
         timeFormat: filters.timeFormat || "decimal",
         roundingType: filters.roundingType || "none"
       };
       
-      console.log(`[Reports] Returning report data with ${reportData.timeEntries.length} entries`);
+      console.log(`[Reports] Returning report data with ${reportData.timeEntries.length} entries, total: $${totalAmount.toFixed(2)}`);
       
       res.json(reportData);
     } catch (error) {
