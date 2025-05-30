@@ -6,7 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { generatePdf } from "@/lib/pdf-generator-fixed-new";
-import { formatTime, adjustTime, roundTime, formatCurrency } from "@/lib/utils/timeUtils";
+import { formatTime, formatTimeFromDecimal, adjustTime, roundTime, formatCurrency } from "@/lib/utils/timeUtils";
 import { ReportFilters, Client, TimeEntry, Project, TimeFormat, RoundingType } from "@shared/schema";
 
 interface ReportTableProps {
@@ -45,6 +45,16 @@ interface ReportData {
 
 export default function ReportTable({ filters, onGenerateInvoice }: ReportTableProps) {
   const { toast } = useToast();
+
+  // Helper function to format decimal hours to HH:MM:SS
+  const formatDecimalHours = (decimalHours: number): string => {
+    const totalSeconds = Math.round(decimalHours * 3600);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
   
   // Fetch report data
   const { data: reportData, isLoading } = useQuery<ReportData>({
@@ -200,7 +210,10 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                         </span>
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
-                        {formatTime(duration, filters.timeFormat)}
+                        {filters.timeFormat === 'decimal' 
+                          ? `${duration.toFixed(2)}h`
+                          : formatDecimalHours(duration)
+                        }
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
                         {formatCurrency(parseFloat(String(entry.hourlyRate) || '0'), 
@@ -222,12 +235,15 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                   Total
                 </td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
-                  {formatTime(
-                    typeof reportData.totalHours === 'number' 
+                  {(() => {
+                    const totalHours = typeof reportData.totalHours === 'number' 
                       ? reportData.totalHours 
-                      : parseFloat(String(reportData.totalHours) || '0'), 
-                    filters.timeFormat
-                  )}
+                      : parseFloat(String(reportData.totalHours) || '0');
+                    
+                    return filters.timeFormat === 'decimal' 
+                      ? `${totalHours.toFixed(2)}h`
+                      : formatDecimalHours(totalHours);
+                  })()}
                 </td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900"></td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
