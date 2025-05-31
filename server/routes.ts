@@ -690,15 +690,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const project = projects.find(p => p.id === entry.projectId);
         const client = clients.find(c => c.id === project?.clientId);
         
-        // Calculate duration in hours
+        // Use stored duration value (which may have been manually edited)
         let durationHours = 0;
-        if (entry.startTime && entry.endTime) {
+        if (entry.duration) {
+          durationHours = parseFloat(entry.duration);
+        } else if (entry.startTime && entry.endTime) {
+          // Fallback to calculation only if no stored duration
           const start = new Date(entry.startTime);
           const end = new Date(entry.endTime);
           durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-        } else if (entry.duration) {
-          durationHours = parseFloat(entry.duration);
         }
+        
+        console.log(`Entry ${entry.id}: using stored duration ${durationHours} hours`);
         
         // Get hourly rate and calculate amount
         const hourlyRateValue = parseFloat(project?.hourlyRate || "0");
