@@ -707,28 +707,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const hourlyRateValue = parseFloat(project?.hourlyRate || "0");
         const amount = durationHours * hourlyRateValue;
         
-        // Convert currency if needed
-        let convertedAmount = amount;
-        const projectCurrency = project?.currency || client?.currency || 'USD';
-        const displayCurrency = settings?.currency || 'USD';
+        // Use client currency since projects don't have currency field
+        const projectCurrency = client?.currency || 'USD';
         
-        if (projectCurrency !== displayCurrency && amount > 0) {
-          try {
-            const conversionRates: { [key: string]: number } = {
-              'USD': 1.0, 'EUR': 0.92, 'GBP': 0.79, 'CAD': 1.36, 'AUD': 1.53,
-              'JPY': 149.0, 'CHF': 0.88, 'CNY': 7.24, 'SEK': 10.9, 'NOK': 10.8,
-              'DKK': 6.86, 'PLN': 4.05, 'CZK': 23.2, 'HUF': 384.0, 'RSD': 110.0,
-              'BGN': 1.80, 'RON': 4.57, 'HRK': 6.93, 'RUB': 92.0, 'TRY': 29.0,
-              'BRL': 5.8, 'MXN': 18.1, 'INR': 83.0, 'KRW': 1340.0, 'SGD': 1.35
-            };
-            
-            const fromRate = conversionRates[projectCurrency] || 1;
-            const toRate = conversionRates[displayCurrency] || 1;
-            convertedAmount = (amount / fromRate) * toRate;
-          } catch (error) {
-            console.error('Currency conversion error:', error);
-          }
-        }
+        console.log(`Entry ${entry.id}: ${durationHours}h × ${hourlyRateValue} ${projectCurrency} = ${amount} ${projectCurrency}`);
+        
+        // Keep amounts in their original currency to avoid confusion
+        const convertedAmount = amount;
         
         return {
           ...entry,
