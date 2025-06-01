@@ -149,6 +149,29 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
     );
   }
 
+  // Calculate column visibility based on data
+  const uniqueClients = new Set(reportData.timeEntries.map(entry => entry.client?.id).filter(Boolean));
+  const uniqueProjects = new Set(reportData.timeEntries.map(entry => entry.project?.id).filter(Boolean));
+  const uniqueRates = new Set(reportData.timeEntries.map(entry => entry.hourlyRate).filter(rate => rate && rate !== "0"));
+  
+  const showClientColumn = uniqueClients.size > 1;
+  const showProjectColumn = uniqueProjects.size > 1;
+  const showRateColumn = uniqueRates.size > 1;
+  const showDateColumn = settings?.showDateColumn !== false; // Default to true if not set
+  
+  // Get the single rate if all rates are the same
+  const singleRate = uniqueRates.size === 1 ? Array.from(uniqueRates)[0] : null;
+
+  // Calculate column count for colspan calculations
+  const visibleColumnCount = [
+    showDateColumn, 
+    true, // Description always visible
+    showClientColumn, 
+    showProjectColumn, 
+    true, // Hours always visible
+    showRateColumn
+  ].filter(Boolean).length;
+
   return (
     <>
       <div className="border border-gray-200 rounded-md overflow-hidden mb-6">
@@ -160,12 +183,20 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                {showDateColumn && (
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                )}
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
+                {showClientColumn && (
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                )}
+                {showProjectColumn && (
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
+                )}
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate</th>
+                {showRateColumn && (
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate</th>
+                )}
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
               </tr>
             </thead>
@@ -178,7 +209,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                   // Week header row
                   weekRows.push(
                     <tr key={`week-header-${weekData.weekNumber}-${weekData.weekLabel}`} className="bg-gray-50 font-semibold">
-                      <td colSpan={6} className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
+                      <td colSpan={visibleColumnCount} className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
                         {weekData.weekLabel}
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
@@ -200,30 +231,38 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                     
                     weekRows.push(
                       <tr key={`entry-${entry.id}-${weekData.weekNumber}-${index}`}>
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                          {format(new Date(entry.date), "MMM d, yyyy")}
-                        </td>
+                        {showDateColumn && (
+                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                            {format(new Date(entry.date), "MMM d, yyyy")}
+                          </td>
+                        )}
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                           {entry.description}
                         </td>
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                          {entry.client?.name || "—"}
-                        </td>
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                          <span style={{ color: (entry.project as any)?.color || "#6B7280" }}>
-                            {entry.project?.name || "—"}
-                          </span>
-                        </td>
+                        {showClientColumn && (
+                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                            {entry.client?.name || "—"}
+                          </td>
+                        )}
+                        {showProjectColumn && (
+                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                            <span style={{ color: (entry.project as any)?.color || "#6B7280" }}>
+                              {entry.project?.name || "—"}
+                            </span>
+                          </td>
+                        )}
                         <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
                           {filters.timeFormat === 'decimal' 
                             ? `${duration.toFixed(2)}h`
                             : formatDecimalHours(duration)
                           }
                         </td>
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                          {formatCurrency(parseFloat(String(entry.hourlyRate) || '0'), 
-                            filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
-                        </td>
+                        {showRateColumn && (
+                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                            {formatCurrency(parseFloat(String(entry.hourlyRate) || '0'), 
+                              filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
+                          </td>
+                        )}
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                           {formatCurrency(parseFloat(String(entry.amount) || '0'), 
                             filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
@@ -247,30 +286,38 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                   
                   return (
                     <tr key={`entry-${entry.id}-${index}`}>
-                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {format(new Date(entry.date), "MMM d, yyyy")}
-                      </td>
+                      {showDateColumn && (
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {format(new Date(entry.date), "MMM d, yyyy")}
+                        </td>
+                      )}
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                         {entry.description}
                       </td>
-                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {entry.client?.name || "—"}
-                      </td>
-                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                        <span style={{ color: (entry.project as any)?.color || "#6B7280" }}>
-                          {entry.project?.name || "—"}
-                        </span>
-                      </td>
+                      {showClientColumn && (
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {entry.client?.name || "—"}
+                        </td>
+                      )}
+                      {showProjectColumn && (
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          <span style={{ color: (entry.project as any)?.color || "#6B7280" }}>
+                            {entry.project?.name || "—"}
+                          </span>
+                        </td>
+                      )}
                       <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
                         {filters.timeFormat === 'decimal' 
                           ? `${duration.toFixed(2)}h`
                           : formatDecimalHours(duration)
                         }
                       </td>
-                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {formatCurrency(parseFloat(String(entry.hourlyRate) || '0'), 
-                          filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
-                      </td>
+                      {showRateColumn && (
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {formatCurrency(parseFloat(String(entry.hourlyRate) || '0'), 
+                            filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
+                        </td>
+                      )}
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                         {formatCurrency(parseFloat(String(entry.amount) || '0'), 
                           filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
