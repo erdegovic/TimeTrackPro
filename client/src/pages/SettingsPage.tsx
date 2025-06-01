@@ -68,6 +68,7 @@ const settingsSchema = z.object({
   
   // Report Settings
   enableWeeklyCategorization: z.boolean().default(true),
+  showDateColumn: z.boolean().default(true),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -805,6 +806,27 @@ export default function SettingsPage() {
                             <FormLabel className="text-base">Weekly Categorization</FormLabel>
                             <div className="text-sm text-gray-600">
                               Group report entries by weeks within the month. When disabled, all entries are grouped together for the selected date range.
+                            </div>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="showDateColumn"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Show Date Column</FormLabel>
+                            <div className="text-sm text-gray-600">
+                              Display the date column in reports. When disabled, dates are hidden to save space when filtering by specific dates.
                             </div>
                           </div>
                           <FormControl>

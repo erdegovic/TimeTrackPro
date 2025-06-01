@@ -328,7 +328,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
               )}
               
               <tr className="bg-gray-100 font-semibold">
-                <td colSpan={4} className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                <td colSpan={visibleColumnCount} className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                   Total
                 </td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
@@ -342,16 +342,27 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                       : formatDecimalHours(totalHours);
                   })()}
                 </td>
-                <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900"></td>
+                {showRateColumn && (
+                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                    —
+                  </td>
+                )}
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                  {filters.clientId && reportData.timeEntries[0]?.client?.currency
-                    ? formatCurrency(reportData.totalAmount, reportData.timeEntries[0].client.currency)
-                    : `$${reportData.totalAmount.toFixed(2)}`}
+                  {formatCurrency(reportData.totalAmount, 
+                    filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
+        
+        {/* Display single rate when all rates are the same */}
+        {!showRateColumn && singleRate && parseFloat(singleRate) > 0 && (
+          <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">
+            <strong>Hourly Rate:</strong> {formatCurrency(parseFloat(singleRate), 
+              filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')} per hour
+          </div>
+        )}
       </div>
       
 

@@ -162,6 +162,7 @@ export const settings = pgTable("settings", {
   
   // Report settings
   enableWeeklyCategorization: boolean("enable_weekly_categorization").default(true),
+  showDateColumn: boolean("show_date_column").default(true),
 });
 
 // Creativity Features Tables
