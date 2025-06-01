@@ -65,6 +65,9 @@ const settingsSchema = z.object({
   showCompanyDetails: z.boolean().default(true),
   showBankDetails: z.boolean().default(true),
   invoiceTemplate: z.enum(["professional", "modern", "classic", "minimal"]),
+  
+  // Report Settings
+  enableWeeklyCategorization: z.boolean().default(true),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -222,6 +225,7 @@ export default function SettingsPage() {
       showCompanyDetails: true,
       showBankDetails: true,
       invoiceTemplate: "professional",
+      enableWeeklyCategorization: true,
     },
   });
 
@@ -258,6 +262,7 @@ export default function SettingsPage() {
         bankAccountNumber: settings.bankAccountNumber || "",
         bankSortCode: settings.bankSortCode || "",
         invoiceFooterText: settings.invoiceFooterText || "",
+        enableWeeklyCategorization: settings.enableWeeklyCategorization ?? true,
       };
       
       form.reset(formData);
@@ -774,6 +779,33 @@ export default function SettingsPage() {
                       </FormItem>
                     )}
                   />
+
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Report Settings</h3>
+                    
+                    <FormField
+                      control={form.control}
+                      name="enableWeeklyCategorization"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Weekly Categorization</FormLabel>
+                            <div className="text-sm text-gray-600">
+                              Group report entries by weeks within the month. When disabled, all entries are grouped together for the selected date range.
+                            </div>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
