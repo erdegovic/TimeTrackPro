@@ -441,12 +441,15 @@ function generateInvoicePdf(options: {
         
         // Process each entry in this week
         weekEntries.forEach((entry: any) => {
-          // Use edited duration if available
-          const duration = typeof entry.editedDuration === 'number' 
-            ? entry.editedDuration 
-            : typeof entry.duration === 'number' 
-              ? entry.duration 
-              : parseFloat(entry.duration || '0');
+          // Use edited duration if available, otherwise use the stored duration
+          let duration = 0;
+          if (entry.editedDuration !== undefined && entry.editedDuration !== null) {
+            duration = typeof entry.editedDuration === 'string' ? parseFloat(entry.editedDuration) : entry.editedDuration;
+          } else if (entry.duration !== undefined && entry.duration !== null) {
+            duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : entry.duration;
+          }
+          
+          console.log(`PDF Weekly - Entry ${entry.id}: duration=${entry.duration}, editedDuration=${entry.editedDuration}, calculated=${duration}`);
           
           // Format hourly rate and amount in client's currency
           const hourlyRate = typeof entry.hourlyRate === 'number' 
@@ -484,52 +487,15 @@ function generateInvoicePdf(options: {
           editedAmount: entry.editedAmount
         });
         
-        // Make sure we use the most up-to-date edited duration
-        // Check all possible sources for edited duration in this priority order
-        let duration;
-        
-        // First, log what we received to debug
-        console.log(`PDF - Processing entry with duration options:`, {
-          entryId: entry.id,
-          editedDuration: entry.editedDuration,
-          adjustedDuration: entry.adjustedDuration,
-          standardDuration: entry.duration,
-          durationString: entry.durationString,
-          hasEditedValues: entry.edited || entry.wasEdited || false,
-        });
-        
-        // 1. First check for explicit editedDuration property (highest priority)
-        // From Invoice Preview component
+        // Use edited duration if available, otherwise use the stored duration
+        let duration = 0;
         if (entry.editedDuration !== undefined && entry.editedDuration !== null) {
-          duration = typeof entry.editedDuration === 'string' 
-            ? parseFloat(entry.editedDuration) 
-            : entry.editedDuration;
-          console.log(`PDF - Using explicit edited duration for entry ${entry.id}: ${duration}`);
+          duration = typeof entry.editedDuration === 'string' ? parseFloat(entry.editedDuration) : entry.editedDuration;
+        } else if (entry.duration !== undefined && entry.duration !== null) {
+          duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : entry.duration;
         }
-        // 2. Check for wasEdited flag that indicates we should use duration directly
-        else if ((entry.edited === true || entry.wasEdited === true) && entry.duration) {
-          duration = typeof entry.duration === 'string' 
-            ? parseFloat(entry.duration) 
-            : entry.duration;
-          console.log(`PDF - Using marked-as-edited duration for entry ${entry.id}: ${duration}`);
-        }
-        // 3. Check adjusted duration from time adjustment in reports
-        else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
-          duration = typeof entry.adjustedDuration === 'string' 
-            ? parseFloat(entry.adjustedDuration) 
-            : entry.adjustedDuration;
-          console.log(`PDF - Using adjusted duration for entry ${entry.id}: ${duration}`);
-        }
-        // 4. Check regular duration as a number
-        else if (typeof entry.duration === 'number') {
-          duration = entry.duration;
-          console.log(`PDF - Using standard number duration for entry ${entry.id}: ${duration}`);
-        }
-        // 5. Check duration as a string that needs parsing
-        else {
-          duration = parseFloat(entry.duration || '0');
-          console.log(`PDF - Using parsed string duration for entry ${entry.id}: ${duration}`);
-        }
+        
+        console.log(`PDF Direct - Entry ${entry.id}: duration=${entry.duration}, editedDuration=${entry.editedDuration}, calculated=${duration}`);
         
         // Get the hourly rate safely - handle the type issue
         let hourlyRate = 0;
