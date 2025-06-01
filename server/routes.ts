@@ -753,16 +753,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             };
           }
           
-          // Create a grouping key for merging entries
-          const groupKey = `${entry.projectId}-${entry.client?.id}-${entry.description}`;
+          // Create a grouping key for merging entries by description, project, and client
+          const normalizedDescription = (entry.description || '').trim().toLowerCase();
+          const groupKey = `${normalizedDescription}-${entry.projectId || 'no-project'}-${entry.client?.id || 'no-client'}`;
           
           if (!acc[weekKey].groupedEntries[groupKey]) {
             acc[weekKey].groupedEntries[groupKey] = {
               ...entry,
               duration: 0,
               amount: 0,
-              mergedCount: 0
+              mergedCount: 0,
+              dates: [] // Track all dates for this grouped entry
             };
+          }
+          
+          // Add the date to the dates array if not already present
+          const entryDateStr = entry.date;
+          if (!acc[weekKey].groupedEntries[groupKey].dates.includes(entryDateStr)) {
+            acc[weekKey].groupedEntries[groupKey].dates.push(entryDateStr);
           }
           
           // Merge the entry
@@ -776,27 +784,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return acc;
         }, {});
         
-        // Convert grouped entries back to arrays
+        // Convert grouped entries back to arrays and add date range info
         Object.keys(groupedData).forEach(weekKey => {
           groupedData[weekKey].entries = Object.values(groupedData[weekKey].groupedEntries).map((entry: any) => ({
             ...entry,
             duration: entry.duration.toFixed(6),
-            amount: entry.amount.toFixed(2)
+            amount: entry.amount.toFixed(2),
+            // Use the first date from the grouped dates for display
+            date: entry.dates[0],
+            // Add a note about how many sessions were merged
+            sessionCount: entry.mergedCount,
+            dateRange: entry.dates.length > 1 ? `${entry.dates.length} sessions` : null
           }));
           delete groupedData[weekKey].groupedEntries;
         });
       } else {
         // Group everything into a single period and merge same project/client/description
         const groupedEntries = enrichedEntries.reduce((acc: any, entry) => {
-          const groupKey = `${entry.projectId}-${entry.client?.id}-${entry.description}`;
+          // Create a grouping key for merging entries by description, project, and client
+          const normalizedDescription = (entry.description || '').trim().toLowerCase();
+          const groupKey = `${normalizedDescription}-${entry.projectId || 'no-project'}-${entry.client?.id || 'no-client'}`;
           
           if (!acc[groupKey]) {
             acc[groupKey] = {
               ...entry,
               duration: 0,
               amount: 0,
-              mergedCount: 0
+              mergedCount: 0,
+              dates: [] // Track all dates for this grouped entry
             };
+          }
+          
+          // Add the date to the dates array if not already present
+          const entryDateStr = entry.date;
+          if (!acc[groupKey].dates.includes(entryDateStr)) {
+            acc[groupKey].dates.push(entryDateStr);
           }
           
           acc[groupKey].duration += parseFloat(entry.duration);
@@ -818,7 +840,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             entries: Object.values(groupedEntries).map((entry: any) => ({
               ...entry,
               duration: entry.duration.toFixed(6),
-              amount: entry.amount.toFixed(2)
+              amount: entry.amount.toFixed(2),
+              // Use the first date from the grouped dates for display
+              date: entry.dates[0],
+              // Add a note about how many sessions were merged
+              sessionCount: entry.mergedCount,
+              dateRange: entry.dates.length > 1 ? `${entry.dates.length} sessions` : null
             }))
           }
         };
