@@ -46,6 +46,13 @@ interface ReportData {
 export default function ReportTable({ filters, onGenerateInvoice }: ReportTableProps) {
   const { toast } = useToast();
 
+  // Fetch settings to check if weekly categorization is enabled
+  const { data: settings } = useQuery({
+    queryKey: ["/api/settings"],
+  });
+
+  const isWeeklyCategorization = settings?.enableWeeklyCategorization ?? true;
+
   // Helper function to format decimal hours to HH:MM:SS
   const formatDecimalHours = (decimalHours: number): string => {
     const totalSeconds = Math.round(decimalHours * 3600);
@@ -153,7 +160,9 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Week</th>
+                {isWeeklyCategorization && (
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Week</th>
+                )}
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
@@ -164,24 +173,76 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {reportData.weeklyData.flatMap((weekData) => {
-                const weekRows = [];
-                
-                // Week header row
-                weekRows.push(
-                  <tr key={`week-header-${weekData.weekNumber}-${weekData.weekLabel}`} className="bg-gray-50 font-semibold">
-                    <td colSpan={7} className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {weekData.weekLabel}
-                    </td>
-                    <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
-                      {formatCurrency(weekData.totalAmount, 
-                        filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
-                    </td>
-                  </tr>
-                );
-                
-                // Entry rows for this week
-                weekData.entries.forEach((entry, index) => {
+              {isWeeklyCategorization ? (
+                // Show weekly grouped view
+                reportData.weeklyData.flatMap((weekData) => {
+                  const weekRows = [];
+                  
+                  // Week header row
+                  weekRows.push(
+                    <tr key={`week-header-${weekData.weekNumber}-${weekData.weekLabel}`} className="bg-gray-50 font-semibold">
+                      <td colSpan={isWeeklyCategorization ? 7 : 6} className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
+                        {weekData.weekLabel}
+                      </td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+                        {formatCurrency(weekData.totalAmount, 
+                          filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
+                      </td>
+                    </tr>
+                  );
+                  
+                  // Entry rows for this week
+                  weekData.entries.forEach((entry, index) => {
+                    const duration = typeof entry.adjustedDuration === 'number' 
+                      ? entry.adjustedDuration 
+                      : typeof entry.duration === 'number' 
+                        ? entry.duration 
+                        : parseFloat(String(entry.duration) || '0');
+                    
+                    console.log(`[ReportTable] Entry ${entry.id}: duration=${entry.duration}, adjustedDuration=${entry.adjustedDuration}, calculated=${duration}`);
+                    
+                    weekRows.push(
+                      <tr key={`entry-${entry.id}-${weekData.weekNumber}-${index}`}>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          Week {weekData.weekNumber}
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {format(new Date(entry.date), "MMM d, yyyy")}
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {entry.description}
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {entry.client?.name || "—"}
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          <span style={{ color: (entry.project as any)?.color || "#6B7280" }}>
+                            {entry.project?.name || "—"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
+                          {filters.timeFormat === 'decimal' 
+                            ? `${duration.toFixed(2)}h`
+                            : formatDecimalHours(duration)
+                          }
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {formatCurrency(parseFloat(String(entry.hourlyRate) || '0'), 
+                            filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {formatCurrency(parseFloat(String(entry.amount) || '0'), 
+                            filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
+                        </td>
+                      </tr>
+                    );
+                  });
+                  
+                  return weekRows;
+                })
+              ) : (
+                // Show flat list without weekly grouping
+                reportData.timeEntries.map((entry, index) => {
                   const duration = typeof entry.adjustedDuration === 'number' 
                     ? entry.adjustedDuration 
                     : typeof entry.duration === 'number' 
@@ -190,11 +251,8 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                   
                   console.log(`[ReportTable] Entry ${entry.id}: duration=${entry.duration}, adjustedDuration=${entry.adjustedDuration}, calculated=${duration}`);
                   
-                  weekRows.push(
-                    <tr key={`entry-${entry.id}-${weekData.weekNumber}-${index}`}>
-                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                        Week {weekData.weekNumber}
-                      </td>
+                  return (
+                    <tr key={`entry-${entry.id}-${index}`}>
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
                         {format(new Date(entry.date), "MMM d, yyyy")}
                       </td>
@@ -225,13 +283,11 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                       </td>
                     </tr>
                   );
-                });
-                
-                return weekRows;
-              })}
+                })
+              )}
               
               <tr className="bg-gray-100 font-semibold">
-                <td colSpan={5} className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                <td colSpan={isWeeklyCategorization ? 5 : 4} className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                   Total
                 </td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
