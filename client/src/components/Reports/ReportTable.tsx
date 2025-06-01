@@ -159,8 +159,6 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
   const showRateColumn = uniqueRates.size > 1;
   const showDateColumn = settings?.showDateColumn ?? true; // Default to true if not set
   
-  console.log('[ReportTable] Settings showDateColumn:', settings?.showDateColumn, 'Final showDateColumn:', showDateColumn);
-  
   // Get the single rate if all rates are the same
   const singleRate = uniqueRates.size === 1 ? Array.from(uniqueRates)[0] : null;
 

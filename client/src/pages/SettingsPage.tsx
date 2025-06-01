@@ -227,6 +227,7 @@ export default function SettingsPage() {
       showBankDetails: true,
       invoiceTemplate: "professional",
       enableWeeklyCategorization: true,
+      showDateColumn: true,
     },
   });
 
@@ -269,6 +270,7 @@ export default function SettingsPage() {
         showBankDetails: settings.showBankDetails ?? true,
         invoiceTemplate: (settings.invoiceTemplate as "professional" | "modern" | "classic" | "minimal") || "professional",
         enableWeeklyCategorization: settings.enableWeeklyCategorization ?? true,
+        showDateColumn: settings.showDateColumn ?? true,
       };
       
       form.reset(formData);
