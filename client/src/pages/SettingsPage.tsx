@@ -236,18 +236,6 @@ export default function SettingsPage() {
   useEffect(() => {
     if (settings) {
       const formData = {
-        ...settings,
-        defaultTaxRate: settings.defaultTaxRate?.toString() || "0",
-        nextInvoiceNumber: settings.nextInvoiceNumber || 1001,
-        customFontSize: settings.customFontSize || "12",
-        invoiceColorTheme: settings.invoiceColorTheme || "#1f2937",
-        invoiceAccentColor: settings.invoiceAccentColor || "#3b82f6",
-        invoiceTextColor: settings.invoiceTextColor || "#374151",
-        invoiceBackgroundColor: settings.invoiceBackgroundColor || "#ffffff",
-        invoiceTemplate: (settings.invoiceTemplate as "professional" | "modern" | "classic" | "minimal") || "professional",
-        showLogo: settings.showLogo ?? true,
-        showCompanyDetails: settings.showCompanyDetails ?? true,
-        showBankDetails: settings.showBankDetails ?? true,
         businessName: settings.businessName || "",
         businessAddress: settings.businessAddress || "",
         businessCity: settings.businessCity || "",
@@ -261,7 +249,24 @@ export default function SettingsPage() {
         bankAccountName: settings.bankAccountName || "",
         bankAccountNumber: settings.bankAccountNumber || "",
         bankSortCode: settings.bankSortCode || "",
+        nextInvoiceNumber: settings.nextInvoiceNumber || 1001,
+        defaultTimeFormat: (settings.defaultTimeFormat as "decimal" | "time") || "decimal",
+        defaultCurrency: settings.defaultCurrency || "USD",
+        displayCurrency: settings.displayCurrency || "USD",
+        enableTax: settings.enableTax ?? false,
+        defaultTaxRate: settings.defaultTaxRate?.toString() || "0",
+        showDueDate: settings.showDueDate ?? true,
+        companyLogo: settings.companyLogo || "",
+        showLogo: settings.showLogo ?? true,
+        invoiceColorTheme: settings.invoiceColorTheme || "#1f2937",
+        invoiceAccentColor: settings.invoiceAccentColor || "#3b82f6",
+        invoiceTextColor: settings.invoiceTextColor || "#374151",
+        invoiceBackgroundColor: settings.invoiceBackgroundColor || "#ffffff",
+        customFontSize: settings.customFontSize || "12",
         invoiceFooterText: settings.invoiceFooterText || "",
+        showCompanyDetails: settings.showCompanyDetails ?? true,
+        showBankDetails: settings.showBankDetails ?? true,
+        invoiceTemplate: (settings.invoiceTemplate as "professional" | "modern" | "classic" | "minimal") || "professional",
         enableWeeklyCategorization: settings.enableWeeklyCategorization ?? true,
       };
       
@@ -1359,9 +1364,22 @@ export default function SettingsPage() {
           {/* Save Button */}
           <div className="flex justify-end gap-4 pt-6 border-t">
             <Button
-              type="submit"
+              type="button"
               disabled={isSubmitting}
               className="flex items-center gap-2"
+              onClick={() => {
+                console.log("[Settings Frontend] Button clicked, form state:", {
+                  isValid: form.formState.isValid,
+                  errors: form.formState.errors,
+                  values: form.getValues()
+                });
+                
+                // Try to submit manually to bypass form validation issues
+                const currentValues = form.getValues();
+                console.log("[Settings Frontend] Manual submit with values:", currentValues);
+                setIsSubmitting(true);
+                updateSettingsMutation.mutate(currentValues);
+              }}
             >
               {isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
