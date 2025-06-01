@@ -160,9 +160,6 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {isWeeklyCategorization && (
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Week</th>
-                )}
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
@@ -181,7 +178,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                   // Week header row
                   weekRows.push(
                     <tr key={`week-header-${weekData.weekNumber}-${weekData.weekLabel}`} className="bg-gray-50 font-semibold">
-                      <td colSpan={isWeeklyCategorization ? 7 : 6} className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
+                      <td colSpan={6} className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
                         {weekData.weekLabel}
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
@@ -203,9 +200,6 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                     
                     weekRows.push(
                       <tr key={`entry-${entry.id}-${weekData.weekNumber}-${index}`}>
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                          Week {weekData.weekNumber}
-                        </td>
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
                           {format(new Date(entry.date), "MMM d, yyyy")}
                         </td>
@@ -287,7 +281,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
               )}
               
               <tr className="bg-gray-100 font-semibold">
-                <td colSpan={isWeeklyCategorization ? 5 : 4} className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                <td colSpan={4} className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                   Total
                 </td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">

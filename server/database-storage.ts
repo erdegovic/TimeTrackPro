@@ -416,7 +416,7 @@ export class DatabaseStorage implements IStorage {
 
   // Invoices methods
   async getInvoices(): Promise<Invoice[]> {
-    return await db.select().from(invoices).orderBy(desc(invoices.issueDate));
+    return await db.select().from(invoices).orderBy(invoices.issueDate);
   }
 
   async getInvoice(id: number): Promise<Invoice | undefined> {
