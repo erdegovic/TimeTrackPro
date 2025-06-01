@@ -795,7 +795,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Add a note about how many sessions were merged
             sessionCount: entry.mergedCount,
             dateRange: entry.dates.length > 1 ? `${entry.dates.length} sessions` : null
-          }));
+          })).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()); // Sort by date ascending
           delete groupedData[weekKey].groupedEntries;
         });
       } else {
@@ -846,12 +846,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Add a note about how many sessions were merged
               sessionCount: entry.mergedCount,
               dateRange: entry.dates.length > 1 ? `${entry.dates.length} sessions` : null
-            }))
+            })).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()) // Sort by date ascending
           }
         };
       }
       
-      const weeklyData = Object.values(groupedData);
+      const weeklyData = Object.values(groupedData).sort((a: any, b: any) => {
+        // Sort by week number in ascending order (earlier weeks first)
+        return a.weekNumber - b.weekNumber;
+      });
       
       // Calculate totals from the grouped data
       const totalHours = weeklyData.reduce((sum: number, week: any) => sum + week.totalHours, 0);
