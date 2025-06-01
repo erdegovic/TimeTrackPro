@@ -1164,17 +1164,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.put("/api/settings", async (req: Request, res: Response) => {
     try {
+      console.log('[Settings] PUT request received with body:', JSON.stringify(req.body, null, 2));
+      
       const data = insertSettingsSchema.parse(req.body);
+      console.log('[Settings] Schema validation passed, parsed data:', JSON.stringify(data, null, 2));
+      
       const settings = await storage.updateSettings(data);
+      console.log('[Settings] Settings updated successfully:', JSON.stringify(settings, null, 2));
+      
       res.json(settings);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error('[Settings] Schema validation failed:', error.errors);
         return res.status(400).json({ 
           message: 'Invalid settings data', 
           errors: error.errors 
         });
       }
-      console.error('Error updating settings:', error);
+      console.error('[Settings] Error updating settings:', error);
       res.status(500).json({ message: 'Failed to update settings' });
     }
   });

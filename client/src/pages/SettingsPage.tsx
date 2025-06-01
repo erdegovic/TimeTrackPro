@@ -346,9 +346,13 @@ export default function SettingsPage() {
   // Update settings mutation
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: SettingsFormData) => {
-      return await apiRequest("PUT", "/api/settings", data);
+      console.log("[Settings Frontend] Sending data to API:", data);
+      const response = await apiRequest("PUT", "/api/settings", data);
+      console.log("[Settings Frontend] API response received:", response);
+      return response;
     },
     onSuccess: () => {
+      console.log("[Settings Frontend] Update successful");
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       toast({
         title: "Settings updated",
@@ -357,7 +361,7 @@ export default function SettingsPage() {
       setIsSubmitting(false);
     },
     onError: (error) => {
-      console.error("Error updating settings:", error);
+      console.error("[Settings Frontend] Error updating settings:", error);
       toast({
         title: "Error",
         description: "Failed to update settings. Please try again.",
@@ -368,6 +372,8 @@ export default function SettingsPage() {
   });
 
   const onSubmit = async (data: SettingsFormData) => {
+    console.log("[Settings Frontend] Form submitted with data:", data);
+    console.log("[Settings Frontend] Form errors:", form.formState.errors);
     setIsSubmitting(true);
     updateSettingsMutation.mutate(data);
   };
