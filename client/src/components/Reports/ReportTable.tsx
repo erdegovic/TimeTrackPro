@@ -241,8 +241,8 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                   return weekRows;
                 })
               ) : (
-                // Show flat list without weekly grouping
-                reportData.timeEntries.map((entry, index) => {
+                // Show flat list without weekly grouping - use grouped entries from weeklyData
+                reportData.weeklyData.flatMap(weekData => weekData.entries).map((entry, index) => {
                   const duration = typeof entry.adjustedDuration === 'number' 
                     ? entry.adjustedDuration 
                     : typeof entry.duration === 'number' 
