@@ -169,7 +169,8 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
     showClientColumn, 
     showProjectColumn, 
     true, // Hours always visible
-    showRateColumn
+    showRateColumn,
+    true  // Amount always visible
   ].filter(Boolean).length;
 
   return (
@@ -209,7 +210,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                   // Week header row
                   weekRows.push(
                     <tr key={`week-header-${weekData.weekNumber}-${weekData.weekLabel}`} className="bg-gray-50 font-semibold">
-                      <td colSpan={visibleColumnCount} className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
+                      <td colSpan={visibleColumnCount - 1} className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
                         {weekData.weekLabel}
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
@@ -328,25 +329,22 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
               )}
               
               <tr className="bg-gray-100 font-semibold">
-                <td colSpan={visibleColumnCount} className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                  Total
+                <td colSpan={visibleColumnCount - 1} className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                  <div className="flex justify-between items-center">
+                    <span>Total</span>
+                    <span className="font-mono">
+                      {(() => {
+                        const totalHours = typeof reportData.totalHours === 'number' 
+                          ? reportData.totalHours 
+                          : parseFloat(String(reportData.totalHours) || '0');
+                        
+                        return filters.timeFormat === 'decimal' 
+                          ? `${totalHours.toFixed(2)}h`
+                          : formatDecimalHours(totalHours);
+                      })()}
+                    </span>
+                  </div>
                 </td>
-                <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
-                  {(() => {
-                    const totalHours = typeof reportData.totalHours === 'number' 
-                      ? reportData.totalHours 
-                      : parseFloat(String(reportData.totalHours) || '0');
-                    
-                    return filters.timeFormat === 'decimal' 
-                      ? `${totalHours.toFixed(2)}h`
-                      : formatDecimalHours(totalHours);
-                  })()}
-                </td>
-                {showRateColumn && (
-                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                    —
-                  </td>
-                )}
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                   {formatCurrency(reportData.totalAmount, 
                     filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
