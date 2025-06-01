@@ -725,53 +725,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       }));
       
-      // Group entries by weeks
-      const weeklyData = enrichedEntries.reduce((acc: any, entry) => {
-        const entryDate = new Date(entry.date);
-        const startOfYear = new Date(entryDate.getFullYear(), 0, 1);
-        const daysSinceStart = Math.floor((entryDate.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
-        const weekNumber = Math.ceil((daysSinceStart + startOfYear.getDay() + 1) / 7);
-        
-        const weekKey = `${entryDate.getFullYear()}-W${weekNumber}`;
-        const weekLabel = `Week ${weekNumber}, ${entryDate.getFullYear()}`;
-        
-        if (!acc[weekKey]) {
-          acc[weekKey] = {
-            weekNumber: weekNumber,
-            weekLabel: weekLabel,
-            entries: [],
-            totalHours: 0,
-            totalAmount: 0
-          };
-        }
-        
-        acc[weekKey].entries.push(entry);
-        acc[weekKey].totalHours += parseFloat(entry.duration || "0");
-        acc[weekKey].totalAmount += parseFloat(entry.amount || "0");
-        
-        return acc;
-      }, {});
+      // Group entries based on settings
+      let groupedData: any = {};
       
-      // Sort weekly data by week number
-      const sortedWeeklyData = Object.values(weeklyData).sort((a: any, b: any) => b.weekNumber - a.weekNumber);
+      if (settings?.enableWeeklyCategorization) {
+        // Group by weeks within month and merge same project/client/description
+        groupedData = enrichedEntries.reduce((acc: any, entry) => {
+          const entryDate = new Date(entry.date);
+          const year = entryDate.getFullYear();
+          const month = entryDate.getMonth();
+          const startOfMonth = new Date(year, month, 1);
+          const dayOfMonth = entryDate.getDate();
+          const weekOfMonth = Math.ceil(dayOfMonth / 7);
+          
+          const weekKey = `${year}-${month + 1}-W${weekOfMonth}`;
+          const monthName = entryDate.toLocaleString('default', { month: 'long' });
+          const weekLabel = `Week ${weekOfMonth} of ${monthName} ${year}`;
+          
+          if (!acc[weekKey]) {
+            acc[weekKey] = {
+              weekNumber: weekOfMonth,
+              weekLabel,
+              totalHours: 0,
+              totalAmount: 0,
+              entries: [],
+              groupedEntries: {}
+            };
+          }
+          
+          // Create a grouping key for merging entries
+          const groupKey = `${entry.projectId}-${entry.client?.id}-${entry.description}`;
+          
+          if (!acc[weekKey].groupedEntries[groupKey]) {
+            acc[weekKey].groupedEntries[groupKey] = {
+              ...entry,
+              duration: 0,
+              amount: 0,
+              mergedCount: 0
+            };
+          }
+          
+          // Merge the entry
+          acc[weekKey].groupedEntries[groupKey].duration += parseFloat(entry.duration);
+          acc[weekKey].groupedEntries[groupKey].amount += parseFloat(entry.amount);
+          acc[weekKey].groupedEntries[groupKey].mergedCount += 1;
+          
+          acc[weekKey].totalHours += parseFloat(entry.duration);
+          acc[weekKey].totalAmount += parseFloat(entry.amount);
+          
+          return acc;
+        }, {});
+        
+        // Convert grouped entries back to arrays
+        Object.keys(groupedData).forEach(weekKey => {
+          groupedData[weekKey].entries = Object.values(groupedData[weekKey].groupedEntries).map((entry: any) => ({
+            ...entry,
+            duration: entry.duration.toFixed(6),
+            amount: entry.amount.toFixed(2)
+          }));
+          delete groupedData[weekKey].groupedEntries;
+        });
+      } else {
+        // Group everything into a single period and merge same project/client/description
+        const groupedEntries = enrichedEntries.reduce((acc: any, entry) => {
+          const groupKey = `${entry.projectId}-${entry.client?.id}-${entry.description}`;
+          
+          if (!acc[groupKey]) {
+            acc[groupKey] = {
+              ...entry,
+              duration: 0,
+              amount: 0,
+              mergedCount: 0
+            };
+          }
+          
+          acc[groupKey].duration += parseFloat(entry.duration);
+          acc[groupKey].amount += parseFloat(entry.amount);
+          acc[groupKey].mergedCount += 1;
+          
+          return acc;
+        }, {});
+        
+        const totalHours = enrichedEntries.reduce((sum, entry) => sum + parseFloat(entry.duration), 0);
+        const totalAmount = enrichedEntries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
+        
+        groupedData = {
+          'single-period': {
+            weekNumber: 1,
+            weekLabel: 'Selected Period',
+            totalHours,
+            totalAmount,
+            entries: Object.values(groupedEntries).map((entry: any) => ({
+              ...entry,
+              duration: entry.duration.toFixed(6),
+              amount: entry.amount.toFixed(2)
+            }))
+          }
+        };
+      }
       
-      // Calculate totals
-      const totalHours = enrichedEntries.reduce((sum, entry) => sum + parseFloat(entry.duration || "0"), 0);
-      const totalAmount = enrichedEntries.reduce((sum, entry) => sum + parseFloat(entry.amount || "0"), 0);
+      const weeklyData = Object.values(groupedData);
       
-      // Structure the response to match the expected format
-      const reportData = {
+      // Calculate totals from the grouped data
+      const totalHours = weeklyData.reduce((sum: number, week: any) => sum + week.totalHours, 0);
+      const totalAmount = weeklyData.reduce((sum: number, week: any) => sum + week.totalAmount, 0);
+      
+      console.log(`[Reports] Returning report data with ${enrichedEntries.length} entries, ${weeklyData.length} groups, total: $${totalAmount.toFixed(2)}`);
+      
+      return res.json({
         timeEntries: enrichedEntries,
-        weeklyData: sortedWeeklyData,
-        totalHours: totalHours,
-        totalAmount: totalAmount,
-        timeFormat: filters.timeFormat || "decimal",
-        roundingType: filters.roundingType || "none"
-      };
-      
-      console.log(`[Reports] Returning report data with ${reportData.timeEntries.length} entries, total: $${totalAmount.toFixed(2)}`);
-      
-      res.json(reportData);
+        weeklyData,
+        totalHours,
+        totalAmount,
+        timeFormat: filters.timeFormat,
+        roundingType: filters.roundingType
+      });
     } catch (error) {
       console.error('Error generating report:', error);
       res.status(500).json({ message: 'Failed to generate report' });

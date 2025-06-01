@@ -159,6 +159,9 @@ export const settings = pgTable("settings", {
   showCompanyDetails: boolean("show_company_details").default(true),
   showBankDetails: boolean("show_bank_details").default(true),
   invoiceTemplate: text("invoice_template").default("professional"), // Template style
+  
+  // Report settings
+  enableWeeklyCategorization: boolean("enable_weekly_categorization").default(true),
 });
 
 // Creativity Features Tables
