@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice | Sterling Accountants</title>
+    <style>
+        /* === GLOBAL STYLES === */
+        :root {
+            --primary: #2c5aa0;  /* Trustworthy blue */
+            --secondary: #333333;
+            --text: #444444;
+            --light-bg: #f8fafc;
+            --border: #e2e8f0;
+            --highlight: #4c7ec5;
+            --success: #38a169;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+        }
+
+        body {
+            background-color: #f1f5f9;
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+
+        /* === INVOICE CONTAINER === */
+        .invoice {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .invoice::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(90deg, var(--primary), #4c7ec5);
+        }
+
+        /* === HEADER === */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            padding: 2rem 2.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .company-info h1 {
+            font-size: 1.8rem;
+            color: var(--secondary);
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .company-info p {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        .invoice-meta {
+            text-align: right;
+        }
+
+        .invoice-id {
+            font-size: 1.2rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .date {
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            background: #ebf8ff;
+            color: var(--primary);
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-top: 0.5rem;
+        }
+
+        /* === BILLING INFO === */
+        .billing-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            padding: 1.5rem 2.5rem;
+            background: var(--light-bg);
+        }
+
+        .info-block h3 {
+            color: var(--primary);
+            margin-bottom: 0.75rem;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-block p {
+            margin-bottom: 0.4rem;
+            font-size: 0.9rem;
+        }
+
+        /* === DIVIDER === */
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 0 2.5rem;
+        }
+
+        /* === ITEMS TABLE === */
+        .items-table {
+            width: calc(100% - 5rem);
+            margin: 1.5rem 2.5rem;
+            border-collapse: collapse;
+        }
+
+        .items-table th {
+            text-align: left;
+            padding: 0.75rem;
+            background: var(--light-bg);
+            color: var(--secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .items-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        .items-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .service-description {
+            color: #64748b;
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+        }
+
+        /* === TOTALS === */
+        .totals {
+            margin: 1.5rem 2.5rem;
+            padding-top: 1rem;
+            border-top: 2px solid var(--border);
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .grand-total {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 1.1rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 2px solid var(--border);
+        }
+
+        /* === PAYMENT INFO === */
+        .payment-info {
+            padding: 1.5rem 2.5rem;
+            background: var(--light-bg);
+            font-size: 0.85rem;
+        }
+
+        .payment-info p {
+            margin-bottom: 0.5rem;
+        }
+
+        .payment-methods {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .payment-method {
+            padding: 0.5rem 1rem;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        /* === FOOTER === */
+        .footer {
+            padding: 1.5rem 2.5rem;
+            text-align: center;
+            color: #64748b;
+            font-size: 0.8rem;
+            border-top: 1px solid var(--border);
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            .header, .billing-info {
+                flex-direction: column;
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .invoice-meta {
+                text-align: left;
+                margin-top: 1.5rem;
+            }
+
+            .items-table {
+                width: calc(100% - 2rem);
+                margin: 1.5rem 1rem;
+            }
+
+            .payment-methods {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice">
+        <!-- HEADER -->
+        <div class="header">
+            <div class="company-info">
+                <h1>STERLING ACCOUNTANTS</h1>
+                <p>Precision in every calculation</p>
+                <p>200 Financial District, Suite 500, New York, NY 10005</p>
+                <p>contact@sterlingaccountants.example | (212) 555-0123</p>
+            </div>
+            <div class="invoice-meta">
+                <div class="invoice-id">INV #SA-2023-087</div>
+                <div class="date">Issued: November 15, 2023</div>
+                <div class="date">Due: December 15, 2023</div>
+                <div class="status">PAYMENT DUE</div>
+            </div>
+        </div>
+
+        <!-- BILLING INFO -->
+        <div class="billing-info">
+            <div class="info-block">
+                <h3>Bill To</h3>
+                <p><strong>Summit Ventures LLC</strong></p>
+                <p>Attn: Michael Chen (CFO)</p>
+                <p>850 Business Park Drive</p>
+                <p>New York, NY 10016</p>
+                <p>Tax ID: 12-3456789</p>
+            </div>
+            <div class="info-block">
+                <h3>Service Period</h3>
+                <p><strong>October 1 - October 31, 2023</strong></p>
+                <p>Client ID: SV-2020-042</p>
+                <p>Prepared by: Sarah Johnson</p>
+            </div>
+        </div>
+
+        <!-- DIVIDER -->
+        <div class="divider"></div>
+
+        <!-- ITEMS TABLE -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th width="45%">Service</th>
+                    <th>Hours</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <strong>Monthly Bookkeeping</strong>
+                        <div class="service-description">General ledger maintenance, reconciliations</div>
+                    </td>
+                    <td>12.5</td>
+                    <td>$95.00</td>
+                    <td>$1,187.50</td>
+                </tr>
+                <tr>
+                    <td>
+                        <strong>Financial Statement Preparation</strong>
+                        <div class="service-description">Balance sheet, income statement, cash flow</div>
+                    </td>
+                    <td>8.0</td>
+                    <td>$125.00</td>
+                    <td>$1,000.00</td>
+                </tr>
+                <tr>
+                    <td>
+                        <strong>Tax Planning Consultation</strong>
+                        <div class="service-description">Q4 tax strategy session</div>
+                    </td>
+                    <td>3.5</td>
+                    <td>$150.00</td>
+                    <td>$525.00</td>
+                </tr>
+                <tr>
+                    <td>
+                        <strong>Payroll Processing</strong>
+                        <div class="service-description">Bi-weekly payroll for 23 employees</div>
+                    </td>
+                    <td>6.0</td>
+                    <td>$85.00</td>
+                    <td>$510.00</td>
+                </tr>
+                <tr>
+                    <td>
+                        <strong>IRS Correspondence Handling</strong>
+                        <div class="service-description">Notice CP2000 response</div>
+                    </td>
+                    <td>2.5</td>
+                    <td>$175.00</td>
+                    <td>$437.50</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- TOTALS -->
+        <div class="totals">
+            <div class="total-row">
+                <span>Subtotal:</span>
+                <span>$3,660.00</span>
+            </div>
+            <div class="total-row">
+                <span>Retainer Credit:</span>
+                <span style="color: var(--success)">-$500.00</span>
+            </div>
+            <div class="total-row">
+                <span>Tax (Exempt):</span>
+                <span>$0.00</span>
+            </div>
+            <div class="total-row grand-total">
+                <span>TOTAL DUE:</span>
+                <span>$3,160.00</span>
+            </div>
+        </div>
+
+        <!-- PAYMENT INFO -->
+        <div class="payment-info">
+            <p><strong>Payment Terms:</strong> Net 30 days. Late payments subject to 1.5% monthly interest.</p>
+            <p><strong>Make checks payable to:</strong> Sterling Accountants LLC</p>
+            <div class="payment-methods">
+                <div class="payment-method">Bank Transfer</div>
+                <div class="payment-method">ACH Payment</div>
+                <div class="payment-method">Credit Card (+2.9%)</div>
+            </div>
+            <p style="margin-top: 1rem;"><strong>Bank Details:</strong> Chase Bank | Routing #021000021 | Account #987654321</p>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="footer">
+            <p>Thank you for your business. Questions? Email <strong>billing@sterlingaccountants.example</strong></p>
+            <p>© 2023 Sterling Accountants LLC | Certified Public Accountants | NY License #CPA-12345</p>
+        </div>
+    </div>
+</body>
+</html>

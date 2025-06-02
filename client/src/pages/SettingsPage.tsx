@@ -64,7 +64,11 @@ const settingsSchema = z.object({
   invoiceFooterText: z.string().optional(),
   showCompanyDetails: z.boolean().default(true),
   showBankDetails: z.boolean().default(true),
-  invoiceTemplate: z.enum(["professional", "modern", "classic", "minimal"]),
+  invoiceTemplate: z.enum([
+    "luxury", "technology", "coding", "video-production", "graphic-design", 
+    "accounting", "education", "hr-recruitment", "engineering", "health-wellness", 
+    "cyberpunk", "minimalist", "classic"
+  ]),
   
   // Report Settings
   enableWeeklyCategorization: z.boolean().default(true),
@@ -225,7 +229,7 @@ export default function SettingsPage() {
       invoiceFooterText: "",
       showCompanyDetails: true,
       showBankDetails: true,
-      invoiceTemplate: "professional",
+      invoiceTemplate: "luxury",
       enableWeeklyCategorization: true,
       showDateColumn: true,
     },
@@ -268,7 +272,7 @@ export default function SettingsPage() {
         invoiceFooterText: settings.invoiceFooterText || "",
         showCompanyDetails: settings.showCompanyDetails ?? true,
         showBankDetails: settings.showBankDetails ?? true,
-        invoiceTemplate: (settings.invoiceTemplate as "professional" | "modern" | "classic" | "minimal") || "professional",
+        invoiceTemplate: (settings.invoiceTemplate as any) || "luxury",
         enableWeeklyCategorization: settings.enableWeeklyCategorization ?? true,
         showDateColumn: settings.showDateColumn ?? true,
       };
@@ -405,6 +409,53 @@ export default function SettingsPage() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {/* Invoice Template Selector - Moved to Top */}
+          <Card className="border-2 border-blue-200 bg-blue-50/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Palette className="h-5 w-5" />
+                Invoice Template Style
+              </CardTitle>
+              <CardDescription>
+                Choose your preferred invoice design from our collection of professional templates
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FormField
+                control={form.control}
+                name="invoiceTemplate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-lg font-medium">Template Style</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="h-12 text-base">
+                          <SelectValue placeholder="Select invoice template..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="luxury">Luxury</SelectItem>
+                        <SelectItem value="technology">Technology</SelectItem>
+                        <SelectItem value="coding">Coding</SelectItem>
+                        <SelectItem value="video-production">Video Production</SelectItem>
+                        <SelectItem value="graphic-design">Graphic Design</SelectItem>
+                        <SelectItem value="accounting">Accounting</SelectItem>
+                        <SelectItem value="education">Education</SelectItem>
+                        <SelectItem value="hr-recruitment">HR & Recruitment</SelectItem>
+                        <SelectItem value="engineering">Engineering & Architecture</SelectItem>
+                        <SelectItem value="health-wellness">Health & Wellness</SelectItem>
+                        <SelectItem value="cyberpunk">Cyberpunk</SelectItem>
+                        <SelectItem value="minimalist">Minimalist</SelectItem>
+                        <SelectItem value="classic">Classic</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="business" className="flex items-center gap-2">
@@ -1046,10 +1097,19 @@ export default function SettingsPage() {
                                         </SelectTrigger>
                                       </FormControl>
                                       <SelectContent>
-                                        <SelectItem value="professional">Professional</SelectItem>
-                                        <SelectItem value="modern">Modern</SelectItem>
+                                        <SelectItem value="luxury">Luxury</SelectItem>
+                                        <SelectItem value="technology">Technology</SelectItem>
+                                        <SelectItem value="coding">Coding</SelectItem>
+                                        <SelectItem value="video-production">Video Production</SelectItem>
+                                        <SelectItem value="graphic-design">Graphic Design</SelectItem>
+                                        <SelectItem value="accounting">Accounting</SelectItem>
+                                        <SelectItem value="education">Education</SelectItem>
+                                        <SelectItem value="hr-recruitment">HR & Recruitment</SelectItem>
+                                        <SelectItem value="engineering">Engineering & Architecture</SelectItem>
+                                        <SelectItem value="health-wellness">Health & Wellness</SelectItem>
+                                        <SelectItem value="cyberpunk">Cyberpunk</SelectItem>
+                                        <SelectItem value="minimalist">Minimalist</SelectItem>
                                         <SelectItem value="classic">Classic</SelectItem>
-                                        <SelectItem value="minimal">Minimal</SelectItem>
                                       </SelectContent>
                                     </Select>
                                     <FormMessage className="text-xs" />

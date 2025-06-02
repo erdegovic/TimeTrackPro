@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tech Invoice</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap');
+        
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary: #e5e7eb;
+            --accent: #3b82f6;
+            --text: #111827;
+            --light: #f9fafb;
+            --code-bg: #f3f4f6;
+            --terminal: #1f2937;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--text);
+            background-color: var(--light);
+            padding: 40px;
+            line-height: 1.5;
+        }
+        
+        .invoice-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid var(--secondary);
+        }
+        
+        .invoice-header {
+            padding: 30px 40px;
+            background: var(--light);
+            border-bottom: 1px solid var(--secondary);
+            position: relative;
+        }
+        
+        .header-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 30px;
+            align-items: center;
+        }
+        
+        .logo-terminal {
+            width: 80px;
+            height: 80px;
+            background: var(--terminal);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.8rem;
+            padding: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .terminal-cursor {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 8px;
+            height: 14px;
+            background: #4ade80;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        
+        .company-info {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .company-name {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--primary-dark);
+            margin-bottom: 5px;
+            letter-spacing: -0.5px;
+        }
+        
+        .company-tagline {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.9rem;
+            color: #6b7280;
+            margin-bottom: 15px;
+        }
+        
+        .invoice-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .meta-block {
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        .meta-label {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.75rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        
+        .meta-value {
+            font-weight: 500;
+            font-size: 1.1rem;
+        }
+        
+        .invoice-number {
+            background: var(--primary);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .invoice-body {
+            padding: 30px 40px;
+        }
+        
+        .client-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        
+        .client-block {
+            position: relative;
+        }
+        
+        .client-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--primary-dark);
+            display: flex;
+            align-items: center;
+        }
+        
+        .client-title::before {
+            content: ">";
+            font-family: 'Roboto Mono', monospace;
+            color: var(--primary);
+            margin-right: 8px;
+            font-weight: bold;
+        }
+        
+        .client-address {
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        
+        .client-address p {
+            margin-bottom: 5px;
+        }
+        
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            font-size: 0.95rem;
+        }
+        
+        .items-table thead {
+            background: var(--light);
+            border-bottom: 1px solid var(--secondary);
+            border-top: 1px solid var(--secondary);
+        }
+        
+        .items-table th {
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 500;
+            color: var(--text);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .items-table td {
+            padding: 15px;
+            border-bottom: 1px solid var(--secondary);
+        }
+        
+        .items-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .items-table tr:hover td {
+            background: rgba(59, 130, 246, 0.05);
+        }
+        
+        .code-block {
+            font-family: 'Roboto Mono', monospace;
+            background: var(--code-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--primary-dark);
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .total-section {
+            margin-top: 30px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        
+        .total-box {
+            width: 300px;
+            border-top: 1px solid var(--secondary);
+            padding-top: 20px;
+        }
+        
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .total-label {
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        .total-amount {
+            font-weight: 600;
+        }
+        
+        .grand-total {
+            font-size: 1.1rem;
+            color: var(--primary-dark);
+            font-weight: 700;
+            border-top: 1px solid var(--secondary);
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+        
+        .invoice-footer {
+            padding: 25px 40px;
+            background: var(--light);
+            border-top: 1px solid var(--secondary);
+            font-size: 0.85rem;
+        }
+        
+        .payment-info {
+            margin-bottom: 15px;
+        }
+        
+        .thank-you {
+            font-weight: 600;
+            color: var(--primary-dark);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .thank-you::before {
+            content: "//";
+            font-family: 'Roboto Mono', monospace;
+            color: var(--primary);
+            margin-right: 8px;
+            font-weight: bold;
+        }
+        
+        .qr-code {
+            width: 100px;
+            height: 100px;
+            background: #f3f4f6;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .qr-code::before {
+            content: "";
+            position: absolute;
+            width: 80%;
+            height: 80%;
+            background: 
+                linear-gradient(45deg, transparent 48%, var(--primary) 48%, var(--primary) 52%, transparent 52%),
+                linear-gradient(-45deg, transparent 48%, var(--primary) 48%, var(--primary) 52%, transparent 52%);
+            background-size: 20px 20px;
+            opacity: 0.1;
+        }
+        
+        .divider {
+            height: 1px;
+            background: var(--secondary);
+            margin: 20px 0;
+            position: relative;
+        }
+        
+        .divider::after {
+            content: "...";
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 0 10px;
+            color: #9ca3af;
+            font-family: 'Roboto Mono', monospace;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 20px;
+            }
+            
+            .invoice-header, .invoice-body, .invoice-footer {
+                padding: 25px;
+            }
+            
+            .header-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .logo-terminal {
+                margin-bottom: 20px;
+            }
+            
+            .company-name {
+                font-size: 1.5rem;
+            }
+        }
+        
+        /* Binary background pattern */
+        .binary-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.03;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.7rem;
+            line-height: 1.2;
+            color: var(--primary);
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <div class="binary-bg">01010100 01100101 01100011 01101000 00100000 01001001 01101110 01110110 01101111 01101001 01100011 01100101 00100000 00110010 00110000 00110010 00110111</div>
+        
+        <div class="invoice-header">
+            <div class="header-grid">
+                <div class="logo-terminal">
+                    $ invoice<br>
+                    > generate<br>
+                    > status: paid<br>
+                    <div class="terminal-cursor"></div>
+                </div>
+                <div class="company-info">
+                    <div class="company-name">NEXUS TECH</div>
+                    <div class="company-tagline">build:innovate:scale</div>
+                </div>
+            </div>
+            
+            <div class="invoice-meta">
+                <div class="meta-block">
+                    <div class="meta-label">Invoice No</div>
+                    <div class="meta-value"><span class="invoice-number">INV-2023-0042</span></div>
+                </div>
+                <div class="meta-block">
+                    <div class="meta-label">Date Issued</div>
+                    <div class="meta-value">2023-11-15</div>
+                </div>
+                <div class="meta-block">
+                    <div class="meta-label">Due Date</div>
+                    <div class="meta-value">2023-12-15</div>
+                </div>
+                <div class="meta-block">
+                    <div class="meta-label">Payment Terms</div>
+                    <div class="meta-value">NET 30</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="invoice-body">
+            <div class="client-grid">
+                <div class="client-block">
+                    <h3 class="client-title">From</h3>
+                    <div class="client-address">
+                        <p><strong>NEXUS TECH LLC</strong></p>
+                        <p>548 Tech Valley Drive</p>
+                        <p>Suite 2100</p>
+                        <p>San Francisco, CA 94107</p>
+                        <p>United States</p>
+                        <p>billing@nexustech.example</p>
+                        <p>+1 (415) 555-0199</p>
+                    </div>
+                </div>
+                <div class="client-block">
+                    <h3 class="client-title">To</h3>
+                    <div class="client-address">
+                        <p><strong>QUANTUM SYSTEMS INC</strong></p>
+                        <p>Attn: Alex Chen (CTO)</p>
+                        <p>892 Data Parkway</p>
+                        <p>Boston, MA 02108</p>
+                        <p>United States</p>
+                        <p>finance@quantumsys.example</p>
+                        <p>PO #QT-2023-487</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th class="text-right">Qty</th>
+                        <th class="text-right">Rate</th>
+                        <th class="text-right">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <strong>Cloud Infrastructure Setup</strong><br>
+                            <span class="code-block">service-id: cloud-0042</span>
+                        </td>
+                        <td class="text-right">1</td>
+                        <td class="text-right">$2,500.00</td>
+                        <td class="text-right">$2,500.00</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <strong>API Integration Development</strong><br>
+                            <span class="code-block">service-id: api-3157</span>
+                        </td>
+                        <td class="text-right">35</td>
+                        <td class="text-right">$120.00</td>
+                        <td class="text-right">$4,200.00</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <strong>Technical Consultation</strong><br>
+                            <span class="code-block">service-id: consult-8893</span>
+                        </td>
+                        <td class="text-right">8</td>
+                        <td class="text-right">$250.00</td>
+                        <td class="text-right">$2,000.00</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <strong>Priority Support Package</strong><br>
+                            <span class="code-block">service-id: support-2246</span>
+                        </td>
+                        <td class="text-right">1</td>
+                        <td class="text-right">$1,200.00</td>
+                        <td class="text-right">$1,200.00</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="total-section">
+                <div class="total-box">
+                    <div class="total-row">
+                        <div class="total-label">Subtotal</div>
+                        <div class="total-amount">$9,900.00</div>
+                    </div>
+                    <div class="total-row">
+                        <div class="total-label">Discount <span class="code-block">LOYALTY2023</span></div>
+                        <div class="total-amount">-$500.00</div>
+                    </div>
+                    <div class="total-row">
+                        <div class="total-label">Tax (8.5%)</div>
+                        <div class="total-amount">$799.50</div>
+                    </div>
+                    <div class="total-row grand-total">
+                        <div class="total-label">Total Due</div>
+                        <div class="total-amount">$10,199.50</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="qr-code">
+                <svg width="80" height="80" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="1" y="1" width="7" height="7" fill="var(--primary)"/>
+                    <rect x="1" y="9" width="3" height="3" fill="var(--primary)"/>
+                    <rect x="5" y="9" width="3" height="3" fill="var(--primary)"/>
+                    <rect x="9" y="1" width="3" height="3" fill="var(--primary)"/>
+                    <rect x="13" y="1" width="3" height="3" fill="var(--primary)"/>
+                    <rect x="9" y="5" width="3" height="3" fill="var(--primary)"/>
+                    <rect x="13" y="5" width="3" height="3" fill="var(--primary)"/>
+                    <rect x="9" y="9" width="7" height="7" fill="var(--primary)"/>
+                    <rect x="17" y="1" width="3" height="3" fill="var(--primary)"/>
+                    <rect x="1" y="13" width="3" height="3" fill="var(--primary)"/>
+                    <rect x="5" y="13" width="3" height="3" fill="var(--primary)"/>
+                    <rect x="1" y="17" width="7" height="3" fill="var(--primary)"/>
+                    <rect x="13" y="17" width="3" height="3" fill="var(--primary)"/>
+                    <rect x="17" y="13" width="3" height="7" fill="var(--primary)"/>
+                    <rect x="9" y="17" width="3" height="3" fill="var(--primary)"/>
+                </svg>
+            </div>
+        </div>
+        
+        <div class="invoice-footer">
+            <div class="payment-info">
+                <p>Payment Methods: Bank Transfer • Credit Card • Crypto (USDC/USDT)</p>
+                <p>Bank Details: Silicon Valley Bank • Routing #121140399 • Account #765432100</p>
+            </div>
+            <div class="divider"></div>
+            <p class="thank-you">Thank you for your business</p>
+            <p>Questions? Email <span class="code-block">billing@nexustech.example</span> or open a ticket <span class="code-block">#support</span></p>
+        </div>
+    </div>
+</body>
+</html>

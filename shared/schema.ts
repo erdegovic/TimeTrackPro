@@ -158,7 +158,7 @@ export const settings = pgTable("settings", {
   invoiceFooterText: text("invoice_footer_text"),
   showCompanyDetails: boolean("show_company_details").default(true),
   showBankDetails: boolean("show_bank_details").default(true),
-  invoiceTemplate: text("invoice_template").default("professional"), // Template style
+  invoiceTemplate: text("invoice_template").default("luxury"), // Template style
   
   // Report settings
   enableWeeklyCategorization: boolean("enable_weekly_categorization").default(true),
