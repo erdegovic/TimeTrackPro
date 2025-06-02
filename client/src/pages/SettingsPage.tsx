@@ -1482,49 +1482,156 @@ export default function SettingsPage() {
                       fontSize: `${watchedValues.customFontSize}px`
                     }}
                   >
-                    {/* Template-specific Header */}
-                    <div className={currentTemplate.headerStyle}>
-                      <div className="flex justify-between items-start w-full">
-                        <div>
-                          {watchedValues.showLogo && logoPreview && (
-                            <img 
-                              src={logoPreview} 
-                              alt="Company Logo" 
-                              className="max-h-16 mb-4"
-                            />
-                          )}
-                          {watchedValues.showCompanyDetails && (
+                    {/* Video Production Template with Film Strip Design */}
+                    {watchedValues.invoiceTemplate === 'video-production' && (
+                      <>
+                        {/* Red Header with Film Strip */}
+                        <div className="bg-red-600 p-6 relative">
+                          <div className="absolute top-0 left-0 w-full h-1 bg-red-700"></div>
+                          <div className="flex justify-between items-start text-white">
                             <div>
-                              <h2 className={`${currentTemplate.titleSize} ${currentTemplate.titleDecoration}`}>
-                                {watchedValues.businessName || "Your Business Name"}
-                              </h2>
-                              <div className="text-sm mt-2 opacity-90">
+                              <h1 className="text-4xl font-bold tracking-wide mb-2">
+                                {watchedValues.businessName || "LUMINA FILMS"}
+                              </h1>
+                              <p className="text-red-100 text-sm">Cinematic storytelling at its finest</p>
+                              <div className="text-red-100 text-sm mt-2">
                                 {watchedValues.businessAddress && <div>{watchedValues.businessAddress}</div>}
-                                <div>
-                                  {[watchedValues.businessCity, watchedValues.businessState, watchedValues.businessZipCode]
-                                    .filter(Boolean).join(", ")}
-                                </div>
-                                {watchedValues.businessEmail && <div>{watchedValues.businessEmail}</div>}
-                                {watchedValues.businessPhone && <div>{watchedValues.businessPhone}</div>}
+                                <div>{watchedValues.businessEmail} | {watchedValues.businessPhone}</div>
                               </div>
                             </div>
-                          )}
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-red-100">INV #{watchedValues.nextInvoiceNumber}</div>
+                              <div className="text-sm text-red-200 mt-1">
+                                <div>Date: {new Date().toLocaleDateString()}</div>
+                                <div>Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                         
-                        <div className="text-right">
-                          <h1 className="text-3xl font-bold mb-2">
-                            INVOICE
-                          </h1>
-                          <div className="text-sm space-y-1">
-                            <div>Invoice #: {watchedValues.nextInvoiceNumber}</div>
-                            <div>Date: {new Date().toLocaleDateString()}</div>
-                            {watchedValues.showDueDate && (
-                              <div>Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
-                            )}
+                        {/* Film Strip Border */}
+                        <div className="bg-black h-8 flex items-center justify-center">
+                          <div className="flex space-x-2">
+                            {[...Array(25)].map((_, i) => (
+                              <div key={i} className="w-2 h-4 bg-gray-600"></div>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        {/* Two Column Layout */}
+                        <div className="p-8 grid grid-cols-2 gap-8">
+                          <div>
+                            <h3 className="text-red-600 font-bold text-lg mb-4">BILL TO</h3>
+                            <div className="space-y-1">
+                              <div className="font-semibold">Starlight Productions</div>
+                              <div className="text-sm">Attn: Sarah Johnson (Producer)</div>
+                              <div className="text-sm">890 Cinema Boulevard</div>
+                              <div className="text-sm">Los Angeles, CA 90028</div>
+                              <div className="text-sm">PO #STAR-2023-42</div>
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="text-red-600 font-bold text-lg mb-4">PROJECT DETAILS</h3>
+                            <div className="space-y-1 text-sm">
+                              <div><strong>Project:</strong> "Midnight Horizon" Commercial</div>
+                              <div><strong>Project ID:</strong> PRJ-MH-2309</div>
+                              <div><strong>Shot Dates:</strong> Oct 10-15, 2023</div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Coding Template with Terminal Style */}
+                    {watchedValues.invoiceTemplate === 'coding' && (
+                      <div className="bg-black text-green-400 p-6 font-mono">
+                        <div className="border-b border-green-600 pb-4 mb-4">
+                          <div className="text-green-500 text-xs mb-2">// DEVHACK SYSTEMS - INVOICE</div>
+                          <div className="flex justify-between">
+                            <div>
+                              <h1 className="text-2xl font-bold text-green-400">
+                                // {watchedValues.businessName || "DEVHACK SYSTEMS"} //
+                              </h1>
+                              <div className="text-green-600 text-sm mt-2">
+                                <div>// Cutting-edge development solutions</div>
+                                <div>// {watchedValues.businessEmail}</div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-blue-400 text-lg">INVOICE #{watchedValues.nextInvoiceNumber}</div>
+                              <div className="text-green-600 text-sm">
+                                <div>Date: {new Date().toLocaleDateString()}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-6 text-sm">
+                          <div>
+                            <div className="text-green-400 mb-2">CLIENT_INFO</div>
+                            <div className="ml-4 space-y-1">
+                              <div>name: "Sample Client"</div>
+                              <div>address: "123 Tech Street"</div>
+                              <div>email: "client@techcorp.com"</div>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-green-400 mb-2">PROJECT_META</div>
+                            <div className="ml-4 space-y-1">
+                              <div>status: "completed"</div>
+                              <div>framework: "React.js"</div>
+                              <div>deployment: "AWS"</div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
+                    )}
+
+                    {/* Default Template for Other Types */}
+                    {!['video-production', 'coding'].includes(watchedValues.invoiceTemplate || '') && (
+                      <div className={currentTemplate.headerStyle}>
+                        <div className="flex justify-between items-start w-full">
+                          <div>
+                            {watchedValues.showLogo && logoPreview && (
+                              <img 
+                                src={logoPreview} 
+                                alt="Company Logo" 
+                                className="max-h-16 mb-4"
+                              />
+                            )}
+                            {watchedValues.showCompanyDetails && (
+                              <div>
+                                <h2 className={`${currentTemplate.titleSize} ${currentTemplate.titleDecoration}`}>
+                                  {watchedValues.businessName || "Your Business Name"}
+                                </h2>
+                                <div className="text-sm mt-2 opacity-90">
+                                  {watchedValues.businessAddress && <div>{watchedValues.businessAddress}</div>}
+                                  <div>
+                                    {[watchedValues.businessCity, watchedValues.businessState, watchedValues.businessZipCode]
+                                      .filter(Boolean).join(", ")}
+                                  </div>
+                                  {watchedValues.businessEmail && <div>{watchedValues.businessEmail}</div>}
+                                  {watchedValues.businessPhone && <div>{watchedValues.businessPhone}</div>}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="text-right">
+                            <h1 className="text-3xl font-bold mb-2">
+                              INVOICE
+                            </h1>
+                            <div className="text-sm space-y-1">
+                              <div>Invoice #: {watchedValues.nextInvoiceNumber}</div>
+                              <div>Date: {new Date().toLocaleDateString()}</div>
+                              {watchedValues.showDueDate && (
+                                <div>Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Billing Information */}
                     <div className={currentTemplate.billingStyle}>
@@ -1550,57 +1657,225 @@ export default function SettingsPage() {
                       </div>
                     </div>
 
-                    {/* Services Table */}
-                    <div className={`${currentTemplate.tableStyle} mb-8`}>
-                      <div className={`${currentTemplate.tableHeaderStyle} p-4`}>
-                        <div className="grid grid-cols-4 gap-4 font-semibold">
-                          <div>Description</div>
-                          <div className="text-center">Hours</div>
-                          <div className="text-center">Rate</div>
-                          <div className="text-right">Amount</div>
+                    {/* Video Production Services Table */}
+                    {watchedValues.invoiceTemplate === 'video-production' && (
+                      <div className="p-8">
+                        {/* Film Strip Border */}
+                        <div className="bg-black h-8 flex items-center justify-center mb-6">
+                          <div className="flex space-x-2">
+                            {[...Array(25)].map((_, i) => (
+                              <div key={i} className="w-2 h-4 bg-gray-600"></div>
+                            ))}
+                          </div>
                         </div>
+                        
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="bg-gray-100">
+                              <th className="text-left p-4 font-semibold">Service</th>
+                              <th className="text-center p-4 font-semibold">Days/Qty</th>
+                              <th className="text-center p-4 font-semibold">Rate</th>
+                              <th className="text-right p-4 font-semibold">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-b">
+                              <td className="p-4">
+                                <div className="font-medium">Pre-Production</div>
+                                <div className="text-red-600 text-sm">CREATIVE DEVELOPMENT</div>
+                              </td>
+                              <td className="text-center p-4">5</td>
+                              <td className="text-center p-4">$1,200.00</td>
+                              <td className="text-right p-4">$6,000.00</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="p-4">
+                                <div className="font-medium">Principal Photography</div>
+                                <div className="text-red-600 text-sm">2 CAMERA CREW</div>
+                              </td>
+                              <td className="text-center p-4">3</td>
+                              <td className="text-center p-4">$3,500.00</td>
+                              <td className="text-right p-4">$10,500.00</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="p-4">
+                                <div className="font-medium">Cinematography</div>
+                                <div className="text-red-600 text-sm">ARRI ALEXA PACKAGE</div>
+                              </td>
+                              <td className="text-center p-4">3</td>
+                              <td className="text-center p-4">$2,800.00</td>
+                              <td className="text-right p-4">$8,400.00</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="p-4">
+                                <div className="font-medium">Post-Production</div>
+                                <div className="text-red-600 text-sm">EDITING & COLOR GRADING</div>
+                              </td>
+                              <td className="text-center p-4">10</td>
+                              <td className="text-center p-4">$950.00</td>
+                              <td className="text-right p-4">$9,500.00</td>
+                            </tr>
+                            <tr>
+                              <td className="p-4">
+                                <div className="font-medium">Licensed Music Track</div>
+                                <div className="text-red-600 text-sm">"NEON DREAMS" BY AUDIONETWORK</div>
+                              </td>
+                              <td className="text-center p-4">1</td>
+                              <td className="text-center p-4">$1,200.00</td>
+                              <td className="text-right p-4">$1,200.00</td>
+                            </tr>
+                          </tbody>
+                        </table>
                       </div>
-                      <div className="p-4">
-                        <div className="grid grid-cols-4 gap-4 py-3 border-b border-gray-200">
-                          <div>Web Development</div>
-                          <div className="text-center">8.5</div>
-                          <div className="text-center">{watchedValues.displayCurrency}75.00</div>
-                          <div className="text-right">{watchedValues.displayCurrency}637.50</div>
-                        </div>
-                        <div className="grid grid-cols-4 gap-4 py-3 border-b border-gray-200">
-                          <div>UI/UX Design</div>
-                          <div className="text-center">4.0</div>
-                          <div className="text-center">{watchedValues.displayCurrency}85.00</div>
-                          <div className="text-right">{watchedValues.displayCurrency}340.00</div>
-                        </div>
-                        <div className="grid grid-cols-4 gap-4 py-3">
-                          <div>Project Management</div>
-                          <div className="text-center">2.5</div>
-                          <div className="text-center">{watchedValues.displayCurrency}65.00</div>
-                          <div className="text-right">{watchedValues.displayCurrency}162.50</div>
-                        </div>
-                      </div>
-                    </div>
+                    )}
 
-                    {/* Total Section */}
-                    <div className={currentTemplate.totalStyle}>
-                      <div className="flex justify-end">
-                        <div className="w-80 space-y-2">
-                          <div className="flex justify-between">
-                            <span>Subtotal:</span>
-                            <span>{watchedValues.displayCurrency}1,140.00</span>
+                    {/* Coding Template Services */}
+                    {watchedValues.invoiceTemplate === 'coding' && (
+                      <div className="bg-black text-green-400 p-6 font-mono">
+                        <div className="text-green-500 text-sm mb-4">// SERVICES_ARRAY</div>
+                        <div className="space-y-3 text-sm">
+                          <div className="grid grid-cols-4 gap-4 border-b border-green-800 pb-2">
+                            <div className="text-green-400">SERVICE</div>
+                            <div className="text-center text-green-400">HOURS</div>
+                            <div className="text-center text-green-400">RATE</div>
+                            <div className="text-right text-green-400">TOTAL</div>
                           </div>
-                          <div className="flex justify-between">
-                            <span>Tax (10%):</span>
-                            <span>{watchedValues.displayCurrency}114.00</span>
+                          <div className="grid grid-cols-4 gap-4 py-2">
+                            <div>frontend_development()</div>
+                            <div className="text-center">120</div>
+                            <div className="text-center">$85.00</div>
+                            <div className="text-right">$10,200.00</div>
                           </div>
-                          <div className="flex justify-between text-xl font-bold border-t pt-2" style={{ color: currentTemplate.accentColor }}>
-                            <span>Total:</span>
-                            <span>{watchedValues.displayCurrency}1,254.00</span>
+                          <div className="grid grid-cols-4 gap-4 py-2">
+                            <div>api_integration()</div>
+                            <div className="text-center">40</div>
+                            <div className="text-center">$95.00</div>
+                            <div className="text-right">$3,800.00</div>
+                          </div>
+                          <div className="grid grid-cols-4 gap-4 py-2">
+                            <div>database_optimization()</div>
+                            <div className="text-center">25</div>
+                            <div className="text-center">$110.00</div>
+                            <div className="text-right">$2,750.00</div>
                           </div>
                         </div>
                       </div>
-                    </div>
+                    )}
+
+                    {/* Default Services Table */}
+                    {!['video-production', 'coding'].includes(watchedValues.invoiceTemplate || '') && (
+                      <div className={`${currentTemplate.tableStyle} mb-8`}>
+                        <div className={`${currentTemplate.tableHeaderStyle} p-4`}>
+                          <div className="grid grid-cols-4 gap-4 font-semibold">
+                            <div>Description</div>
+                            <div className="text-center">Hours</div>
+                            <div className="text-center">Rate</div>
+                            <div className="text-right">Amount</div>
+                          </div>
+                        </div>
+                        <div className="p-4">
+                          <div className="grid grid-cols-4 gap-4 py-3 border-b border-gray-200">
+                            <div>Web Development</div>
+                            <div className="text-center">8.5</div>
+                            <div className="text-center">{watchedValues.displayCurrency}75.00</div>
+                            <div className="text-right">{watchedValues.displayCurrency}637.50</div>
+                          </div>
+                          <div className="grid grid-cols-4 gap-4 py-3 border-b border-gray-200">
+                            <div>UI/UX Design</div>
+                            <div className="text-center">4.0</div>
+                            <div className="text-center">{watchedValues.displayCurrency}85.00</div>
+                            <div className="text-right">{watchedValues.displayCurrency}340.00</div>
+                          </div>
+                          <div className="grid grid-cols-4 gap-4 py-3">
+                            <div>Project Management</div>
+                            <div className="text-center">2.5</div>
+                            <div className="text-center">{watchedValues.displayCurrency}65.00</div>
+                            <div className="text-right">{watchedValues.displayCurrency}162.50</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Video Production Total Section */}
+                    {watchedValues.invoiceTemplate === 'video-production' && (
+                      <div className="p-8 bg-gray-50">
+                        <div className="flex justify-end">
+                          <div className="w-80 space-y-2">
+                            <div className="flex justify-between">
+                              <span>Subtotal:</span>
+                              <span>$35,600.00</span>
+                            </div>
+                            <div className="flex justify-between text-red-600">
+                              <span>Equipment Discount (10%):</span>
+                              <span>-$3,560.00</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Tax (8.5%):</span>
+                              <span>$2,723.40</span>
+                            </div>
+                            <div className="flex justify-between text-2xl font-bold border-t-2 border-red-600 pt-2 text-red-600">
+                              <span>TOTAL DUE:</span>
+                              <span>$34,763.40</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-8 text-sm space-y-2">
+                          <div><strong>Payment Terms:</strong> Net 30. Late fees of 1.5% monthly will apply after due date.</div>
+                          <div><strong>Payment Methods:</strong> Bank transfer, check, or credit card (+3% fee).</div>
+                          <div><strong>Bank Details:</strong> Chase Bank | Routing #021000021 | Account #987654321</div>
+                        </div>
+                        
+                        <div className="mt-8 text-center text-sm border-t pt-4">
+                          <div>Thank you for choosing <strong>Lumina Films!</strong></div>
+                          <div>Questions? Email accounting@luminafilms.example</div>
+                          <div className="text-xs text-gray-600 mt-2">© 2023 Lumina Films | All rights reserved</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Coding Template Total */}
+                    {watchedValues.invoiceTemplate === 'coding' && (
+                      <div className="bg-black text-green-400 p-6 font-mono">
+                        <div className="text-green-500 text-sm mb-4">// INVOICE_TOTALS</div>
+                        <div className="text-right space-y-1">
+                          <div>subtotal: $16,750.00</div>
+                          <div>tax_rate: 0.0825</div>
+                          <div>tax_amount: $1,381.88</div>
+                          <div className="border-t border-green-600 pt-2 text-lg font-bold">
+                            total_due: $18,131.88
+                          </div>
+                        </div>
+                        
+                        <div className="mt-6 text-xs text-green-600 border-t border-green-800 pt-4">
+                          <div>// Payment via crypto preferred (BTC/ETH)</div>
+                          <div>// Traditional banking also accepted</div>
+                          <div>// contact@devhacksystems.dev</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Default Total Section */}
+                    {!['video-production', 'coding'].includes(watchedValues.invoiceTemplate || '') && (
+                      <div className={currentTemplate.totalStyle}>
+                        <div className="flex justify-end">
+                          <div className="w-80 space-y-2">
+                            <div className="flex justify-between">
+                              <span>Subtotal:</span>
+                              <span>{watchedValues.displayCurrency}1,140.00</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Tax (10%):</span>
+                              <span>{watchedValues.displayCurrency}114.00</span>
+                            </div>
+                            <div className="flex justify-between text-xl font-bold border-t pt-2" style={{ color: currentTemplate.accentColor }}>
+                              <span>Total:</span>
+                              <span>{watchedValues.displayCurrency}1,254.00</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Payment Information */}
                     {(watchedValues.bankName || watchedValues.invoiceFooterText) && (
