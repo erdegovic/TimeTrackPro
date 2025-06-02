@@ -64,7 +64,7 @@ const settingsSchema = z.object({
   invoiceFooterText: z.string().optional(),
   showCompanyDetails: z.boolean().default(true),
   showBankDetails: z.boolean().default(true),
-  invoiceTemplate: z.enum(["professional", "modern", "classic", "minimal"]),
+  invoiceTemplate: z.enum(["professional", "modern", "classic", "minimal", "media"]),
   
   // Report Settings
   enableWeeklyCategorization: z.boolean().default(true),
@@ -148,6 +148,13 @@ const templateStyles = {
     spacing: "mb-4",
     borderStyle: "border-b",
     layoutClass: "simple"
+  },
+  media: {
+    headerStyle: "flex justify-between items-start p-10 border-b border-gray-200",
+    titleSize: "text-4xl font-bold",
+    spacing: "mb-8",
+    borderStyle: "border-b border-gray-200",
+    layoutClass: "cinematic"
   }
 };
 
@@ -903,6 +910,12 @@ export default function SettingsPage() {
                                     Minimal
                                   </div>
                                 </SelectItem>
+                                <SelectItem value="media">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-red-600 rounded-sm"></div>
+                                    Media
+                                  </div>
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                             <div className="text-xs text-gray-600 mt-1">
@@ -1147,9 +1160,50 @@ export default function SettingsPage() {
                         fontSize: `${watchedValues.customFontSize}px`
                       }}
                     >
+                      {/* Red gradient top bar for Media template */}
+                      {watchedValues.invoiceTemplate === "media" && (
+                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-red-600 to-red-500"></div>
+                      )}
+                      
                       {/* Template-specific Header */}
-                      <div className={`${currentTemplate.headerStyle} ${currentTemplate.spacing}`}>
-                        {watchedValues.invoiceTemplate === "classic" ? (
+                      <div className={`${currentTemplate.headerStyle} ${currentTemplate.spacing || ''}`}>
+                        {watchedValues.invoiceTemplate === "media" ? (
+                          // Media template layout
+                          <div className="w-full">
+                            <div className="flex justify-between items-start">
+                              <div className="company-info">
+                                <h1 className="text-4xl font-bold text-gray-900 mb-2">
+                                  {watchedValues.businessName?.toUpperCase() || "YOUR BUSINESS"}
+                                </h1>
+                                <p className="text-gray-600 mb-1">Professional media services</p>
+                                {watchedValues.showCompanyDetails && (
+                                  <div className="text-sm text-gray-600 space-y-1">
+                                    {watchedValues.businessAddress && <div>{watchedValues.businessAddress}</div>}
+                                    <div>
+                                      {[watchedValues.businessCity, watchedValues.businessState, watchedValues.businessZipCode]
+                                        .filter(Boolean).join(", ")}
+                                    </div>
+                                    <div>
+                                      {[watchedValues.businessEmail, watchedValues.businessPhone]
+                                        .filter(Boolean).join(" | ")}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="invoice-meta text-right">
+                                <div className="text-2xl font-semibold text-red-600 mb-2">
+                                  INV #{watchedValues.nextInvoiceNumber}
+                                </div>
+                                <div className="text-sm text-gray-600 space-y-1">
+                                  <div>Date: {new Date().toLocaleDateString()}</div>
+                                  {watchedValues.showDueDate && (
+                                    <div>Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : watchedValues.invoiceTemplate === "classic" ? (
                           // Classic centered layout
                           <div className="w-full text-center">
                             {watchedValues.showLogo && logoPreview && (
@@ -1232,21 +1286,70 @@ export default function SettingsPage() {
                         )}
                       </div>
 
-                      {/* Client Information */}
-                      <div className="mb-6">
-                        <h3 
-                          className="font-semibold mb-2"
-                          style={{ color: watchedValues.invoiceAccentColor }}
-                        >
-                          Bill To:
-                        </h3>
-                        <div>
-                          <div className="font-medium">Sample Client</div>
-                          <div className="text-sm">123 Client Street</div>
-                          <div className="text-sm">Client City, State 12345</div>
-                          <div className="text-sm">client@example.com</div>
+                      {/* Media Template Billing Section */}
+                      {watchedValues.invoiceTemplate === "media" ? (
+                        <>
+                          {/* Billing Info Grid */}
+                          <div className="grid grid-cols-2 gap-8 p-10 bg-gray-50 mb-6">
+                            <div className="info-block">
+                              <h3 className="text-red-600 text-sm font-semibold mb-4 uppercase tracking-wide">
+                                Bill To
+                              </h3>
+                              <div className="space-y-1">
+                                <div className="font-bold">Sample Client</div>
+                                <div className="text-sm text-gray-600">Attn: Producer</div>
+                                <div className="text-sm text-gray-600">123 Client Street</div>
+                                <div className="text-sm text-gray-600">Client City, State 12345</div>
+                                <div className="text-sm text-gray-600">PO #CLIENT-2023-42</div>
+                              </div>
+                            </div>
+                            <div className="info-block">
+                              <h3 className="text-red-600 text-sm font-semibold mb-4 uppercase tracking-wide">
+                                Project Details
+                              </h3>
+                              <div className="space-y-1">
+                                <div><span className="font-bold">Project:</span> Media Production</div>
+                                <div><span className="font-bold">Project ID:</span> PRJ-MP-2023</div>
+                                <div><span className="font-bold">Production Dates:</span> {new Date().toLocaleDateString()}</div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Filmstrip Divider */}
+                          <div className="mx-10 mb-8">
+                            <div className="h-5 bg-gray-900 relative">
+                              <div className="absolute inset-0 bg-repeat-x" 
+                                   style={{
+                                     backgroundImage: `repeating-linear-gradient(90deg, 
+                                       transparent 0px, 
+                                       transparent 10px, 
+                                       #1a1a1a 10px, 
+                                       #1a1a1a 20px
+                                     )`
+                                   }}>
+                              </div>
+                              <div className="absolute -left-5 top-0 w-5 h-full bg-gray-900 rounded-l-lg"></div>
+                              <div className="absolute -right-5 top-0 w-5 h-full bg-gray-900 rounded-r-lg"></div>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        /* Other Templates Client Information */
+                        <div className="mb-6">
+                          <h3 
+                            className="font-semibold mb-2"
+                            style={{ color: watchedValues.invoiceAccentColor }}
+                          >
+                            Bill To:
+                          </h3>
+                          <div>
+                            <div className="font-medium">Sample Client</div>
+                            <div className="text-sm">123 Client Street</div>
+                            <div className="text-sm">Client City, State 12345</div>
+                            <div className="text-sm">client@example.com</div>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       {/* Sample invoice content with template styling */}
                       <div className={`${currentTemplate.borderStyle} py-4 mb-6`}>
