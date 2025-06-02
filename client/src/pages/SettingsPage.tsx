@@ -1426,11 +1426,16 @@ export default function SettingsPage() {
                   </div>
                   
                   <div className="p-4 space-y-4">
-                    {/* Template Style - Prominent Section */}
-                    <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-200 rounded-lg p-4 shadow-sm">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Type className="h-5 w-5 text-blue-600" />
-                        <h4 className="font-semibold text-blue-900 text-lg">Template Style</h4>
+                    {/* Template Style */}
+                    <div className="bg-white rounded-lg border-2 p-4 shadow-sm">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="text-blue-600">
+                          <Type className="h-4 w-4" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-semibold text-lg text-blue-900 bg-gradient-to-r from-blue-100 to-blue-200 px-3 py-1 rounded-md border border-blue-300">Template Style</div>
+                          <div className="text-xs text-gray-600">Choose your invoice template</div>
+                        </div>
                       </div>
                       <FormField
                         control={form.control}
@@ -1477,9 +1482,7 @@ export default function SettingsPage() {
                                 </SelectItem>
                               </SelectContent>
                             </Select>
-                            <div className="text-xs text-gray-600 mt-1">
-                              Changes reflect instantly in the preview
-                            </div>
+
                             <FormMessage className="text-xs" />
                           </FormItem>
                         )}
@@ -1490,11 +1493,7 @@ export default function SettingsPage() {
                     
                     <div className="space-y-4">
                     {customizationSections.map((section) => (
-                      <div key={section.id} className={`rounded-lg border-2 p-4 shadow-sm ${
-                        section.id === "branding" 
-                          ? "bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200" 
-                          : "bg-gradient-to-r from-green-50 to-green-100 border-green-200"
-                      }`}>
+                      <div key={section.id} className="bg-white rounded-lg border-2 p-4 shadow-sm">
                         <div className="flex items-center gap-3 mb-3">
                           <div className={`${
                             section.id === "branding" ? "text-purple-600" : "text-green-600"
@@ -1502,8 +1501,10 @@ export default function SettingsPage() {
                             {section.icon}
                           </div>
                           <div className="text-left">
-                            <div className={`font-semibold text-lg ${
-                              section.id === "branding" ? "text-purple-900" : "text-green-900"
+                            <div className={`font-semibold text-lg px-3 py-1 rounded-md border ${
+                              section.id === "branding" 
+                                ? "text-purple-900 bg-gradient-to-r from-purple-100 to-purple-200 border-purple-300" 
+                                : "text-green-900 bg-gradient-to-r from-green-100 to-green-200 border-green-300"
                             }`}>{section.title}</div>
                             <div className="text-xs text-gray-600">{section.description}</div>
                           </div>
