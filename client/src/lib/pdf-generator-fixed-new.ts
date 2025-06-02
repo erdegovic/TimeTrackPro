@@ -769,8 +769,8 @@ function generateInvoicePdf(options: {
     });
   }
   
-  // Add footer notes if available
-  if (settings.invoiceFooterText) {
+  // Add footer notes if available and enabled
+  if (settings.showFooterNotes && settings.invoiceFooterText) {
     // Strip HTML tags for PDF text
     const cleanFooterText = settings.invoiceFooterText.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
     
