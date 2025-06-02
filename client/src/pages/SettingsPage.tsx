@@ -578,6 +578,7 @@ export default function SettingsPage() {
         invoiceFooterText: settings.invoiceFooterText || "",
         showCompanyDetails: settings.showCompanyDetails ?? true,
         showBankDetails: settings.showBankDetails ?? true,
+        showFooterNotes: settings.showFooterNotes ?? true,
         invoiceTemplate: (settings.invoiceTemplate as "professional" | "modern" | "classic" | "minimal") || "professional",
         enableWeeklyCategorization: settings.enableWeeklyCategorization ?? true,
         showDateColumn: settings.showDateColumn ?? true,
@@ -1426,11 +1427,10 @@ export default function SettingsPage() {
                   
                   <div className="p-4 space-y-4">
                     {/* Template Style - Prominent Section */}
-                    <div className="bg-white border-2 border-blue-200 rounded-lg p-4 shadow-sm">
+                    <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-200 rounded-lg p-4 shadow-sm">
                       <div className="flex items-center gap-2 mb-3">
                         <Type className="h-5 w-5 text-blue-600" />
-                        <h4 className="font-semibold text-blue-900">Template Style</h4>
-                        <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full">Live Preview</span>
+                        <h4 className="font-semibold text-blue-900 text-lg">Template Style</h4>
                       </div>
                       <FormField
                         control={form.control}
@@ -1488,14 +1488,24 @@ export default function SettingsPage() {
 
                     </div>
                     
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                     {customizationSections.map((section) => (
-                      <div key={section.id} className="bg-white rounded-lg border p-3">
+                      <div key={section.id} className={`rounded-lg border-2 p-4 shadow-sm ${
+                        section.id === "branding" 
+                          ? "bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200" 
+                          : "bg-gradient-to-r from-green-50 to-green-100 border-green-200"
+                      }`}>
                         <div className="flex items-center gap-3 mb-3">
-                          {section.icon}
+                          <div className={`${
+                            section.id === "branding" ? "text-purple-600" : "text-green-600"
+                          }`}>
+                            {section.icon}
+                          </div>
                           <div className="text-left">
-                            <div className="font-medium text-sm">{section.title}</div>
-                            <div className="text-xs text-gray-500">{section.description}</div>
+                            <div className={`font-semibold text-lg ${
+                              section.id === "branding" ? "text-purple-900" : "text-green-900"
+                            }`}>{section.title}</div>
+                            <div className="text-xs text-gray-600">{section.description}</div>
                           </div>
                         </div>
 
