@@ -576,75 +576,7 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Banking Information</CardTitle>
-                  <CardDescription>
-                    Banking details for payment instructions on invoices
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="bankName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Bank Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Bank Name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="bankAccountName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Account Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Account Holder Name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="bankAccountNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Account Number</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Account Number" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="bankSortCode"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Sort Code / Routing Number</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Sort Code" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
             </TabsContent>
 
             {/* Invoice Settings Tab */}
@@ -836,6 +768,100 @@ export default function SettingsPage() {
                             <FormLabel className="text-base">Show Date Column</FormLabel>
                             <div className="text-sm text-gray-600">
                               Display the date column in reports. When disabled, dates are hidden to save space when filtering by specific dates.
+                            </div>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Payment Details Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Payment Details</CardTitle>
+                  <CardDescription>
+                    Configure payment information that appears on invoices
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="bankName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Bank Name</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Your Bank Name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="bankAccountName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Account Name</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Account Holder Name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="bankAccountNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Account Number</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Account Number" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="bankSortCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sort Code / Routing Number</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Sort Code or Routing Number" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <FormField
+                      control={form.control}
+                      name="showBankDetails"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Show Payment Details on Invoices</FormLabel>
+                            <div className="text-sm text-gray-600">
+                              Display payment information on generated invoices for client reference
                             </div>
                           </div>
                           <FormControl>
