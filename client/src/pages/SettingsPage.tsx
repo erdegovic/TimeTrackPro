@@ -1352,35 +1352,98 @@ export default function SettingsPage() {
                       )}
 
                       {/* Sample invoice content with template styling */}
-                      <div className={`${currentTemplate.borderStyle} py-4 mb-6`}>
-                        <div className="grid grid-cols-4 gap-4 font-semibold text-sm mb-2">
-                          <div style={{ color: watchedValues.invoiceAccentColor }}>Description</div>
-                          <div style={{ color: watchedValues.invoiceAccentColor }}>Hours</div>
-                          <div style={{ color: watchedValues.invoiceAccentColor }}>Rate</div>
-                          <div style={{ color: watchedValues.invoiceAccentColor }} className="text-right">Amount</div>
+                      {watchedValues.invoiceTemplate === "media" ? (
+                        /* Media Template Table */
+                        <div className="mx-10 mb-8">
+                          <table className="w-full border-collapse">
+                            <thead>
+                              <tr className="bg-gray-50 border-b-2 border-gray-200">
+                                <th className="text-left p-4 text-gray-900 font-semibold w-1/2">Service</th>
+                                <th className="text-left p-4 text-gray-900 font-semibold">Days/Qty</th>
+                                <th className="text-left p-4 text-gray-900 font-semibold">Rate</th>
+                                <th className="text-left p-4 text-gray-900 font-semibold">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="border-b border-gray-200">
+                                <td className="p-4">
+                                  <div className="font-semibold">Pre-Production</div>
+                                  <div className="text-sm text-red-600 uppercase tracking-wide">Creative Development</div>
+                                </td>
+                                <td className="p-4">5</td>
+                                <td className="p-4">{watchedValues.displayCurrency}1,200.00</td>
+                                <td className="p-4">{watchedValues.displayCurrency}6,000.00</td>
+                              </tr>
+                              <tr className="border-b border-gray-200">
+                                <td className="p-4">
+                                  <div className="font-semibold">Principal Photography</div>
+                                  <div className="text-sm text-red-600 uppercase tracking-wide">2 Camera Crew</div>
+                                </td>
+                                <td className="p-4">3</td>
+                                <td className="p-4">{watchedValues.displayCurrency}3,500.00</td>
+                                <td className="p-4">{watchedValues.displayCurrency}10,500.00</td>
+                              </tr>
+                            </tbody>
+                          </table>
                         </div>
-                        <div className="grid grid-cols-4 gap-4 text-sm">
-                          <div>Web Development</div>
-                          <div>8.5</div>
-                          <div>{watchedValues.displayCurrency}75.00</div>
-                          <div className="text-right">{watchedValues.displayCurrency}637.50</div>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end mb-6">
-                        <div className="text-right space-y-1">
-                          <div>Subtotal: {watchedValues.displayCurrency}637.50</div>
-                          {watchedValues.enableTax && (
-                            <div>Tax ({watchedValues.defaultTaxRate}%): {watchedValues.displayCurrency}{(637.50 * parseFloat(watchedValues.defaultTaxRate) / 100).toFixed(2)}</div>
-                          )}
-                          <div 
-                            className="text-lg font-bold pt-2 border-t"
-                            style={{ color: watchedValues.invoiceColorTheme }}
-                          >
-                            Total: {watchedValues.displayCurrency}{watchedValues.enableTax ? (637.50 + (637.50 * parseFloat(watchedValues.defaultTaxRate) / 100)).toFixed(2) : "637.50"}
+                      ) : (
+                        /* Other Templates Table */
+                        <div className={`${currentTemplate.borderStyle || ''} py-4 mb-6`}>
+                          <div className="grid grid-cols-4 gap-4 font-semibold text-sm mb-2">
+                            <div style={{ color: watchedValues.invoiceAccentColor }}>Description</div>
+                            <div style={{ color: watchedValues.invoiceAccentColor }}>Hours</div>
+                            <div style={{ color: watchedValues.invoiceAccentColor }}>Rate</div>
+                            <div style={{ color: watchedValues.invoiceAccentColor }} className="text-right">Amount</div>
+                          </div>
+                          <div className="grid grid-cols-4 gap-4 text-sm">
+                            <div>Web Development</div>
+                            <div>8.5</div>
+                            <div>{watchedValues.displayCurrency}75.00</div>
+                            <div className="text-right">{watchedValues.displayCurrency}637.50</div>
                           </div>
                         </div>
-                      </div>
+                      )}
+
+                      {/* Totals Section */}
+                      {watchedValues.invoiceTemplate === "media" ? (
+                        /* Media Template Totals */
+                        <div className="mx-10 my-8 pt-4 border-t-2 border-dashed border-gray-300">
+                          <div className="flex justify-between mb-3">
+                            <span>Subtotal:</span>
+                            <span>{watchedValues.displayCurrency}16,500.00</span>
+                          </div>
+                          <div className="flex justify-between mb-3">
+                            <span>Equipment Discount (10%):</span>
+                            <span className="text-red-500">-{watchedValues.displayCurrency}1,650.00</span>
+                          </div>
+                          {watchedValues.enableTax && (
+                            <div className="flex justify-between mb-3">
+                              <span>Tax ({watchedValues.defaultTaxRate}%):</span>
+                              <span>{watchedValues.displayCurrency}{(14850 * parseFloat(watchedValues.defaultTaxRate) / 100).toFixed(2)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-bold text-lg text-red-600 mt-4 pt-4 border-t-2 border-dashed border-gray-300">
+                            <span>TOTAL DUE:</span>
+                            <span>{watchedValues.displayCurrency}{watchedValues.enableTax ? (14850 + (14850 * parseFloat(watchedValues.defaultTaxRate) / 100)).toFixed(2) : "14,850.00"}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Other Templates Totals */
+                        <div className="flex justify-end mb-6">
+                          <div className="text-right space-y-1">
+                            <div>Subtotal: {watchedValues.displayCurrency}637.50</div>
+                            {watchedValues.enableTax && (
+                              <div>Tax ({watchedValues.defaultTaxRate}%): {watchedValues.displayCurrency}{(637.50 * parseFloat(watchedValues.defaultTaxRate) / 100).toFixed(2)}</div>
+                            )}
+                            <div 
+                              className="text-lg font-bold pt-2 border-t"
+                              style={{ color: watchedValues.invoiceColorTheme }}
+                            >
+                              Total: {watchedValues.displayCurrency}{watchedValues.enableTax ? (637.50 + (637.50 * parseFloat(watchedValues.defaultTaxRate) / 100)).toFixed(2) : "637.50"}
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {watchedValues.showBankDetails && (watchedValues.bankName || watchedValues.bankAccountNumber) && (
                         <div className="mb-6 p-4 bg-gray-50 rounded">
@@ -1396,10 +1459,36 @@ export default function SettingsPage() {
                         </div>
                       )}
 
-                      {watchedValues.invoiceFooterText && (
-                        <div className="text-center text-sm border-t pt-4 mt-8">
-                          {watchedValues.invoiceFooterText}
+                      {/* Footer Section */}
+                      {watchedValues.invoiceTemplate === "media" ? (
+                        /* Media Template Footer */
+                        <div className="p-8 bg-gray-50 text-center text-gray-600 text-sm">
+                          <div className="mb-2">
+                            <span className="font-semibold">Payment Terms:</span> Net 30. Late fees of 1.5% monthly will apply after due date.
+                          </div>
+                          <div className="mb-2">
+                            <span className="font-semibold">Payment Methods:</span> Bank transfer, check, or credit card (+3% fee).
+                          </div>
+                          {watchedValues.showBankDetails && (
+                            <div className="mb-4">
+                              <span className="font-semibold">Bank Details:</span> {watchedValues.bankName || "Your Bank"} | Account #{watchedValues.bankAccountNumber || "Your Account"}
+                            </div>
+                          )}
+                          <div className="border-t border-gray-300 pt-4 mt-4">
+                            <p>Thank you for choosing <span className="font-bold">{watchedValues.businessName || "Your Business"}</span>!</p>
+                            <p>Questions? Email <span className="text-red-600">{watchedValues.businessEmail || "your@email.com"}</span></p>
+                            {watchedValues.invoiceFooterText && (
+                              <p className="mt-2">{watchedValues.invoiceFooterText}</p>
+                            )}
+                          </div>
                         </div>
+                      ) : (
+                        /* Other Templates Footer */
+                        watchedValues.invoiceFooterText && (
+                          <div className="text-center text-sm border-t pt-4 mt-8">
+                            {watchedValues.invoiceFooterText}
+                          </div>
+                        )
                       )}
                     </div>
                   </div>
