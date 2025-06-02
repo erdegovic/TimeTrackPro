@@ -370,7 +370,7 @@ export default function SettingsPage() {
       invoiceFooterText: "",
       showCompanyDetails: true,
       showBankDetails: true,
-      invoiceTemplate: "luxury",
+      invoiceTemplate: "video-production",
       enableWeeklyCategorization: true,
       showDateColumn: true,
     },
@@ -1477,7 +1477,7 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                   <div 
-                    className={`${currentTemplate.containerClass} max-w-3xl mx-auto overflow-hidden`}
+                    className="max-w-3xl mx-auto overflow-hidden bg-white shadow-lg"
                     style={{ 
                       fontSize: `${watchedValues.customFontSize}px`
                     }}
