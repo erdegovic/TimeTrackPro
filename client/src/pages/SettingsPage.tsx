@@ -1482,64 +1482,105 @@ export default function SettingsPage() {
                       fontSize: `${watchedValues.customFontSize}px`
                     }}
                   >
-                    {/* Video Production Template with Film Strip Design */}
+                    {/* Video Production Template */}
                     {watchedValues.invoiceTemplate === 'video-production' && (
-                      <>
-                        {/* Red Header with Film Strip */}
-                        <div className="bg-red-600 p-6 relative">
-                          <div className="absolute top-0 left-0 w-full h-1 bg-red-700"></div>
-                          <div className="flex justify-between items-start text-white">
-                            <div>
-                              <h1 className="text-4xl font-bold tracking-wide mb-2">
-                                {watchedValues.businessName || "LUMINA FILMS"}
-                              </h1>
-                              <p className="text-red-100 text-sm">Cinematic storytelling at its finest</p>
-                              <div className="text-red-100 text-sm mt-2">
-                                {watchedValues.businessAddress && <div>{watchedValues.businessAddress}</div>}
-                                <div>{watchedValues.businessEmail} | {watchedValues.businessPhone}</div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-2xl font-bold text-red-100">INV #{watchedValues.nextInvoiceNumber}</div>
-                              <div className="text-sm text-red-200 mt-1">
-                                <div>Date: {new Date().toLocaleDateString()}</div>
-                                <div>Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                      <div className="relative">
+                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-red-600 to-red-500"></div>
                         
-                        {/* Film Strip Border */}
-                        <div className="bg-black h-8 flex items-center justify-center">
-                          <div className="flex space-x-2">
-                            {[...Array(25)].map((_, i) => (
-                              <div key={i} className="w-2 h-4 bg-gray-600"></div>
-                            ))}
-                          </div>
-                        </div>
-                        
-                        {/* Two Column Layout */}
-                        <div className="p-8 grid grid-cols-2 gap-8">
+                        <div className="flex justify-between p-10 pt-12 border-b">
                           <div>
-                            <h3 className="text-red-600 font-bold text-lg mb-4">BILL TO</h3>
-                            <div className="space-y-1">
-                              <div className="font-semibold">Starlight Productions</div>
-                              <div className="text-sm">Attn: Sarah Johnson (Producer)</div>
-                              <div className="text-sm">890 Cinema Boulevard</div>
-                              <div className="text-sm">Los Angeles, CA 90028</div>
-                              <div className="text-sm">PO #STAR-2023-42</div>
-                            </div>
+                            <h1 className="text-3xl font-bold text-gray-900 mb-2">LUMINA FILMS</h1>
+                            <p className="text-gray-600">Cinematic storytelling at its finest</p>
+                            <p className="text-gray-600">123 Film Lane, Studio City, CA 91604</p>
+                            <p className="text-gray-600">contact@luminafilms.example | (555) 123-4567</p>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xl font-semibold text-red-600 mb-2">INV #LF-2023-108</div>
+                            <div className="text-gray-600">Date: November 15, 2023</div>
+                            <div className="text-gray-600">Due: December 15, 2023</div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-8 p-10 bg-gray-50">
+                          <div>
+                            <h3 className="text-red-600 font-semibold text-sm uppercase tracking-wider mb-4">Bill To</h3>
+                            <p className="font-bold">Starlight Productions</p>
+                            <p>Attn: Sarah Johnson (Producer)</p>
+                            <p>890 Cinema Boulevard</p>
+                            <p>Los Angeles, CA 90028</p>
+                            <p>PO #STAR-2023-42</p>
                           </div>
                           <div>
-                            <h3 className="text-red-600 font-bold text-lg mb-4">PROJECT DETAILS</h3>
-                            <div className="space-y-1 text-sm">
-                              <div><strong>Project:</strong> "Midnight Horizon" Commercial</div>
-                              <div><strong>Project ID:</strong> PRJ-MH-2309</div>
-                              <div><strong>Shot Dates:</strong> Oct 10-15, 2023</div>
-                            </div>
+                            <h3 className="text-red-600 font-semibold text-sm uppercase tracking-wider mb-4">Project Details</h3>
+                            <p><strong>Project:</strong> "Midnight Horizon" Commercial</p>
+                            <p><strong>Project ID:</strong> PRJ-MH-2309</p>
+                            <p><strong>Shot Dates:</strong> Oct 10-15, 2023</p>
                           </div>
                         </div>
-                      </>
+
+                        <div className="h-5 mx-10 bg-gray-900 relative" style={{background: 'repeating-linear-gradient(90deg, #1a1a1a, #1a1a1a 10px, transparent 10px, transparent 30px)'}}>
+                          <div className="absolute -left-5 top-0 w-5 h-full bg-gray-900 rounded-l-lg"></div>
+                          <div className="absolute -right-5 top-0 w-5 h-full bg-gray-900 rounded-r-lg"></div>
+                        </div>
+
+                        <table className="w-full mx-10 my-8 border-collapse" style={{width: 'calc(100% - 5rem)'}}>
+                          <thead>
+                            <tr className="bg-gray-50">
+                              <th className="text-left p-4 font-semibold border-b-2 border-gray-200">Service</th>
+                              <th className="text-left p-4 font-semibold border-b-2 border-gray-200">Days/Qty</th>
+                              <th className="text-left p-4 font-semibold border-b-2 border-gray-200">Rate</th>
+                              <th className="text-left p-4 font-semibold border-b-2 border-gray-200">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-b">
+                              <td className="p-4">
+                                <div className="font-bold">Pre-Production</div>
+                                <div className="text-red-600 text-sm uppercase tracking-wide">Creative Development</div>
+                              </td>
+                              <td className="p-4">5</td>
+                              <td className="p-4">$1,200.00</td>
+                              <td className="p-4">$6,000.00</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="p-4">
+                                <div className="font-bold">Principal Photography</div>
+                                <div className="text-red-600 text-sm uppercase tracking-wide">2 Camera Crew</div>
+                              </td>
+                              <td className="p-4">3</td>
+                              <td className="p-4">$3,500.00</td>
+                              <td className="p-4">$10,500.00</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="p-4">
+                                <div className="font-bold">Cinematography</div>
+                                <div className="text-red-600 text-sm uppercase tracking-wide">ARRI Alexa Package</div>
+                              </td>
+                              <td className="p-4">3</td>
+                              <td className="p-4">$2,800.00</td>
+                              <td className="p-4">$8,400.00</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="p-4">
+                                <div className="font-bold">Post-Production</div>
+                                <div className="text-red-600 text-sm uppercase tracking-wide">Editing & Color Grading</div>
+                              </td>
+                              <td className="p-4">10</td>
+                              <td className="p-4">$950.00</td>
+                              <td className="p-4">$9,500.00</td>
+                            </tr>
+                            <tr>
+                              <td className="p-4">
+                                <div className="font-bold">Licensed Music Track</div>
+                                <div className="text-red-600 text-sm uppercase tracking-wide">"Neon Dreams" by AudioNetwork</div>
+                              </td>
+                              <td className="p-4">1</td>
+                              <td className="p-4">$1,200.00</td>
+                              <td className="p-4">$1,200.00</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
                     )}
 
                     {/* Coding Template with Terminal Style */}
