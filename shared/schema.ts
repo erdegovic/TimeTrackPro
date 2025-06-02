@@ -140,7 +140,7 @@ export const settings = pgTable("settings", {
   nextInvoiceNumber: integer("next_invoice_number").default(1001),
   defaultTimeFormat: text("default_time_format").default("decimal"),
   defaultCurrency: text("default_currency").default("USD"),
-  displayCurrency: text("display_currency").default("USD"),
+  displayCurrency: text("display_currency").default("$"),
   defaultTaxRate: numeric("default_tax_rate", { precision: 5, scale: 2 }).default("0"),
   enableTax: boolean("enable_tax").default(false),
   showDueDate: boolean("show_due_date").default(true),

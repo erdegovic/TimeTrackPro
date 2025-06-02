@@ -548,7 +548,7 @@ export class DatabaseStorage implements IStorage {
       nextInvoiceNumber: 1001,
       defaultTimeFormat: "decimal",
       defaultCurrency: "USD",
-      displayCurrency: "USD",
+      displayCurrency: "$",
       defaultTaxRate: "0",
       enableTax: false,
       showDueDate: true,
