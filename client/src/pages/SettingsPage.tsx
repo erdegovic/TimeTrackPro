@@ -35,11 +35,18 @@ const settingsSchema = z.object({
   businessEmail: z.string().email("Invalid email").optional().or(z.literal("")),
   businessTaxId: z.string().optional(),
   
-  // Banking Information
+  // Payment Details - Dynamic based on method type
+  paymentMethodType: z.enum(["bank_transfer_eu", "bank_transfer_uk", "bank_transfer_us", "paypal", "wise_payoneer", "other"]).default("bank_transfer_us"),
   bankName: z.string().optional(),
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
   bankSortCode: z.string().optional(),
+  iban: z.string().optional(),
+  swift: z.string().optional(),
+  routingNumber: z.string().optional(),
+  paypalEmail: z.string().optional(),
+  wiseEmail: z.string().optional(),
+  otherPaymentInstructions: z.string().optional(),
   
   // Invoice Settings
   nextInvoiceNumber: z.coerce.number().int().positive("Must be a positive number"),
@@ -211,10 +218,17 @@ export default function SettingsPage() {
       businessPhone: "",
       businessEmail: "",
       businessTaxId: "",
+      paymentMethodType: "bank_transfer_us",
       bankName: "",
       bankAccountName: "",
       bankAccountNumber: "",
       bankSortCode: "",
+      iban: "",
+      swift: "",
+      routingNumber: "",
+      paypalEmail: "",
+      wiseEmail: "",
+      otherPaymentInstructions: "",
       nextInvoiceNumber: 1001,
       defaultTimeFormat: "decimal",
       defaultCurrency: "USD",
@@ -254,10 +268,17 @@ export default function SettingsPage() {
         businessPhone: settings.businessPhone || "",
         businessEmail: settings.businessEmail || "",
         businessTaxId: settings.businessTaxId || "",
+        paymentMethodType: (settings.paymentMethodType as any) || "bank_transfer_us",
         bankName: settings.bankName || "",
         bankAccountName: settings.bankAccountName || "",
         bankAccountNumber: settings.bankAccountNumber || "",
         bankSortCode: settings.bankSortCode || "",
+        iban: settings.iban || "",
+        swift: settings.swift || "",
+        routingNumber: settings.routingNumber || "",
+        paypalEmail: settings.paypalEmail || "",
+        wiseEmail: settings.wiseEmail || "",
+        otherPaymentInstructions: settings.otherPaymentInstructions || "",
         nextInvoiceNumber: settings.nextInvoiceNumber || 1001,
         defaultTimeFormat: (settings.defaultTimeFormat as "decimal" | "time") || "decimal",
         defaultCurrency: settings.defaultCurrency || "USD",
@@ -792,65 +813,280 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="bankName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Bank Name</FormLabel>
+                  {/* Payment Method Type Selector */}
+                  <FormField
+                    control={form.control}
+                    name="paymentMethodType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Payment Method Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <Input {...field} placeholder="Your Bank Name" />
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select payment method" />
+                            </SelectTrigger>
                           </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="bankAccountName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Account Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Account Holder Name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                          <SelectContent>
+                            <SelectItem value="bank_transfer_eu">Bank Transfer – EU</SelectItem>
+                            <SelectItem value="bank_transfer_uk">Bank Transfer – UK</SelectItem>
+                            <SelectItem value="bank_transfer_us">Bank Transfer – US</SelectItem>
+                            <SelectItem value="paypal">PayPal</SelectItem>
+                            <SelectItem value="wise_payoneer">Wise / Payoneer</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Dynamic Fields Based on Payment Method */}
+                  {form.watch("paymentMethodType") === "bank_transfer_eu" && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="iban"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>IBAN</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="GB29 NWBK 6016 1331 9268 19" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="swift"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>SWIFT / BIC</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="NWBKGB2L" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="bankName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Bank Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Your Bank Name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="bankAccountName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Account Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Account Holder Name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {form.watch("paymentMethodType") === "bank_transfer_uk" && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="bankAccountNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Account Number</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="12345678" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="bankSortCode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Sort Code</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="12-34-56" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="bankName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Bank Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Your Bank Name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="bankAccountName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Account Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Account Holder Name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {form.watch("paymentMethodType") === "bank_transfer_us" && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="bankAccountNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Account Number</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="1234567890" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="routingNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Routing Number</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="123456789" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="bankName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Bank Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Your Bank Name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="bankAccountName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Account Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Account Holder Name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {form.watch("paymentMethodType") === "paypal" && (
                     <FormField
                       control={form.control}
-                      name="bankAccountNumber"
+                      name="paypalEmail"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Account Number</FormLabel>
+                          <FormLabel>PayPal Email</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Account Number" />
+                            <Input {...field} placeholder="your-paypal@email.com" type="email" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    
+                  )}
+
+                  {form.watch("paymentMethodType") === "wise_payoneer" && (
                     <FormField
                       control={form.control}
-                      name="bankSortCode"
+                      name="wiseEmail"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Sort Code / Routing Number</FormLabel>
+                          <FormLabel>Wise / Payoneer Email or Profile Link</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Sort Code or Routing Number" />
+                            <Input {...field} placeholder="your-wise@email.com or profile link" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </div>
+                  )}
+
+                  {form.watch("paymentMethodType") === "other" && (
+                    <FormField
+                      control={form.control}
+                      name="otherPaymentInstructions"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Payment Instructions</FormLabel>
+                          <FormControl>
+                            <textarea
+                              {...field}
+                              className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                              placeholder="Enter custom payment instructions. You can use formatting like:&#10;**Bold text** for emphasis&#10;*Italic text* for notes&#10;&#10;Example:&#10;Payment via Bitcoin: **1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa**&#10;Reference: *Please include invoice number*"
+                            />
+                          </FormControl>
+                          <div className="text-xs text-gray-500">
+                            Use **text** for bold and *text* for italic formatting
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
                   <div className="pt-4 border-t">
                     <FormField
