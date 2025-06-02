@@ -1486,8 +1486,8 @@ export default function SettingsPage() {
                     <div className="p-2 bg-yellow-100 text-xs">
                       Current template: {watchedValues.invoiceTemplate || 'undefined'}
                     </div>
-                    {/* Video Production Template */}
-                    {watchedValues.invoiceTemplate === 'video-production' && (
+                    {/* OLD Video Production Template - DISABLED */}
+                    {false && watchedValues.invoiceTemplate === 'video-production' && (
                       <div className="relative">
                         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-red-600 to-red-500"></div>
                         
