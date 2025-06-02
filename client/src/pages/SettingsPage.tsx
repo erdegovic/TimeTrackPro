@@ -490,7 +490,7 @@ export default function SettingsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("business");
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set(["branding"]));
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(["branding", "footer"]));
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch current settings
