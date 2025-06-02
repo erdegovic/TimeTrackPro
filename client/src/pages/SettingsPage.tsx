@@ -125,33 +125,96 @@ const colorPalettes = [
 
 // Template styles that affect invoice layout
 const templateStyles = {
-  professional: {
+  luxury: {
     headerStyle: "flex justify-between items-start",
-    titleSize: "text-3xl",
-    spacing: "mb-8",
-    borderStyle: "border-t border-b",
-    layoutClass: "traditional"
+    titleSize: "text-4xl font-bold",
+    spacing: "mb-10",
+    borderStyle: "border-t-4 border-gold bg-gradient-to-r from-gray-50 to-white p-6",
+    layoutClass: "premium"
   },
-  modern: {
-    headerStyle: "flex justify-between items-center bg-gray-50 p-6 rounded-lg",
-    titleSize: "text-4xl",
+  technology: {
+    headerStyle: "flex justify-between items-center bg-blue-900 text-white p-6 rounded-lg",
+    titleSize: "text-3xl font-semibold",
+    spacing: "mb-8",
+    borderStyle: "border-l-4 border-blue-500 bg-blue-50 p-4",
+    layoutClass: "tech"
+  },
+  coding: {
+    headerStyle: "flex justify-between items-start font-mono",
+    titleSize: "text-2xl font-bold",
     spacing: "mb-6",
-    borderStyle: "border-l-4 bg-gray-50 p-4",
-    layoutClass: "clean"
+    borderStyle: "border border-green-400 bg-black text-green-400 p-4 font-mono",
+    layoutClass: "code"
+  },
+  "video-production": {
+    headerStyle: "flex justify-between items-center bg-red-900 text-white p-6",
+    titleSize: "text-3xl font-bold",
+    spacing: "mb-8",
+    borderStyle: "border-l-8 border-red-600 bg-red-50 p-4",
+    layoutClass: "media"
+  },
+  "graphic-design": {
+    headerStyle: "flex justify-between items-start",
+    titleSize: "text-3xl font-extrabold",
+    spacing: "mb-8",
+    borderStyle: "border-4 border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50 p-4",
+    layoutClass: "creative"
+  },
+  accounting: {
+    headerStyle: "flex justify-between items-center border-b-2 border-gray-800 pb-4",
+    titleSize: "text-2xl font-semibold",
+    spacing: "mb-8",
+    borderStyle: "border border-gray-400 bg-gray-50 p-4",
+    layoutClass: "formal"
+  },
+  education: {
+    headerStyle: "flex justify-between items-start",
+    titleSize: "text-3xl font-medium",
+    spacing: "mb-8",
+    borderStyle: "border-l-4 border-orange-500 bg-orange-50 p-4",
+    layoutClass: "academic"
+  },
+  "hr-recruitment": {
+    headerStyle: "flex justify-between items-center bg-teal-100 p-6 rounded-lg",
+    titleSize: "text-2xl font-semibold",
+    spacing: "mb-6",
+    borderStyle: "border-t-4 border-teal-500 bg-teal-50 p-4",
+    layoutClass: "professional"
+  },
+  engineering: {
+    headerStyle: "flex justify-between items-start",
+    titleSize: "text-2xl font-bold",
+    spacing: "mb-8",
+    borderStyle: "border-2 border-gray-600 bg-gray-100 p-4",
+    layoutClass: "industrial"
+  },
+  "health-wellness": {
+    headerStyle: "flex justify-between items-center bg-green-100 p-6 rounded-lg",
+    titleSize: "text-3xl font-light",
+    spacing: "mb-8",
+    borderStyle: "border-l-4 border-green-500 bg-green-50 p-4",
+    layoutClass: "wellness"
+  },
+  cyberpunk: {
+    headerStyle: "flex justify-between items-start bg-black text-cyan-400 p-6 border border-cyan-400",
+    titleSize: "text-3xl font-bold",
+    spacing: "mb-8",
+    borderStyle: "border border-cyan-400 bg-black text-cyan-400 p-4 font-mono",
+    layoutClass: "futuristic"
+  },
+  minimalist: {
+    headerStyle: "flex justify-between items-baseline",
+    titleSize: "text-xl font-light",
+    spacing: "mb-4",
+    borderStyle: "border-b",
+    layoutClass: "simple"
   },
   classic: {
     headerStyle: "text-center border-b-2",
     titleSize: "text-2xl",
     spacing: "mb-12",
     borderStyle: "border border-gray-300",
-    layoutClass: "formal"
-  },
-  minimal: {
-    headerStyle: "flex justify-between items-baseline",
-    titleSize: "text-xl font-light",
-    spacing: "mb-4",
-    borderStyle: "border-b",
-    layoutClass: "simple"
+    layoutClass: "traditional"
   }
 };
 
@@ -352,8 +415,11 @@ export default function SettingsPage() {
     });
   };
 
-  // Get current template style
-  const currentTemplate = templateStyles[watchedValues.invoiceTemplate as keyof typeof templateStyles] || templateStyles.professional;
+  // Get current template style with fallback
+  const getTemplateStyle = (templateName: string) => {
+    return templateStyles[templateName as keyof typeof templateStyles] || templateStyles.luxury;
+  };
+  const currentTemplate = getTemplateStyle(watchedValues.invoiceTemplate || "luxury");
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({
@@ -1239,7 +1305,7 @@ export default function SettingsPage() {
                               )}
                             </div>
                             
-                            <div className={watchedValues.invoiceTemplate === "minimal" ? "text-right" : "text-right"}>
+                            <div className={watchedValues.invoiceTemplate === "minimalist" ? "text-right" : "text-right"}>
                               <h1 
                                 className={`${currentTemplate.titleSize} font-bold mb-2`}
                                 style={{ color: watchedValues.invoiceColorTheme }}
