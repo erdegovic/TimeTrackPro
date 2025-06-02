@@ -192,6 +192,12 @@ const customizationSections: CollapsibleSection[] = [
     title: "Typography & Layout",
     icon: <Type className="h-4 w-4" />,
     description: "Font size and template options"
+  },
+  {
+    id: "footer",
+    title: "Invoice Footer Notes",
+    icon: <FileText className="h-4 w-4" />,
+    description: "Add payment terms, thank you message, and custom content"
   }
 ];
 
@@ -1666,6 +1672,12 @@ export default function SettingsPage() {
                                 )}
                               />
 
+                            </div>
+                          )}
+
+                          {/* Invoice Footer Notes */}
+                          {section.id === "footer" && (
+                            <div className="space-y-3">
                               <FormField
                                 control={form.control}
                                 name="invoiceFooterText"
