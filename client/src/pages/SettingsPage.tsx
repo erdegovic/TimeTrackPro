@@ -16,7 +16,8 @@ import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   Loader2, Save, Upload, X, Palette, Eye, FileText, Building,
-  ChevronRight, ChevronDown, Zap, BrushIcon, Type, CreditCard 
+  ChevronRight, ChevronDown, Zap, BrushIcon, Type, CreditCard,
+  Bold, Italic, Underline
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -192,6 +193,96 @@ const customizationSections: CollapsibleSection[] = [
     description: "Font size and template options"
   }
 ];
+
+// Rich Text Editor Component
+const RichTextEditor = ({ value, onChange, placeholder }: { 
+  value: string; 
+  onChange: (value: string) => void; 
+  placeholder?: string; 
+}) => {
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const applyFormat = (command: string) => {
+    document.execCommand(command, false, undefined);
+    editorRef.current?.focus();
+  };
+
+  const handleInput = () => {
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData('text/plain');
+    document.execCommand('insertText', false, text);
+  };
+
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value || '';
+    }
+  }, [value]);
+
+  return (
+    <div className="border rounded-md">
+      {/* Toolbar */}
+      <div className="flex items-center gap-1 p-2 border-b bg-gray-50">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => applyFormat('bold')}
+          className="h-8 w-8 p-0"
+        >
+          <Bold className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => applyFormat('italic')}
+          className="h-8 w-8 p-0"
+        >
+          <Italic className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => applyFormat('underline')}
+          className="h-8 w-8 p-0"
+        >
+          <Underline className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      {/* Editor */}
+      <div
+        ref={editorRef}
+        contentEditable
+        className="min-h-[100px] p-3 focus:outline-none rich-text-editor"
+        onInput={handleInput}
+        onPaste={handlePaste}
+        data-placeholder={placeholder}
+        style={{
+          minHeight: '100px'
+        }}
+      />
+      
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .rich-text-editor:empty:before {
+            content: attr(data-placeholder);
+            color: #9CA3AF;
+            pointer-events: none;
+          }
+        `
+      }} />
+    </div>
+  );
+};
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -1073,14 +1164,14 @@ export default function SettingsPage() {
                         <FormItem>
                           <FormLabel>Payment Instructions</FormLabel>
                           <FormControl>
-                            <textarea
-                              {...field}
-                              className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                              placeholder="Enter custom payment instructions. You can use formatting like:&#10;**Bold text** for emphasis&#10;*Italic text* for notes&#10;&#10;Example:&#10;Payment via Bitcoin: **1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa**&#10;Reference: *Please include invoice number*"
+                            <RichTextEditor
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              placeholder="Enter custom payment instructions. Select text and use the toolbar to format with bold, italic, or underline.&#10;&#10;Example:&#10;Payment via Bitcoin: 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa&#10;Reference: Please include invoice number"
                             />
                           </FormControl>
                           <div className="text-xs text-gray-500">
-                            Use **text** for bold and *text* for italic formatting
+                            Select text and use the toolbar buttons to apply bold, italic, or underline formatting
                           </div>
                           <FormMessage />
                         </FormItem>
