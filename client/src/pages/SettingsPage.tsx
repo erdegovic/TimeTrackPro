@@ -579,12 +579,23 @@ export default function SettingsPage() {
         showCompanyDetails: settings.showCompanyDetails ?? true,
         showBankDetails: settings.showBankDetails ?? true,
         showFooterNotes: settings.showFooterNotes ?? true,
-        invoiceTemplate: (settings.invoiceTemplate as "professional" | "modern" | "classic" | "minimal") || "professional",
+        invoiceTemplate: (settings.invoiceTemplate as "professional" | "modern" | "classic" | "minimal" | "media") || "professional",
         enableWeeklyCategorization: settings.enableWeeklyCategorization ?? true,
         showDateColumn: settings.showDateColumn ?? true,
       };
       
       form.reset(formData);
+      
+      // Auto-apply bold red theme for media template
+      if (formData.invoiceTemplate === "media") {
+        const boldRedPalette = colorPalettes.find(p => p.name === "Bold Red");
+        if (boldRedPalette) {
+          form.setValue("invoiceColorTheme", boldRedPalette.primary);
+          form.setValue("invoiceAccentColor", boldRedPalette.accent);
+          form.setValue("invoiceTextColor", boldRedPalette.text);
+          form.setValue("invoiceBackgroundColor", boldRedPalette.background);
+        }
+      }
       
       if (settings.companyLogo) {
         setLogoPreview(settings.companyLogo);
@@ -1721,7 +1732,7 @@ export default function SettingsPage() {
                     </div>
                     
                     <div 
-                      className={`bg-white shadow-lg rounded-lg p-8 min-h-[600px] ${currentTemplate.layoutClass}`}
+                      className={`bg-white shadow-lg rounded-lg overflow-hidden min-h-[600px] ${currentTemplate.layoutClass}`}
                       style={{ 
                         backgroundColor: watchedValues.invoiceBackgroundColor,
                         color: watchedValues.invoiceTextColor,
@@ -1730,8 +1741,10 @@ export default function SettingsPage() {
                     >
                       {/* Red gradient top bar for Media template */}
                       {watchedValues.invoiceTemplate === "media" && (
-                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-red-600 to-red-500"></div>
+                        <div className="w-full h-2 bg-gradient-to-r from-red-600 to-red-500"></div>
                       )}
+                      
+                      <div className="p-8">
                       
                       {/* Template-specific Header */}
                       <div className={`${currentTemplate.headerStyle} ${currentTemplate.spacing || ''}`}>
@@ -2098,6 +2111,7 @@ export default function SettingsPage() {
                           )
                         )
                       )}
+                      </div>
                     </div>
                   </div>
                 </div>
