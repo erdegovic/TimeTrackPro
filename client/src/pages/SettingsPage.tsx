@@ -1308,9 +1308,9 @@ export default function SettingsPage() {
                                 Project Details
                               </h3>
                               <div className="space-y-1">
-                                <div><span className="font-bold">Project:</span> Media Production</div>
-                                <div><span className="font-bold">Project ID:</span> PRJ-MP-2023</div>
-                                <div><span className="font-bold">Production Dates:</span> {new Date().toLocaleDateString()}</div>
+                                <div><span className="font-bold">Project:</span> Sample Project</div>
+                                <div><span className="font-bold">Time Period:</span> {new Date().toLocaleDateString()}</div>
+                                <div><span className="font-bold">Currency:</span> {watchedValues.displayCurrency}</div>
                               </div>
                             </div>
                           </div>
@@ -1358,8 +1358,8 @@ export default function SettingsPage() {
                           <table className="w-full border-collapse">
                             <thead>
                               <tr className="bg-gray-50 border-b-2 border-gray-200">
-                                <th className="text-left p-4 text-gray-900 font-semibold w-1/2">Service</th>
-                                <th className="text-left p-4 text-gray-900 font-semibold">Days/Qty</th>
+                                <th className="text-left p-4 text-gray-900 font-semibold w-1/2">Description</th>
+                                <th className="text-left p-4 text-gray-900 font-semibold">Hours</th>
                                 <th className="text-left p-4 text-gray-900 font-semibold">Rate</th>
                                 <th className="text-left p-4 text-gray-900 font-semibold">Amount</th>
                               </tr>
@@ -1367,21 +1367,21 @@ export default function SettingsPage() {
                             <tbody>
                               <tr className="border-b border-gray-200">
                                 <td className="p-4">
-                                  <div className="font-semibold">Pre-Production</div>
-                                  <div className="text-sm text-red-600 uppercase tracking-wide">Creative Development</div>
+                                  <div className="font-semibold">Web Development</div>
+                                  <div className="text-sm text-red-600 uppercase tracking-wide">Sample Project</div>
                                 </td>
-                                <td className="p-4">5</td>
-                                <td className="p-4">{watchedValues.displayCurrency}1,200.00</td>
-                                <td className="p-4">{watchedValues.displayCurrency}6,000.00</td>
+                                <td className="p-4">8.5</td>
+                                <td className="p-4">{watchedValues.displayCurrency}75.00</td>
+                                <td className="p-4">{watchedValues.displayCurrency}637.50</td>
                               </tr>
                               <tr className="border-b border-gray-200">
                                 <td className="p-4">
-                                  <div className="font-semibold">Principal Photography</div>
-                                  <div className="text-sm text-red-600 uppercase tracking-wide">2 Camera Crew</div>
+                                  <div className="font-semibold">Project Planning</div>
+                                  <div className="text-sm text-red-600 uppercase tracking-wide">Sample Project</div>
                                 </td>
-                                <td className="p-4">3</td>
-                                <td className="p-4">{watchedValues.displayCurrency}3,500.00</td>
-                                <td className="p-4">{watchedValues.displayCurrency}10,500.00</td>
+                                <td className="p-4">4.0</td>
+                                <td className="p-4">{watchedValues.displayCurrency}75.00</td>
+                                <td className="p-4">{watchedValues.displayCurrency}300.00</td>
                               </tr>
                             </tbody>
                           </table>
@@ -1410,21 +1410,17 @@ export default function SettingsPage() {
                         <div className="mx-10 my-8 pt-4 border-t-2 border-dashed border-gray-300">
                           <div className="flex justify-between mb-3">
                             <span>Subtotal:</span>
-                            <span>{watchedValues.displayCurrency}16,500.00</span>
-                          </div>
-                          <div className="flex justify-between mb-3">
-                            <span>Equipment Discount (10%):</span>
-                            <span className="text-red-500">-{watchedValues.displayCurrency}1,650.00</span>
+                            <span>{watchedValues.displayCurrency}937.50</span>
                           </div>
                           {watchedValues.enableTax && (
                             <div className="flex justify-between mb-3">
                               <span>Tax ({watchedValues.defaultTaxRate}%):</span>
-                              <span>{watchedValues.displayCurrency}{(14850 * parseFloat(watchedValues.defaultTaxRate) / 100).toFixed(2)}</span>
+                              <span>{watchedValues.displayCurrency}{(937.50 * parseFloat(watchedValues.defaultTaxRate) / 100).toFixed(2)}</span>
                             </div>
                           )}
                           <div className="flex justify-between font-bold text-lg text-red-600 mt-4 pt-4 border-t-2 border-dashed border-gray-300">
                             <span>TOTAL DUE:</span>
-                            <span>{watchedValues.displayCurrency}{watchedValues.enableTax ? (14850 + (14850 * parseFloat(watchedValues.defaultTaxRate) / 100)).toFixed(2) : "14,850.00"}</span>
+                            <span>{watchedValues.displayCurrency}{watchedValues.enableTax ? (937.50 + (937.50 * parseFloat(watchedValues.defaultTaxRate) / 100)).toFixed(2) : "937.50"}</span>
                           </div>
                         </div>
                       ) : (
