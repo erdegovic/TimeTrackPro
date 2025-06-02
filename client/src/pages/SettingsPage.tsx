@@ -1402,6 +1402,36 @@ export default function SettingsPage() {
                       )}
                     />
                   </div>
+
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Invoice Footer Notes</h3>
+                    <p className="text-sm text-gray-600">
+                      Add custom content that appears at the bottom of your invoices such as payment terms, thank you messages, or contact information.
+                    </p>
+                    
+                    <FormField
+                      control={form.control}
+                      name="invoiceFooterText"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Footer Content</FormLabel>
+                          <FormControl>
+                            <EnhancedRichTextEditor
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              placeholder="Add payment terms, thank you message, contact info, or any other footer content..."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                          <p className="text-xs text-gray-500 mt-2">
+                            Use the toolbar to format text, add lists, alignment, and dividers. This content will appear at the bottom of your invoices.
+                          </p>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
