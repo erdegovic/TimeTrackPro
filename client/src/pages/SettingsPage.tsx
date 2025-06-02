@@ -1292,7 +1292,8 @@ export default function SettingsPage() {
                           {/* Billing Info Grid */}
                           <div className="grid grid-cols-2 gap-8 p-10 bg-gray-50 mb-6">
                             <div className="info-block">
-                              <h3 className="text-red-600 text-sm font-semibold mb-4 uppercase tracking-wide">
+                              <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide"
+                                  style={{ color: watchedValues.invoiceColorTheme }}>
                                 Bill To
                               </h3>
                               <div className="space-y-1">
@@ -1304,7 +1305,8 @@ export default function SettingsPage() {
                               </div>
                             </div>
                             <div className="info-block">
-                              <h3 className="text-red-600 text-sm font-semibold mb-4 uppercase tracking-wide">
+                              <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide"
+                                  style={{ color: watchedValues.invoiceColorTheme }}>
                                 Project Details
                               </h3>
                               <div className="space-y-1">
@@ -1368,7 +1370,7 @@ export default function SettingsPage() {
                               <tr className="border-b border-gray-200">
                                 <td className="p-4">
                                   <div className="font-semibold">Web Development</div>
-                                  <div className="text-sm text-red-600 uppercase tracking-wide">Sample Project</div>
+                                  <div className="text-sm uppercase tracking-wide" style={{ color: watchedValues.invoiceColorTheme }}>Sample Project</div>
                                 </td>
                                 <td className="p-4">8.5</td>
                                 <td className="p-4">{watchedValues.displayCurrency}75.00</td>
@@ -1377,7 +1379,7 @@ export default function SettingsPage() {
                               <tr className="border-b border-gray-200">
                                 <td className="p-4">
                                   <div className="font-semibold">Project Planning</div>
-                                  <div className="text-sm text-red-600 uppercase tracking-wide">Sample Project</div>
+                                  <div className="text-sm uppercase tracking-wide" style={{ color: watchedValues.invoiceColorTheme }}>Sample Project</div>
                                 </td>
                                 <td className="p-4">4.0</td>
                                 <td className="p-4">{watchedValues.displayCurrency}75.00</td>
@@ -1418,7 +1420,8 @@ export default function SettingsPage() {
                               <span>{watchedValues.displayCurrency}{(937.50 * parseFloat(watchedValues.defaultTaxRate) / 100).toFixed(2)}</span>
                             </div>
                           )}
-                          <div className="flex justify-between font-bold text-lg text-red-600 mt-4 pt-4 border-t-2 border-dashed border-gray-300">
+                          <div className="flex justify-between font-bold text-lg mt-4 pt-4 border-t-2 border-dashed border-gray-300"
+                               style={{ color: watchedValues.invoiceColorTheme }}>
                             <span>TOTAL DUE:</span>
                             <span>{watchedValues.displayCurrency}{watchedValues.enableTax ? (937.50 + (937.50 * parseFloat(watchedValues.defaultTaxRate) / 100)).toFixed(2) : "937.50"}</span>
                           </div>
@@ -1472,7 +1475,7 @@ export default function SettingsPage() {
                           )}
                           <div className="border-t border-gray-300 pt-4 mt-4">
                             <p>Thank you for choosing <span className="font-bold">{watchedValues.businessName || "Your Business"}</span>!</p>
-                            <p>Questions? Email <span className="text-red-600">{watchedValues.businessEmail || "your@email.com"}</span></p>
+                            <p>Questions? Email <span style={{ color: watchedValues.invoiceColorTheme }}>{watchedValues.businessEmail || "your@email.com"}</span></p>
                             {watchedValues.invoiceFooterText && (
                               <p className="mt-2">{watchedValues.invoiceFooterText}</p>
                             )}
