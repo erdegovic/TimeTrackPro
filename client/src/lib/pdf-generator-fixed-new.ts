@@ -769,6 +769,42 @@ function generateInvoicePdf(options: {
     });
   }
   
+  // Add footer notes if available
+  if (settings.invoiceFooterText) {
+    // Strip HTML tags for PDF text
+    const cleanFooterText = settings.invoiceFooterText.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
+    
+    if (cleanFooterText.trim()) {
+      // Check if we need a new page for footer
+      if (totalY > doc.internal.pageSize.height - 60) {
+        doc.addPage();
+        totalY = 20;
+      } else {
+        totalY += 15; // Add space before footer
+      }
+      
+      // Add footer section
+      doc.setFontSize(9);
+      doc.setTextColor(80);
+      
+      // Split footer text into lines
+      const footerLines = doc.splitTextToSize(cleanFooterText, 180);
+      
+      footerLines.forEach((line: string) => {
+        if (line.trim()) {
+          doc.text(line, 14, totalY);
+          totalY += 5;
+          
+          // If we reach the bottom of the page, add a new page
+          if (totalY > doc.internal.pageSize.height - 30) {
+            doc.addPage();
+            totalY = 20;
+          }
+        }
+      });
+    }
+  }
+  
   // Add page number
   const pageCount = doc.internal.getNumberOfPages();
   doc.setFontSize(10);

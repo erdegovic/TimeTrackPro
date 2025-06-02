@@ -17,7 +17,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { 
   Loader2, Save, Upload, X, Palette, Eye, FileText, Building,
   ChevronRight, ChevronDown, Zap, BrushIcon, Type, CreditCard,
-  Bold, Italic, Underline
+  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
+  List, ListOrdered, Minus, Link
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -194,7 +195,201 @@ const customizationSections: CollapsibleSection[] = [
   }
 ];
 
-// Rich Text Editor Component
+// Enhanced Rich Text Editor Component
+const EnhancedRichTextEditor = ({ value, onChange, placeholder }: { 
+  value: string; 
+  onChange: (value: string) => void; 
+  placeholder?: string; 
+}) => {
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const applyFormat = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    editorRef.current?.focus();
+  };
+
+  const insertDivider = () => {
+    const hr = document.createElement('hr');
+    hr.style.border = 'none';
+    hr.style.borderTop = '1px solid #ccc';
+    hr.style.margin = '10px 0';
+    
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      range.insertNode(hr);
+      range.setStartAfter(hr);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    
+    handleInput();
+  };
+
+  const handleInput = () => {
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData('text/plain');
+    document.execCommand('insertText', false, text);
+  };
+
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value || '';
+    }
+  }, [value]);
+
+  return (
+    <div className="border rounded-md">
+      {/* Enhanced Toolbar */}
+      <div className="flex flex-wrap items-center gap-1 p-2 border-b bg-gray-50">
+        {/* Text Formatting */}
+        <div className="flex items-center gap-1 border-r pr-2 mr-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => applyFormat('bold')}
+            className="h-8 w-8 p-0"
+            title="Bold"
+          >
+            <Bold className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => applyFormat('italic')}
+            className="h-8 w-8 p-0"
+            title="Italic"
+          >
+            <Italic className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => applyFormat('underline')}
+            className="h-8 w-8 p-0"
+            title="Underline"
+          >
+            <Underline className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Alignment */}
+        <div className="flex items-center gap-1 border-r pr-2 mr-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => applyFormat('justifyLeft')}
+            className="h-8 w-8 p-0"
+            title="Align Left"
+          >
+            <AlignLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => applyFormat('justifyCenter')}
+            className="h-8 w-8 p-0"
+            title="Align Center"
+          >
+            <AlignCenter className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => applyFormat('justifyRight')}
+            className="h-8 w-8 p-0"
+            title="Align Right"
+          >
+            <AlignRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Lists */}
+        <div className="flex items-center gap-1 border-r pr-2 mr-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => applyFormat('insertUnorderedList')}
+            className="h-8 w-8 p-0"
+            title="Bullet List"
+          >
+            <List className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => applyFormat('insertOrderedList')}
+            className="h-8 w-8 p-0"
+            title="Numbered List"
+          >
+            <ListOrdered className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Divider */}
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={insertDivider}
+            className="h-8 w-8 p-0"
+            title="Insert Divider"
+          >
+            <Minus className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      
+      {/* Editor */}
+      <div
+        ref={editorRef}
+        contentEditable
+        className="min-h-[120px] p-4 focus:outline-none rich-text-editor"
+        onInput={handleInput}
+        onPaste={handlePaste}
+        data-placeholder={placeholder}
+        style={{
+          minHeight: '120px'
+        }}
+      />
+      
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .rich-text-editor:empty:before {
+            content: attr(data-placeholder);
+            color: #9CA3AF;
+            pointer-events: none;
+          }
+          .rich-text-editor ul, .rich-text-editor ol {
+            margin: 10px 0;
+            padding-left: 20px;
+          }
+          .rich-text-editor li {
+            margin: 5px 0;
+          }
+        `
+      }} />
+    </div>
+  );
+};
+
+// Simple Rich Text Editor Component (for payment instructions)
 const RichTextEditor = ({ value, onChange, placeholder }: { 
   value: string; 
   onChange: (value: string) => void; 
@@ -1476,16 +1671,18 @@ export default function SettingsPage() {
                                 name="invoiceFooterText"
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel className="text-xs">Footer Text</FormLabel>
+                                    <FormLabel className="text-xs">Invoice Footer Notes</FormLabel>
                                     <FormControl>
-                                      <Textarea 
-                                        {...field} 
-                                        placeholder="Thank you for your business!"
-                                        rows={2}
-                                        className="text-sm"
+                                      <EnhancedRichTextEditor
+                                        value={field.value || ""}
+                                        onChange={field.onChange}
+                                        placeholder="Add payment terms, thank you message, contact info, or any other footer content..."
                                       />
                                     </FormControl>
                                     <FormMessage className="text-xs" />
+                                    <p className="text-xs text-gray-500 mt-2">
+                                      Use the toolbar to format text, add lists, alignment, and dividers. This will appear at the bottom of your invoices.
+                                    </p>
                                   </FormItem>
                                 )}
                               />
@@ -1862,38 +2059,22 @@ export default function SettingsPage() {
                       {watchedValues.invoiceTemplate === "media" ? (
                         /* Media Template Footer */
                         <div className="p-8 bg-gray-50 text-center text-gray-600 text-sm">
-                          <div className="mb-2">
-                            <span className="font-semibold">Payment Terms:</span> Net 30. Late fees of 1.5% monthly will apply after due date.
-                          </div>
-                          <div className="mb-2">
-                            <span className="font-semibold">Payment Methods:</span> Bank transfer, check, or credit card (+3% fee).
-                          </div>
-                          {watchedValues.showBankDetails && (
-                            <div className="mb-4">
-                              <span className="font-semibold">Payment Details:</span>{" "}
-                              {watchedValues.paymentMethodType === "bank_transfer_eu" && watchedValues.iban && `IBAN: ${watchedValues.iban}`}
-                              {watchedValues.paymentMethodType === "bank_transfer_uk" && watchedValues.bankAccountNumber && `Account: ${watchedValues.bankAccountNumber}, Sort Code: ${watchedValues.bankSortCode}`}
-                              {watchedValues.paymentMethodType === "bank_transfer_us" && watchedValues.bankAccountNumber && `Account: ${watchedValues.bankAccountNumber}, Routing: ${watchedValues.routingNumber}`}
-                              {watchedValues.paymentMethodType === "paypal" && watchedValues.paypalEmail && `PayPal: ${watchedValues.paypalEmail}`}
-                              {watchedValues.paymentMethodType === "wise_payoneer" && watchedValues.wiseEmail && `Wise/Payoneer: ${watchedValues.wiseEmail}`}
-                              {watchedValues.paymentMethodType === "other" && watchedValues.otherPaymentInstructions && (
-                                <span dangerouslySetInnerHTML={{ __html: watchedValues.otherPaymentInstructions }} />
-                              )}
-                            </div>
+                          {/* Custom Invoice Notes */}
+                          {watchedValues.invoiceFooterText && (
+                            <div 
+                              className="invoice-footer-notes mb-4"
+                              dangerouslySetInnerHTML={{ __html: watchedValues.invoiceFooterText }}
+                            />
                           )}
-                          <div className="border-t border-gray-300 pt-4 mt-4">
-                            <p>Thank you for choosing <span className="font-bold">{watchedValues.businessName || "Your Business"}</span>!</p>
-                            <p>Questions? Email <span style={{ color: watchedValues.invoiceColorTheme }}>{watchedValues.businessEmail || "your@email.com"}</span></p>
-                            {watchedValues.invoiceFooterText && (
-                              <p className="mt-2">{watchedValues.invoiceFooterText}</p>
-                            )}
-                          </div>
                         </div>
                       ) : (
                         /* Other Templates Footer */
                         watchedValues.invoiceFooterText && (
                           <div className="text-center text-sm border-t pt-4 mt-8">
-                            {watchedValues.invoiceFooterText}
+                            <div 
+                              className="invoice-footer-notes"
+                              dangerouslySetInnerHTML={{ __html: watchedValues.invoiceFooterText }}
+                            />
                           </div>
                         )
                       )}
