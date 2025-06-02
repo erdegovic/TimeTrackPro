@@ -1441,7 +1441,19 @@ export default function SettingsPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel className="text-sm font-medium">Choose Template</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select onValueChange={(value) => {
+                              field.onChange(value);
+                              // Auto-apply bold red theme for media template
+                              if (value === "media") {
+                                const boldRedPalette = colorPalettes.find(p => p.name === "Bold Red");
+                                if (boldRedPalette) {
+                                  form.setValue("invoiceColorTheme", boldRedPalette.primary);
+                                  form.setValue("invoiceAccentColor", boldRedPalette.accent);
+                                  form.setValue("invoiceTextColor", boldRedPalette.text);
+                                  form.setValue("invoiceBackgroundColor", boldRedPalette.background);
+                                }
+                              }
+                            }} value={field.value}>
                               <FormControl>
                                 <SelectTrigger className="h-10 text-sm bg-white border-2 hover:border-blue-300 transition-colors">
                                   <SelectValue />
@@ -1728,7 +1740,7 @@ export default function SettingsPage() {
                           <div className="w-full">
                             <div className="flex justify-between items-start">
                               <div className="company-info">
-                                <h1 className="text-4xl font-bold text-gray-900 mb-2">
+                                <h1 className="text-4xl font-bold mb-2" style={{ color: watchedValues.invoiceTemplate === "media" ? "#ef4444" : watchedValues.invoiceColorTheme }}>
                                   {watchedValues.businessName?.toUpperCase() || "YOUR BUSINESS"}
                                 </h1>
                                 <p className="text-gray-600 mb-1">Professional media services</p>
@@ -1875,19 +1887,19 @@ export default function SettingsPage() {
                           
                           {/* Filmstrip Divider */}
                           <div className="mx-10 mb-8">
-                            <div className="h-5 bg-gray-900 relative">
+                            <div className="h-5 bg-black relative">
                               <div className="absolute inset-0 bg-repeat-x" 
                                    style={{
                                      backgroundImage: `repeating-linear-gradient(90deg, 
-                                       transparent 0px, 
-                                       transparent 10px, 
-                                       #1a1a1a 10px, 
-                                       #1a1a1a 20px
+                                       white 0px, 
+                                       white 10px, 
+                                       black 10px, 
+                                       black 20px
                                      )`
                                    }}>
                               </div>
-                              <div className="absolute -left-5 top-0 w-5 h-full bg-gray-900 rounded-l-lg"></div>
-                              <div className="absolute -right-5 top-0 w-5 h-full bg-gray-900 rounded-r-lg"></div>
+                              <div className="absolute -left-5 top-0 w-5 h-full bg-black rounded-l-lg"></div>
+                              <div className="absolute -right-5 top-0 w-5 h-full bg-black rounded-r-lg"></div>
                             </div>
                           </div>
                         </>
