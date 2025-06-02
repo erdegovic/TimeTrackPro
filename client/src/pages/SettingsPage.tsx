@@ -858,7 +858,65 @@ export default function SettingsPage() {
                     <p className="text-sm text-gray-600">Changes appear instantly</p>
                   </div>
                   
-                  <div className="p-4 space-y-2">
+                  <div className="p-4 space-y-4">
+                    {/* Template Style - Prominent Section */}
+                    <div className="bg-white border-2 border-blue-200 rounded-lg p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Type className="h-5 w-5 text-blue-600" />
+                        <h4 className="font-semibold text-blue-900">Template Style</h4>
+                        <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full">Live Preview</span>
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="invoiceTemplate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-medium">Choose Template</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="h-10 text-sm bg-white border-2 hover:border-blue-300 transition-colors">
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="professional">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-gray-700 rounded-sm"></div>
+                                    Professional
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="modern">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-blue-500 rounded-sm"></div>
+                                    Modern
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="classic">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-amber-600 rounded-sm"></div>
+                                    Classic
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="minimal">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-slate-400 rounded-sm"></div>
+                                    Minimal
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <div className="text-xs text-gray-600 mt-1">
+                              Changes reflect instantly in the preview
+                            </div>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    </div>
+                    
+                    <div className="space-y-2">
                     {customizationSections.map((section) => (
                       <Collapsible
                         key={section.id}
@@ -1033,30 +1091,6 @@ export default function SettingsPage() {
                           {/* Typography & Layout */}
                           {section.id === "typography" && (
                             <div className="space-y-3">
-                              <FormField
-                                control={form.control}
-                                name="invoiceTemplate"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Template Style</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                      <FormControl>
-                                        <SelectTrigger className="h-8 text-sm">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                      </FormControl>
-                                      <SelectContent>
-                                        <SelectItem value="professional">Professional</SelectItem>
-                                        <SelectItem value="modern">Modern</SelectItem>
-                                        <SelectItem value="classic">Classic</SelectItem>
-                                        <SelectItem value="minimal">Minimal</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                    <FormMessage className="text-xs" />
-                                  </FormItem>
-                                )}
-                              />
-                              
                               <FormField
                                 control={form.control}
                                 name="customFontSize"
