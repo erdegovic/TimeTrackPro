@@ -1,57 +1,91 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Button } from "@/components/ui/button";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { 
+  Loader2, Save, Upload, X, Palette, Eye, FileText, Building,
+  ChevronRight, ChevronDown, Zap, BrushIcon, Type, CreditCard 
+} from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Palette, FileText, Zap, Eye, Settings as SettingsIcon, Upload, X } from "lucide-react";
 
 const settingsSchema = z.object({
   businessName: z.string().min(1, "Business name is required"),
   businessAddress: z.string().optional(),
+  businessCity: z.string().optional(),
+  businessState: z.string().optional(),
+  businessZipCode: z.string().optional(),
+  businessCountry: z.string().optional(),
   businessPhone: z.string().optional(),
   businessEmail: z.string().email("Invalid email").optional().or(z.literal("")),
-  businessWebsite: z.string().url("Invalid URL").optional().or(z.literal("")),
+  businessTaxId: z.string().optional(),
+  
+  bankName: z.string().optional(),
+  bankAccountName: z.string().optional(),
+  bankAccountNumber: z.string().optional(),
+  bankSortCode: z.string().optional(),
+  
+  nextInvoiceNumber: z.coerce.number().int().positive("Must be a positive number"),
+  defaultTimeFormat: z.enum(["decimal", "time"]),
+  defaultCurrency: z.string().min(1, "Currency is required"),
+  displayCurrency: z.string().min(1, "Display currency is required"),
+  enableTax: z.boolean().default(false),
+  defaultTaxRate: z.coerce.number().min(0).max(100).default(0),
+  
   businessLogo: z.string().optional(),
+  
   invoiceTemplate: z.string().default("luxury"),
   invoiceColorTheme: z.string().default("#3b82f6"),
   invoiceBackgroundColor: z.string().default("#ffffff"),
-  invoiceTextColor: z.string().default("#000000"),
+  invoiceTextColor: z.string().default("#1f2937"),
+  customFontSize: z.coerce.number().min(8).max(20).default(14),
   showLogo: z.boolean().default(true),
   showCompanyDetails: z.boolean().default(true),
-  customFontSize: z.number().min(8).max(20).default(14),
   invoiceFooterText: z.string().optional(),
-  displayCurrency: z.string().default("$"),
-  nextInvoiceNumber: z.string().optional(),
-  timeFormat: z.enum(["12", "24"]).default("12"),
-  defaultHourlyRate: z.number().min(0).default(50),
-  autoStartTimer: z.boolean().default(false),
-  enableNotifications: z.boolean().default(true),
-  reminderFrequency: z.enum(["never", "daily", "weekly"]).default("weekly"),
+  
   defaultProjectColor: z.string().default("#3b82f6"),
+  reminderFrequency: z.enum(["never", "daily", "weekly", "monthly"]).default("weekly"),
+  enableEmailReminders: z.boolean().default(false),
+  emailReminderDays: z.coerce.number().min(1).max(30).default(7),
+  enableOverdueNotifications: z.boolean().default(false),
+  
+  userTimezone: z.string().default("UTC"),
+  dateFormat: z.enum(["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"]).default("DD/MM/YYYY"),
+  timeFormat: z.enum(["12", "24"]).default("12"),
+  weekStartDay: z.enum(["monday", "sunday"]).default("monday"),
+  fiscalYearStart: z.enum(["january", "april", "july", "october"]).default("january"),
+  
   enableTimeTracking: z.boolean().default(true),
   enableProjectManagement: z.boolean().default(true),
   enableInvoicing: z.boolean().default(true),
   enableReporting: z.boolean().default(true),
-  backupFrequency: z.enum(["never", "daily", "weekly", "monthly"]).default("weekly"),
-  exportFormat: z.enum(["pdf", "csv", "xlsx"]).default("pdf"),
+  allowGuestAccess: z.boolean().default(false),
+  
+  autoBackup: z.boolean().default(false),
+  backupFrequency: z.enum(["daily", "weekly", "monthly"]).default("weekly"),
+  enableApiAccess: z.boolean().default(false),
+  apiRateLimit: z.coerce.number().min(100).max(10000).default(1000)
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
 
-export default function SettingsPageFixed() {
+export default function SettingsPage() {
   const { toast } = useToast();
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(["business", "invoice"]));
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["/api/settings"],
@@ -62,32 +96,59 @@ export default function SettingsPageFixed() {
     defaultValues: {
       businessName: "",
       businessAddress: "",
+      businessCity: "",
+      businessState: "",
+      businessZipCode: "",
+      businessCountry: "",
       businessPhone: "",
       businessEmail: "",
-      businessWebsite: "",
+      businessTaxId: "",
+      
+      bankName: "",
+      bankAccountName: "",
+      bankAccountNumber: "",
+      bankSortCode: "",
+      
+      nextInvoiceNumber: 1001,
+      defaultTimeFormat: "decimal",
+      defaultCurrency: "USD",
+      displayCurrency: "$",
+      enableTax: false,
+      defaultTaxRate: 0,
+      
       businessLogo: "",
+      
       invoiceTemplate: "luxury",
       invoiceColorTheme: "#3b82f6",
       invoiceBackgroundColor: "#ffffff",
-      invoiceTextColor: "#000000",
+      invoiceTextColor: "#1f2937",
+      customFontSize: 14,
       showLogo: true,
       showCompanyDetails: true,
-      customFontSize: 14,
       invoiceFooterText: "",
-      displayCurrency: "$",
-      nextInvoiceNumber: "1001",
-      timeFormat: "12",
-      defaultHourlyRate: 50,
-      autoStartTimer: false,
-      enableNotifications: true,
-      reminderFrequency: "weekly",
+      
       defaultProjectColor: "#3b82f6",
+      reminderFrequency: "weekly",
+      enableEmailReminders: false,
+      emailReminderDays: 7,
+      enableOverdueNotifications: false,
+      
+      userTimezone: "UTC",
+      dateFormat: "DD/MM/YYYY",
+      timeFormat: "12",
+      weekStartDay: "monday",
+      fiscalYearStart: "january",
+      
       enableTimeTracking: true,
       enableProjectManagement: true,
       enableInvoicing: true,
       enableReporting: true,
+      allowGuestAccess: false,
+      
+      autoBackup: false,
       backupFrequency: "weekly",
-      exportFormat: "pdf",
+      enableApiAccess: false,
+      apiRateLimit: 1000
     },
   });
 
@@ -132,7 +193,9 @@ export default function SettingsPageFixed() {
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
-        <div className="text-center">Loading settings...</div>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
       </div>
     );
   }
@@ -140,7 +203,7 @@ export default function SettingsPageFixed() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
-        <SettingsIcon className="h-6 w-6" />
+        <Building className="h-6 w-6" />
         <h1 className="text-2xl font-bold">Settings</h1>
       </div>
 
@@ -149,7 +212,7 @@ export default function SettingsPageFixed() {
           <Tabs defaultValue="business" className="space-y-6">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="business" className="flex items-center gap-2">
-                <SettingsIcon className="h-4 w-4" />
+                <Building className="h-4 w-4" />
                 Business
               </TabsTrigger>
               <TabsTrigger value="customization" className="flex items-center gap-2">
@@ -165,6 +228,130 @@ export default function SettingsPageFixed() {
                 Features
               </TabsTrigger>
             </TabsList>
+
+            {/* Business Tab */}
+            <TabsContent value="business" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Business Information</CardTitle>
+                  <CardDescription>
+                    Configure your business details for invoices and client communications
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="businessName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Business Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Your Business Name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="businessAddress"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Business Address</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="123 Business Street, City, State 12345" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="businessEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Business Email</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="email" 
+                              placeholder="contact@yourbusiness.com" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="businessPhone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Business Phone</FormLabel>
+                          <FormControl>
+                            <Input placeholder="(555) 123-4567" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Invoice Design Tab */}
+            <TabsContent value="customization" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Invoice Template</CardTitle>
+                  <CardDescription>
+                    Choose from professional invoice templates designed for different industries
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <FormField
+                    control={form.control}
+                    name="invoiceTemplate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Template</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a template" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="video-production">Video Production</SelectItem>
+                            <SelectItem value="luxury">Luxury</SelectItem>
+                            <SelectItem value="technology">Technology</SelectItem>
+                            <SelectItem value="coding">Coding</SelectItem>
+                            <SelectItem value="graphic-design">Graphic Design</SelectItem>
+                            <SelectItem value="accounting">Accounting</SelectItem>
+                            <SelectItem value="education">Education</SelectItem>
+                            <SelectItem value="hr-recruitment">HR & Recruitment</SelectItem>
+                            <SelectItem value="engineering">Engineering</SelectItem>
+                            <SelectItem value="health-wellness">Health & Wellness</SelectItem>
+                            <SelectItem value="cyberpunk">Cyberpunk</SelectItem>
+                            <SelectItem value="minimalist">Minimalist</SelectItem>
+                            <SelectItem value="classic">Classic</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             {/* Preview Tab */}
             <TabsContent value="preview" className="space-y-6">
@@ -262,46 +449,6 @@ export default function SettingsPageFixed() {
                           </div>
 
                           <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: '1fr 1fr',
-                            gap: '2rem',
-                            padding: '2rem 2.5rem',
-                            background: '#f9f9f9'
-                          }}>
-                            <div>
-                              <h3 style={{
-                                color: '#e50914',
-                                marginBottom: '1rem',
-                                fontSize: '1.1rem',
-                                textTransform: 'uppercase',
-                                letterSpacing: '1px',
-                                margin: '0 0 1rem 0'
-                              }}>
-                                Bill To
-                              </h3>
-                              <p style={{ marginBottom: '0.5rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>DREAMWAVE PRODUCTIONS</p>
-                              <p style={{ marginBottom: '0.5rem', margin: '0 0 0.5rem 0' }}>456 Media District</p>
-                              <p style={{ marginBottom: '0.5rem', margin: '0 0 0.5rem 0' }}>Los Angeles, CA 90028</p>
-                              <p style={{ marginBottom: '0.5rem', margin: '0 0 0.5rem 0' }}>contact@dreamwave.tv</p>
-                            </div>
-                            <div>
-                              <h3 style={{
-                                color: '#e50914',
-                                marginBottom: '1rem',
-                                fontSize: '1.1rem',
-                                textTransform: 'uppercase',
-                                letterSpacing: '1px',
-                                margin: '0 0 1rem 0'
-                              }}>
-                                Project Details
-                              </h3>
-                              <p style={{ margin: '0 0 0.5rem 0' }}><strong>Project:</strong> "Midnight Sessions" Music Video</p>
-                              <p style={{ margin: '0 0 0.5rem 0' }}><strong>Project ID:</strong> PRJ-MV-2024-003</p>
-                              <p style={{ margin: '0 0 0.5rem 0' }}><strong>Shoot Dates:</strong> Oct 15-17, 2024</p>
-                            </div>
-                          </div>
-
-                          <div style={{
                             height: '20px',
                             background: 'repeating-linear-gradient(90deg, #1a1a1a, #1a1a1a 10px, transparent 10px, transparent 30px)',
                             margin: '0 2.5rem',
@@ -340,8 +487,7 @@ export default function SettingsPageFixed() {
                                   background: '#f9f9f9',
                                   color: '#1a1a1a',
                                   fontWeight: '600',
-                                  borderBottom: '2px solid #e0e0e0',
-                                  width: '50%'
+                                  borderBottom: '2px solid #e0e0e0'
                                 }}>
                                   Description
                                 </th>
@@ -404,58 +550,6 @@ export default function SettingsPageFixed() {
                                   {watchedValues.displayCurrency}2,550.00
                                 </td>
                               </tr>
-                              <tr>
-                                <td style={{
-                                  padding: '1rem',
-                                  borderBottom: '1px solid #e0e0e0'
-                                }}>
-                                  Camera Equipment Rental
-                                </td>
-                                <td style={{
-                                  padding: '1rem',
-                                  borderBottom: '1px solid #e0e0e0'
-                                }}>
-                                  3
-                                </td>
-                                <td style={{
-                                  padding: '1rem',
-                                  borderBottom: '1px solid #e0e0e0'
-                                }}>
-                                  {watchedValues.displayCurrency}400.00
-                                </td>
-                                <td style={{
-                                  padding: '1rem',
-                                  borderBottom: '1px solid #e0e0e0'
-                                }}>
-                                  {watchedValues.displayCurrency}1,200.00
-                                </td>
-                              </tr>
-                              <tr>
-                                <td style={{
-                                  padding: '1rem',
-                                  borderBottom: '1px solid #e0e0e0'
-                                }}>
-                                  Post-Production & Color Grading
-                                </td>
-                                <td style={{
-                                  padding: '1rem',
-                                  borderBottom: '1px solid #e0e0e0'
-                                }}>
-                                  5
-                                </td>
-                                <td style={{
-                                  padding: '1rem',
-                                  borderBottom: '1px solid #e0e0e0'
-                                }}>
-                                  {watchedValues.displayCurrency}125.00
-                                </td>
-                                <td style={{
-                                  padding: '1rem',
-                                  borderBottom: '1px solid #e0e0e0'
-                                }}>
-                                  {watchedValues.displayCurrency}625.00
-                                </td>
-                              </tr>
                             </tbody>
                           </table>
 
@@ -467,37 +561,13 @@ export default function SettingsPageFixed() {
                             <div style={{
                               display: 'flex',
                               justifyContent: 'space-between',
-                              marginBottom: '0.8rem'
-                            }}>
-                              <span>Subtotal:</span>
-                              <span>{watchedValues.displayCurrency}4,375.00</span>
-                            </div>
-                            <div style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
                               fontWeight: '700',
                               color: '#e50914',
-                              fontSize: '1.2rem',
-                              marginTop: '1rem',
-                              paddingTop: '1rem',
-                              borderTop: '2px dashed #e0e0e0'
+                              fontSize: '1.2rem'
                             }}>
                               <span>TOTAL DUE:</span>
-                              <span>{watchedValues.displayCurrency}4,375.00</span>
+                              <span>{watchedValues.displayCurrency}2,550.00</span>
                             </div>
-                          </div>
-
-                          <div style={{
-                            padding: '0 2.5rem 2rem',
-                            color: '#666',
-                            fontSize: '0.9rem'
-                          }}>
-                            <p style={{ margin: '0 0 0.5rem 0' }}>
-                              <strong style={{ color: '#1a1a1a' }}>Payment Terms:</strong> Net 30. Late fees of 1.5% monthly apply after due date.
-                            </p>
-                            <p style={{ margin: '0 0 0.5rem 0' }}>
-                              <strong style={{ color: '#1a1a1a' }}>Payment Methods:</strong> Bank transfer, check, or credit card (+3% processing fee).
-                            </p>
                           </div>
 
                           <div style={{
@@ -508,8 +578,7 @@ export default function SettingsPageFixed() {
                             fontSize: '0.9rem'
                           }}>
                             <p style={{ margin: 0 }}>
-                              Thank you for choosing <strong>{watchedValues.businessName || "LUMINA FILMS"}!</strong> 
-                              Let's create something extraordinary together.
+                              Thank you for choosing <strong>{watchedValues.businessName || "LUMINA FILMS"}!</strong>
                             </p>
                           </div>
                         </div>
@@ -568,294 +637,8 @@ export default function SettingsPageFixed() {
               </Card>
             </TabsContent>
 
-            {/* Business Tab */}
-            <TabsContent value="business" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Business Information</CardTitle>
-                  <CardDescription>
-                    Configure your business details for invoices and client communications
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="businessName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Business Name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Your Business Name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="businessAddress"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Business Address</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="123 Business Street, City, State 12345" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="businessEmail"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Business Email</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="email" 
-                              placeholder="contact@yourbusiness.com" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="businessPhone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Business Phone</FormLabel>
-                          <FormControl>
-                            <Input placeholder="(555) 123-4567" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="businessWebsite"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Business Website</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="url" 
-                            placeholder="https://yourbusiness.com" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Invoice Design Tab */}
-            <TabsContent value="customization" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Invoice Template</CardTitle>
-                  <CardDescription>
-                    Choose from professional invoice templates designed for different industries
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <FormField
-                    control={form.control}
-                    name="invoiceTemplate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Template</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a template" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="video-production">Video Production</SelectItem>
-                            <SelectItem value="luxury">Luxury</SelectItem>
-                            <SelectItem value="technology">Technology</SelectItem>
-                            <SelectItem value="coding">Coding</SelectItem>
-                            <SelectItem value="graphic-design">Graphic Design</SelectItem>
-                            <SelectItem value="accounting">Accounting</SelectItem>
-                            <SelectItem value="education">Education</SelectItem>
-                            <SelectItem value="hr-recruitment">HR & Recruitment</SelectItem>
-                            <SelectItem value="engineering">Engineering</SelectItem>
-                            <SelectItem value="health-wellness">Health & Wellness</SelectItem>
-                            <SelectItem value="cyberpunk">Cyberpunk</SelectItem>
-                            <SelectItem value="minimalist">Minimalist</SelectItem>
-                            <SelectItem value="classic">Classic</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Colors & Branding</CardTitle>
-                  <CardDescription>
-                    Customize colors and branding elements
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="invoiceColorTheme"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Theme Color</FormLabel>
-                          <FormControl>
-                            <Input type="color" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="invoiceBackgroundColor"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Background Color</FormLabel>
-                          <FormControl>
-                            <Input type="color" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="invoiceTextColor"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Text Color</FormLabel>
-                          <FormControl>
-                            <Input type="color" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="customFontSize"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Font Size: {field.value}px</FormLabel>
-                        <FormControl>
-                          <input
-                            type="range"
-                            min={8}
-                            max={20}
-                            step={1}
-                            className="w-full"
-                            {...field}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
             {/* Features Tab */}
             <TabsContent value="features" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>General Settings</CardTitle>
-                  <CardDescription>
-                    Configure general application settings
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="displayCurrency"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Currency Symbol</FormLabel>
-                          <FormControl>
-                            <Input placeholder="$" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="defaultHourlyRate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Hourly Rate</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number" 
-                              min={0} 
-                              step={0.01} 
-                              {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="timeFormat"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Time Format</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="12">12-hour (AM/PM)</SelectItem>
-                            <SelectItem value="24">24-hour</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-
               <Card>
                 <CardHeader>
                   <CardTitle>Feature Toggles</CardTitle>
@@ -871,30 +654,6 @@ export default function SettingsPageFixed() {
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
                           <FormLabel className="text-base">Time Tracking</FormLabel>
-                          <FormDescription>
-                            Enable time tracking functionality
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="enableProjectManagement"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Project Management</FormLabel>
-                          <FormDescription>
-                            Enable project and client management
-                          </FormDescription>
                         </div>
                         <FormControl>
                           <Switch
@@ -913,30 +672,6 @@ export default function SettingsPageFixed() {
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
                           <FormLabel className="text-base">Invoicing</FormLabel>
-                          <FormDescription>
-                            Enable invoice generation and management
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="enableReporting"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Reporting</FormLabel>
-                          <FormDescription>
-                            Enable detailed reports and analytics
-                          </FormDescription>
                         </div>
                         <FormControl>
                           <Switch
@@ -955,7 +690,7 @@ export default function SettingsPageFixed() {
           <div className="flex justify-end">
             <Button type="submit" disabled={isSubmitting} className="min-w-[140px]">
               {isSubmitting ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Save className="h-4 w-4" />
               )}
