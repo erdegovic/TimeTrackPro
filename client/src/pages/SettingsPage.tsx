@@ -1797,16 +1797,63 @@ export default function SettingsPage() {
                         </div>
                       )}
 
-                      {watchedValues.showBankDetails && (watchedValues.bankName || watchedValues.bankAccountNumber) && (
+                      {watchedValues.showBankDetails && (
                         <div className="mb-6 p-4 bg-gray-50 rounded">
                           <h3 className="font-semibold text-sm mb-2" style={{ color: watchedValues.invoiceAccentColor }}>
                             Payment Details
                           </h3>
                           <div className="text-sm space-y-1">
-                            {watchedValues.bankName && <div>Bank: {watchedValues.bankName}</div>}
-                            {watchedValues.bankAccountName && <div>Account Name: {watchedValues.bankAccountName}</div>}
-                            {watchedValues.bankAccountNumber && <div>Account: {watchedValues.bankAccountNumber}</div>}
-                            {watchedValues.bankSortCode && <div>Sort Code: {watchedValues.bankSortCode}</div>}
+                            {/* EU Bank Transfer */}
+                            {watchedValues.paymentMethodType === "bank_transfer_eu" && (
+                              <>
+                                {watchedValues.iban && <div>IBAN: {watchedValues.iban}</div>}
+                                {watchedValues.swift && <div>SWIFT/BIC: {watchedValues.swift}</div>}
+                                {watchedValues.bankName && <div>Bank: {watchedValues.bankName}</div>}
+                                {watchedValues.bankAccountName && <div>Account Name: {watchedValues.bankAccountName}</div>}
+                              </>
+                            )}
+                            
+                            {/* UK Bank Transfer */}
+                            {watchedValues.paymentMethodType === "bank_transfer_uk" && (
+                              <>
+                                {watchedValues.bankAccountNumber && <div>Account Number: {watchedValues.bankAccountNumber}</div>}
+                                {watchedValues.bankSortCode && <div>Sort Code: {watchedValues.bankSortCode}</div>}
+                                {watchedValues.bankName && <div>Bank: {watchedValues.bankName}</div>}
+                                {watchedValues.bankAccountName && <div>Account Name: {watchedValues.bankAccountName}</div>}
+                              </>
+                            )}
+                            
+                            {/* US Bank Transfer */}
+                            {watchedValues.paymentMethodType === "bank_transfer_us" && (
+                              <>
+                                {watchedValues.bankAccountNumber && <div>Account Number: {watchedValues.bankAccountNumber}</div>}
+                                {watchedValues.routingNumber && <div>Routing Number: {watchedValues.routingNumber}</div>}
+                                {watchedValues.bankName && <div>Bank: {watchedValues.bankName}</div>}
+                                {watchedValues.bankAccountName && <div>Account Name: {watchedValues.bankAccountName}</div>}
+                              </>
+                            )}
+                            
+                            {/* PayPal */}
+                            {watchedValues.paymentMethodType === "paypal" && (
+                              <>
+                                {watchedValues.paypalEmail && <div>PayPal: {watchedValues.paypalEmail}</div>}
+                              </>
+                            )}
+                            
+                            {/* Wise/Payoneer */}
+                            {watchedValues.paymentMethodType === "wise_payoneer" && (
+                              <>
+                                {watchedValues.wiseEmail && <div>Wise/Payoneer: {watchedValues.wiseEmail}</div>}
+                              </>
+                            )}
+                            
+                            {/* Other - Rich Text */}
+                            {watchedValues.paymentMethodType === "other" && watchedValues.otherPaymentInstructions && (
+                              <div 
+                                className="rich-payment-instructions" 
+                                dangerouslySetInnerHTML={{ __html: watchedValues.otherPaymentInstructions }}
+                              />
+                            )}
                           </div>
                         </div>
                       )}
@@ -1823,7 +1870,15 @@ export default function SettingsPage() {
                           </div>
                           {watchedValues.showBankDetails && (
                             <div className="mb-4">
-                              <span className="font-semibold">Bank Details:</span> {watchedValues.bankName || "Your Bank"} | Account #{watchedValues.bankAccountNumber || "Your Account"}
+                              <span className="font-semibold">Payment Details:</span>{" "}
+                              {watchedValues.paymentMethodType === "bank_transfer_eu" && watchedValues.iban && `IBAN: ${watchedValues.iban}`}
+                              {watchedValues.paymentMethodType === "bank_transfer_uk" && watchedValues.bankAccountNumber && `Account: ${watchedValues.bankAccountNumber}, Sort Code: ${watchedValues.bankSortCode}`}
+                              {watchedValues.paymentMethodType === "bank_transfer_us" && watchedValues.bankAccountNumber && `Account: ${watchedValues.bankAccountNumber}, Routing: ${watchedValues.routingNumber}`}
+                              {watchedValues.paymentMethodType === "paypal" && watchedValues.paypalEmail && `PayPal: ${watchedValues.paypalEmail}`}
+                              {watchedValues.paymentMethodType === "wise_payoneer" && watchedValues.wiseEmail && `Wise/Payoneer: ${watchedValues.wiseEmail}`}
+                              {watchedValues.paymentMethodType === "other" && watchedValues.otherPaymentInstructions && (
+                                <span dangerouslySetInnerHTML={{ __html: watchedValues.otherPaymentInstructions }} />
+                              )}
                             </div>
                           )}
                           <div className="border-t border-gray-300 pt-4 mt-4">

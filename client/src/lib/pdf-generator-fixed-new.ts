@@ -383,18 +383,99 @@ function generateInvoicePdf(options: {
     detailsY += 6;
   }
   
-  // Payment details
+  // Dynamic Payment details based on payment method type
   let paymentY = detailsYStart + 8;
-  doc.text(`Bank Name: ${settings.bankName || ''}`, doc.internal.pageSize.width / 2 + 10, paymentY);
-  paymentY += 6;
-  doc.text(`Account Name: ${settings.bankAccountName || ''}`, doc.internal.pageSize.width / 2 + 10, paymentY);
-  paymentY += 6;
-  doc.text(`Account Number: ${settings.bankAccountNumber || ''}`, doc.internal.pageSize.width / 2 + 10, paymentY);
-  paymentY += 6;
   
-  if (settings.bankSortCode) {
-    doc.text(`Sort Code: ${settings.bankSortCode}`, doc.internal.pageSize.width / 2 + 10, paymentY);
-    paymentY += 6;
+  if (settings.showBankDetails && settings.paymentMethodType) {
+    doc.setFont(undefined, 'bold');
+    doc.text("Payment Details:", doc.internal.pageSize.width / 2 + 10, paymentY);
+    paymentY += 8;
+    doc.setFont(undefined, 'normal');
+    
+    switch (settings.paymentMethodType) {
+      case 'bank_transfer_eu':
+        if (settings.iban) {
+          doc.text(`IBAN: ${settings.iban}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+          paymentY += 6;
+        }
+        if (settings.swift) {
+          doc.text(`SWIFT/BIC: ${settings.swift}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+          paymentY += 6;
+        }
+        if (settings.bankName) {
+          doc.text(`Bank: ${settings.bankName}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+          paymentY += 6;
+        }
+        if (settings.bankAccountName) {
+          doc.text(`Account Name: ${settings.bankAccountName}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+          paymentY += 6;
+        }
+        break;
+        
+      case 'bank_transfer_uk':
+        if (settings.bankAccountNumber) {
+          doc.text(`Account Number: ${settings.bankAccountNumber}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+          paymentY += 6;
+        }
+        if (settings.bankSortCode) {
+          doc.text(`Sort Code: ${settings.bankSortCode}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+          paymentY += 6;
+        }
+        if (settings.bankName) {
+          doc.text(`Bank: ${settings.bankName}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+          paymentY += 6;
+        }
+        if (settings.bankAccountName) {
+          doc.text(`Account Name: ${settings.bankAccountName}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+          paymentY += 6;
+        }
+        break;
+        
+      case 'bank_transfer_us':
+        if (settings.bankAccountNumber) {
+          doc.text(`Account Number: ${settings.bankAccountNumber}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+          paymentY += 6;
+        }
+        if (settings.routingNumber) {
+          doc.text(`Routing Number: ${settings.routingNumber}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+          paymentY += 6;
+        }
+        if (settings.bankName) {
+          doc.text(`Bank: ${settings.bankName}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+          paymentY += 6;
+        }
+        if (settings.bankAccountName) {
+          doc.text(`Account Name: ${settings.bankAccountName}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+          paymentY += 6;
+        }
+        break;
+        
+      case 'paypal':
+        if (settings.paypalEmail) {
+          doc.text(`PayPal: ${settings.paypalEmail}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+          paymentY += 6;
+        }
+        break;
+        
+      case 'wise_payoneer':
+        if (settings.wiseEmail) {
+          doc.text(`Wise/Payoneer: ${settings.wiseEmail}`, doc.internal.pageSize.width / 2 + 10, paymentY);
+          paymentY += 6;
+        }
+        break;
+        
+      case 'other':
+        if (settings.otherPaymentInstructions) {
+          // Strip HTML tags for PDF text
+          const cleanText = settings.otherPaymentInstructions.replace(/<[^>]*>/g, '');
+          const textLines = doc.splitTextToSize(cleanText, 80);
+          textLines.forEach((line: string) => {
+            doc.text(line, doc.internal.pageSize.width / 2 + 10, paymentY);
+            paymentY += 6;
+          });
+        }
+        break;
+    }
   }
   
   // Table for time entries
