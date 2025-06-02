@@ -568,7 +568,388 @@ export default function SettingsPageFixed() {
               </Card>
             </TabsContent>
 
-            {/* Other tabs content would go here */}
+            {/* Business Tab */}
+            <TabsContent value="business" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Business Information</CardTitle>
+                  <CardDescription>
+                    Configure your business details for invoices and client communications
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="businessName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Business Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Your Business Name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="businessAddress"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Business Address</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="123 Business Street, City, State 12345" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="businessEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Business Email</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="email" 
+                              placeholder="contact@yourbusiness.com" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="businessPhone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Business Phone</FormLabel>
+                          <FormControl>
+                            <Input placeholder="(555) 123-4567" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="businessWebsite"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Business Website</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="url" 
+                            placeholder="https://yourbusiness.com" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Invoice Design Tab */}
+            <TabsContent value="customization" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Invoice Template</CardTitle>
+                  <CardDescription>
+                    Choose from professional invoice templates designed for different industries
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <FormField
+                    control={form.control}
+                    name="invoiceTemplate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Template</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a template" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="video-production">Video Production</SelectItem>
+                            <SelectItem value="luxury">Luxury</SelectItem>
+                            <SelectItem value="technology">Technology</SelectItem>
+                            <SelectItem value="coding">Coding</SelectItem>
+                            <SelectItem value="graphic-design">Graphic Design</SelectItem>
+                            <SelectItem value="accounting">Accounting</SelectItem>
+                            <SelectItem value="education">Education</SelectItem>
+                            <SelectItem value="hr-recruitment">HR & Recruitment</SelectItem>
+                            <SelectItem value="engineering">Engineering</SelectItem>
+                            <SelectItem value="health-wellness">Health & Wellness</SelectItem>
+                            <SelectItem value="cyberpunk">Cyberpunk</SelectItem>
+                            <SelectItem value="minimalist">Minimalist</SelectItem>
+                            <SelectItem value="classic">Classic</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Colors & Branding</CardTitle>
+                  <CardDescription>
+                    Customize colors and branding elements
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="invoiceColorTheme"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Theme Color</FormLabel>
+                          <FormControl>
+                            <Input type="color" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="invoiceBackgroundColor"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Background Color</FormLabel>
+                          <FormControl>
+                            <Input type="color" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="invoiceTextColor"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Text Color</FormLabel>
+                          <FormControl>
+                            <Input type="color" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="customFontSize"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Font Size: {field.value}px</FormLabel>
+                        <FormControl>
+                          <input
+                            type="range"
+                            min={8}
+                            max={20}
+                            step={1}
+                            className="w-full"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Features Tab */}
+            <TabsContent value="features" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>General Settings</CardTitle>
+                  <CardDescription>
+                    Configure general application settings
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="displayCurrency"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Currency Symbol</FormLabel>
+                          <FormControl>
+                            <Input placeholder="$" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="defaultHourlyRate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Default Hourly Rate</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              min={0} 
+                              step={0.01} 
+                              {...field}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="timeFormat"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Time Format</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="12">12-hour (AM/PM)</SelectItem>
+                            <SelectItem value="24">24-hour</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Feature Toggles</CardTitle>
+                  <CardDescription>
+                    Enable or disable application features
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="enableTimeTracking"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Time Tracking</FormLabel>
+                          <FormDescription>
+                            Enable time tracking functionality
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="enableProjectManagement"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Project Management</FormLabel>
+                          <FormDescription>
+                            Enable project and client management
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="enableInvoicing"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Invoicing</FormLabel>
+                          <FormDescription>
+                            Enable invoice generation and management
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="enableReporting"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Reporting</FormLabel>
+                          <FormDescription>
+                            Enable detailed reports and analytics
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
 
           <div className="flex justify-end">
