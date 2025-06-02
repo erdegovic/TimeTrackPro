@@ -1490,32 +1490,16 @@ export default function SettingsPage() {
                     
                     <div className="space-y-2">
                     {customizationSections.map((section) => (
-                      <Collapsible
-                        key={section.id}
-                        open={openSections.has(section.id)}
-                        onOpenChange={() => toggleSection(section.id)}
-                      >
-                        <CollapsibleTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="w-full justify-between p-3 h-auto hover:bg-white/80"
-                          >
-                            <div className="flex items-center gap-3">
-                              {section.icon}
-                              <div className="text-left">
-                                <div className="font-medium text-sm">{section.title}</div>
-                                <div className="text-xs text-gray-500">{section.description}</div>
-                              </div>
-                            </div>
-                            {openSections.has(section.id) ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </CollapsibleTrigger>
+                      <div key={section.id} className="bg-white rounded-lg border p-3">
+                        <div className="flex items-center gap-3 mb-3">
+                          {section.icon}
+                          <div className="text-left">
+                            <div className="font-medium text-sm">{section.title}</div>
+                            <div className="text-xs text-gray-500">{section.description}</div>
+                          </div>
+                        </div>
 
-                        <CollapsibleContent className="space-y-4 px-3 pb-4">
+                        <div className="space-y-4">
                           {/* Logo & Branding */}
                           {section.id === "branding" && (
                             <div className="space-y-3">
@@ -1660,9 +1644,51 @@ export default function SettingsPage() {
                             </div>
                           )}
 
+                          {/* Color Themes */}
+                          {section.id === "colors" && (
+                            <div className="space-y-3">
+                              <FormField
+                                control={form.control}
+                                name="invoiceTextColor"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Text Color</FormLabel>
+                                    <div className="flex gap-2">
+                                      <FormControl>
+                                        <Input {...field} type="color" className="w-10 h-8 p-1 cursor-pointer" />
+                                      </FormControl>
+                                      <FormControl>
+                                        <Input {...field} placeholder="#374151" className="flex-1 h-8 text-sm" />
+                                      </FormControl>
+                                    </div>
+                                    <FormMessage className="text-xs" />
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              <FormField
+                                control={form.control}
+                                name="invoiceBackgroundColor"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Background Color</FormLabel>
+                                    <div className="flex gap-2">
+                                      <FormControl>
+                                        <Input {...field} type="color" className="w-10 h-8 p-1 cursor-pointer" />
+                                      </FormControl>
+                                      <FormControl>
+                                        <Input {...field} placeholder="#ffffff" className="flex-1 h-8 text-sm" />
+                                      </FormControl>
+                                    </div>
+                                    <FormMessage className="text-xs" />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          )}
 
-                        </CollapsibleContent>
-                      </Collapsible>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -2029,26 +2055,28 @@ export default function SettingsPage() {
                       )}
 
                       {/* Footer Section */}
-                      {watchedValues.invoiceTemplate === "media" ? (
-                        /* Media Template Footer */
-                        <div className="p-8 bg-gray-50 text-center text-gray-600 text-sm">
-                          {/* Custom Invoice Notes */}
-                          {watchedValues.invoiceFooterText && (
-                            <div 
-                              className="invoice-footer-notes mb-4"
-                              dangerouslySetInnerHTML={{ __html: watchedValues.invoiceFooterText }}
-                            />
-                          )}
-                        </div>
-                      ) : (
-                        /* Other Templates Footer */
-                        watchedValues.invoiceFooterText && (
-                          <div className="text-center text-sm border-t pt-4 mt-8">
-                            <div 
-                              className="invoice-footer-notes"
-                              dangerouslySetInnerHTML={{ __html: watchedValues.invoiceFooterText }}
-                            />
+                      {(watchedValues.showFooterNotes ?? true) && (
+                        watchedValues.invoiceTemplate === "media" ? (
+                          /* Media Template Footer */
+                          <div className="p-8 bg-gray-50 text-center text-gray-600 text-sm">
+                            {/* Custom Invoice Notes */}
+                            {watchedValues.invoiceFooterText && (
+                              <div 
+                                className="invoice-footer-notes mb-4"
+                                dangerouslySetInnerHTML={{ __html: watchedValues.invoiceFooterText }}
+                              />
+                            )}
                           </div>
+                        ) : (
+                          /* Other Templates Footer */
+                          watchedValues.invoiceFooterText && (
+                            <div className="text-center text-sm border-t pt-4 mt-8">
+                              <div 
+                                className="invoice-footer-notes"
+                                dangerouslySetInnerHTML={{ __html: watchedValues.invoiceFooterText }}
+                              />
+                            </div>
+                          )
                         )
                       )}
                     </div>
