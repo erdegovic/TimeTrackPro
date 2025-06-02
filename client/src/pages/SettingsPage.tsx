@@ -126,95 +126,173 @@ const colorPalettes = [
 // Template styles that affect invoice layout
 const templateStyles = {
   luxury: {
-    headerStyle: "flex justify-between items-start",
-    titleSize: "text-4xl font-bold",
-    spacing: "mb-10",
-    borderStyle: "border-t-4 border-gold bg-gradient-to-r from-gray-50 to-white p-6",
-    layoutClass: "premium"
+    containerClass: "bg-gradient-to-br from-amber-50 via-white to-amber-50 border-4 border-amber-400 shadow-2xl",
+    headerStyle: "bg-gradient-to-r from-amber-600 to-amber-700 text-white text-center py-12 relative",
+    titleSize: "text-5xl font-light tracking-widest",
+    titleDecoration: "after:content-[''] after:absolute after:bottom-4 after:left-1/2 after:transform after:-translate-x-1/2 after:w-24 after:h-1 after:bg-white after:rounded",
+    billingStyle: "grid grid-cols-2 gap-8 p-8 bg-amber-50/30",
+    tableStyle: "border-2 border-amber-300 bg-gradient-to-br from-white to-amber-50/20",
+    tableHeaderStyle: "bg-gradient-to-r from-amber-600 to-amber-700 text-white text-center font-bold",
+    totalStyle: "bg-gradient-to-r from-amber-100 to-amber-200 border-t-4 border-amber-600 p-6",
+    accentColor: "#d97706",
+    footerStyle: "bg-amber-900 text-white text-center py-6",
+    layoutClass: "luxury-premium"
   },
   technology: {
-    headerStyle: "flex justify-between items-center bg-blue-900 text-white p-6 rounded-lg",
-    titleSize: "text-3xl font-semibold",
-    spacing: "mb-8",
-    borderStyle: "border-l-4 border-blue-500 bg-blue-50 p-4",
-    layoutClass: "tech"
+    containerClass: "bg-slate-900 text-white border border-blue-500 shadow-[0_0_50px_rgba(59,130,246,0.3)]",
+    headerStyle: "bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 p-8 border-b-2 border-blue-400 relative",
+    titleSize: "text-4xl font-bold tracking-wide",
+    titleDecoration: "before:content-['<'] after:content-['/>'] before:text-blue-300 after:text-blue-300 before:mr-2 after:ml-2",
+    billingStyle: "grid grid-cols-2 gap-6 p-8 bg-slate-800/50 border-y border-slate-700",
+    tableStyle: "border border-slate-600 bg-slate-800/30",
+    tableHeaderStyle: "bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold",
+    totalStyle: "bg-slate-800 border-t-2 border-blue-500 p-6",
+    accentColor: "#3b82f6",
+    footerStyle: "bg-slate-900 border-t border-blue-500 text-center py-4",
+    layoutClass: "tech-futuristic"
   },
   coding: {
-    headerStyle: "flex justify-between items-start font-mono",
-    titleSize: "text-2xl font-bold",
-    spacing: "mb-6",
-    borderStyle: "border border-green-400 bg-black text-green-400 p-4 font-mono",
-    layoutClass: "code"
+    containerClass: "bg-black text-green-400 border border-green-500 font-mono shadow-[0_0_30px_rgba(34,197,94,0.2)]",
+    headerStyle: "border-b border-green-500 p-6 relative overflow-hidden",
+    titleSize: "text-3xl font-bold",
+    titleDecoration: "before:content-['// '] after:content-[' //'] before:text-green-600 after:text-green-600",
+    billingStyle: "grid grid-cols-2 gap-6 p-6 border-b border-green-700",
+    tableStyle: "border border-green-600 bg-gray-900/50",
+    tableHeaderStyle: "bg-green-800 text-green-100 font-mono text-sm",
+    totalStyle: "bg-gray-900 border-t-2 border-green-500 p-6 font-mono",
+    accentColor: "#22c55e",
+    footerStyle: "bg-black border-t border-green-500 text-center py-4 text-green-600",
+    layoutClass: "terminal-style"
   },
   "video-production": {
-    headerStyle: "flex justify-between items-center bg-red-900 text-white p-6",
-    titleSize: "text-3xl font-bold",
-    spacing: "mb-8",
-    borderStyle: "border-l-8 border-red-600 bg-red-50 p-4",
-    layoutClass: "media"
+    containerClass: "bg-white shadow-2xl rounded-lg overflow-hidden relative",
+    headerStyle: "bg-gradient-to-r from-red-700 to-red-800 p-10 relative",
+    titleSize: "text-4xl font-bold text-white",
+    titleDecoration: "before:content-['▶'] before:text-red-200 before:mr-3 before:text-5xl",
+    billingStyle: "grid grid-cols-2 gap-8 p-8 bg-red-50/30",
+    tableStyle: "border border-red-300 bg-white",
+    tableHeaderStyle: "bg-red-800 text-white font-semibold text-center",
+    totalStyle: "bg-gradient-to-r from-red-50 to-red-100 border-t-4 border-red-600 p-6",
+    accentColor: "#dc2626",
+    footerStyle: "bg-red-900 text-white text-center py-6",
+    layoutClass: "cinematic-style"
   },
   "graphic-design": {
-    headerStyle: "flex justify-between items-start",
-    titleSize: "text-3xl font-extrabold",
-    spacing: "mb-8",
-    borderStyle: "border-4 border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50 p-4",
-    layoutClass: "creative"
+    containerClass: "bg-white shadow-xl rounded-2xl overflow-hidden relative border-4 border-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 p-1",
+    headerStyle: "bg-gradient-to-45deg from-purple-600 via-pink-500 to-purple-700 p-8 text-white",
+    titleSize: "text-4xl font-extrabold",
+    titleDecoration: "bg-gradient-to-r from-pink-300 to-purple-300 bg-clip-text text-transparent",
+    billingStyle: "grid grid-cols-2 gap-8 p-8 bg-gradient-to-br from-purple-50 to-pink-50",
+    tableStyle: "border-2 border-purple-300 bg-white rounded-lg overflow-hidden",
+    tableHeaderStyle: "bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold",
+    totalStyle: "bg-gradient-to-r from-purple-100 to-pink-100 border-t-4 border-purple-500 p-6",
+    accentColor: "#a855f7",
+    footerStyle: "bg-gradient-to-r from-purple-800 to-pink-800 text-white text-center py-6",
+    layoutClass: "creative-artistic"
   },
   accounting: {
-    headerStyle: "flex justify-between items-center border-b-2 border-gray-800 pb-4",
-    titleSize: "text-2xl font-semibold",
-    spacing: "mb-8",
-    borderStyle: "border border-gray-400 bg-gray-50 p-4",
-    layoutClass: "formal"
+    containerClass: "bg-white shadow-lg border-2 border-slate-300 rounded-lg",
+    headerStyle: "bg-slate-50 border-b-2 border-slate-800 p-8",
+    titleSize: "text-3xl font-semibold text-slate-800",
+    titleDecoration: "border-b-4 border-blue-600 inline-block pb-2",
+    billingStyle: "grid grid-cols-2 gap-8 p-8 bg-slate-50/50",
+    tableStyle: "border-2 border-slate-400 bg-white",
+    tableHeaderStyle: "bg-slate-800 text-white font-semibold",
+    totalStyle: "bg-slate-100 border-t-4 border-slate-800 p-6",
+    accentColor: "#475569",
+    footerStyle: "bg-slate-800 text-white text-center py-4",
+    layoutClass: "professional-formal"
   },
   education: {
-    headerStyle: "flex justify-between items-start",
-    titleSize: "text-3xl font-medium",
-    spacing: "mb-8",
-    borderStyle: "border-l-4 border-orange-500 bg-orange-50 p-4",
-    layoutClass: "academic"
+    containerClass: "bg-white shadow-lg rounded-xl border-l-8 border-purple-500 overflow-hidden",
+    headerStyle: "bg-gradient-to-r from-purple-50 to-blue-50 p-8 border-b border-purple-200",
+    titleSize: "text-4xl font-medium text-purple-700",
+    titleDecoration: "bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent",
+    billingStyle: "grid grid-cols-2 gap-8 p-8 bg-purple-50/30",
+    tableStyle: "border border-purple-300 bg-white rounded-lg overflow-hidden",
+    tableHeaderStyle: "bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium",
+    totalStyle: "bg-gradient-to-r from-purple-50 to-blue-50 border-t-4 border-purple-500 p-6",
+    accentColor: "#7c3aed",
+    footerStyle: "bg-purple-700 text-white text-center py-6",
+    layoutClass: "academic-modern"
   },
   "hr-recruitment": {
-    headerStyle: "flex justify-between items-center bg-teal-100 p-6 rounded-lg",
-    titleSize: "text-2xl font-semibold",
-    spacing: "mb-6",
-    borderStyle: "border-t-4 border-teal-500 bg-teal-50 p-4",
-    layoutClass: "professional"
+    containerClass: "bg-white shadow-lg rounded-lg border-t-4 border-teal-500",
+    headerStyle: "bg-teal-50 p-8 border-b border-teal-200",
+    titleSize: "text-3xl font-semibold text-teal-800",
+    titleDecoration: "border-b-2 border-teal-500 inline-block pb-1",
+    billingStyle: "grid grid-cols-2 gap-8 p-8 bg-teal-50/30",
+    tableStyle: "border border-teal-300 bg-white",
+    tableHeaderStyle: "bg-teal-600 text-white font-semibold",
+    totalStyle: "bg-teal-50 border-t-4 border-teal-600 p-6",
+    accentColor: "#0d9488",
+    footerStyle: "bg-teal-700 text-white text-center py-4",
+    layoutClass: "professional-clean"
   },
   engineering: {
-    headerStyle: "flex justify-between items-start",
-    titleSize: "text-2xl font-bold",
-    spacing: "mb-8",
-    borderStyle: "border-2 border-gray-600 bg-gray-100 p-4",
-    layoutClass: "industrial"
+    containerClass: "bg-white shadow-xl border-2 border-gray-400 rounded-lg",
+    headerStyle: "bg-gray-100 border-b-4 border-gray-700 p-8",
+    titleSize: "text-3xl font-bold text-gray-800",
+    titleDecoration: "font-mono tracking-wider",
+    billingStyle: "grid grid-cols-2 gap-8 p-8 bg-gray-50",
+    tableStyle: "border-2 border-gray-500 bg-white",
+    tableHeaderStyle: "bg-gray-700 text-white font-bold",
+    totalStyle: "bg-gray-100 border-t-4 border-gray-700 p-6",
+    accentColor: "#374151",
+    footerStyle: "bg-gray-800 text-white text-center py-4",
+    layoutClass: "industrial-solid"
   },
   "health-wellness": {
-    headerStyle: "flex justify-between items-center bg-green-100 p-6 rounded-lg",
-    titleSize: "text-3xl font-light",
-    spacing: "mb-8",
-    borderStyle: "border-l-4 border-green-500 bg-green-50 p-4",
-    layoutClass: "wellness"
+    containerClass: "bg-white shadow-lg rounded-2xl border border-green-200",
+    headerStyle: "bg-gradient-to-r from-green-100 to-emerald-100 p-8 rounded-t-2xl",
+    titleSize: "text-4xl font-light text-green-800",
+    titleDecoration: "tracking-wide",
+    billingStyle: "grid grid-cols-2 gap-8 p-8 bg-green-50/30",
+    tableStyle: "border border-green-300 bg-white rounded-lg overflow-hidden",
+    tableHeaderStyle: "bg-green-600 text-white font-medium",
+    totalStyle: "bg-green-50 border-t-4 border-green-500 p-6 rounded-b-lg",
+    accentColor: "#059669",
+    footerStyle: "bg-green-700 text-white text-center py-6 rounded-b-2xl",
+    layoutClass: "wellness-calm"
   },
   cyberpunk: {
-    headerStyle: "flex justify-between items-start bg-black text-cyan-400 p-6 border border-cyan-400",
-    titleSize: "text-3xl font-bold",
-    spacing: "mb-8",
-    borderStyle: "border border-cyan-400 bg-black text-cyan-400 p-4 font-mono",
-    layoutClass: "futuristic"
+    containerClass: "bg-black text-cyan-400 border border-cyan-500 shadow-[0_0_50px_rgba(6,182,212,0.3)] font-mono",
+    headerStyle: "bg-gray-900 border-b border-cyan-500 p-6 relative overflow-hidden",
+    titleSize: "text-4xl font-bold",
+    titleDecoration: "before:content-['{{'] after:content-['}}'] before:text-cyan-600 after:text-cyan-600 before:mr-2 after:ml-2 text-shadow-glow",
+    billingStyle: "grid grid-cols-2 gap-6 p-6 bg-gray-900/50 border-y border-cyan-700",
+    tableStyle: "border border-cyan-600 bg-gray-900/30",
+    tableHeaderStyle: "bg-cyan-900 text-cyan-100 font-mono uppercase tracking-wider",
+    totalStyle: "bg-black border-t-2 border-cyan-500 p-6",
+    accentColor: "#06b6d4",
+    footerStyle: "bg-black border-t border-cyan-500 text-center py-4",
+    layoutClass: "futuristic-neon"
   },
   minimalist: {
-    headerStyle: "flex justify-between items-baseline",
-    titleSize: "text-xl font-light",
-    spacing: "mb-4",
-    borderStyle: "border-b",
-    layoutClass: "simple"
+    containerClass: "bg-white shadow-sm border border-gray-200",
+    headerStyle: "p-8 border-b border-gray-200",
+    titleSize: "text-2xl font-light text-gray-900",
+    titleDecoration: "tracking-wide",
+    billingStyle: "grid grid-cols-2 gap-8 p-8",
+    tableStyle: "border-collapse border-gray-200",
+    tableHeaderStyle: "bg-gray-50 text-gray-700 font-medium border-b border-gray-300",
+    totalStyle: "border-t border-gray-300 p-6",
+    accentColor: "#6b7280",
+    footerStyle: "text-center py-4 text-gray-600",
+    layoutClass: "clean-minimal"
   },
   classic: {
-    headerStyle: "text-center border-b-2",
-    titleSize: "text-2xl",
-    spacing: "mb-12",
-    borderStyle: "border border-gray-300",
-    layoutClass: "traditional"
+    containerClass: "bg-white shadow-lg border-2 border-gray-300",
+    headerStyle: "text-center p-10 border-b-4 border-gray-800",
+    titleSize: "text-3xl font-serif text-gray-900",
+    titleDecoration: "uppercase tracking-widest",
+    billingStyle: "grid grid-cols-2 gap-8 p-8",
+    tableStyle: "border-2 border-gray-400 bg-white",
+    tableHeaderStyle: "bg-gray-800 text-white font-serif",
+    totalStyle: "bg-gray-50 border-t-4 border-gray-800 p-6",
+    accentColor: "#1f2937",
+    footerStyle: "bg-gray-800 text-white text-center py-6",
+    layoutClass: "traditional-formal"
   }
 };
 
@@ -475,53 +553,6 @@ export default function SettingsPage() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {/* Invoice Template Selector - Moved to Top */}
-          <Card className="border-2 border-blue-200 bg-blue-50/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="h-5 w-5" />
-                Invoice Template Style
-              </CardTitle>
-              <CardDescription>
-                Choose your preferred invoice design from our collection of professional templates
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FormField
-                control={form.control}
-                name="invoiceTemplate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-lg font-medium">Template Style</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="h-12 text-base">
-                          <SelectValue placeholder="Select invoice template..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="luxury">Luxury</SelectItem>
-                        <SelectItem value="technology">Technology</SelectItem>
-                        <SelectItem value="coding">Coding</SelectItem>
-                        <SelectItem value="video-production">Video Production</SelectItem>
-                        <SelectItem value="graphic-design">Graphic Design</SelectItem>
-                        <SelectItem value="accounting">Accounting</SelectItem>
-                        <SelectItem value="education">Education</SelectItem>
-                        <SelectItem value="hr-recruitment">HR & Recruitment</SelectItem>
-                        <SelectItem value="engineering">Engineering & Architecture</SelectItem>
-                        <SelectItem value="health-wellness">Health & Wellness</SelectItem>
-                        <SelectItem value="cyberpunk">Cyberpunk</SelectItem>
-                        <SelectItem value="minimalist">Minimalist</SelectItem>
-                        <SelectItem value="classic">Classic</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
-
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="business" className="flex items-center gap-2">
@@ -976,6 +1007,45 @@ export default function SettingsPage() {
                   </div>
                   
                   <div className="p-4 space-y-2">
+                    {/* Template Selector - First Item */}
+                    <div className="mb-4 p-4 bg-white rounded-lg border-2 border-blue-200">
+                      <FormField
+                        control={form.control}
+                        name="invoiceTemplate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-semibold flex items-center gap-2">
+                              <Palette className="h-4 w-4" />
+                              Invoice Template Style
+                            </FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="h-10 text-sm">
+                                  <SelectValue placeholder="Select template..." />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="luxury">Luxury</SelectItem>
+                                <SelectItem value="technology">Technology</SelectItem>
+                                <SelectItem value="coding">Coding</SelectItem>
+                                <SelectItem value="video-production">Video Production</SelectItem>
+                                <SelectItem value="graphic-design">Graphic Design</SelectItem>
+                                <SelectItem value="accounting">Accounting</SelectItem>
+                                <SelectItem value="education">Education</SelectItem>
+                                <SelectItem value="hr-recruitment">HR & Recruitment</SelectItem>
+                                <SelectItem value="engineering">Engineering & Architecture</SelectItem>
+                                <SelectItem value="health-wellness">Health & Wellness</SelectItem>
+                                <SelectItem value="cyberpunk">Cyberpunk</SelectItem>
+                                <SelectItem value="minimalist">Minimalist</SelectItem>
+                                <SelectItem value="classic">Classic</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
                     {customizationSections.map((section) => (
                       <Collapsible
                         key={section.id}
@@ -1407,102 +1477,153 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                   <div 
-                    className="border rounded-lg p-6 max-w-2xl mx-auto"
+                    className={`${currentTemplate.containerClass} max-w-3xl mx-auto overflow-hidden`}
                     style={{ 
-                      backgroundColor: watchedValues.invoiceBackgroundColor,
-                      color: watchedValues.invoiceTextColor,
                       fontSize: `${watchedValues.customFontSize}px`
                     }}
                   >
-                    {/* Same preview content as customization tab but without live editing */}
-                    <div className={`${currentTemplate.headerStyle} ${currentTemplate.spacing}`}>
-                      <div>
-                        {watchedValues.showLogo && logoPreview && (
-                          <img 
-                            src={logoPreview} 
-                            alt="Company Logo" 
-                            className="max-h-16 mb-4"
-                          />
-                        )}
-                        {watchedValues.showCompanyDetails && (
-                          <div>
-                            <h2 
-                              className="text-xl font-bold"
-                              style={{ color: watchedValues.invoiceColorTheme }}
-                            >
-                              {watchedValues.businessName || "Your Business Name"}
-                            </h2>
-                            <div className="text-sm">
-                              {watchedValues.businessAddress && <div>{watchedValues.businessAddress}</div>}
-                              <div>
-                                {[watchedValues.businessCity, watchedValues.businessState, watchedValues.businessZipCode]
-                                  .filter(Boolean).join(", ")}
+                    {/* Template-specific Header */}
+                    <div className={currentTemplate.headerStyle}>
+                      <div className="flex justify-between items-start w-full">
+                        <div>
+                          {watchedValues.showLogo && logoPreview && (
+                            <img 
+                              src={logoPreview} 
+                              alt="Company Logo" 
+                              className="max-h-16 mb-4"
+                            />
+                          )}
+                          {watchedValues.showCompanyDetails && (
+                            <div>
+                              <h2 className={`${currentTemplate.titleSize} ${currentTemplate.titleDecoration}`}>
+                                {watchedValues.businessName || "Your Business Name"}
+                              </h2>
+                              <div className="text-sm mt-2 opacity-90">
+                                {watchedValues.businessAddress && <div>{watchedValues.businessAddress}</div>}
+                                <div>
+                                  {[watchedValues.businessCity, watchedValues.businessState, watchedValues.businessZipCode]
+                                    .filter(Boolean).join(", ")}
+                                </div>
+                                {watchedValues.businessEmail && <div>{watchedValues.businessEmail}</div>}
+                                {watchedValues.businessPhone && <div>{watchedValues.businessPhone}</div>}
                               </div>
-                              {watchedValues.businessEmail && <div>{watchedValues.businessEmail}</div>}
-                              {watchedValues.businessPhone && <div>{watchedValues.businessPhone}</div>}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="text-right">
+                          <h1 className="text-3xl font-bold mb-2">
+                            INVOICE
+                          </h1>
+                          <div className="text-sm space-y-1">
+                            <div>Invoice #: {watchedValues.nextInvoiceNumber}</div>
+                            <div>Date: {new Date().toLocaleDateString()}</div>
+                            {watchedValues.showDueDate && (
+                              <div>Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Billing Information */}
+                    <div className={currentTemplate.billingStyle}>
+                      <div>
+                        <h3 className="font-semibold mb-3 text-lg" style={{ color: currentTemplate.accentColor }}>
+                          Bill To:
+                        </h3>
+                        <div className="space-y-1">
+                          <div className="font-medium">Sample Client</div>
+                          <div className="text-sm">123 Client Street</div>
+                          <div className="text-sm">Client City, State 12345</div>
+                          <div className="text-sm">client@example.com</div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h3 className="font-semibold mb-3 text-lg" style={{ color: currentTemplate.accentColor }}>
+                          Ship To:
+                        </h3>
+                        <div className="space-y-1">
+                          <div className="font-medium">Same as billing</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Services Table */}
+                    <div className={`${currentTemplate.tableStyle} mb-8`}>
+                      <div className={`${currentTemplate.tableHeaderStyle} p-4`}>
+                        <div className="grid grid-cols-4 gap-4 font-semibold">
+                          <div>Description</div>
+                          <div className="text-center">Hours</div>
+                          <div className="text-center">Rate</div>
+                          <div className="text-right">Amount</div>
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <div className="grid grid-cols-4 gap-4 py-3 border-b border-gray-200">
+                          <div>Web Development</div>
+                          <div className="text-center">8.5</div>
+                          <div className="text-center">{watchedValues.displayCurrency}75.00</div>
+                          <div className="text-right">{watchedValues.displayCurrency}637.50</div>
+                        </div>
+                        <div className="grid grid-cols-4 gap-4 py-3 border-b border-gray-200">
+                          <div>UI/UX Design</div>
+                          <div className="text-center">4.0</div>
+                          <div className="text-center">{watchedValues.displayCurrency}85.00</div>
+                          <div className="text-right">{watchedValues.displayCurrency}340.00</div>
+                        </div>
+                        <div className="grid grid-cols-4 gap-4 py-3">
+                          <div>Project Management</div>
+                          <div className="text-center">2.5</div>
+                          <div className="text-center">{watchedValues.displayCurrency}65.00</div>
+                          <div className="text-right">{watchedValues.displayCurrency}162.50</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Total Section */}
+                    <div className={currentTemplate.totalStyle}>
+                      <div className="flex justify-end">
+                        <div className="w-80 space-y-2">
+                          <div className="flex justify-between">
+                            <span>Subtotal:</span>
+                            <span>{watchedValues.displayCurrency}1,140.00</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Tax (10%):</span>
+                            <span>{watchedValues.displayCurrency}114.00</span>
+                          </div>
+                          <div className="flex justify-between text-xl font-bold border-t pt-2" style={{ color: currentTemplate.accentColor }}>
+                            <span>Total:</span>
+                            <span>{watchedValues.displayCurrency}1,254.00</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Payment Information */}
+                    {(watchedValues.bankName || watchedValues.invoiceFooterText) && (
+                      <div className="mt-8 space-y-4">
+                        {watchedValues.bankName && (
+                          <div className="border-t pt-4">
+                            <h4 className="font-semibold mb-2" style={{ color: currentTemplate.accentColor }}>
+                              Payment Information
+                            </h4>
+                            <div className="text-sm space-y-1">
+                              {watchedValues.bankName && <div>Bank: {watchedValues.bankName}</div>}
+                              {watchedValues.bankAccountName && <div>Account Name: {watchedValues.bankAccountName}</div>}
+                              {watchedValues.bankAccountNumber && <div>Account: {watchedValues.bankAccountNumber}</div>}
+                              {watchedValues.bankSortCode && <div>Sort Code: {watchedValues.bankSortCode}</div>}
                             </div>
                           </div>
                         )}
-                      </div>
-                      
-                      <div className="text-right">
-                        <h1 
-                          className="text-2xl font-bold"
-                          style={{ color: watchedValues.invoiceColorTheme }}
-                        >
-                          INVOICE
-                        </h1>
-                        <div className="text-sm">
-                          <div>Invoice #: {watchedValues.nextInvoiceNumber}</div>
-                          <div>Date: {new Date().toLocaleDateString()}</div>
-                          {watchedValues.showDueDate && (
-                            <div>Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mb-6">
-                      <h3 
-                        className="font-semibold mb-2"
-                        style={{ color: watchedValues.invoiceAccentColor }}
-                      >
-                        Bill To:
-                      </h3>
-                      <div>
-                        <div className="font-medium">Sample Client</div>
-                        <div className="text-sm">123 Client Street</div>
-                        <div className="text-sm">Client City, State 12345</div>
-                        <div className="text-sm">client@example.com</div>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-b py-4 mb-6">
-                      <div className="grid grid-cols-4 gap-4 font-semibold text-sm mb-2">
-                        <div style={{ color: watchedValues.invoiceAccentColor }}>Description</div>
-                        <div style={{ color: watchedValues.invoiceAccentColor }}>Hours</div>
-                        <div style={{ color: watchedValues.invoiceAccentColor }}>Rate</div>
-                        <div style={{ color: watchedValues.invoiceAccentColor }} className="text-right">Amount</div>
-                      </div>
-                      <div className="grid grid-cols-4 gap-4 text-sm">
-                        <div>Web Development</div>
-                        <div>8.5</div>
-                        <div>{watchedValues.displayCurrency}75.00</div>
-                        <div className="text-right">{watchedValues.displayCurrency}637.50</div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <div className="text-right">
-                        <div className="text-lg font-bold" style={{ color: watchedValues.invoiceColorTheme }}>
-                          Total: {watchedValues.displayCurrency}637.50
-                        </div>
-                      </div>
-                    </div>
-
-                    {watchedValues.invoiceFooterText && (
-                      <div className="text-center text-sm border-t pt-4 mt-8">
-                        {watchedValues.invoiceFooterText}
+                        
+                        {watchedValues.invoiceFooterText && (
+                          <div className={currentTemplate.footerStyle}>
+                            {watchedValues.invoiceFooterText}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
