@@ -1417,15 +1417,13 @@ export default function SettingsPage() {
               <div className="h-[calc(100vh-200px)] flex border rounded-lg overflow-hidden">
                 {/* Customization Panel */}
                 <div className="w-96 border-r bg-gray-50 overflow-y-auto">
-                  <div className="p-4 border-b bg-white">
-                    <h3 className="font-semibold flex items-center gap-2">
-                      <Zap className="h-4 w-4" />
+                  <div className="p-4">
+                    <h3 className="font-semibold flex items-center gap-2 text-lg mb-6">
+                      <Zap className="h-5 w-5" />
                       Live Customization
                     </h3>
-                    <p className="text-sm text-gray-600">Changes appear instantly</p>
-                  </div>
                   
-                  <div className="p-4 space-y-4">
+                    <div className="space-y-4">
                     {/* Template Style */}
                     <div className="bg-white rounded-lg border-2 p-4 shadow-sm">
                       <div className="flex items-center gap-3 mb-3">
@@ -1701,6 +1699,7 @@ export default function SettingsPage() {
                         </div>
                       </div>
                     ))}
+                    </div>
                   </div>
                 </div>
 
