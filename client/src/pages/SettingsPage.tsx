@@ -1821,6 +1821,98 @@ export default function SettingsPage() {
                               <div>Date: {new Date().toLocaleDateString()}</div>
                             </div>
                           </div>
+                        ) : watchedValues.invoiceTemplate === "modern" ? (
+                          // Modern template with gradient header and structured design
+                          <div className="w-full -m-8">
+                            {/* Gradient Header */}
+                            <div 
+                              className="relative text-center text-white"
+                              style={{ 
+                                background: `linear-gradient(135deg, ${watchedValues.invoiceColorTheme}, ${watchedValues.invoiceAccentColor})`,
+                                padding: '2.5rem'
+                              }}
+                            >
+                              <div className="company-info">
+                                <h1 className="text-4xl font-bold mb-2 tracking-wider">
+                                  {watchedValues.businessName?.toUpperCase() || "YOUR BUSINESS NAME"}
+                                </h1>
+                                <p className="text-lg opacity-90">Professional services and solutions</p>
+                              </div>
+                              
+                              <div className="flex justify-center gap-8 mt-6">
+                                <div 
+                                  className="px-6 py-3 rounded-full"
+                                  style={{ background: 'rgba(255, 255, 255, 0.15)' }}
+                                >
+                                  <div className="text-lg font-semibold">INV #{watchedValues.nextInvoiceNumber}</div>
+                                </div>
+                                <div 
+                                  className="px-6 py-3 rounded-full"
+                                  style={{ background: 'rgba(255, 255, 255, 0.15)' }}
+                                >
+                                  <div className="text-sm">Issued: {new Date().toLocaleDateString()}</div>
+                                  {watchedValues.showDueDate && (
+                                    <div className="text-sm">Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* Diamond accent */}
+                              <div 
+                                className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-white rotate-45"
+                                style={{ zIndex: 1 }}
+                              ></div>
+                            </div>
+                            
+                            {/* Billing Info Section */}
+                            <div className="grid grid-cols-2 gap-8 p-8 pt-12">
+                              <div className="info-block">
+                                <h3 
+                                  className="text-lg font-semibold mb-4 pb-2 relative"
+                                  style={{ color: watchedValues.invoiceColorTheme }}
+                                >
+                                  Client Details
+                                  <div 
+                                    className="absolute bottom-0 left-0 w-10 h-1"
+                                    style={{ backgroundColor: watchedValues.invoiceAccentColor }}
+                                  ></div>
+                                </h3>
+                                <div className="space-y-2">
+                                  <div className="font-bold">Sample Client</div>
+                                  <div className="text-gray-600">Attn: Project Manager</div>
+                                  <div className="text-gray-600">123 Client Street</div>
+                                  <div className="text-gray-600">Client City, State 12345</div>
+                                  <div className="text-gray-600">PO #CLIENT-2023-42</div>
+                                </div>
+                              </div>
+                              
+                              <div className="info-block">
+                                <h3 
+                                  className="text-lg font-semibold mb-4 pb-2 relative"
+                                  style={{ color: watchedValues.invoiceColorTheme }}
+                                >
+                                  Project Details
+                                  <div 
+                                    className="absolute bottom-0 left-0 w-10 h-1"
+                                    style={{ backgroundColor: watchedValues.invoiceAccentColor }}
+                                  ></div>
+                                </h3>
+                                <div className="space-y-2">
+                                  <div className="font-bold">Sample Project</div>
+                                  <div className="text-gray-600">Time Period: {new Date().toLocaleDateString()}</div>
+                                  <div className="text-gray-600">Currency: {watchedValues.displayCurrency}</div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Dotted Divider */}
+                            <div 
+                              className="h-px mx-8 mb-6"
+                              style={{
+                                background: `repeating-linear-gradient(to right, #e0e0e0, #e0e0e0 3px, transparent 3px, transparent 6px)`
+                              }}
+                            ></div>
+                          </div>
                         ) : (
                           // Other templates - side by side layout
                           <>
@@ -2031,63 +2123,94 @@ export default function SettingsPage() {
                       )}
 
                       {watchedValues.showBankDetails && (
-                        <div className="mb-6 p-4 bg-gray-50 rounded">
-                          <h3 className="font-semibold text-sm mb-2" style={{ color: watchedValues.invoiceColorTheme }}>
-                            Payment Details
-                          </h3>
-                          <div className="text-sm space-y-1">
-                            {/* EU Bank Transfer */}
-                            {watchedValues.paymentMethodType === "bank_transfer_eu" && (
-                              <>
-                                {watchedValues.iban && <div>IBAN: {watchedValues.iban}</div>}
-                                {watchedValues.swift && <div>SWIFT/BIC: {watchedValues.swift}</div>}
-                                {watchedValues.bankName && <div>Bank: {watchedValues.bankName}</div>}
-                                {watchedValues.bankAccountName && <div>Account Name: {watchedValues.bankAccountName}</div>}
-                              </>
-                            )}
-                            
-                            {/* UK Bank Transfer */}
-                            {watchedValues.paymentMethodType === "bank_transfer_uk" && (
-                              <>
-                                {watchedValues.bankAccountNumber && <div>Account Number: {watchedValues.bankAccountNumber}</div>}
-                                {watchedValues.bankSortCode && <div>Sort Code: {watchedValues.bankSortCode}</div>}
-                                {watchedValues.bankName && <div>Bank: {watchedValues.bankName}</div>}
-                                {watchedValues.bankAccountName && <div>Account Name: {watchedValues.bankAccountName}</div>}
-                              </>
-                            )}
-                            
-                            {/* US Bank Transfer */}
-                            {watchedValues.paymentMethodType === "bank_transfer_us" && (
-                              <>
-                                {watchedValues.bankAccountNumber && <div>Account Number: {watchedValues.bankAccountNumber}</div>}
-                                {watchedValues.routingNumber && <div>Routing Number: {watchedValues.routingNumber}</div>}
-                                {watchedValues.bankName && <div>Bank: {watchedValues.bankName}</div>}
-                                {watchedValues.bankAccountName && <div>Account Name: {watchedValues.bankAccountName}</div>}
-                              </>
-                            )}
-                            
-                            {/* PayPal */}
-                            {watchedValues.paymentMethodType === "paypal" && (
-                              <>
-                                {watchedValues.paypalEmail && <div>PayPal: {watchedValues.paypalEmail}</div>}
-                              </>
-                            )}
-                            
-                            {/* Wise/Payoneer */}
-                            {watchedValues.paymentMethodType === "wise_payoneer" && (
-                              <>
-                                {watchedValues.wiseEmail && <div>Wise/Payoneer: {watchedValues.wiseEmail}</div>}
-                              </>
-                            )}
-                            
-                            {/* Other - Rich Text */}
-                            {watchedValues.paymentMethodType === "other" && watchedValues.otherPaymentInstructions && (
+                        <div className={`mb-6 ${watchedValues.invoiceTemplate === "modern" ? "p-6 bg-gray-50" : "p-4 bg-gray-50 rounded"}`}>
+                          {watchedValues.invoiceTemplate === "modern" ? (
+                            <div className="text-center">
                               <div 
-                                className="rich-payment-instructions" 
-                                dangerouslySetInnerHTML={{ __html: watchedValues.otherPaymentInstructions }}
-                              />
-                            )}
-                          </div>
+                                className="text-lg font-semibold mb-4"
+                                style={{ color: watchedValues.invoiceColorTheme }}
+                              >
+                                Thank you for choosing our services!
+                              </div>
+                              <div className="text-sm space-y-2 max-w-md mx-auto">
+                                <div><strong>Payment Terms:</strong> Net 30 days from invoice date</div>
+                                <div><strong>Payment Methods:</strong> Bank transfer, check, or online payment</div>
+                                {watchedValues.paymentMethodType === "bank_transfer_eu" && watchedValues.iban && (
+                                  <div><strong>Bank Details:</strong> IBAN {watchedValues.iban}</div>
+                                )}
+                                {watchedValues.paymentMethodType === "bank_transfer_uk" && (
+                                  <div><strong>Bank Details:</strong> {watchedValues.bankName} | Sort Code {watchedValues.bankSortCode} | Account {watchedValues.bankAccountNumber}</div>
+                                )}
+                                {watchedValues.paymentMethodType === "bank_transfer_us" && (
+                                  <div><strong>Bank Details:</strong> {watchedValues.bankName} | Routing #{watchedValues.routingNumber} | Account #{watchedValues.bankAccountNumber}</div>
+                                )}
+                                {watchedValues.paymentMethodType === "other" && watchedValues.otherPaymentInstructions && (
+                                  <div 
+                                    dangerouslySetInnerHTML={{ __html: watchedValues.otherPaymentInstructions }}
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <h3 className="font-semibold text-sm mb-2" style={{ color: watchedValues.invoiceColorTheme }}>
+                                Payment Details
+                              </h3>
+                              <div className="text-sm space-y-1">
+                                {/* EU Bank Transfer */}
+                                {watchedValues.paymentMethodType === "bank_transfer_eu" && (
+                                  <>
+                                    {watchedValues.iban && <div>IBAN: {watchedValues.iban}</div>}
+                                    {watchedValues.swift && <div>SWIFT/BIC: {watchedValues.swift}</div>}
+                                    {watchedValues.bankName && <div>Bank: {watchedValues.bankName}</div>}
+                                    {watchedValues.bankAccountName && <div>Account Name: {watchedValues.bankAccountName}</div>}
+                                  </>
+                                )}
+                                
+                                {/* UK Bank Transfer */}
+                                {watchedValues.paymentMethodType === "bank_transfer_uk" && (
+                                  <>
+                                    {watchedValues.bankAccountNumber && <div>Account Number: {watchedValues.bankAccountNumber}</div>}
+                                    {watchedValues.bankSortCode && <div>Sort Code: {watchedValues.bankSortCode}</div>}
+                                    {watchedValues.bankName && <div>Bank: {watchedValues.bankName}</div>}
+                                    {watchedValues.bankAccountName && <div>Account Name: {watchedValues.bankAccountName}</div>}
+                                  </>
+                                )}
+                                
+                                {/* US Bank Transfer */}
+                                {watchedValues.paymentMethodType === "bank_transfer_us" && (
+                                  <>
+                                    {watchedValues.bankAccountNumber && <div>Account Number: {watchedValues.bankAccountNumber}</div>}
+                                    {watchedValues.routingNumber && <div>Routing Number: {watchedValues.routingNumber}</div>}
+                                    {watchedValues.bankName && <div>Bank: {watchedValues.bankName}</div>}
+                                    {watchedValues.bankAccountName && <div>Account Name: {watchedValues.bankAccountName}</div>}
+                                  </>
+                                )}
+                                
+                                {/* PayPal */}
+                                {watchedValues.paymentMethodType === "paypal" && (
+                                  <>
+                                    {watchedValues.paypalEmail && <div>PayPal: {watchedValues.paypalEmail}</div>}
+                                  </>
+                                )}
+                                
+                                {/* Wise/Payoneer */}
+                                {watchedValues.paymentMethodType === "wise_payoneer" && (
+                                  <>
+                                    {watchedValues.wiseEmail && <div>Wise/Payoneer: {watchedValues.wiseEmail}</div>}
+                                  </>
+                                )}
+                                
+                                {/* Other - Rich Text */}
+                                {watchedValues.paymentMethodType === "other" && watchedValues.otherPaymentInstructions && (
+                                  <div 
+                                    className="rich-payment-instructions" 
+                                    dangerouslySetInnerHTML={{ __html: watchedValues.otherPaymentInstructions }}
+                                  />
+                                )}
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
 
