@@ -167,6 +167,7 @@ export const settings = pgTable("settings", {
   invoiceFooterText: text("invoice_footer_text"),
   showCompanyDetails: boolean("show_company_details").default(true),
   showBankDetails: boolean("show_bank_details").default(true),
+  showFooterNotes: boolean("show_footer_notes").default(true),
   invoiceTemplate: text("invoice_template").default("professional"), // Template style
   
   // Report settings

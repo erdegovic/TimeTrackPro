@@ -73,6 +73,7 @@ const settingsSchema = z.object({
   invoiceFooterText: z.string().optional(),
   showCompanyDetails: z.boolean().default(true),
   showBankDetails: z.boolean().default(true),
+  showFooterNotes: z.boolean().default(true),
   invoiceTemplate: z.enum(["professional", "modern", "classic", "minimal", "media"]),
   
   // Report Settings
@@ -538,6 +539,7 @@ export default function SettingsPage() {
       invoiceFooterText: "",
       showCompanyDetails: true,
       showBankDetails: true,
+      showFooterNotes: true,
       invoiceTemplate: "professional",
       enableWeeklyCategorization: true,
       showDateColumn: true,
@@ -1379,59 +1381,328 @@ export default function SettingsPage() {
                       )}
                     />
                   )}
+                </CardContent>
+              </Card>
 
-                  <div className="pt-4 border-t">
-                    <FormField
-                      control={form.control}
-                      name="showBankDetails"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Show Payment Details on Invoices</FormLabel>
-                            <div className="text-sm text-gray-600">
-                              Display payment information on generated invoices for client reference
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+              {/* Payment Details Section */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <div>
+                    <CardTitle className="text-lg">Payment Details</CardTitle>
+                    <p className="text-sm text-gray-600">Configure payment information that appears on invoices</p>
                   </div>
-
-                  <Separator />
-
+                  <FormField
+                    control={form.control}
+                    name="showBankDetails"
+                    render={({ field }) => (
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    )}
+                  />
+                </CardHeader>
+                <CardContent className={`space-y-6 ${!watchedValues.showBankDetails ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Invoice Footer Notes</h3>
-                    <p className="text-sm text-gray-600">
-                      Add custom content that appears at the bottom of your invoices such as payment terms, thank you messages, or contact information.
-                    </p>
-                    
                     <FormField
                       control={form.control}
-                      name="invoiceFooterText"
+                      name="paymentMethodType"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Footer Content</FormLabel>
-                          <FormControl>
-                            <EnhancedRichTextEditor
-                              value={field.value || ""}
-                              onChange={field.onChange}
-                              placeholder="Add payment terms, thank you message, contact info, or any other footer content..."
-                            />
-                          </FormControl>
+                          <FormLabel>Payment Method Type</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select payment method" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="bank_transfer_eu">Bank Transfer (EU) - IBAN/SWIFT</SelectItem>
+                              <SelectItem value="bank_transfer_uk">Bank Transfer (UK) - Sort Code</SelectItem>
+                              <SelectItem value="bank_transfer_us">Bank Transfer (US) - Routing Number</SelectItem>
+                              <SelectItem value="paypal">PayPal</SelectItem>
+                              <SelectItem value="wise_payoneer">Wise / Payoneer</SelectItem>
+                              <SelectItem value="other">Other (Custom Instructions)</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
-                          <p className="text-xs text-gray-500 mt-2">
-                            Use the toolbar to format text, add lists, alignment, and dividers. This content will appear at the bottom of your invoices.
-                          </p>
                         </FormItem>
                       )}
                     />
+
+                    {/* Dynamic Fields Based on Payment Method */}
+                    {watchedValues.paymentMethodType === "bank_transfer_eu" && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="iban"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>IBAN</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="GB82 WEST 1234 5698 7654 32" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="swift"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>SWIFT/BIC</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="WESTGB2L" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="bankName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Bank Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Bank Name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="bankAccountName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Account Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Your Business Name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+
+                    {watchedValues.paymentMethodType === "bank_transfer_uk" && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="bankAccountNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Account Number</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="12345678" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="bankSortCode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Sort Code</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="12-34-56" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="bankName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Bank Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Bank Name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="bankAccountName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Account Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Your Business Name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+
+                    {watchedValues.paymentMethodType === "bank_transfer_us" && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="bankAccountNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Account Number</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="123456789" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="routingNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Routing Number</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="021000021" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="bankName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Bank Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Bank Name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="bankAccountName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Account Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Your Business Name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+
+                    {watchedValues.paymentMethodType === "paypal" && (
+                      <FormField
+                        control={form.control}
+                        name="paypalEmail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>PayPal Email</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="email" placeholder="your@paypal.com" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    {watchedValues.paymentMethodType === "wise_payoneer" && (
+                      <FormField
+                        control={form.control}
+                        name="wiseEmail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Wise/Payoneer Email or Profile Link</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="your@wise.com or profile link" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    {watchedValues.paymentMethodType === "other" && (
+                      <FormField
+                        control={form.control}
+                        name="otherPaymentInstructions"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Payment Instructions</FormLabel>
+                            <FormControl>
+                              <RichTextEditor
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                placeholder="Enter your custom payment instructions..."
+                              />
+                            </FormControl>
+                            <FormMessage />
+                            <p className="text-xs text-gray-500 mt-2">
+                              Select text and use the toolbar buttons to apply bold, italic, or underline formatting
+                            </p>
+                          </FormItem>
+                        )}
+                      />
+                    )}
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Invoice Footer Notes Section */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <div>
+                    <CardTitle className="text-lg">Invoice Footer Notes</CardTitle>
+                    <p className="text-sm text-gray-600">Add custom content at the bottom of your invoices</p>
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="showFooterNotes"
+                    render={({ field }) => (
+                      <FormControl>
+                        <Switch
+                          checked={field.value ?? true}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    )}
+                  />
+                </CardHeader>
+                <CardContent className={`space-y-4 ${!(watchedValues.showFooterNotes ?? true) ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <FormField
+                    control={form.control}
+                    name="invoiceFooterText"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Footer Content</FormLabel>
+                        <FormControl>
+                          <EnhancedRichTextEditor
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            placeholder="Add payment terms, thank you message, contact info, or any other footer content..."
+                          />
+                        </FormControl>
+                        <FormMessage />
+                        <p className="text-xs text-gray-500 mt-2">
+                          Use the toolbar to format text, add lists, alignment, and dividers. This content will appear at the bottom of your invoices.
+                        </p>
+                      </FormItem>
+                    )}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
