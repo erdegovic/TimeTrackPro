@@ -413,7 +413,7 @@ export default function SettingsPage() {
         invoiceFooterText: settings.invoiceFooterText || "",
         showCompanyDetails: settings.showCompanyDetails ?? true,
         showBankDetails: settings.showBankDetails ?? true,
-        invoiceTemplate: (settings.invoiceTemplate as any) || "luxury",
+        invoiceTemplate: (settings.invoiceTemplate as any) || "video-production",
         enableWeeklyCategorization: settings.enableWeeklyCategorization ?? true,
         showDateColumn: settings.showDateColumn ?? true,
       };
