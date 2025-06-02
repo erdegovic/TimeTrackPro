@@ -1660,51 +1660,7 @@ export default function SettingsPage() {
                             </div>
                           )}
 
-                          {/* Typography & Layout */}
-                          {section.id === "typography" && (
-                            <div className="space-y-3">
-                              <FormField
-                                control={form.control}
-                                name="customFontSize"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Font Size (px)</FormLabel>
-                                    <FormControl>
-                                      <Input {...field} type="number" min="8" max="24" className="h-8 text-sm" />
-                                    </FormControl>
-                                    <FormMessage className="text-xs" />
-                                  </FormItem>
-                                )}
-                              />
 
-                            </div>
-                          )}
-
-                          {/* Invoice Footer Notes */}
-                          {section.id === "footer" && (
-                            <div className="space-y-3">
-                              <FormField
-                                control={form.control}
-                                name="invoiceFooterText"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Invoice Footer Notes</FormLabel>
-                                    <FormControl>
-                                      <EnhancedRichTextEditor
-                                        value={field.value || ""}
-                                        onChange={field.onChange}
-                                        placeholder="Add payment terms, thank you message, contact info, or any other footer content..."
-                                      />
-                                    </FormControl>
-                                    <FormMessage className="text-xs" />
-                                    <p className="text-xs text-gray-500 mt-2">
-                                      Use the toolbar to format text, add lists, alignment, and dividers. This will appear at the bottom of your invoices.
-                                    </p>
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                          )}
                         </CollapsibleContent>
                       </Collapsible>
                     ))}
