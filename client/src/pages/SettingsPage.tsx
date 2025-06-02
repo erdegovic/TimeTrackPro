@@ -1482,330 +1482,290 @@ export default function SettingsPage() {
                       fontSize: `${watchedValues.customFontSize}px`
                     }}
                   >
-                    {/* Debug - Current template value */}
-                    <div className="p-2 bg-yellow-100 text-xs">
-                      Current template: {watchedValues.invoiceTemplate || 'undefined'}
-                    </div>
 
-                    {/* NEW Video Production Template with Rich Design */}
+
+                    {/* Video Production Template - Exact HTML Design */}
                     {watchedValues.invoiceTemplate === 'video-production' && (
-                      <div style={{ 
+                      <div style={{
                         fontFamily: "'Helvetica Neue', Arial, sans-serif",
-                        position: 'relative',
-                        overflow: 'hidden'
+                        backgroundColor: '#f5f5f5',
+                        color: '#333',
+                        lineHeight: '1.6',
+                        position: 'relative'
                       }}>
-                        {/* Red top border gradient */}
                         <div style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '100%',
-                          height: '8px',
-                          background: 'linear-gradient(90deg, #e50914, #ff4757)'
-                        }}></div>
-
-                        {/* Header */}
-                        <div style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          padding: '2.5rem',
-                          borderBottom: '1px solid #e0e0e0',
-                          paddingTop: '3rem'
-                        }}>
-                          <div>
-                            <h1 style={{
-                              fontSize: '2.5rem',
-                              fontWeight: 'bold',
-                              color: '#e50914',
-                              marginBottom: '0.5rem',
-                              letterSpacing: '0.05em'
-                            }}>
-                              LUMINA FILMS
-                            </h1>
-                            <div style={{
-                              color: '#666',
-                              fontSize: '1rem',
-                              marginBottom: '0.5rem'
-                            }}>
-                              Cinematic storytelling at its finest
-                            </div>
-                            <div style={{ color: '#666', fontSize: '0.9rem' }}>
-                              <div>5500 Wilshire Blvd, Suite 300, Los Angeles, CA 90036</div>
-                              <div>contact@luminafilms.com | (323) 555-FILM</div>
-                            </div>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{
-                              fontSize: '2.5rem',
-                              fontWeight: 'bold',
-                              color: '#1a1a1a',
-                              marginBottom: '0.5rem'
-                            }}>
-                              INVOICE
-                            </div>
-                            <div style={{ color: '#666', fontSize: '1rem' }}>
-                              <div>Invoice #: LF-2024-{watchedValues.nextInvoiceNumber}</div>
-                              <div>Date: {new Date().toLocaleDateString()}</div>
-                              <div>Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Client Information */}
-                        <div style={{
-                          display: 'grid',
-                          gridTemplateColumns: '1fr 1fr',
-                          gap: '2rem',
-                          padding: '2rem 2.5rem',
-                          backgroundColor: '#f9f9f9'
-                        }}>
-                          <div>
-                            <h3 style={{
-                              color: '#e50914',
-                              fontWeight: '600',
-                              fontSize: '0.875rem',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.1em',
-                              marginBottom: '1rem'
-                            }}>
-                              Bill To
-                            </h3>
-                            <div style={{ lineHeight: '1.5' }}>
-                              <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                                Starlight Productions
-                              </div>
-                              <div>Attn: Sarah Johnson (Producer)</div>
-                              <div>890 Cinema Boulevard</div>
-                              <div>Los Angeles, CA 90028</div>
-                              <div>PO #STAR-2024-42</div>
-                            </div>
-                          </div>
-                          <div>
-                            <h3 style={{
-                              color: '#e50914',
-                              fontWeight: '600',
-                              fontSize: '0.875rem',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.1em',
-                              marginBottom: '1rem'
-                            }}>
-                              Project Details
-                            </h3>
-                            <div style={{ lineHeight: '1.5' }}>
-                              <div><strong>Project:</strong> "Midnight Horizon" Commercial</div>
-                              <div><strong>Project ID:</strong> PRJ-MH-2024</div>
-                              <div><strong>Shot Dates:</strong> Dec 10-15, 2024</div>
-                              <div><strong>Director:</strong> Alex Rodriguez</div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Film Strip Border */}
-                        <div style={{
-                          height: '20px',
-                          margin: '0 2.5rem',
-                          background: 'repeating-linear-gradient(90deg, #1a1a1a, #1a1a1a 10px, transparent 10px, transparent 30px)',
+                          maxWidth: '800px',
+                          margin: '0 auto',
+                          background: 'white',
+                          boxShadow: '0 5px 30px rgba(0, 0, 0, 0.1)',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
                           position: 'relative'
                         }}>
+                          {/* Red gradient top border */}
                           <div style={{
                             position: 'absolute',
-                            left: '-20px',
                             top: 0,
-                            width: '20px',
-                            height: '100%',
-                            backgroundColor: '#1a1a1a',
-                            borderRadius: '10px 0 0 10px'
+                            left: 0,
+                            width: '100%',
+                            height: '8px',
+                            background: 'linear-gradient(90deg, #e50914, #ff4757)'
                           }}></div>
+
+                          {/* Header */}
                           <div style={{
-                            position: 'absolute',
-                            right: '-20px',
-                            top: 0,
-                            width: '20px',
-                            height: '100%',
-                            backgroundColor: '#1a1a1a',
-                            borderRadius: '0 10px 10px 0'
-                          }}></div>
-                        </div>
-
-                        {/* Services Table */}
-                        <table style={{
-                          width: 'calc(100% - 5rem)',
-                          margin: '2rem 2.5rem',
-                          borderCollapse: 'collapse'
-                        }}>
-                          <thead>
-                            <tr style={{ backgroundColor: '#f5f5f5' }}>
-                              <th style={{
-                                textAlign: 'left',
-                                padding: '1rem',
-                                fontWeight: '600',
-                                borderBottom: '2px solid #e50914'
-                              }}>
-                                Service
-                              </th>
-                              <th style={{
-                                textAlign: 'center',
-                                padding: '1rem',
-                                fontWeight: '600',
-                                borderBottom: '2px solid #e50914'
-                              }}>
-                                Days
-                              </th>
-                              <th style={{
-                                textAlign: 'center',
-                                padding: '1rem',
-                                fontWeight: '600',
-                                borderBottom: '2px solid #e50914'
-                              }}>
-                                Rate
-                              </th>
-                              <th style={{
-                                textAlign: 'right',
-                                padding: '1rem',
-                                fontWeight: '600',
-                                borderBottom: '2px solid #e50914'
-                              }}>
-                                Amount
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td style={{ padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
-                                  Pre-Production
-                                </div>
-                                <div style={{ fontSize: '0.875rem', color: '#666' }}>
-                                  Script review, location scouting, casting
-                                </div>
-                              </td>
-                              <td style={{ textAlign: 'center', padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                3
-                              </td>
-                              <td style={{ textAlign: 'center', padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                $2,500/day
-                              </td>
-                              <td style={{ textAlign: 'right', padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                $7,500.00
-                              </td>
-                            </tr>
-                            <tr>
-                              <td style={{ padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
-                                  Principal Photography
-                                </div>
-                                <div style={{ fontSize: '0.875rem', color: '#666' }}>
-                                  Director, DP, full crew package
-                                </div>
-                              </td>
-                              <td style={{ textAlign: 'center', padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                5
-                              </td>
-                              <td style={{ textAlign: 'center', padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                $8,500/day
-                              </td>
-                              <td style={{ textAlign: 'right', padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                $42,500.00
-                              </td>
-                            </tr>
-                            <tr>
-                              <td style={{ padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
-                                  Equipment Rental
-                                </div>
-                                <div style={{ fontSize: '0.875rem', color: '#666' }}>
-                                  RED camera package, lighting, audio
-                                </div>
-                              </td>
-                              <td style={{ textAlign: 'center', padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                5
-                              </td>
-                              <td style={{ textAlign: 'center', padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                $3,200/day
-                              </td>
-                              <td style={{ textAlign: 'right', padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                $16,000.00
-                              </td>
-                            </tr>
-                            <tr>
-                              <td style={{ padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
-                                  Post-Production
-                                </div>
-                                <div style={{ fontSize: '0.875rem', color: '#666' }}>
-                                  Editing, color grading, sound design
-                                </div>
-                              </td>
-                              <td style={{ textAlign: 'center', padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                10
-                              </td>
-                              <td style={{ textAlign: 'center', padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                $1,200/day
-                              </td>
-                              <td style={{ textAlign: 'right', padding: '1rem', borderBottom: '1px solid #eee' }}>
-                                $12,000.00
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-
-                        {/* Total Section */}
-                        <div style={{
-                          padding: '2rem 2.5rem',
-                          backgroundColor: '#f9f9f9'
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            <div style={{ width: '320px' }}>
-                              <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                marginBottom: '0.5rem'
-                              }}>
-                                <span>Subtotal:</span>
-                                <span>$78,000.00</span>
-                              </div>
-                              <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            padding: '2.5rem',
+                            borderBottom: '1px solid #e0e0e0'
+                          }}>
+                            <div>
+                              <h1 style={{
+                                fontSize: '2rem',
+                                color: '#1a1a1a',
                                 marginBottom: '0.5rem',
-                                color: '#e50914'
+                                fontWeight: '700',
+                                margin: 0
                               }}>
-                                <span>Production Discount (5%):</span>
-                                <span>-$3,900.00</span>
+                                {watchedValues.businessName || "Your Business Name"}
+                              </h1>
+                              <p style={{
+                                color: '#666',
+                                fontSize: '0.95rem',
+                                margin: '0 0 0.25rem 0'
+                              }}>
+                                {watchedValues.businessAddress || "Your Business Address"}
+                              </p>
+                              <p style={{
+                                color: '#666',
+                                fontSize: '0.95rem',
+                                margin: 0
+                              }}>
+                                {watchedValues.businessEmail || "contact@yourbusiness.com"} | {watchedValues.businessPhone || "(555) 123-4567"}
+                              </p>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{
+                                fontSize: '1.3rem',
+                                color: '#e50914',
+                                marginBottom: '0.5rem',
+                                fontWeight: '600'
+                              }}>
+                                INV #{watchedValues.nextInvoiceNumber}
                               </div>
                               <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                marginBottom: '1rem'
+                                color: '#666',
+                                fontSize: '0.9rem'
                               }}>
-                                <span>Tax (8.25%):</span>
-                                <span>$6,113.25</span>
-                              </div>
-                              <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                fontSize: '1.5rem',
-                                fontWeight: 'bold',
-                                borderTop: '2px solid #e50914',
-                                paddingTop: '0.5rem',
-                                color: '#e50914'
-                              }}>
-                                <span>TOTAL DUE:</span>
-                                <span>$80,213.25</span>
+                                <div>Date: {new Date().toLocaleDateString()}</div>
+                                <div>Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
                               </div>
                             </div>
                           </div>
-                          
+
+                          {/* Billing Info */}
                           <div style={{
-                            marginTop: '2rem',
-                            fontSize: '0.875rem',
-                            lineHeight: '1.5'
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: '2rem',
+                            padding: '2rem 2.5rem',
+                            background: '#f9f9f9'
                           }}>
-                            <div><strong>Payment Terms:</strong> Net 30. Late fees of 1.5% monthly will apply after due date.</div>
-                            <div><strong>Note:</strong> Final deliverables include master files in ProRes 422 HQ and H.264 for web.</div>
-                            <div style={{ marginTop: '1rem', fontStyle: 'italic', color: '#666' }}>
-                              Thank you for choosing Lumina Films for your production needs.
+                            <div>
+                              <h3 style={{
+                                color: '#e50914',
+                                marginBottom: '1rem',
+                                fontSize: '1.1rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '1px',
+                                margin: '0 0 1rem 0'
+                              }}>
+                                Bill To
+                              </h3>
+                              <p style={{ marginBottom: '0.5rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>Sample Client</p>
+                              <p style={{ marginBottom: '0.5rem', margin: '0 0 0.5rem 0' }}>123 Client Street</p>
+                              <p style={{ marginBottom: '0.5rem', margin: '0 0 0.5rem 0' }}>Client City, State 12345</p>
+                              <p style={{ marginBottom: '0.5rem', margin: '0 0 0.5rem 0' }}>client@example.com</p>
                             </div>
+                            <div>
+                              <h3 style={{
+                                color: '#e50914',
+                                marginBottom: '1rem',
+                                fontSize: '1.1rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '1px',
+                                margin: '0 0 1rem 0'
+                              }}>
+                                Project Details
+                              </h3>
+                              <p style={{ margin: '0 0 0.5rem 0' }}><strong>Project:</strong> Sample Project</p>
+                              <p style={{ margin: '0 0 0.5rem 0' }}><strong>Project ID:</strong> PRJ-2024-001</p>
+                              <p style={{ margin: '0 0 0.5rem 0' }}><strong>Dates:</strong> {new Date().toLocaleDateString()}</p>
+                            </div>
+                          </div>
+
+                          {/* Filmstrip divider */}
+                          <div style={{
+                            height: '20px',
+                            background: 'repeating-linear-gradient(90deg, #1a1a1a, #1a1a1a 10px, transparent 10px, transparent 30px)',
+                            margin: '0 2.5rem',
+                            position: 'relative'
+                          }}>
+                            <div style={{
+                              position: 'absolute',
+                              left: '-20px',
+                              top: 0,
+                              width: '20px',
+                              height: '100%',
+                              background: '#1a1a1a',
+                              borderRadius: '10px 0 0 10px'
+                            }}></div>
+                            <div style={{
+                              position: 'absolute',
+                              right: '-20px',
+                              top: 0,
+                              width: '20px',
+                              height: '100%',
+                              background: '#1a1a1a',
+                              borderRadius: '0 10px 10px 0'
+                            }}></div>
+                          </div>
+
+                          {/* Items table */}
+                          <table style={{
+                            width: 'calc(100% - 5rem)',
+                            margin: '2rem 2.5rem',
+                            borderCollapse: 'collapse'
+                          }}>
+                            <thead>
+                              <tr>
+                                <th style={{
+                                  textAlign: 'left',
+                                  padding: '1rem',
+                                  background: '#f9f9f9',
+                                  color: '#1a1a1a',
+                                  fontWeight: '600',
+                                  borderBottom: '2px solid #e0e0e0',
+                                  width: '50%'
+                                }}>
+                                  Description
+                                </th>
+                                <th style={{
+                                  textAlign: 'left',
+                                  padding: '1rem',
+                                  background: '#f9f9f9',
+                                  color: '#1a1a1a',
+                                  fontWeight: '600',
+                                  borderBottom: '2px solid #e0e0e0'
+                                }}>
+                                  Hours
+                                </th>
+                                <th style={{
+                                  textAlign: 'left',
+                                  padding: '1rem',
+                                  background: '#f9f9f9',
+                                  color: '#1a1a1a',
+                                  fontWeight: '600',
+                                  borderBottom: '2px solid #e0e0e0'
+                                }}>
+                                  Rate
+                                </th>
+                                <th style={{
+                                  textAlign: 'left',
+                                  padding: '1rem',
+                                  background: '#f9f9f9',
+                                  color: '#1a1a1a',
+                                  fontWeight: '600',
+                                  borderBottom: '2px solid #e0e0e0'
+                                }}>
+                                  Amount
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td style={{
+                                  padding: '1rem',
+                                  borderBottom: '1px solid #e0e0e0'
+                                }}>
+                                  Web Development
+                                </td>
+                                <td style={{
+                                  padding: '1rem',
+                                  borderBottom: '1px solid #e0e0e0'
+                                }}>
+                                  8.5
+                                </td>
+                                <td style={{
+                                  padding: '1rem',
+                                  borderBottom: '1px solid #e0e0e0'
+                                }}>
+                                  {watchedValues.displayCurrency}75.00
+                                </td>
+                                <td style={{
+                                  padding: '1rem',
+                                  borderBottom: '1px solid #e0e0e0'
+                                }}>
+                                  {watchedValues.displayCurrency}637.50
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+
+                          {/* Totals */}
+                          <div style={{
+                            margin: '2rem 2.5rem',
+                            paddingTop: '1rem',
+                            borderTop: '2px dashed #e0e0e0'
+                          }}>
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              marginBottom: '0.8rem'
+                            }}>
+                              <span>Subtotal:</span>
+                              <span>{watchedValues.displayCurrency}637.50</span>
+                            </div>
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              fontWeight: '700',
+                              color: '#e50914',
+                              fontSize: '1.2rem',
+                              marginTop: '1rem',
+                              paddingTop: '1rem',
+                              borderTop: '2px dashed #e0e0e0'
+                            }}>
+                              <span>TOTAL DUE:</span>
+                              <span>{watchedValues.displayCurrency}637.50</span>
+                            </div>
+                          </div>
+
+                          {/* Payment notes */}
+                          <div style={{
+                            padding: '0 2.5rem 2rem',
+                            color: '#666',
+                            fontSize: '0.9rem'
+                          }}>
+                            <p style={{ margin: '0 0 0.5rem 0' }}>
+                              <strong style={{ color: '#1a1a1a' }}>Payment Terms:</strong> Net 30. Late fees of 1.5% monthly will apply after due date.
+                            </p>
+                            <p style={{ margin: '0 0 0.5rem 0' }}>
+                              <strong style={{ color: '#1a1a1a' }}>Payment Methods:</strong> Bank transfer, check, or credit card (+3% fee).
+                            </p>
+                          </div>
+
+                          {/* Footer */}
+                          <div style={{
+                            padding: '2rem 2.5rem',
+                            background: '#f9f9f9',
+                            textAlign: 'center',
+                            color: '#666',
+                            fontSize: '0.9rem'
+                          }}>
+                            <p style={{ margin: 0 }}>
+                              Thank you for choosing <strong>{watchedValues.businessName || "Your Business"}!</strong>
+                            </p>
                           </div>
                         </div>
                       </div>
