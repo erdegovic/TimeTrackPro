@@ -1309,8 +1309,291 @@ export default function SettingsPage() {
                         fontSize: `${watchedValues.customFontSize}px`
                       }}
                     >
-                      {/* Template-specific Header */}
-                      <div className={`${currentTemplate.headerStyle} ${currentTemplate.spacing}`}>
+                      {/* Video Production Template */}
+                      {watchedValues.invoiceTemplate === 'video-production' && (
+                        <div style={{
+                          fontFamily: "'Helvetica Neue', Arial, sans-serif",
+                          backgroundColor: '#f5f5f5',
+                          color: '#333',
+                          lineHeight: '1.6',
+                          position: 'relative',
+                          margin: '-2rem',
+                          padding: '2rem'
+                        }}>
+                          <div style={{
+                            maxWidth: '800px',
+                            margin: '0 auto',
+                            background: 'white',
+                            boxShadow: '0 5px 30px rgba(0, 0, 0, 0.1)',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            position: 'relative'
+                          }}>
+                            <div style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              height: '8px',
+                              background: 'linear-gradient(90deg, #e50914, #ff4757)'
+                            }}></div>
+
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              padding: '2.5rem',
+                              borderBottom: '1px solid #e0e0e0'
+                            }}>
+                              <div>
+                                <h1 style={{
+                                  fontSize: '2rem',
+                                  color: '#1a1a1a',
+                                  marginBottom: '0.5rem',
+                                  fontWeight: '700',
+                                  margin: 0
+                                }}>
+                                  {watchedValues.businessName || "Your Business Name"}
+                                </h1>
+                                <p style={{
+                                  color: '#666',
+                                  fontSize: '0.95rem',
+                                  margin: '0 0 0.25rem 0'
+                                }}>
+                                  {watchedValues.businessAddress || "Your Business Address"}
+                                </p>
+                                <p style={{
+                                  color: '#666',
+                                  fontSize: '0.95rem',
+                                  margin: 0
+                                }}>
+                                  {watchedValues.businessEmail || "contact@yourbusiness.com"} | {watchedValues.businessPhone || "(555) 123-4567"}
+                                </p>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{
+                                  fontSize: '1.3rem',
+                                  color: '#e50914',
+                                  marginBottom: '0.5rem',
+                                  fontWeight: '600'
+                                }}>
+                                  INV #{watchedValues.nextInvoiceNumber}
+                                </div>
+                                <div style={{
+                                  color: '#666',
+                                  fontSize: '0.9rem'
+                                }}>
+                                  <div>Date: {new Date().toLocaleDateString()}</div>
+                                  <div>Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1fr 1fr',
+                              gap: '2rem',
+                              padding: '2rem 2.5rem',
+                              background: '#f9f9f9'
+                            }}>
+                              <div>
+                                <h3 style={{
+                                  color: '#e50914',
+                                  marginBottom: '1rem',
+                                  fontSize: '1.1rem',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '1px',
+                                  margin: '0 0 1rem 0'
+                                }}>
+                                  Bill To
+                                </h3>
+                                <p style={{ marginBottom: '0.5rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>Sample Client</p>
+                                <p style={{ marginBottom: '0.5rem', margin: '0 0 0.5rem 0' }}>123 Client Street</p>
+                                <p style={{ marginBottom: '0.5rem', margin: '0 0 0.5rem 0' }}>Client City, State 12345</p>
+                                <p style={{ marginBottom: '0.5rem', margin: '0 0 0.5rem 0' }}>client@example.com</p>
+                              </div>
+                              <div>
+                                <h3 style={{
+                                  color: '#e50914',
+                                  marginBottom: '1rem',
+                                  fontSize: '1.1rem',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '1px',
+                                  margin: '0 0 1rem 0'
+                                }}>
+                                  Project Details
+                                </h3>
+                                <p style={{ margin: '0 0 0.5rem 0' }}><strong>Project:</strong> Sample Project</p>
+                                <p style={{ margin: '0 0 0.5rem 0' }}><strong>Project ID:</strong> PRJ-2024-001</p>
+                                <p style={{ margin: '0 0 0.5rem 0' }}><strong>Dates:</strong> {new Date().toLocaleDateString()}</p>
+                              </div>
+                            </div>
+
+                            <div style={{
+                              height: '20px',
+                              background: 'repeating-linear-gradient(90deg, #1a1a1a, #1a1a1a 10px, transparent 10px, transparent 30px)',
+                              margin: '0 2.5rem',
+                              position: 'relative'
+                            }}>
+                              <div style={{
+                                position: 'absolute',
+                                left: '-20px',
+                                top: 0,
+                                width: '20px',
+                                height: '100%',
+                                background: '#1a1a1a',
+                                borderRadius: '10px 0 0 10px'
+                              }}></div>
+                              <div style={{
+                                position: 'absolute',
+                                right: '-20px',
+                                top: 0,
+                                width: '20px',
+                                height: '100%',
+                                background: '#1a1a1a',
+                                borderRadius: '0 10px 10px 0'
+                              }}></div>
+                            </div>
+
+                            <table style={{
+                              width: 'calc(100% - 5rem)',
+                              margin: '2rem 2.5rem',
+                              borderCollapse: 'collapse'
+                            }}>
+                              <thead>
+                                <tr>
+                                  <th style={{
+                                    textAlign: 'left',
+                                    padding: '1rem',
+                                    background: '#f9f9f9',
+                                    color: '#1a1a1a',
+                                    fontWeight: '600',
+                                    borderBottom: '2px solid #e0e0e0',
+                                    width: '50%'
+                                  }}>
+                                    Description
+                                  </th>
+                                  <th style={{
+                                    textAlign: 'left',
+                                    padding: '1rem',
+                                    background: '#f9f9f9',
+                                    color: '#1a1a1a',
+                                    fontWeight: '600',
+                                    borderBottom: '2px solid #e0e0e0'
+                                  }}>
+                                    Hours
+                                  </th>
+                                  <th style={{
+                                    textAlign: 'left',
+                                    padding: '1rem',
+                                    background: '#f9f9f9',
+                                    color: '#1a1a1a',
+                                    fontWeight: '600',
+                                    borderBottom: '2px solid #e0e0e0'
+                                  }}>
+                                    Rate
+                                  </th>
+                                  <th style={{
+                                    textAlign: 'left',
+                                    padding: '1rem',
+                                    background: '#f9f9f9',
+                                    color: '#1a1a1a',
+                                    fontWeight: '600',
+                                    borderBottom: '2px solid #e0e0e0'
+                                  }}>
+                                    Amount
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td style={{
+                                    padding: '1rem',
+                                    borderBottom: '1px solid #e0e0e0'
+                                  }}>
+                                    Video Production Services
+                                  </td>
+                                  <td style={{
+                                    padding: '1rem',
+                                    borderBottom: '1px solid #e0e0e0'
+                                  }}>
+                                    8.5
+                                  </td>
+                                  <td style={{
+                                    padding: '1rem',
+                                    borderBottom: '1px solid #e0e0e0'
+                                  }}>
+                                    {watchedValues.displayCurrency}75.00
+                                  </td>
+                                  <td style={{
+                                    padding: '1rem',
+                                    borderBottom: '1px solid #e0e0e0'
+                                  }}>
+                                    {watchedValues.displayCurrency}637.50
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+
+                            <div style={{
+                              margin: '2rem 2.5rem',
+                              paddingTop: '1rem',
+                              borderTop: '2px dashed #e0e0e0'
+                            }}>
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                marginBottom: '0.8rem'
+                              }}>
+                                <span>Subtotal:</span>
+                                <span>{watchedValues.displayCurrency}637.50</span>
+                              </div>
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                fontWeight: '700',
+                                color: '#e50914',
+                                fontSize: '1.2rem',
+                                marginTop: '1rem',
+                                paddingTop: '1rem',
+                                borderTop: '2px dashed #e0e0e0'
+                              }}>
+                                <span>TOTAL DUE:</span>
+                                <span>{watchedValues.displayCurrency}637.50</span>
+                              </div>
+                            </div>
+
+                            <div style={{
+                              padding: '0 2.5rem 2rem',
+                              color: '#666',
+                              fontSize: '0.9rem'
+                            }}>
+                              <p style={{ margin: '0 0 0.5rem 0' }}>
+                                <strong style={{ color: '#1a1a1a' }}>Payment Terms:</strong> Net 30. Late fees of 1.5% monthly will apply after due date.
+                              </p>
+                              <p style={{ margin: '0 0 0.5rem 0' }}>
+                                <strong style={{ color: '#1a1a1a' }}>Payment Methods:</strong> Bank transfer, check, or credit card (+3% fee).
+                              </p>
+                            </div>
+
+                            <div style={{
+                              padding: '2rem 2.5rem',
+                              background: '#f9f9f9',
+                              textAlign: 'center',
+                              color: '#666',
+                              fontSize: '0.9rem'
+                            }}>
+                              <p style={{ margin: 0 }}>
+                                Thank you for choosing <strong>{watchedValues.businessName || "Your Business"}!</strong>
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Default template system for other templates */}
+                      {watchedValues.invoiceTemplate !== 'video-production' && (
+                        <div>
+                          <div className={`${currentTemplate.headerStyle}`}>
                         {watchedValues.invoiceTemplate === "classic" ? (
                           // Classic centered layout
                           <div className="w-full text-center">
@@ -1458,6 +1741,10 @@ export default function SettingsPage() {
                       {watchedValues.invoiceFooterText && (
                         <div className="text-center text-sm border-t pt-4 mt-8">
                           {watchedValues.invoiceFooterText}
+                        </div>
+                      )}
+                    </div>
+                          </div>
                         </div>
                       )}
                     </div>
