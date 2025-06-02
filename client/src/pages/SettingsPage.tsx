@@ -1739,9 +1739,14 @@ export default function SettingsPage() {
                         fontSize: `${watchedValues.customFontSize}px`
                       }}
                     >
-                      {/* Red gradient top bar for Media template */}
+                      {/* Colored top bar for Media template */}
                       {watchedValues.invoiceTemplate === "media" && (
-                        <div className="w-full h-2 bg-gradient-to-r from-red-600 to-red-500"></div>
+                        <div 
+                          className="w-full h-2"
+                          style={{ 
+                            background: `linear-gradient(to right, ${watchedValues.invoiceColorTheme}, ${watchedValues.invoiceAccentColor})`
+                          }}
+                        ></div>
                       )}
                       
                       <div className="p-8">
@@ -1753,7 +1758,7 @@ export default function SettingsPage() {
                           <div className="w-full">
                             <div className="flex justify-between items-start">
                               <div className="company-info">
-                                <h1 className="text-4xl font-bold mb-2" style={{ color: watchedValues.invoiceTemplate === "media" ? "#ef4444" : watchedValues.invoiceColorTheme }}>
+                                <h1 className="text-4xl font-bold mb-2" style={{ color: watchedValues.invoiceColorTheme }}>
                                   {watchedValues.businessName?.toUpperCase() || "YOUR BUSINESS"}
                                 </h1>
                                 <p className="text-gray-600 mb-1">Professional media services</p>
@@ -1772,7 +1777,7 @@ export default function SettingsPage() {
                                 )}
                               </div>
                               <div className="invoice-meta text-right">
-                                <div className="text-2xl font-semibold text-red-600 mb-2">
+                                <div className="text-2xl font-semibold mb-2" style={{ color: watchedValues.invoiceColorTheme }}>
                                   INV #{watchedValues.nextInvoiceNumber}
                                 </div>
                                 <div className="text-sm text-gray-600 space-y-1">
