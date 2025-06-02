@@ -2032,7 +2032,7 @@ export default function SettingsPage() {
 
                       {watchedValues.showBankDetails && (
                         <div className="mb-6 p-4 bg-gray-50 rounded">
-                          <h3 className="font-semibold text-sm mb-2" style={{ color: watchedValues.invoiceAccentColor }}>
+                          <h3 className="font-semibold text-sm mb-2" style={{ color: watchedValues.invoiceColorTheme }}>
                             Payment Details
                           </h3>
                           <div className="text-sm space-y-1">
