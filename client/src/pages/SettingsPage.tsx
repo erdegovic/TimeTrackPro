@@ -1482,6 +1482,10 @@ export default function SettingsPage() {
                       fontSize: `${watchedValues.customFontSize}px`
                     }}
                   >
+                    {/* Debug - Current template value */}
+                    <div className="p-2 bg-yellow-100 text-xs">
+                      Current template: {watchedValues.invoiceTemplate || 'undefined'}
+                    </div>
                     {/* Video Production Template */}
                     {watchedValues.invoiceTemplate === 'video-production' && (
                       <div className="relative">
