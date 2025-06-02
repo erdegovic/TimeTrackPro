@@ -1487,9 +1487,6 @@ export default function SettingsPage() {
                       />
                     </div>
 
-                    </div>
-                    
-                    <div className="space-y-4">
                     {customizationSections.map((section) => (
                       <div key={section.id} className="bg-white rounded-lg border-2 p-4 shadow-sm">
                         <div className="flex items-center gap-3 mb-3">
