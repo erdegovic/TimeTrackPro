@@ -1823,13 +1823,15 @@ export default function SettingsPage() {
                           </div>
                         ) : watchedValues.invoiceTemplate === "modern" ? (
                           // Modern template with gradient header and structured design
-                          <div className="w-full -m-8">
+                          <div className="w-full -mx-8 -mt-8">
                             {/* Gradient Header */}
                             <div 
                               className="relative text-center text-white"
                               style={{ 
                                 background: `linear-gradient(135deg, ${watchedValues.invoiceColorTheme}, ${watchedValues.invoiceAccentColor})`,
-                                padding: '2.5rem'
+                                padding: '2.5rem',
+                                marginLeft: '-2rem',
+                                marginRight: '-2rem'
                               }}
                             >
                               <div className="company-info">
@@ -1867,16 +1869,6 @@ export default function SettingsPage() {
                             {/* Billing Info Section */}
                             <div className="grid grid-cols-2 gap-8 p-8 pt-12">
                               <div className="info-block">
-                                <h3 
-                                  className="text-lg font-semibold mb-4 pb-2 relative"
-                                  style={{ color: watchedValues.invoiceColorTheme }}
-                                >
-                                  Client Details
-                                  <div 
-                                    className="absolute bottom-0 left-0 w-10 h-1"
-                                    style={{ backgroundColor: watchedValues.invoiceAccentColor }}
-                                  ></div>
-                                </h3>
                                 <div className="space-y-2">
                                   <div className="font-bold">Sample Client</div>
                                   <div className="text-gray-600">Attn: Project Manager</div>
@@ -1887,16 +1879,6 @@ export default function SettingsPage() {
                               </div>
                               
                               <div className="info-block">
-                                <h3 
-                                  className="text-lg font-semibold mb-4 pb-2 relative"
-                                  style={{ color: watchedValues.invoiceColorTheme }}
-                                >
-                                  Project Details
-                                  <div 
-                                    className="absolute bottom-0 left-0 w-10 h-1"
-                                    style={{ backgroundColor: watchedValues.invoiceAccentColor }}
-                                  ></div>
-                                </h3>
                                 <div className="space-y-2">
                                   <div className="font-bold">Sample Project</div>
                                   <div className="text-gray-600">Time Period: {new Date().toLocaleDateString()}</div>
