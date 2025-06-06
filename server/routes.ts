@@ -210,27 +210,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
-        // Set session data
-        if (!req.session) {
-          req.session = {} as any;
-        }
-        
-        // Configure session duration based on "Remember Me"
-        if (rememberMe) {
-          // Remember me: 30 days
-          req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000;
-          req.session.cookie.secure = false; // Ensure secure is false for Replit
-          console.log(`Login with Remember Me enabled - session extended to 30 days`);
-        } else {
-          // Normal session: 24 hours
-          req.session.cookie.maxAge = 24 * 60 * 60 * 1000;
-          req.session.cookie.secure = false; // Ensure secure is false for Replit
-          console.log(`Login without Remember Me - session set to 24 hours`);
-        }
-        
         // Set up user session
         if (foundUser) {
           req.session.userId = foundUser.id;
+          console.log(`Login successful - session created for user ${foundUser.id}`);
           
           return res.status(200).json({
             message: "Login successful",
@@ -239,6 +222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           // Use test user if no real user found
           req.session.userId = 1;
+          console.log(`Login successful - session created for test user 1`);
           
           return res.status(200).json({
             message: "Login successful",
