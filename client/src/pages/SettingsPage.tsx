@@ -1749,10 +1749,85 @@ export default function SettingsPage() {
                         ></div>
                       )}
                       
-                      <div className="p-8">
+                      {/* Modern template gradient header - outside padding container */}
+                      {watchedValues.invoiceTemplate === "modern" && (
+                        <div 
+                          className="relative text-center text-white w-full"
+                          style={{ 
+                            background: `linear-gradient(135deg, ${watchedValues.invoiceColorTheme}, ${watchedValues.invoiceAccentColor})`,
+                            padding: '2.5rem 2rem'
+                          }}
+                        >
+                          <div className="company-info">
+                            <h1 className="text-4xl font-bold mb-2 tracking-wider">
+                              {watchedValues.businessName?.toUpperCase() || "YOUR BUSINESS NAME"}
+                            </h1>
+                            <p className="text-lg opacity-90">Professional services and solutions</p>
+                          </div>
+                          
+                          <div className="flex justify-center gap-8 mt-6">
+                            <div 
+                              className="px-6 py-3 rounded-full"
+                              style={{ background: 'rgba(255, 255, 255, 0.15)' }}
+                            >
+                              <div className="text-lg font-semibold">INV #{watchedValues.nextInvoiceNumber}</div>
+                            </div>
+                            <div 
+                              className="px-6 py-3 rounded-full"
+                              style={{ background: 'rgba(255, 255, 255, 0.15)' }}
+                            >
+                              <div className="text-sm">Issued: {new Date().toLocaleDateString()}</div>
+                              {watchedValues.showDueDate && (
+                                <div className="text-sm">Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Diamond accent */}
+                          <div 
+                            className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-white rotate-45"
+                            style={{ zIndex: 1 }}
+                          ></div>
+                        </div>
+                      )}
                       
+                      <div className={watchedValues.invoiceTemplate === "modern" ? "p-8 pt-12" : "p-8"}>
+                      
+                      {/* Modern template billing section */}
+                      {watchedValues.invoiceTemplate === "modern" && (
+                        <div className="grid grid-cols-2 gap-8 mb-6">
+                          <div className="info-block">
+                            <div className="space-y-2">
+                              <div className="font-bold">Sample Client</div>
+                              <div className="text-gray-600">Attn: Project Manager</div>
+                              <div className="text-gray-600">123 Client Street</div>
+                              <div className="text-gray-600">Client City, State 12345</div>
+                              <div className="text-gray-600">PO #CLIENT-2023-42</div>
+                            </div>
+                          </div>
+                          
+                          <div className="info-block">
+                            <div className="space-y-2">
+                              <div className="font-bold">Sample Project</div>
+                              <div className="text-gray-600">Time Period: {new Date().toLocaleDateString()}</div>
+                              <div className="text-gray-600">Currency: {watchedValues.displayCurrency}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Dotted Divider for Modern template */}
+                      {watchedValues.invoiceTemplate === "modern" && (
+                        <div 
+                          className="h-px mb-6"
+                          style={{
+                            background: `repeating-linear-gradient(to right, #e0e0e0, #e0e0e0 3px, transparent 3px, transparent 6px)`
+                          }}
+                        ></div>
+                      )}
+
                       {/* Template-specific Header */}
-                      <div className={`${currentTemplate.headerStyle} ${currentTemplate.spacing || ''}`}>
+                      <div className={`${watchedValues.invoiceTemplate === "modern" ? "hidden" : currentTemplate.headerStyle} ${currentTemplate.spacing || ''}`}>
                         {watchedValues.invoiceTemplate === "media" ? (
                           // Media template layout
                           <div className="w-full">
@@ -1820,80 +1895,6 @@ export default function SettingsPage() {
                               <div>Invoice #: {watchedValues.nextInvoiceNumber}</div>
                               <div>Date: {new Date().toLocaleDateString()}</div>
                             </div>
-                          </div>
-                        ) : watchedValues.invoiceTemplate === "modern" ? (
-                          // Modern template with gradient header and structured design
-                          <div className="w-full -mx-8 -mt-8">
-                            {/* Gradient Header */}
-                            <div 
-                              className="relative text-center text-white"
-                              style={{ 
-                                background: `linear-gradient(135deg, ${watchedValues.invoiceColorTheme}, ${watchedValues.invoiceAccentColor})`,
-                                padding: '2.5rem',
-                                marginLeft: '-2rem',
-                                marginRight: '-2rem'
-                              }}
-                            >
-                              <div className="company-info">
-                                <h1 className="text-4xl font-bold mb-2 tracking-wider">
-                                  {watchedValues.businessName?.toUpperCase() || "YOUR BUSINESS NAME"}
-                                </h1>
-                                <p className="text-lg opacity-90">Professional services and solutions</p>
-                              </div>
-                              
-                              <div className="flex justify-center gap-8 mt-6">
-                                <div 
-                                  className="px-6 py-3 rounded-full"
-                                  style={{ background: 'rgba(255, 255, 255, 0.15)' }}
-                                >
-                                  <div className="text-lg font-semibold">INV #{watchedValues.nextInvoiceNumber}</div>
-                                </div>
-                                <div 
-                                  className="px-6 py-3 rounded-full"
-                                  style={{ background: 'rgba(255, 255, 255, 0.15)' }}
-                                >
-                                  <div className="text-sm">Issued: {new Date().toLocaleDateString()}</div>
-                                  {watchedValues.showDueDate && (
-                                    <div className="text-sm">Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
-                                  )}
-                                </div>
-                              </div>
-                              
-                              {/* Diamond accent */}
-                              <div 
-                                className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-white rotate-45"
-                                style={{ zIndex: 1 }}
-                              ></div>
-                            </div>
-                            
-                            {/* Billing Info Section */}
-                            <div className="grid grid-cols-2 gap-8 p-8 pt-12">
-                              <div className="info-block">
-                                <div className="space-y-2">
-                                  <div className="font-bold">Sample Client</div>
-                                  <div className="text-gray-600">Attn: Project Manager</div>
-                                  <div className="text-gray-600">123 Client Street</div>
-                                  <div className="text-gray-600">Client City, State 12345</div>
-                                  <div className="text-gray-600">PO #CLIENT-2023-42</div>
-                                </div>
-                              </div>
-                              
-                              <div className="info-block">
-                                <div className="space-y-2">
-                                  <div className="font-bold">Sample Project</div>
-                                  <div className="text-gray-600">Time Period: {new Date().toLocaleDateString()}</div>
-                                  <div className="text-gray-600">Currency: {watchedValues.displayCurrency}</div>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Dotted Divider */}
-                            <div 
-                              className="h-px mx-8 mb-6"
-                              style={{
-                                background: `repeating-linear-gradient(to right, #e0e0e0, #e0e0e0 3px, transparent 3px, transparent 6px)`
-                              }}
-                            ></div>
                           </div>
                         ) : (
                           // Other templates - side by side layout
