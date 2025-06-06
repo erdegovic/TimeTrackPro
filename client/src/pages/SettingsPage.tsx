@@ -2125,15 +2125,7 @@ export default function SettingsPage() {
                         <div className={`mb-6 ${watchedValues.invoiceTemplate === "modern" ? "p-6 bg-gray-50" : "p-4 bg-gray-50 rounded"}`}>
                           {watchedValues.invoiceTemplate === "modern" ? (
                             <div className="text-center">
-                              <div 
-                                className="text-lg font-semibold mb-4"
-                                style={{ color: watchedValues.invoiceColorTheme }}
-                              >
-                                Thank you for choosing our services!
-                              </div>
                               <div className="text-sm space-y-2 max-w-md mx-auto">
-                                <div><strong>Payment Terms:</strong> Net 30 days from invoice date</div>
-                                <div><strong>Payment Methods:</strong> Bank transfer, check, or online payment</div>
                                 {watchedValues.paymentMethodType === "bank_transfer_eu" && watchedValues.iban && (
                                   <div><strong>Bank Details:</strong> IBAN {watchedValues.iban}</div>
                                 )}
