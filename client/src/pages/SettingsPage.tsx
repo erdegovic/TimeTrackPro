@@ -1454,15 +1454,31 @@ export default function SettingsPage() {
                             <FormLabel className="text-sm font-medium">Choose Template</FormLabel>
                             <Select onValueChange={(value) => {
                               field.onChange(value);
-                              // Auto-apply bold red theme for media template
-                              if (value === "media") {
-                                const boldRedPalette = colorPalettes.find(p => p.name === "Bold Red");
-                                if (boldRedPalette) {
-                                  form.setValue("invoiceColorTheme", boldRedPalette.primary);
-                                  form.setValue("invoiceAccentColor", boldRedPalette.accent);
-                                  form.setValue("invoiceTextColor", boldRedPalette.text);
-                                  form.setValue("invoiceBackgroundColor", boldRedPalette.background);
-                                }
+                              // Auto-apply default color themes based on template
+                              let targetPalette;
+                              switch (value) {
+                                case "professional":
+                                  targetPalette = colorPalettes.find(p => p.name === "Elegant Black");
+                                  break;
+                                case "modern":
+                                  targetPalette = colorPalettes.find(p => p.name === "Professional Blue");
+                                  break;
+                                case "classic":
+                                  targetPalette = colorPalettes.find(p => p.name === "Professional Blue");
+                                  break;
+                                case "minimal":
+                                  targetPalette = colorPalettes.find(p => p.name === "Elegant Black");
+                                  break;
+                                case "media":
+                                  targetPalette = colorPalettes.find(p => p.name === "Bold Red");
+                                  break;
+                              }
+                              
+                              if (targetPalette) {
+                                form.setValue("invoiceColorTheme", targetPalette.primary);
+                                form.setValue("invoiceAccentColor", targetPalette.accent);
+                                form.setValue("invoiceTextColor", targetPalette.text);
+                                form.setValue("invoiceBackgroundColor", targetPalette.background);
                               }
                             }} value={field.value}>
                               <FormControl>
