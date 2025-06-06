@@ -219,10 +219,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (rememberMe) {
           // Remember me: 30 days
           req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000;
+          req.session.cookie.secure = false; // Ensure secure is false for Replit
           console.log(`Login with Remember Me enabled - session extended to 30 days`);
         } else {
           // Normal session: 24 hours
           req.session.cookie.maxAge = 24 * 60 * 60 * 1000;
+          req.session.cookie.secure = false; // Ensure secure is false for Replit
           console.log(`Login without Remember Me - session set to 24 hours`);
         }
         

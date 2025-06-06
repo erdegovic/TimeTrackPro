@@ -1,19 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-
-// Extend Express Request type to include session and user
-declare global {
-  namespace Express {
-    interface Request {
-      session: {
-        userId?: number;
-        destroy: (callback: (err: Error) => void) => void;
-      };
-      user?: {
-        id: number;
-      };
-    }
-  }
-}
+import '../types/session';
 
 // Authenticate middleware to check if user is logged in
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
@@ -21,21 +7,19 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
     req.session = {} as any;
   }
   
-  // In development mode, allow access for testing
-  if (process.env.NODE_ENV === 'development' && !req.session.userId) {
-    // For development testing - set a default user ID
-    req.session.userId = 1;
-    req.user = { id: 1 };
-    next();
-    return;
-  }
-  
+  // Check for user session
   if (!req.session.userId) {
+    console.log('Authentication failed: No userId in session', {
+      sessionId: req.sessionID,
+      hasSession: !!req.session,
+      sessionKeys: req.session ? Object.keys(req.session) : 'no session'
+    });
     return res.status(401).json({ message: 'Unauthorized' });
   }
   
   // Add user object to request
   req.user = { id: req.session.userId };
+  console.log('Authentication successful for user:', req.session.userId);
   next();
 };
 
