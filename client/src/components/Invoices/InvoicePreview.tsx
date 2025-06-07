@@ -804,36 +804,39 @@ export default function InvoicePreview({
                           {entry.description} ({format(new Date(entry.date), "MMM d")})
                         </td>
                         <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900 border-r">
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              className="w-24 h-8 p-1 text-sm font-mono border rounded"
-                              defaultValue={formatTime(
-                                 editableEntries.find(e => e.id === entry.id)?.editedDuration || 
-                                 (typeof entry.adjustedDuration === 'number' 
-                                   ? entry.adjustedDuration 
-                                   : typeof entry.duration === 'number' 
-                                      ? entry.duration 
-                                      : parseFloat(entry.duration || '0')),
-                                 reportData.timeFormat as TimeFormat
-                              )}
-                              onBlur={(e) => {
-                                const timeValue = e.target.value;
-                                const durationInHours = parseTime(timeValue, reportData.timeFormat as TimeFormat);
-                                updateEntryDuration(entry.id, durationInHours, reportData.timeFormat as TimeFormat);
-                              }}
-                            />
-                          ) : (
-                            formatTime(
-                              editableEntries.find(e => e.id === entry.id)?.editedDuration ||
-                              (typeof entry.adjustedDuration === 'number' 
-                                ? entry.adjustedDuration 
-                                : typeof entry.duration === 'number' 
-                                   ? entry.duration 
-                                   : parseFloat(entry.duration || '0')), 
-                              reportData.timeFormat as TimeFormat
-                            )
-                          )}
+                          {(() => {
+                            // Get the actual duration value - use the same logic as the PDF generator
+                            let duration = 0;
+                            const editedEntry = editableEntries.find(e => e.id === entry.id);
+                            
+                            if (editedEntry?.editedDuration !== undefined) {
+                              duration = typeof editedEntry.editedDuration === 'number' ? editedEntry.editedDuration : parseFloat(String(editedEntry.editedDuration));
+                            } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
+                              duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
+                            } else if (entry.duration !== undefined && entry.duration !== null) {
+                              duration = typeof entry.duration === 'number' ? entry.duration : parseFloat(String(entry.duration));
+                            }
+                            
+                            // Ensure valid number
+                            if (isNaN(duration) || duration < 0) duration = 0;
+                            
+                            console.log(`Preview - Entry ${entry.id}: duration=${duration}, original=${entry.duration}, adjusted=${entry.adjustedDuration}`);
+                            
+                            return isEditing ? (
+                              <input
+                                type="text"
+                                className="w-24 h-8 p-1 text-sm font-mono border rounded"
+                                defaultValue={formatTime(duration, reportData.timeFormat as TimeFormat)}
+                                onBlur={(e) => {
+                                  const timeValue = e.target.value;
+                                  const durationInHours = parseTime(timeValue, reportData.timeFormat as TimeFormat);
+                                  updateEntryDuration(entry.id, durationInHours, reportData.timeFormat as TimeFormat);
+                                }}
+                              />
+                            ) : (
+                              formatTime(duration, reportData.timeFormat as TimeFormat)
+                            );
+                          })()}
                         </td>
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 border-r">
                           {client?.currency 
