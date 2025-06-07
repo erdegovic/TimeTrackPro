@@ -279,6 +279,64 @@ function generateInvoicePdf({
     }
     
     yPosition += 15;
+    
+    // Billing Info Section - gray background like settings
+    const sectionStartY = yPosition;
+    const sectionHeight = 80;
+    doc.setFillColor(250, 250, 250); // Light gray background
+    doc.rect(30, sectionStartY, doc.internal.pageSize.width - 60, sectionHeight, 'F');
+    
+    // Bill To section
+    yPosition += 15;
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.setFontSize(fontSize - 2);
+    doc.setFont("helvetica", "bold");
+    doc.text("BILL TO", 45, yPosition);
+    
+    yPosition += 8;
+    doc.setTextColor(textColor.r, textColor.g, textColor.b);
+    doc.setFontSize(fontSize - 2);
+    doc.setFont("helvetica", "bold");
+    const clientName = client?.name || invoice?.clientName || "Sample Client";
+    doc.text(clientName, 45, yPosition);
+    
+    yPosition += 5;
+    doc.setFont("helvetica", "normal");
+    doc.text("Sample Producer", 45, yPosition);
+    
+    yPosition += 5;
+    const clientAddress = client?.address || "123 Client Street";
+    doc.text(clientAddress, 45, yPosition);
+    
+    yPosition += 5;
+    const clientCity = client?.city || "Client City";
+    const clientState = client?.state || "State";
+    const clientZip = client?.zipCode || "12345";
+    doc.text(`${clientCity}, ${clientState} ${clientZip}`, 45, yPosition);
+    
+    yPosition += 5;
+    doc.text("PO #CLIENT-2023-42", 45, yPosition);
+    
+    // Project Details section (right column)
+    let projectY = sectionStartY + 15;
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.setFontSize(fontSize - 2);
+    doc.setFont("helvetica", "bold");
+    doc.text("PROJECT DETAILS", doc.internal.pageSize.width / 2 + 15, projectY);
+    
+    projectY += 8;
+    doc.setTextColor(textColor.r, textColor.g, textColor.b);
+    doc.setFontSize(fontSize - 2);
+    doc.setFont("helvetica", "normal");
+    doc.text("Project: Sample Project", doc.internal.pageSize.width / 2 + 15, projectY);
+    
+    projectY += 5;
+    doc.text("Time Period: 5/7/2025", doc.internal.pageSize.width / 2 + 15, projectY);
+    
+    projectY += 5;
+    doc.text(`Currency: ${client?.currency || "USD"}`, doc.internal.pageSize.width / 2 + 15, projectY);
+    
+    yPosition = sectionStartY + sectionHeight + 20;
   } else {
     // Standard header for other templates
     yPosition = generateStandardHeader({

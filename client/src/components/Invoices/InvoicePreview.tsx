@@ -584,9 +584,8 @@ export default function InvoicePreview({
               }}
             ></div>
             
-            {/* Content with padding like settings preview */}
+            {/* Header section exactly like settings */}
             <div className="p-10">
-              {/* Header section exactly like settings */}
               <div className="flex justify-between items-start mb-8">
                 <div className="company-info">
                   {settings?.showBusinessName !== false && (
@@ -617,21 +616,49 @@ export default function InvoicePreview({
                   </div>
                 </div>
               </div>
-              
-              {/* Barcode graphic at bottom like in settings */}
-              <div className="mt-8 flex justify-center">
-                <div className="flex space-x-1 h-8">
-                  {[...Array(60)].map((_, i) => (
-                    <div 
-                      key={i} 
-                      className="bg-black"
-                      style={{ 
-                        width: Math.random() > 0.5 ? '2px' : '1px',
-                        height: '100%'
-                      }}
-                    />
-                  ))}
+            </div>
+            
+            {/* Billing Info Grid - exactly like settings */}
+            <div className="grid grid-cols-2 gap-8 p-10 bg-gray-50 mb-6">
+              <div className="info-block">
+                <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide"
+                    style={{ color: templateConfig.colors.primary }}>
+                  Bill To
+                </h3>
+                <div className="space-y-1">
+                  <div className="font-bold">{client?.name || "Sample Client"}</div>
+                  <div className="text-sm text-gray-600">Sample Producer</div>
+                  <div className="text-sm text-gray-600">{client?.address || "123 Client Street"}</div>
+                  <div className="text-sm text-gray-600">{client?.city || "Client City"}, {client?.state || "State"} {client?.zipCode || "12345"}</div>
+                  <div className="text-sm text-gray-600">PO #CLIENT-2023-42</div>
                 </div>
+              </div>
+              <div className="info-block">
+                <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide"
+                    style={{ color: templateConfig.colors.primary }}>
+                  Project Details
+                </h3>
+                <div className="space-y-1">
+                  <div className="text-sm"><span className="font-medium">Project:</span> Sample Project</div>
+                  <div className="text-sm"><span className="font-medium">Time Period:</span> 5/7/2025</div>
+                  <div className="text-sm"><span className="font-medium">Currency:</span> {client?.currency || "USD"}</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Barcode graphic at bottom like in settings */}
+            <div className="mx-10 mb-8 flex justify-center">
+              <div className="flex space-x-1 h-8">
+                {[...Array(60)].map((_, i) => (
+                  <div 
+                    key={i} 
+                    className="bg-black"
+                    style={{ 
+                      width: Math.random() > 0.5 ? '2px' : '1px',
+                      height: '100%'
+                    }}
+                  />
+                ))}
               </div>
             </div>
           </div>
@@ -703,41 +730,7 @@ export default function InvoicePreview({
           </div>
         )}
         
-        {/* Client Information - Media Template */}
-        {currentTemplate === 'media' && (
-          <div className="grid grid-cols-2 gap-8 mb-8">
-            <div>
-              <div 
-                className="text-lg font-bold mb-3"
-                style={{ color: '#8B1538' }}
-              >
-                BILL TO
-              </div>
-              <div className="text-sm text-gray-700">
-                <div className="font-medium">{client.name}</div>
-                <div>Sample Producer</div>
-                {client.address && <div>{client.address}</div>}
-                {client.city && <div>{client.city}, {client.state} {client.zipCode}</div>}
-                <div className="mt-2">
-                  PO #CLIENT-2023-42
-                </div>
-              </div>
-            </div>
-            <div>
-              <div 
-                className="text-lg font-bold mb-3"
-                style={{ color: '#8B1538' }}
-              >
-                PROJECT DETAILS
-              </div>
-              <div className="text-sm text-gray-700">
-                <div><span className="font-medium">Project:</span> Sample Project</div>
-                <div><span className="font-medium">Time Period:</span> 5/7/2025</div>
-                <div><span className="font-medium">Currency:</span> {client.currency || 'USD'}</div>
-              </div>
-            </div>
-          </div>
-        )}
+
         
         {/* Client Information - Other Templates */}
         {currentTemplate !== 'media' && (
