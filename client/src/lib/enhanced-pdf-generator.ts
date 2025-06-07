@@ -438,38 +438,22 @@ function generateTimeEntriesTable({
         editedAmount: entry.editedAmount
       });
       
-      // Enhanced duration parsing with better handling of numeric types
+      // Use the EXACT same logic as the preview to ensure consistency
       let duration = 0;
       
-      console.log(`PDF - Processing entry ${entry.id} duration options:`, {
-        editedDuration: entry.editedDuration,
-        adjustedDuration: entry.adjustedDuration,
-        duration: entry.duration,
-        durationString: entry.durationString,
-        types: {
-          editedDuration: typeof entry.editedDuration,
-          adjustedDuration: typeof entry.adjustedDuration,
-          duration: typeof entry.duration
-        }
-      });
-      
-      // Priority order: editedDuration > adjustedDuration > duration
-      if (entry.editedDuration !== undefined && entry.editedDuration !== null && entry.editedDuration !== '') {
-        const parsed = typeof entry.editedDuration === 'number' ? entry.editedDuration : parseFloat(String(entry.editedDuration));
-        if (!isNaN(parsed)) duration = parsed;
-      } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null && entry.adjustedDuration !== '') {
-        const parsed = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
-        if (!isNaN(parsed)) duration = parsed;
-      } else if (entry.duration !== undefined && entry.duration !== null && entry.duration !== '') {
-        // Handle both numeric and string duration values from database
-        const parsed = typeof entry.duration === 'number' ? entry.duration : parseFloat(String(entry.duration));
-        if (!isNaN(parsed)) duration = parsed;
+      // Check if this entry has been edited in the preview
+      if (entry.editedDuration !== undefined && entry.editedDuration !== null) {
+        duration = typeof entry.editedDuration === 'number' ? entry.editedDuration : parseFloat(String(entry.editedDuration));
+      } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
+        duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
+      } else if (entry.duration !== undefined && entry.duration !== null) {
+        duration = typeof entry.duration === 'number' ? entry.duration : parseFloat(String(entry.duration));
       }
       
-      // Ensure duration is valid and positive
-      if (isNaN(duration) || duration < 0) {
-        duration = 0;
-      }
+      // Ensure valid number
+      if (isNaN(duration) || duration < 0) duration = 0;
+      
+      console.log(`PDF - Entry ${entry.id}: duration=${duration}, original=${entry.duration}, adjusted=${entry.adjustedDuration}`);
       
       console.log(`Entry ${entry.id} - Final duration: ${duration}`);
       
