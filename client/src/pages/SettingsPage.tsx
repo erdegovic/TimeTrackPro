@@ -1855,7 +1855,17 @@ export default function SettingsPage() {
                                 {watchedValues.businessName?.toUpperCase() || "YOUR BUSINESS NAME"}
                               </h1>
                             )}
-                            <p className="text-lg opacity-90">Professional services and solutions</p>
+                            {watchedValues.showCompanyDetails && (
+                              <div className="text-sm opacity-90 space-y-1">
+                                {watchedValues.businessAddress && <div>{watchedValues.businessAddress}</div>}
+                                <div>
+                                  {[watchedValues.businessCity, watchedValues.businessState, watchedValues.businessZipCode]
+                                    .filter(Boolean).join(", ")}
+                                </div>
+                                {watchedValues.businessEmail && <div>{watchedValues.businessEmail}</div>}
+                                {watchedValues.businessPhone && <div>{watchedValues.businessPhone}</div>}
+                              </div>
+                            )}
                           </div>
                           
                           <div className="flex justify-center gap-8 mt-6">
@@ -1886,28 +1896,7 @@ export default function SettingsPage() {
                       
                       <div className={watchedValues.invoiceTemplate === "modern" ? "p-8 pt-12" : "p-8"}>
                       
-                      {/* Modern template billing section */}
-                      {watchedValues.invoiceTemplate === "modern" && (
-                        <div className="grid grid-cols-2 gap-8 mb-6">
-                          <div className="info-block">
-                            <div className="space-y-2">
-                              <div className="font-bold">Sample Client</div>
-                              <div className="text-gray-600">Attn: Project Manager</div>
-                              <div className="text-gray-600">123 Client Street</div>
-                              <div className="text-gray-600">Client City, State 12345</div>
-                              <div className="text-gray-600">PO #CLIENT-2023-42</div>
-                            </div>
-                          </div>
-                          
-                          <div className="info-block">
-                            <div className="space-y-2">
-                              <div className="font-bold">Sample Project</div>
-                              <div className="text-gray-600">Time Period: {new Date().toLocaleDateString()}</div>
-                              <div className="text-gray-600">Currency: {watchedValues.displayCurrency}</div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+
                       
                       {/* Dotted Divider for Modern template */}
                       {watchedValues.invoiceTemplate === "modern" && (
