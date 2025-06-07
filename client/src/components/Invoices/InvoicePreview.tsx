@@ -535,6 +535,68 @@ export default function InvoicePreview({
       </div>
       
       <div className="p-6">
+        {/* Media Template with Special Layout */}
+        {currentTemplate === 'media' && (
+          <div className="mb-8">
+            {/* Header with Company Name */}
+            <div className="mb-6">
+              <h1 
+                className="text-5xl font-bold tracking-wider"
+                style={{ color: '#8B1538' }}
+              >
+                {settings?.businessName?.toUpperCase() || "AE PRODUCTIONS"}
+              </h1>
+              <div className="text-sm text-gray-600 mt-2">
+                Professional media services
+              </div>
+            </div>
+            
+            {/* Invoice Number and Date in Top Right */}
+            <div className="flex justify-between items-start mb-6">
+              <div></div>
+              <div className="text-right">
+                <div 
+                  className="text-2xl font-bold mb-1"
+                  style={{ color: '#8B1538' }}
+                >
+                  INV #{invoiceNumber}
+                </div>
+                <div className="text-sm text-gray-600">
+                  Date: {issueDate}
+                </div>
+              </div>
+            </div>
+            
+            {/* Business Address */}
+            {settings?.showCompanyDetails !== false && (
+              <div className="text-sm text-gray-600 mb-6">
+                {settings?.businessAddress && <div>{settings.businessAddress}</div>}
+                {settings?.businessCity && (
+                  <div>{settings.businessCity}, {settings.businessState} {settings.businessZipCode}</div>
+                )}
+                {settings?.businessEmail && <div>{settings.businessEmail}</div>}
+                {settings?.businessPhone && <div>{settings.businessPhone}</div>}
+              </div>
+            )}
+            
+            {/* Barcode-style Graphic */}
+            <div className="mb-8">
+              <div className="flex space-x-1 h-8">
+                {[...Array(40)].map((_, i) => (
+                  <div 
+                    key={i} 
+                    className="bg-gray-800"
+                    style={{ 
+                      width: Math.random() > 0.5 ? '3px' : '1px',
+                      height: Math.random() > 0.3 ? '100%' : '60%'
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Modern Template with Gradient Header */}
         {currentTemplate === 'modern' && (
           <div 
@@ -572,7 +634,7 @@ export default function InvoicePreview({
         )}
         
         {/* Standard Header for Other Templates */}
-        {currentTemplate !== 'modern' && (
+        {currentTemplate !== 'modern' && currentTemplate !== 'media' && (
           <div className={templateConfig.headerStyle}>
             {currentTemplate === 'classic' ? (
               // Classic centered layout
@@ -637,47 +699,88 @@ export default function InvoicePreview({
           </div>
         )}
         
-        {/* Client Information */}
-        <div className="mb-8">
-          <div 
-            className="text-lg font-medium mb-2"
-            style={{ color: templateConfig.colors.primary }}
-          >
-            Bill To:
+        {/* Client Information - Media Template */}
+        {currentTemplate === 'media' && (
+          <div className="grid grid-cols-2 gap-8 mb-8">
+            <div>
+              <div 
+                className="text-lg font-bold mb-3"
+                style={{ color: '#8B1538' }}
+              >
+                BILL TO
+              </div>
+              <div className="text-sm text-gray-700">
+                <div className="font-medium">{client.name}</div>
+                <div>Sample Producer</div>
+                {client.address && <div>{client.address}</div>}
+                {client.city && <div>{client.city}, {client.state} {client.zipCode}</div>}
+                <div className="mt-2">
+                  PO #CLIENT-2023-42
+                </div>
+              </div>
+            </div>
+            <div>
+              <div 
+                className="text-lg font-bold mb-3"
+                style={{ color: '#8B1538' }}
+              >
+                PROJECT DETAILS
+              </div>
+              <div className="text-sm text-gray-700">
+                <div><span className="font-medium">Project:</span> Sample Project</div>
+                <div><span className="font-medium">Time Period:</span> 5/7/2025</div>
+                <div><span className="font-medium">Currency:</span> {client.currency || 'USD'}</div>
+              </div>
+            </div>
           </div>
-          <div className="text-sm text-gray-600">
-            <p className="font-medium">{client.name}</p>
-            {client.address && <p>{client.address}</p>}
-            {client.city && <p>{client.city}, {client.state} {client.zipCode}</p>}
-            {client.email && <p>{client.email}</p>}
-            {client.taxId && <p>Tax ID: {client.taxId}</p>}
-          </div>
-        </div>
+        )}
         
-        {/* Payment Details Section */}
-        <div className="mb-8">
-          <div 
-            className="text-lg font-medium mb-2"
-            style={{ color: templateConfig.colors.primary }}
-          >
-            Payment Details:
+        {/* Client Information - Other Templates */}
+        {currentTemplate !== 'media' && (
+          <div className="mb-8">
+            <div 
+              className="text-lg font-medium mb-2"
+              style={{ color: templateConfig.colors.primary }}
+            >
+              Bill To:
+            </div>
+            <div className="text-sm text-gray-600">
+              <p className="font-medium">{client.name}</p>
+              {client.address && <p>{client.address}</p>}
+              {client.city && <p>{client.city}, {client.state} {client.zipCode}</p>}
+              {client.email && <p>{client.email}</p>}
+              {client.taxId && <p>Tax ID: {client.taxId}</p>}
+            </div>
           </div>
-          <div className="text-sm text-gray-600">
-            {settings?.bankName && <p><span className="font-medium">Bank:</span> {settings.bankName}</p>}
-            {settings?.bankAccountName && <p><span className="font-medium">Account Name:</span> {settings.bankAccountName}</p>}
-            {settings?.bankAccountNumber && <p><span className="font-medium">Account Number:</span> {settings.bankAccountNumber}</p>}
-            {settings?.bankSortCode && <p><span className="font-medium">Sort Code:</span> {settings.bankSortCode}</p>}
+        )}
+        
+        {/* Payment Details Section - Not shown for Media template */}
+        {currentTemplate !== 'media' && (
+          <div className="mb-8">
+            <div 
+              className="text-lg font-medium mb-2"
+              style={{ color: templateConfig.colors.primary }}
+            >
+              Payment Details:
+            </div>
+            <div className="text-sm text-gray-600">
+              {settings?.bankName && <p><span className="font-medium">Bank:</span> {settings.bankName}</p>}
+              {settings?.bankAccountName && <p><span className="font-medium">Account Name:</span> {settings.bankAccountName}</p>}
+              {settings?.bankAccountNumber && <p><span className="font-medium">Account Number:</span> {settings.bankAccountNumber}</p>}
+              {settings?.bankSortCode && <p><span className="font-medium">Sort Code:</span> {settings.bankSortCode}</p>}
+            </div>
           </div>
-        </div>
+        )}
         
         <div className="overflow-x-auto mb-8">
           <table className="min-w-full divide-y divide-gray-200 border">
             <thead>
               <tr 
                 className="text-white"
-                style={{ backgroundColor: templateConfig.colors.primary }}
+                style={{ 
+                  backgroundColor: currentTemplate === 'media' ? '#8B1538' : templateConfig.colors.primary 
+                }}
               >
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider border-r border-gray-300">Week</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider border-r border-gray-300">Description</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider border-r border-gray-300">Hours</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider border-r border-gray-300">Rate</th>
@@ -687,17 +790,6 @@ export default function InvoicePreview({
             <tbody className="bg-white divide-y divide-gray-200">
               {reportData.weeklyData.map((weekData: any) => (
                 <>
-                  <tr key={`week-${weekData.weekNumber}`} className="bg-gray-50 font-medium">
-                    <td colSpan={4} className="px-6 py-2 text-sm text-gray-900 border-r">
-                      {weekData.weekLabel}
-                    </td>
-                    <td className="px-6 py-2 text-sm text-gray-900 text-right">
-                      {client?.currency 
-                        ? formatCurrency(weekData.totalAmount, client.currency)
-                        : `$${weekData.totalAmount.toFixed(2)}`}
-                    </td>
-                  </tr>
-                  
                   {weekData.entries
                     .filter((entry: any) => 
                       client && entry.client && entry.client.id === client.id
@@ -708,9 +800,6 @@ export default function InvoicePreview({
                         data-entry-id={entry.id}
                         data-edited-duration={editableEntries.find(e => e.id === entry.id)?.editedDuration || entry.duration}
                         data-edited-amount={editableEntries.find(e => e.id === entry.id)?.amount || entry.amount}>
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 border-r">
-                          Week {weekData.weekNumber}
-                        </td>
                         <td className="px-6 py-3 text-sm text-gray-900 border-r">
                           {entry.description} ({format(new Date(entry.date), "MMM d")})
                         </td>
