@@ -493,35 +493,164 @@ export default function InvoicePreview({
     );
   }
   
+  // Get the selected template from settings
+  const currentTemplate = settings?.invoiceTemplate || 'professional';
+  
+  // Template configurations
+  const templateConfigs = {
+    professional: {
+      headerStyle: "border-b border-gray-300 pb-4 mb-8",
+      titleSize: "text-3xl",
+      colors: { primary: settings?.invoiceColorTheme || "#1f2937", accent: settings?.invoiceAccentColor || "#3b82f6" }
+    },
+    modern: {
+      headerStyle: "relative mb-8",
+      titleSize: "text-4xl",
+      colors: { primary: settings?.invoiceColorTheme || "#1f2937", accent: settings?.invoiceAccentColor || "#3b82f6" }
+    },
+    classic: {
+      headerStyle: "text-center border-b border-gray-300 pb-6 mb-8",
+      titleSize: "text-2xl",
+      colors: { primary: settings?.invoiceColorTheme || "#1f2937", accent: settings?.invoiceAccentColor || "#3b82f6" }
+    },
+    minimal: {
+      headerStyle: "border-b border-gray-200 pb-4 mb-6",
+      titleSize: "text-xl",
+      colors: { primary: settings?.invoiceColorTheme || "#1f2937", accent: settings?.invoiceAccentColor || "#3b82f6" }
+    },
+    media: {
+      headerStyle: "bg-gradient-to-r border-4 border-gray-800 p-6 mb-8",
+      titleSize: "text-4xl",
+      colors: { primary: settings?.invoiceColorTheme || "#991b1b", accent: settings?.invoiceAccentColor || "#ef4444" }
+    }
+  };
+  
+  const templateConfig = templateConfigs[currentTemplate as keyof typeof templateConfigs] || templateConfigs.professional;
+
   return (
     <div className="bg-white shadow rounded-lg mb-6">
       <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-        <h2 className="text-lg font-medium text-gray-900">Invoice Preview</h2>
+        <h2 className="text-lg font-medium text-gray-900">Invoice Preview - {currentTemplate.charAt(0).toUpperCase() + currentTemplate.slice(1)} Template</h2>
         <p className="mt-1 text-sm text-gray-500">{invoiceNumber}</p>
       </div>
       
       <div className="p-6">
-        <div className="mb-8 flex justify-between">
-          <div>
-            <div className="text-gray-900 font-medium">From</div>
-            <div className="text-sm text-gray-600 mt-2">
-              <p>{settings.businessName}</p>
-              <p>{settings.businessAddress}</p>
-              <p>{settings.businessCity}, {settings.businessState} {settings.businessZipCode}</p>
-              <p>{settings.businessEmail}</p>
-              <p>Tax ID: {settings.businessTaxId}</p>
+        {/* Modern Template with Gradient Header */}
+        {currentTemplate === 'modern' && (
+          <div 
+            className="w-full text-white p-6 mb-8 rounded-lg"
+            style={{ 
+              background: `linear-gradient(135deg, ${templateConfig.colors.primary}, ${templateConfig.colors.accent})` 
+            }}
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                {settings?.showBusinessName !== false && (
+                  <h1 className="text-3xl font-bold mb-2">
+                    {settings?.businessName?.toUpperCase() || "YOUR BUSINESS NAME"}
+                  </h1>
+                )}
+                {settings?.showCompanyDetails !== false && (
+                  <div className="text-sm opacity-90">
+                    {settings?.businessAddress && <div>{settings.businessAddress}</div>}
+                    {settings?.businessCity && (
+                      <div>{settings.businessCity}, {settings.businessState} {settings.businessZipCode}</div>
+                    )}
+                    {settings?.businessEmail && <div>{settings.businessEmail}</div>}
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="text-xl font-bold mb-2">INV #{invoiceNumber}</div>
+                <div className="text-sm">
+                  <div>Issued: {issueDate}</div>
+                  {showDueDate && <div>Due: {dueDate}</div>}
+                </div>
+              </div>
             </div>
           </div>
-          
-          <div className="text-right">
-            <div className="text-gray-900 font-medium">To</div>
-            <div className="text-sm text-gray-600 mt-2">
-              <p>{client.name}</p>
-              <p>{client.address}</p>
-              <p>{client.city}, {client.state} {client.zipCode}</p>
-              <p>{client.email}</p>
-              {client.taxId && <p>Tax ID: {client.taxId}</p>}
-            </div>
+        )}
+        
+        {/* Standard Header for Other Templates */}
+        {currentTemplate !== 'modern' && (
+          <div className={templateConfig.headerStyle}>
+            {currentTemplate === 'classic' ? (
+              // Classic centered layout
+              <div className="text-center">
+                <h1 
+                  className={`${templateConfig.titleSize} font-bold mb-4`}
+                  style={{ color: templateConfig.colors.primary }}
+                >
+                  INVOICE
+                </h1>
+                {settings?.showBusinessName !== false && (
+                  <div 
+                    className="text-xl font-bold mb-4"
+                    style={{ color: templateConfig.colors.primary }}
+                  >
+                    {settings?.businessName || "Your Business Name"}
+                  </div>
+                )}
+                <div className="text-sm text-gray-600 mb-4">
+                  <div>Invoice #{invoiceNumber}</div>
+                  <div>Date: {issueDate}</div>
+                  {showDueDate && <div>Due: {dueDate}</div>}
+                </div>
+              </div>
+            ) : (
+              // Professional and Minimal side-by-side layout
+              <div className="flex justify-between items-start">
+                <div>
+                  {settings?.showBusinessName !== false && (
+                    <h2 
+                      className="text-xl font-bold mb-2"
+                      style={{ color: templateConfig.colors.primary }}
+                    >
+                      {settings?.businessName || "Your Business Name"}
+                    </h2>
+                  )}
+                  {settings?.showCompanyDetails !== false && (
+                    <div className="text-sm text-gray-600">
+                      {settings?.businessAddress && <div>{settings.businessAddress}</div>}
+                      {settings?.businessCity && (
+                        <div>{settings.businessCity}, {settings.businessState} {settings.businessZipCode}</div>
+                      )}
+                      {settings?.businessEmail && <div>{settings.businessEmail}</div>}
+                    </div>
+                  )}
+                </div>
+                <div className="text-right">
+                  <h1 
+                    className={`${templateConfig.titleSize} font-bold mb-2`}
+                    style={{ color: templateConfig.colors.primary }}
+                  >
+                    INVOICE
+                  </h1>
+                  <div className="text-sm text-gray-600">
+                    <div>Invoice #{invoiceNumber}</div>
+                    <div>Date: {issueDate}</div>
+                    {showDueDate && <div>Due: {dueDate}</div>}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Client Information */}
+        <div className="mb-8">
+          <div 
+            className="text-lg font-medium mb-2"
+            style={{ color: templateConfig.colors.primary }}
+          >
+            Bill To:
+          </div>
+          <div className="text-sm text-gray-600">
+            <p className="font-medium">{client.name}</p>
+            {client.address && <p>{client.address}</p>}
+            {client.city && <p>{client.city}, {client.state} {client.zipCode}</p>}
+            {client.email && <p>{client.email}</p>}
+            {client.taxId && <p>Tax ID: {client.taxId}</p>}
           </div>
         </div>
         

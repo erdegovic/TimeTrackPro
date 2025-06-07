@@ -438,19 +438,35 @@ function generateTimeEntriesTable({
         editedAmount: entry.editedAmount
       });
       
-      // Enhanced duration parsing
+      // Enhanced duration parsing with better handling of numeric types
       let duration = 0;
       
+      console.log(`PDF - Processing entry ${entry.id} duration options:`, {
+        editedDuration: entry.editedDuration,
+        adjustedDuration: entry.adjustedDuration,
+        duration: entry.duration,
+        durationString: entry.durationString,
+        types: {
+          editedDuration: typeof entry.editedDuration,
+          adjustedDuration: typeof entry.adjustedDuration,
+          duration: typeof entry.duration
+        }
+      });
+      
       // Priority order: editedDuration > adjustedDuration > duration
-      if (entry.editedDuration !== undefined && entry.editedDuration !== null) {
-        duration = parseFloat(String(entry.editedDuration));
-      } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
-        duration = parseFloat(String(entry.adjustedDuration));
-      } else if (entry.duration !== undefined && entry.duration !== null) {
-        duration = parseFloat(String(entry.duration));
+      if (entry.editedDuration !== undefined && entry.editedDuration !== null && entry.editedDuration !== '') {
+        const parsed = typeof entry.editedDuration === 'number' ? entry.editedDuration : parseFloat(String(entry.editedDuration));
+        if (!isNaN(parsed)) duration = parsed;
+      } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null && entry.adjustedDuration !== '') {
+        const parsed = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
+        if (!isNaN(parsed)) duration = parsed;
+      } else if (entry.duration !== undefined && entry.duration !== null && entry.duration !== '') {
+        // Handle both numeric and string duration values from database
+        const parsed = typeof entry.duration === 'number' ? entry.duration : parseFloat(String(entry.duration));
+        if (!isNaN(parsed)) duration = parsed;
       }
       
-      // Ensure duration is valid
+      // Ensure duration is valid and positive
       if (isNaN(duration) || duration < 0) {
         duration = 0;
       }
