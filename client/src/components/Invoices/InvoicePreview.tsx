@@ -573,65 +573,65 @@ export default function InvoicePreview({
           </div>
         )}
         
-        {/* Media Template with Burgundy Header and Barcode */}
+        {/* Media Template - Exact copy from Settings Preview */}
         {currentTemplate === 'media' && (
-          <div className="w-full mb-8">
-            {/* Header with burgundy background */}
+          <div className="w-full">
+            {/* Colored top bar like in settings */}
             <div 
-              className="w-full text-white p-6 mb-6"
-              style={{ backgroundColor: '#8B1538' }}
-            >
-              <div className="flex justify-between items-start">
-                <div>
+              className="w-full h-2"
+              style={{ 
+                background: `linear-gradient(to right, ${templateConfig.colors.primary}, ${templateConfig.colors.accent})`
+              }}
+            ></div>
+            
+            {/* Content with padding like settings preview */}
+            <div className="p-10">
+              {/* Header section exactly like settings */}
+              <div className="flex justify-between items-start mb-8">
+                <div className="company-info">
                   {settings?.showBusinessName !== false && (
-                    <h1 className="text-4xl font-bold mb-2 tracking-wider">
-                      {(settings?.businessName?.toUpperCase() || "AE PRODUCTIONS")}
+                    <h1 className="text-4xl font-bold mb-2" style={{ color: templateConfig.colors.primary }}>
+                      {settings?.businessName?.toUpperCase() || "AE PRODUCTIONS"}
                     </h1>
                   )}
-                  <div className="text-sm opacity-90">
-                    Professional media services
-                  </div>
+                  <p className="text-gray-600 mb-1">Professional media services</p>
+                  {settings?.showCompanyDetails !== false && (
+                    <div className="text-sm text-gray-600 space-y-1">
+                      {settings?.businessAddress && <div>{settings.businessAddress}</div>}
+                      <div>
+                        {[settings?.businessCity, settings?.businessState, settings?.businessZipCode]
+                          .filter(Boolean).join(", ")}
+                      </div>
+                      {settings?.businessEmail && <div>{settings.businessEmail}</div>}
+                      {settings?.businessPhone && <div>{settings.businessPhone}</div>}
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-bold mb-2">INV #{invoiceNumber}</div>
-                  <div className="text-sm">
+                  <div className="text-2xl font-bold mb-2" style={{ color: templateConfig.colors.primary }}>
+                    INV #{invoiceNumber}
+                  </div>
+                  <div className="text-sm text-gray-600">
                     Date: {issueDate}
                     {showDueDate && <div>Due: {dueDate}</div>}
                   </div>
                 </div>
               </div>
-            </div>
-            
-            {/* Business Details */}
-            <div className="flex justify-between mb-6">
-              <div>
-                {settings?.showCompanyDetails !== false && (
-                  <div className="text-sm text-gray-600">
-                    {settings?.businessAddress && <div>{settings.businessAddress}</div>}
-                    {settings?.businessCity && (
-                      <div>{settings.businessCity}, {settings.businessState} {settings.businessZipCode}</div>
-                    )}
-                    {settings?.businessEmail && <div>{settings.businessEmail}</div>}
-                    {settings?.businessPhone && <div>{settings.businessPhone}</div>}
-                  </div>
-                )}
-              </div>
               
-              {/* Barcode graphic */}
-              <div className="flex items-center">
-                <svg width="200" height="30" viewBox="0 0 200 30" className="opacity-80">
-                  <g fill="#000">
-                    {Array.from({ length: 50 }, (_, i) => (
-                      <rect 
-                        key={i} 
-                        x={i * 4} 
-                        y="0" 
-                        width={Math.random() > 0.5 ? 2 : 1} 
-                        height="30"
-                      />
-                    ))}
-                  </g>
-                </svg>
+              {/* Barcode graphic at bottom like in settings */}
+              <div className="mt-8 flex justify-center">
+                <div className="flex space-x-1 h-8">
+                  {[...Array(60)].map((_, i) => (
+                    <div 
+                      key={i} 
+                      className="bg-black"
+                      style={{ 
+                        width: Math.random() > 0.5 ? '2px' : '1px',
+                        height: '100%'
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           </div>
