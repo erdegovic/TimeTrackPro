@@ -788,80 +788,72 @@ export default function InvoicePreview({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {reportData.weeklyData.map((weekData: any) => (
-                <>
-                  {weekData.entries
-                    .filter((entry: any) => 
-                      client && entry.client && entry.client.id === client.id
-                    )
-                    .map((entry: any, index: number) => (
-                      <tr 
-                        key={`entry-${entry.id}-${index}`}
-                        data-entry-id={entry.id}
-                        data-edited-duration={editableEntries.find(e => e.id === entry.id)?.editedDuration || entry.duration}
-                        data-edited-amount={editableEntries.find(e => e.id === entry.id)?.amount || entry.amount}>
-                        <td className="px-6 py-3 text-sm text-gray-900 border-r">
-                          {entry.description} ({format(new Date(entry.date), "MMM d")})
-                        </td>
-                        <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900 border-r">
-                          {(() => {
-                            // Get the actual duration value - use the same logic as the PDF generator
-                            let duration = 0;
-                            const editedEntry = editableEntries.find(e => e.id === entry.id);
-                            
-                            if (editedEntry?.editedDuration !== undefined) {
-                              duration = typeof editedEntry.editedDuration === 'number' ? editedEntry.editedDuration : parseFloat(String(editedEntry.editedDuration));
-                            } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
-                              duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
-                            } else if (entry.duration !== undefined && entry.duration !== null) {
-                              duration = typeof entry.duration === 'number' ? entry.duration : parseFloat(String(entry.duration));
-                            }
-                            
-                            // Ensure valid number
-                            if (isNaN(duration) || duration < 0) duration = 0;
-                            
-                            console.log(`Preview - Entry ${entry.id}: duration=${duration}, original=${entry.duration}, adjusted=${entry.adjustedDuration}`);
-                            
-                            return isEditing ? (
-                              <input
-                                type="text"
-                                className="w-24 h-8 p-1 text-sm font-mono border rounded"
-                                defaultValue={formatTime(duration, reportData.timeFormat as TimeFormat)}
-                                onBlur={(e) => {
-                                  const timeValue = e.target.value;
-                                  const durationInHours = parseTime(timeValue, reportData.timeFormat as TimeFormat);
-                                  updateEntryDuration(entry.id, durationInHours, reportData.timeFormat as TimeFormat);
-                                }}
-                              />
-                            ) : (
-                              formatTime(duration, reportData.timeFormat as TimeFormat)
-                            );
-                          })()}
-                        </td>
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 border-r">
-                          {client?.currency 
-                            ? formatCurrency(parseFloat(entry.hourlyRate), client.currency)
-                            : `$${parseFloat(entry.hourlyRate).toFixed(2)}`}
-                        </td>
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {client?.currency 
-                            ? formatCurrency(
-                                editableEntries.find(e => e.id === entry.id)?.amount
-                                  ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
-                                  : parseFloat(entry.amount),
-                                client.currency
-                              )
-                            : `$${(
-                                editableEntries.find(e => e.id === entry.id)?.amount
-                                  ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
-                                  : parseFloat(entry.amount)
-                              ).toFixed(2)}`}
-                        </td>
-                      </tr>
-                    ))
+              {reportData.timeEntries
+                .filter((entry: any) => client && entry.client && entry.client.id === client.id)
+                .map((entry: any, index: number) => {
+                  // Get the actual duration value - use the same logic as the PDF generator
+                  let duration = 0;
+                  const editedEntry = editableEntries.find(e => e.id === entry.id);
+                  
+                  if (editedEntry?.editedDuration !== undefined) {
+                    duration = typeof editedEntry.editedDuration === 'number' ? editedEntry.editedDuration : parseFloat(String(editedEntry.editedDuration));
+                  } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
+                    duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
+                  } else if (entry.duration !== undefined && entry.duration !== null) {
+                    duration = typeof entry.duration === 'number' ? entry.duration : parseFloat(String(entry.duration));
                   }
-                </>
-              ))}
+                  
+                  // Ensure valid number
+                  if (isNaN(duration) || duration < 0) duration = 0;
+
+                  return (
+                    <tr 
+                      key={`entry-${entry.id}-${index}`}
+                      data-entry-id={entry.id}
+                      data-edited-duration={duration}
+                      data-edited-amount={editableEntries.find(e => e.id === entry.id)?.amount || entry.amount}
+                    >
+                      <td className="px-6 py-3 text-sm text-gray-900 border-r">
+                        {entry.description} ({format(new Date(entry.date), "MMM d")})
+                      </td>
+                      <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900 border-r">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            className="w-24 h-8 p-1 text-sm font-mono border rounded"
+                            defaultValue={formatTime(duration, reportData.timeFormat as TimeFormat)}
+                            onBlur={(e) => {
+                              const timeValue = e.target.value;
+                              const durationInHours = parseTime(timeValue, reportData.timeFormat as TimeFormat);
+                              updateEntryDuration(entry.id, durationInHours, reportData.timeFormat as TimeFormat);
+                            }}
+                          />
+                        ) : (
+                          formatTime(duration, reportData.timeFormat as TimeFormat)
+                        )}
+                      </td>
+                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 border-r">
+                        {client?.currency 
+                          ? formatCurrency(parseFloat(entry.hourlyRate), client.currency)
+                          : `$${parseFloat(entry.hourlyRate).toFixed(2)}`}
+                      </td>
+                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {client?.currency 
+                          ? formatCurrency(
+                              editableEntries.find(e => e.id === entry.id)?.amount
+                                ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
+                                : parseFloat(entry.amount),
+                              client.currency
+                            )
+                          : `$${(
+                              editableEntries.find(e => e.id === entry.id)?.amount
+                                ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
+                                : parseFloat(entry.amount)
+                            ).toFixed(2)}`}
+                      </td>
+                    </tr>
+                  );
+                })}
               
               <tr className="bg-gray-100 font-medium">
                 <td colSpan={2} className="px-6 py-3 text-sm text-gray-900 border-r">Subtotal</td>
@@ -873,7 +865,6 @@ export default function InvoicePreview({
                     reportData.timeFormat as TimeFormat
                   )}
                 </td>
-                <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900 border-r"></td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                   {client?.currency
                     ? formatCurrency(subtotal > 0 ? subtotal : reportData.totalAmount, client.currency)
