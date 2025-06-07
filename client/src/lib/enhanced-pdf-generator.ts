@@ -203,6 +203,88 @@ function generateInvoicePdf({
     }
     
     yPosition = headerHeight + 20;
+  } else if (template === 'media') {
+    // Media template with burgundy header and barcode
+    const headerHeight = 60;
+    const burgundyColor = { r: 139, g: 21, b: 56 }; // #8B1538
+    
+    // Create burgundy background header
+    doc.setFillColor(burgundyColor.r, burgundyColor.g, burgundyColor.b);
+    doc.rect(0, 0, doc.internal.pageSize.width, headerHeight, 'F');
+    
+    // Company name in white - large and bold
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(fontSize + 14);
+    doc.setFont("helvetica", "bold");
+    if (settings.showBusinessName !== false) {
+      doc.text(settings.businessName?.toUpperCase() || "AE PRODUCTIONS", 20, 30);
+    }
+    
+    // Professional media services subtitle
+    doc.setFontSize(fontSize - 2);
+    doc.setFont("helvetica", "normal");
+    doc.text("Professional media services", 20, 40);
+    
+    // Invoice details on the right in white
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(fontSize + 6);
+    doc.setFont("helvetica", "bold");
+    doc.text(`INV #${invoiceNumber || invoice?.invoiceNumber || "1001"}`, doc.internal.pageSize.width - 20, 30, { align: "right" });
+    
+    doc.setFontSize(fontSize);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Date: ${issueDate || format(new Date(), 'yyyy-MM-dd')}`, doc.internal.pageSize.width - 20, 40, { align: "right" });
+    
+    if (showDueDateOption && dueDate) {
+      doc.text(`Due: ${dueDate}`, doc.internal.pageSize.width - 20, 47, { align: "right" });
+    }
+    
+    yPosition = headerHeight + 10;
+    
+    // Business details below header
+    if (settings.showCompanyDetails !== false) {
+      doc.setTextColor(textColor.r, textColor.g, textColor.b);
+      doc.setFontSize(fontSize - 2);
+      doc.setFont("helvetica", "normal");
+      
+      if (settings.businessAddress) {
+        doc.text(settings.businessAddress, 20, yPosition);
+        yPosition += 5;
+      }
+      
+      const cityStateZip = [settings.businessCity, settings.businessState, settings.businessZipCode]
+        .filter(Boolean).join(", ");
+      if (cityStateZip) {
+        doc.text(cityStateZip, 20, yPosition);
+        yPosition += 5;
+      }
+      
+      if (settings.businessEmail) {
+        doc.text(settings.businessEmail, 20, yPosition);
+        yPosition += 5;
+      }
+      
+      if (settings.businessPhone) {
+        doc.text(settings.businessPhone, 20, yPosition);
+        yPosition += 5;
+      }
+    }
+    
+    // Add barcode-style graphic
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    const barcodeY = yPosition + 5;
+    const barcodeStartX = doc.internal.pageSize.width - 60;
+    
+    // Generate barcode pattern
+    for (let i = 0; i < 30; i++) {
+      const lineWidth = Math.random() > 0.5 ? 1 : 0.5;
+      const lineHeight = Math.random() > 0.3 ? 8 : 5;
+      doc.setLineWidth(lineWidth);
+      doc.line(barcodeStartX + i * 2, barcodeY, barcodeStartX + i * 2, barcodeY + lineHeight);
+    }
+    
+    yPosition = barcodeY + 15;
   } else {
     // Standard header for other templates
     yPosition = generateStandardHeader({

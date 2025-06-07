@@ -535,67 +535,7 @@ export default function InvoicePreview({
       </div>
       
       <div className="p-6">
-        {/* Media Template with Special Layout */}
-        {currentTemplate === 'media' && (
-          <div className="mb-8">
-            {/* Header with Company Name */}
-            <div className="mb-6">
-              <h1 
-                className="text-5xl font-bold tracking-wider"
-                style={{ color: '#8B1538' }}
-              >
-                {settings?.businessName?.toUpperCase() || "AE PRODUCTIONS"}
-              </h1>
-              <div className="text-sm text-gray-600 mt-2">
-                Professional media services
-              </div>
-            </div>
-            
-            {/* Invoice Number and Date in Top Right */}
-            <div className="flex justify-between items-start mb-6">
-              <div></div>
-              <div className="text-right">
-                <div 
-                  className="text-2xl font-bold mb-1"
-                  style={{ color: '#8B1538' }}
-                >
-                  INV #{invoiceNumber}
-                </div>
-                <div className="text-sm text-gray-600">
-                  Date: {issueDate}
-                </div>
-              </div>
-            </div>
-            
-            {/* Business Address */}
-            {settings?.showCompanyDetails !== false && (
-              <div className="text-sm text-gray-600 mb-6">
-                {settings?.businessAddress && <div>{settings.businessAddress}</div>}
-                {settings?.businessCity && (
-                  <div>{settings.businessCity}, {settings.businessState} {settings.businessZipCode}</div>
-                )}
-                {settings?.businessEmail && <div>{settings.businessEmail}</div>}
-                {settings?.businessPhone && <div>{settings.businessPhone}</div>}
-              </div>
-            )}
-            
-            {/* Barcode-style Graphic */}
-            <div className="mb-8">
-              <div className="flex space-x-1 h-8">
-                {[...Array(40)].map((_, i) => (
-                  <div 
-                    key={i} 
-                    className="bg-gray-800"
-                    style={{ 
-                      width: Math.random() > 0.5 ? '3px' : '1px',
-                      height: Math.random() > 0.3 ? '100%' : '60%'
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+
         
         {/* Modern Template with Gradient Header */}
         {currentTemplate === 'modern' && (
@@ -628,6 +568,70 @@ export default function InvoicePreview({
                   <div>Issued: {issueDate}</div>
                   {showDueDate && <div>Due: {dueDate}</div>}
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Media Template with Burgundy Header and Barcode */}
+        {currentTemplate === 'media' && (
+          <div className="w-full mb-8">
+            {/* Header with burgundy background */}
+            <div 
+              className="w-full text-white p-6 mb-6"
+              style={{ backgroundColor: '#8B1538' }}
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  {settings?.showBusinessName !== false && (
+                    <h1 className="text-4xl font-bold mb-2 tracking-wider">
+                      {(settings?.businessName?.toUpperCase() || "AE PRODUCTIONS")}
+                    </h1>
+                  )}
+                  <div className="text-sm opacity-90">
+                    Professional media services
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold mb-2">INV #{invoiceNumber}</div>
+                  <div className="text-sm">
+                    Date: {issueDate}
+                    {showDueDate && <div>Due: {dueDate}</div>}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Business Details */}
+            <div className="flex justify-between mb-6">
+              <div>
+                {settings?.showCompanyDetails !== false && (
+                  <div className="text-sm text-gray-600">
+                    {settings?.businessAddress && <div>{settings.businessAddress}</div>}
+                    {settings?.businessCity && (
+                      <div>{settings.businessCity}, {settings.businessState} {settings.businessZipCode}</div>
+                    )}
+                    {settings?.businessEmail && <div>{settings.businessEmail}</div>}
+                    {settings?.businessPhone && <div>{settings.businessPhone}</div>}
+                  </div>
+                )}
+              </div>
+              
+              {/* Barcode graphic */}
+              <div className="flex items-center">
+                <svg width="200" height="30" viewBox="0 0 200 30" className="opacity-80">
+                  <g fill="#000">
+                    {Array.from({ length: 50 }, (_, i) => (
+                      <rect 
+                        key={i} 
+                        x={i * 4} 
+                        y="0" 
+                        width={Math.random() > 0.5 ? 2 : 1} 
+                        height="30"
+                      />
+                    ))}
+                  </g>
+                </svg>
               </div>
             </div>
           </div>
