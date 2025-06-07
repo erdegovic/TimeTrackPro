@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { generateEnhancedInvoicePDF, generateInvoiceCSV, EnhancedInvoiceData } from "@/lib/enhanced-pdf-generator";
+import { generatePdf } from "@/lib/enhanced-pdf-generator";
 import { Invoice, Client, Settings } from "@shared/schema";
 // Make sure to use relative path for imports
 import InvoiceEditView from "../components/Invoices/InvoiceEditView";

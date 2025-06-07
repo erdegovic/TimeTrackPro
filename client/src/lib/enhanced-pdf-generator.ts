@@ -1,421 +1,615 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { TimeEntry, Client, Settings, Invoice } from "@shared/schema";
+import { formatTime, formatCurrency, convertCurrency } from "@/lib/utils/timeUtils";
 import { format } from "date-fns";
-import { Settings } from "@shared/schema";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
-export interface EnhancedInvoiceData {
-  invoice: {
-    id: number;
-    invoiceNumber: string;
-    issueDate: string;
-    dueDate: string;
-    status: string;
-    notes?: string;
-    subtotal: string;
-    tax?: string;
-    taxRate?: string;
-    total: string;
-  };
-  client: {
-    id: number;
-    name: string;
-    email?: string;
-    address?: string;
-    city?: string;
-    state?: string;
-    zipCode?: string;
-    country?: string;
-    phone?: string;
-    taxId?: string;
-  };
-  timeEntries: Array<{
-    id: number;
-    description: string;
-    duration: number;
-    amount: number;
-    date: string;
-    weekLabel?: string;
-    project: {
-      name: string;
-      hourlyRate: string;
-    };
-  }>;
-  weeklyGroups: Array<{
-    weekLabel: string;
-    entries: Array<{
-      id: number;
-      description: string;
-      duration: number;
-      amount: number;
-      date: string;
-    }>;
-    totalHours: number;
-    totalAmount: number;
-  }>;
-  timeAdjustment?: {
-    increaseByPercentage: boolean;
-    percentage: number;
-    roundToNearestTenth: boolean;
-  };
-  settings: Settings;
-}
+type PdfOptions = {
+  filename: string;
+  type: "report" | "invoice";
+  showDueDate?: boolean;
+} & (
+  | {
+      type: "report";
+      reportData: any;
+      filters: any;
+    }
+  | {
+      type: "invoice";
+      invoice?: Invoice;
+      reportData?: any;
+      client: Client;
+      settings: Settings;
+      invoiceNumber?: string;
+      issueDate?: string;
+      dueDate?: string;
+      notes?: string;
+    }
+);
 
-export function generateEnhancedInvoicePDF(data: EnhancedInvoiceData): void {
-  const { invoice, client, timeEntries, weeklyGroups, timeAdjustment, settings } = data;
+// Template configurations
+const invoiceTemplates = {
+  professional: {
+    headerStyle: "border-b border-gray-300 pb-4",
+    titleSize: "text-3xl",
+    spacing: "mb-8",
+    colors: { primary: "#1f2937", accent: "#3b82f6" }
+  },
+  modern: {
+    headerStyle: "relative",
+    titleSize: "text-4xl",
+    spacing: "mb-8",
+    colors: { primary: "#1f2937", accent: "#3b82f6" }
+  },
+  classic: {
+    headerStyle: "text-center border-b border-gray-300 pb-6",
+    titleSize: "text-2xl",
+    spacing: "mb-8",
+    colors: { primary: "#1f2937", accent: "#3b82f6" }
+  },
+  minimal: {
+    headerStyle: "border-b border-gray-200 pb-4",
+    titleSize: "text-xl",
+    spacing: "mb-6",
+    colors: { primary: "#1f2937", accent: "#3b82f6" }
+  },
+  media: {
+    headerStyle: "bg-gradient-to-r border-4 border-gray-800 p-6",
+    titleSize: "text-4xl",
+    spacing: "mb-8",
+    colors: { primary: "#991b1b", accent: "#ef4444" }
+  }
+};
 
-  // Create PDF with custom settings
+/**
+ * Enhanced PDF generator with proper template support and duration parsing
+ */
+export async function generatePdf(options: PdfOptions): Promise<void> {
   const doc = new jsPDF();
   
-  // Apply custom colors and fonts
-  const primaryColor = hexToRgb(settings.invoiceColorTheme || "#1f2937");
-  const accentColor = hexToRgb(settings.invoiceAccentColor || "#3b82f6");
+  console.log("Enhanced PDF Generation - Starting with options:", {
+    type: options.type,
+    filename: options.filename,
+    hasInvoice: options.type === 'invoice' && !!(options as any).invoice,
+    hasReportData: !!options.reportData,
+    timeEntriesCount: options.reportData?.timeEntries?.length || 0,
+    template: options.type === 'invoice' ? (options as any).settings?.invoiceTemplate : 'N/A'
+  });
+  
+  if (options.type === "invoice") {
+    const invoiceOptions = options as Extract<PdfOptions, { type: "invoice" }>;
+    generateInvoicePdf({
+      doc,
+      autoTable,
+      client: invoiceOptions.client,
+      settings: invoiceOptions.settings,
+      invoice: invoiceOptions.invoice,
+      reportData: invoiceOptions.reportData,
+      invoiceNumber: invoiceOptions.invoiceNumber,
+      issueDate: invoiceOptions.issueDate,
+      dueDate: invoiceOptions.dueDate,
+      notes: invoiceOptions.notes,
+      showDueDateOption: invoiceOptions.showDueDate
+    });
+  } else {
+    const reportOptions = options as Extract<PdfOptions, { type: "report" }>;
+    generateReportPdf({
+      doc,
+      autoTable,
+      reportData: reportOptions.reportData,
+      filters: reportOptions.filters
+    });
+  }
+
+  doc.save(options.filename);
+}
+
+/**
+ * Generates an invoice PDF with proper template styling
+ */
+function generateInvoicePdf({
+  doc,
+  autoTable,
+  client,
+  settings,
+  invoice,
+  reportData,
+  invoiceNumber,
+  issueDate,
+  dueDate,
+  notes,
+  showDueDateOption
+}: {
+  doc: jsPDF;
+  autoTable: any;
+  client: Client;
+  settings: Settings;
+  invoice?: Invoice;
+  reportData?: any;
+  invoiceNumber?: string;
+  issueDate?: string;
+  dueDate?: string;
+  notes?: string;
+  showDueDateOption?: boolean;
+}) {
+  const template = settings.invoiceTemplate || 'professional';
+  const templateConfig = invoiceTemplates[template as keyof typeof invoiceTemplates] || invoiceTemplates.professional;
+  
+  console.log("Generating invoice PDF with template:", template);
+  
+  // Parse colors from settings
+  const primaryColor = hexToRgb(settings.invoiceColorTheme || templateConfig.colors.primary);
+  const accentColor = hexToRgb(settings.invoiceAccentColor || templateConfig.colors.accent);
   const textColor = hexToRgb(settings.invoiceTextColor || "#374151");
   const backgroundColor = hexToRgb(settings.invoiceBackgroundColor || "#ffffff");
   
   const fontSize = parseInt(settings.customFontSize || "12");
-  
-  // Set background color if not white
-  if (settings.invoiceBackgroundColor && settings.invoiceBackgroundColor !== "#ffffff") {
-    doc.setFillColor(backgroundColor.r, backgroundColor.g, backgroundColor.b);
-    doc.rect(0, 0, doc.internal.pageSize.width, doc.internal.pageSize.height, 'F');
-  }
-
   let yPosition = 20;
-
-  // Company Logo
-  if (settings.showLogo && settings.companyLogo) {
-    try {
-      // Add logo (max height 30)
-      doc.addImage(settings.companyLogo, 'JPEG', 20, yPosition, 0, 30);
-      yPosition += 40;
-    } catch (error) {
-      console.warn("Could not add logo to PDF:", error);
-      yPosition += 10;
+  
+  // Modern template with gradient header
+  if (template === 'modern') {
+    // Create gradient-like header using rectangles
+    const headerHeight = 60;
+    doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.rect(0, 0, doc.internal.pageSize.width, headerHeight, 'F');
+    
+    // Gradient effect with accent color
+    doc.setFillColor(accentColor.r, accentColor.g, accentColor.b);
+    doc.rect(0, headerHeight * 0.6, doc.internal.pageSize.width, headerHeight * 0.4, 'F');
+    
+    // Company name in white
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(fontSize + 10);
+    doc.setFont("helvetica", "bold");
+    if (settings.showBusinessName !== false) {
+      doc.text(settings.businessName?.toUpperCase() || "YOUR BUSINESS NAME", 20, 25);
     }
-  }
-
-  // Company Information
-  if (settings.showCompanyDetails) {
-    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    
+    // Company details in smaller white text
+    if (settings.showCompanyDetails !== false) {
+      doc.setFontSize(fontSize - 2);
+      doc.setFont("helvetica", "normal");
+      let detailY = 35;
+      
+      if (settings.businessAddress) {
+        doc.text(settings.businessAddress, 20, detailY);
+        detailY += 5;
+      }
+      
+      const cityStateZip = [settings.businessCity, settings.businessState, settings.businessZipCode]
+        .filter(Boolean).join(", ");
+      if (cityStateZip) {
+        doc.text(cityStateZip, 20, detailY);
+        detailY += 5;
+      }
+      
+      if (settings.businessEmail) {
+        doc.text(settings.businessEmail, 20, detailY);
+      }
+    }
+    
+    // Invoice details on the right
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(fontSize + 4);
     doc.setFont("helvetica", "bold");
-    doc.text(settings.businessName || "Your Business", 20, yPosition);
-    yPosition += 8;
+    doc.text(`INV #${invoiceNumber || invoice?.invoiceNumber || "1001"}`, doc.internal.pageSize.width - 20, 25, { align: "right" });
+    
+    doc.setFontSize(fontSize);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Issued: ${issueDate || format(new Date(), 'yyyy-MM-dd')}`, doc.internal.pageSize.width - 20, 35, { align: "right" });
+    
+    if (showDueDateOption && dueDate) {
+      doc.text(`Due: ${dueDate}`, doc.internal.pageSize.width - 20, 42, { align: "right" });
+    }
+    
+    yPosition = headerHeight + 20;
+  } else {
+    // Standard header for other templates
+    yPosition = generateStandardHeader({
+      doc,
+      settings,
+      client,
+      template,
+      templateConfig,
+      primaryColor,
+      textColor,
+      fontSize,
+      invoiceNumber: invoiceNumber || invoice?.invoiceNumber,
+      issueDate,
+      dueDate,
+      showDueDateOption
+    });
+  }
+  
+  // Client details section
+  yPosition = generateClientSection({
+    doc,
+    client,
+    yPosition,
+    primaryColor,
+    textColor,
+    fontSize
+  });
+  
+  // Time entries table
+  generateTimeEntriesTable({
+    doc,
+    autoTable,
+    reportData,
+    invoice,
+    client,
+    settings,
+    yPosition,
+    primaryColor,
+    textColor,
+    fontSize
+  });
+  
+  // Footer notes
+  if (notes || settings.invoiceFooterText) {
+    generateFooterNotes({
+      doc,
+      notes: notes || settings.invoiceFooterText || "",
+      textColor,
+      fontSize
+    });
+  }
+}
 
+/**
+ * Generates standard header for non-modern templates
+ */
+function generateStandardHeader({
+  doc,
+  settings,
+  client,
+  template,
+  templateConfig,
+  primaryColor,
+  textColor,
+  fontSize,
+  invoiceNumber,
+  issueDate,
+  dueDate,
+  showDueDateOption
+}: any) {
+  let yPosition = 20;
+  
+  // Logo
+  if (settings.showLogo && settings.companyLogo) {
+    try {
+      const logoSize = parseInt(settings.logoSize || "64");
+      doc.addImage(settings.companyLogo, 'PNG', 20, yPosition, logoSize * 0.75, logoSize * 0.75);
+      yPosition += logoSize * 0.75 + 10;
+    } catch (error) {
+      console.warn("Could not add logo to PDF:", error);
+    }
+  }
+  
+  // Company name and details
+  if (template === 'classic') {
+    // Centered layout for classic template
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.setFontSize(fontSize + 8);
+    doc.setFont("helvetica", "bold");
+    doc.text("INVOICE", doc.internal.pageSize.width / 2, yPosition, { align: "center" });
+    yPosition += 15;
+    
+    if (settings.showBusinessName !== false) {
+      doc.setFontSize(fontSize + 4);
+      doc.text(settings.businessName || "Your Business Name", doc.internal.pageSize.width / 2, yPosition, { align: "center" });
+      yPosition += 10;
+    }
+  } else {
+    // Side-by-side layout for professional and minimal
+    if (settings.showBusinessName !== false) {
+      doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+      doc.setFontSize(fontSize + 4);
+      doc.setFont("helvetica", "bold");
+      doc.text(settings.businessName || "Your Business Name", 20, yPosition);
+      yPosition += 12;
+    }
+    
+    // Invoice title on the right
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.setFontSize(fontSize + 8);
+    doc.setFont("helvetica", "bold");
+    doc.text("INVOICE", doc.internal.pageSize.width - 20, 20, { align: "right" });
+  }
+  
+  // Company details
+  if (settings.showCompanyDetails !== false) {
     doc.setTextColor(textColor.r, textColor.g, textColor.b);
     doc.setFontSize(fontSize);
     doc.setFont("helvetica", "normal");
-
+    
     if (settings.businessAddress) {
       doc.text(settings.businessAddress, 20, yPosition);
       yPosition += 6;
     }
-
+    
     const cityStateZip = [settings.businessCity, settings.businessState, settings.businessZipCode]
       .filter(Boolean).join(", ");
     if (cityStateZip) {
       doc.text(cityStateZip, 20, yPosition);
       yPosition += 6;
     }
-
-    if (settings.businessCountry) {
-      doc.text(settings.businessCountry, 20, yPosition);
-      yPosition += 6;
-    }
-
+    
     if (settings.businessEmail) {
       doc.text(`Email: ${settings.businessEmail}`, 20, yPosition);
       yPosition += 6;
     }
-
+    
     if (settings.businessPhone) {
       doc.text(`Phone: ${settings.businessPhone}`, 20, yPosition);
       yPosition += 6;
     }
-
-    if (settings.businessTaxId) {
-      doc.text(`Tax ID: ${settings.businessTaxId}`, 20, yPosition);
-      yPosition += 6;
-    }
   }
-
-  // Invoice Title and Details (Right Side)
-  const rightColumnX = 120;
-  let rightYPosition = settings.showLogo && settings.companyLogo ? 60 : 20;
-
-  doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-  doc.setFontSize(fontSize + 8);
-  doc.setFont("helvetica", "bold");
-  doc.text("INVOICE", rightColumnX, rightYPosition, { align: "left" });
-  rightYPosition += 12;
-
+  
+  // Invoice details on the right
   doc.setTextColor(textColor.r, textColor.g, textColor.b);
   doc.setFontSize(fontSize);
   doc.setFont("helvetica", "normal");
-
-  doc.text(`Invoice #: ${invoice.invoiceNumber}`, rightColumnX, rightYPosition);
-  rightYPosition += 6;
-  doc.text(`Date: ${format(new Date(invoice.issueDate), "MMM dd, yyyy")}`, rightColumnX, rightYPosition);
-  rightYPosition += 6;
-
-  if (settings.showDueDate && invoice.dueDate) {
-    doc.text(`Due: ${format(new Date(invoice.dueDate), "MMM dd, yyyy")}`, rightColumnX, rightYPosition);
-    rightYPosition += 6;
-  }
-
-  // Client Information
-  yPosition = Math.max(yPosition + 10, rightYPosition + 10);
   
-  doc.setTextColor(accentColor.r, accentColor.g, accentColor.b);
+  let rightY = template === 'classic' ? yPosition : 40;
+  doc.text(`Invoice #: ${invoiceNumber || "1001"}`, doc.internal.pageSize.width - 20, rightY, { align: "right" });
+  rightY += 8;
+  
+  doc.text(`Date: ${issueDate || format(new Date(), 'yyyy-MM-dd')}`, doc.internal.pageSize.width - 20, rightY, { align: "right" });
+  rightY += 8;
+  
+  if (showDueDateOption && dueDate) {
+    doc.text(`Due: ${dueDate}`, doc.internal.pageSize.width - 20, rightY, { align: "right" });
+  }
+  
+  return Math.max(yPosition + 20, rightY + 20);
+}
+
+/**
+ * Generates client details section
+ */
+function generateClientSection({
+  doc,
+  client,
+  yPosition,
+  primaryColor,
+  textColor,
+  fontSize
+}: any) {
+  doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
   doc.setFontSize(fontSize + 2);
   doc.setFont("helvetica", "bold");
   doc.text("Bill To:", 20, yPosition);
-  yPosition += 8;
-
+  yPosition += 10;
+  
   doc.setTextColor(textColor.r, textColor.g, textColor.b);
   doc.setFontSize(fontSize);
   doc.setFont("helvetica", "normal");
-
-  doc.text(client.name, 20, yPosition);
-  yPosition += 6;
-
+  
+  doc.text(client.name || "Client Name", 20, yPosition);
+  yPosition += 8;
+  
+  if (client.email) {
+    doc.text(client.email, 20, yPosition);
+    yPosition += 6;
+  }
+  
   if (client.address) {
     doc.text(client.address, 20, yPosition);
     yPosition += 6;
   }
-
-  const clientCityState = [client.city, client.state, client.zipCode].filter(Boolean).join(", ");
-  if (clientCityState) {
-    doc.text(clientCityState, 20, yPosition);
-    yPosition += 6;
-  }
-
-  if (client.country) {
-    doc.text(client.country, 20, yPosition);
-    yPosition += 6;
-  }
-
-  if (client.email) {
-    doc.text(`Email: ${client.email}`, 20, yPosition);
-    yPosition += 6;
-  }
-
-  yPosition += 10;
-
-  // Time Entries Table
-  const tableColumns = [
-    { header: "Description", dataKey: "description" },
-    { header: "Date", dataKey: "date" },
-    { header: "Hours", dataKey: "hours" },
-    { header: "Rate", dataKey: "rate" },
-    { header: "Amount", dataKey: "amount" },
-  ];
-
-  // Prepare table data by weeks
-  const tableData: any[] = [];
-
-  weeklyGroups.forEach((week, weekIndex) => {
-    // Add week header
-    if (weeklyGroups.length > 1) {
-      tableData.push({
-        description: week.weekLabel,
-        date: "",
-        hours: "",
-        rate: "",
-        amount: "",
-        isWeekHeader: true,
-      });
-    }
-
-    // Add entries for this week
-    week.entries.forEach((entry) => {
-      tableData.push({
-        description: entry.description,
-        date: format(new Date(entry.date), "MMM dd"),
-        hours: entry.duration.toFixed(2),
-        rate: `${settings.displayCurrency}${parseFloat(entry.project?.hourlyRate || "0").toFixed(2)}`,
-        amount: `${settings.displayCurrency}${entry.amount.toFixed(2)}`,
-        isWeekHeader: false,
-      });
-    });
-
-    // Add week subtotal
-    if (weeklyGroups.length > 1) {
-      tableData.push({
-        description: "",
-        date: "",
-        hours: week.totalHours.toFixed(2),
-        rate: "Subtotal:",
-        amount: `${settings.displayCurrency}${week.totalAmount.toFixed(2)}`,
-        isSubtotal: true,
-      });
-    }
-  });
-
-  // Add time adjustment note if applicable
-  if (timeAdjustment?.increaseByPercentage && timeAdjustment.percentage > 0) {
-    tableData.push({
-      description: `Time adjustment: +${timeAdjustment.percentage}% increase`,
-      date: "",
-      hours: "",
-      rate: "",
-      amount: "",
-      isNote: true,
-    });
-  }
-
-  autoTable(doc, {
-    startY: yPosition,
-    head: [tableColumns.map(col => col.header)],
-    body: tableData.map(row => [
-      row.description,
-      row.date,
-      row.hours,
-      row.rate,
-      row.amount,
-    ]),
-    styles: {
-      fontSize: fontSize - 1,
-      textColor: [textColor.r, textColor.g, textColor.b],
-    },
-    headStyles: {
-      fillColor: [accentColor.r, accentColor.g, accentColor.b],
-      textColor: [255, 255, 255],
-      fontStyle: "bold",
-    },
-    didParseCell: function(data) {
-      const rowData = tableData[data.row.index];
-      
-      if (rowData?.isWeekHeader) {
-        data.cell.styles.fillColor = [primaryColor.r, primaryColor.g, primaryColor.b];
-        data.cell.styles.textColor = [255, 255, 255];
-        data.cell.styles.fontStyle = "bold";
-      } else if (rowData?.isSubtotal) {
-        data.cell.styles.fillColor = [240, 240, 240];
-        data.cell.styles.fontStyle = "bold";
-      } else if (rowData?.isNote) {
-        data.cell.styles.fillColor = [255, 255, 240];
-        data.cell.styles.fontStyle = "italic";
-      }
-    },
-    columnStyles: {
-      0: { cellWidth: 70 },
-      1: { cellWidth: 25, halign: "center" },
-      2: { cellWidth: 20, halign: "right" },
-      3: { cellWidth: 25, halign: "right" },
-      4: { cellWidth: 30, halign: "right" },
-    },
-  });
-
-  // Calculate totals position
-  const finalY = (doc as any).lastAutoTable.finalY + 15;
-
-  // Totals section
-  const totalsX = 140;
-  let totalsY = finalY;
-
-  doc.setFontSize(fontSize);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(textColor.r, textColor.g, textColor.b);
-
-  doc.text("Subtotal:", totalsX, totalsY);
-  doc.text(`${settings.displayCurrency}${invoice.subtotal}`, totalsX + 30, totalsY, { align: "right" });
-  totalsY += 6;
-
-  if (settings.enableTax && invoice.tax && parseFloat(invoice.tax) > 0) {
-    const taxLabel = invoice.taxRate ? `Tax (${invoice.taxRate}%):` : "Tax:";
-    doc.text(taxLabel, totalsX, totalsY);
-    doc.text(`${settings.displayCurrency}${invoice.tax}`, totalsX + 30, totalsY, { align: "right" });
-    totalsY += 6;
-  }
-
-  // Total
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(fontSize + 2);
-  doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-  doc.text("Total:", totalsX, totalsY);
-  doc.text(`${settings.displayCurrency}${invoice.total}`, totalsX + 30, totalsY, { align: "right" });
-  totalsY += 10;
-
-  // Banking Information
-  if (settings.showBankDetails && (settings.bankName || settings.bankAccountNumber)) {
-    totalsY += 10;
-    
-    doc.setFontSize(fontSize + 1);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(accentColor.r, accentColor.g, accentColor.b);
-    doc.text("Payment Details:", 20, totalsY);
-    totalsY += 8;
-
-    doc.setFontSize(fontSize);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(textColor.r, textColor.g, textColor.b);
-
-    if (settings.bankName) {
-      doc.text(`Bank: ${settings.bankName}`, 20, totalsY);
-      totalsY += 6;
-    }
-
-    if (settings.bankAccountName) {
-      doc.text(`Account Name: ${settings.bankAccountName}`, 20, totalsY);
-      totalsY += 6;
-    }
-
-    if (settings.bankAccountNumber) {
-      doc.text(`Account Number: ${settings.bankAccountNumber}`, 20, totalsY);
-      totalsY += 6;
-    }
-
-    if (settings.bankSortCode) {
-      doc.text(`Sort Code: ${settings.bankSortCode}`, 20, totalsY);
-      totalsY += 6;
-    }
-  }
-
-  // Notes
-  if (invoice.notes && invoice.notes.trim()) {
-    totalsY += 10;
-    
-    doc.setFontSize(fontSize + 1);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(accentColor.r, accentColor.g, accentColor.b);
-    doc.text("Notes:", 20, totalsY);
-    totalsY += 8;
-
-    doc.setFontSize(fontSize);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(textColor.r, textColor.g, textColor.b);
-    
-    const notesLines = doc.splitTextToSize(invoice.notes, 170);
-    doc.text(notesLines, 20, totalsY);
-    totalsY += notesLines.length * 6;
-  }
-
-  // Footer text
-  if (settings.invoiceFooterText && settings.invoiceFooterText.trim()) {
-    const pageHeight = doc.internal.pageSize.height;
-    const footerY = Math.max(totalsY + 20, pageHeight - 30);
-    
-    doc.setFontSize(fontSize - 1);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(textColor.r, textColor.g, textColor.b);
-    
-    const footerLines = doc.splitTextToSize(settings.invoiceFooterText, 170);
-    const footerStartY = footerY - (footerLines.length * 5);
-    
-    // Add a line above footer
-    doc.setDrawColor(accentColor.r, accentColor.g, accentColor.b);
-    doc.line(20, footerStartY - 5, 190, footerStartY - 5);
-    
-    doc.text(footerLines, doc.internal.pageSize.width / 2, footerStartY, { align: "center" });
-  }
-
-  // Save the PDF
-  const fileName = `Invoice-${invoice.invoiceNumber}.pdf`;
-  doc.save(fileName);
+  
+  return yPosition + 20;
 }
 
-// Helper function to convert hex to RGB
+/**
+ * Generates time entries table with proper duration parsing
+ */
+function generateTimeEntriesTable({
+  doc,
+  autoTable,
+  reportData,
+  invoice,
+  client,
+  settings,
+  yPosition,
+  primaryColor,
+  textColor,
+  fontSize
+}: any) {
+  const tableContent: any[] = [];
+  let subtotal = 0;
+  let totalHours = 0;
+  
+  const currencySymbol = settings.displayCurrency === 'GBP' ? '£' : 
+                        settings.displayCurrency === 'EUR' ? '€' : '$';
+  
+  console.log("Processing time entries for PDF table...");
+  
+  if (reportData?.timeEntries) {
+    reportData.timeEntries.forEach((entry: any, index: number) => {
+      console.log(`Processing entry ${index + 1}/${reportData.timeEntries.length}:`, {
+        id: entry.id,
+        description: entry.description,
+        duration: entry.duration,
+        adjustedDuration: entry.adjustedDuration,
+        editedDuration: entry.editedDuration,
+        amount: entry.amount,
+        editedAmount: entry.editedAmount
+      });
+      
+      // Enhanced duration parsing
+      let duration = 0;
+      
+      // Priority order: editedDuration > adjustedDuration > duration
+      if (entry.editedDuration !== undefined && entry.editedDuration !== null) {
+        duration = parseFloat(String(entry.editedDuration));
+      } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
+        duration = parseFloat(String(entry.adjustedDuration));
+      } else if (entry.duration !== undefined && entry.duration !== null) {
+        duration = parseFloat(String(entry.duration));
+      }
+      
+      // Ensure duration is valid
+      if (isNaN(duration) || duration < 0) {
+        duration = 0;
+      }
+      
+      console.log(`Entry ${entry.id} - Final duration: ${duration}`);
+      
+      // Get hourly rate
+      let hourlyRate = 0;
+      if (entry.project?.hourlyRate) {
+        hourlyRate = parseFloat(String(entry.project.hourlyRate));
+      } else if (entry.hourlyRate) {
+        hourlyRate = parseFloat(String(entry.hourlyRate));
+      } else if (client.hourlyRate) {
+        hourlyRate = parseFloat(String(client.hourlyRate));
+      }
+      
+      // Calculate amount
+      let amount = 0;
+      if (entry.editedAmount !== undefined && entry.editedAmount !== null) {
+        amount = parseFloat(String(entry.editedAmount));
+      } else if (entry.amount !== undefined && entry.amount !== null) {
+        amount = parseFloat(String(entry.amount));
+      } else {
+        amount = duration * hourlyRate;
+      }
+      
+      // Ensure amount is valid
+      if (isNaN(amount) || amount < 0) {
+        amount = 0;
+      }
+      
+      console.log(`Entry ${entry.id} - Final amount: ${amount}`);
+      
+      tableContent.push([
+        entry.description || "No description",
+        formatTime(duration, reportData.timeFormat || 'decimal'),
+        `${currencySymbol}${hourlyRate.toFixed(2)}`,
+        `${currencySymbol}${amount.toFixed(2)}`
+      ]);
+      
+      subtotal += amount;
+      totalHours += duration;
+    });
+  }
+  
+  console.log(`PDF Table Summary - Total hours: ${totalHours}, Subtotal: ${subtotal}`);
+  
+  // Generate the table
+  autoTable(doc, {
+    startY: yPosition,
+    head: [['Description', 'Hours', 'Rate', 'Amount']],
+    body: tableContent,
+    styles: {
+      fontSize: fontSize - 1,
+      textColor: [textColor.r, textColor.g, textColor.b]
+    },
+    headStyles: {
+      fillColor: [primaryColor.r, primaryColor.g, primaryColor.b],
+      textColor: [255, 255, 255],
+      fontSize: fontSize,
+      fontStyle: 'bold'
+    },
+    columnStyles: {
+      1: { halign: 'center' },
+      2: { halign: 'right' },
+      3: { halign: 'right' }
+    },
+    margin: { left: 20, right: 20 }
+  });
+  
+  // Add totals
+  const finalY = (doc as any).lastAutoTable.finalY + 10;
+  
+  doc.setTextColor(textColor.r, textColor.g, textColor.b);
+  doc.setFontSize(fontSize);
+  doc.setFont("helvetica", "normal");
+  
+  const rightAlign = doc.internal.pageSize.width - 20;
+  
+  doc.text(`Total Hours: ${formatTime(totalHours, reportData?.timeFormat || 'decimal')}`, rightAlign, finalY, { align: 'right' });
+  doc.text(`Subtotal: ${currencySymbol}${subtotal.toFixed(2)}`, rightAlign, finalY + 8, { align: 'right' });
+  
+  // Tax calculation if enabled
+  if (settings.enableTax && settings.defaultTaxRate) {
+    const taxRate = parseFloat(settings.defaultTaxRate) / 100;
+    const taxAmount = subtotal * taxRate;
+    const total = subtotal + taxAmount;
+    
+    doc.text(`Tax (${settings.defaultTaxRate}%): ${currencySymbol}${taxAmount.toFixed(2)}`, rightAlign, finalY + 16, { align: 'right' });
+    
+    doc.setFont("helvetica", "bold");
+    doc.text(`Total: ${currencySymbol}${total.toFixed(2)}`, rightAlign, finalY + 24, { align: 'right' });
+  } else {
+    doc.setFont("helvetica", "bold");
+    doc.text(`Total: ${currencySymbol}${subtotal.toFixed(2)}`, rightAlign, finalY + 16, { align: 'right' });
+  }
+}
+
+/**
+ * Generates footer notes
+ */
+function generateFooterNotes({
+  doc,
+  notes,
+  textColor,
+  fontSize
+}: any) {
+  const pageHeight = doc.internal.pageSize.height;
+  const footerY = pageHeight - 40;
+  
+  doc.setTextColor(textColor.r, textColor.g, textColor.b);
+  doc.setFontSize(fontSize - 1);
+  doc.setFont("helvetica", "normal");
+  
+  // Strip HTML tags and split into lines
+  const cleanNotes = notes.replace(/<[^>]*>/g, '');
+  const noteLines = doc.splitTextToSize(cleanNotes, doc.internal.pageSize.width - 40);
+  
+  noteLines.forEach((line: string, index: number) => {
+    doc.text(line, 20, footerY + (index * 6));
+  });
+}
+
+/**
+ * Generates a report PDF
+ */
+function generateReportPdf({
+  doc,
+  autoTable,
+  reportData,
+  filters
+}: {
+  doc: jsPDF;
+  autoTable: any;
+  reportData: any;
+  filters: any;
+}) {
+  // Implementation for report PDF generation
+  doc.setFontSize(20);
+  doc.text("Time Tracking Report", 20, 20);
+  
+  // Add report content here
+  const tableContent = reportData.timeEntries.map((entry: any) => [
+    entry.description,
+    formatTime(parseFloat(String(entry.duration || 0)), filters.timeFormat || 'decimal'),
+    entry.project?.name || "No project",
+    entry.client?.name || "No client"
+  ]);
+  
+  autoTable(doc, {
+    startY: 40,
+    head: [['Description', 'Duration', 'Project', 'Client']],
+    body: tableContent
+  });
+}
+
+/**
+ * Helper function to convert hex color to RGB
+ */
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result ? {
@@ -423,84 +617,4 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
     g: parseInt(result[2], 16),
     b: parseInt(result[3], 16)
   } : { r: 0, g: 0, b: 0 };
-}
-
-// CSV Export Function
-export function generateInvoiceCSV(data: EnhancedInvoiceData): void {
-  const { invoice, client, timeEntries, settings } = data;
-
-  const csvData: string[] = [];
-  
-  // Header information
-  csvData.push("Invoice Export");
-  csvData.push("");
-  csvData.push(`Invoice Number,${invoice.invoiceNumber}`);
-  csvData.push(`Issue Date,${format(new Date(invoice.issueDate), "yyyy-MM-dd")}`);
-  csvData.push(`Due Date,${invoice.dueDate ? format(new Date(invoice.dueDate), "yyyy-MM-dd") : "N/A"}`);
-  csvData.push(`Status,${invoice.status}`);
-  csvData.push("");
-  
-  // Client information
-  csvData.push("Client Information");
-  csvData.push(`Name,${client.name}`);
-  csvData.push(`Email,${client.email || "N/A"}`);
-  csvData.push(`Address,${client.address || "N/A"}`);
-  csvData.push(`City,${client.city || "N/A"}`);
-  csvData.push(`State,${client.state || "N/A"}`);
-  csvData.push(`ZIP Code,${client.zipCode || "N/A"}`);
-  csvData.push(`Country,${client.country || "N/A"}`);
-  csvData.push(`Phone,${client.phone || "N/A"}`);
-  csvData.push("");
-  
-  // Time entries header
-  csvData.push("Time Entries");
-  csvData.push("Description,Date,Hours,Rate,Amount,Week,Project");
-  
-  // Time entries data
-  timeEntries.forEach(entry => {
-    const rate = parseFloat(entry.project?.hourlyRate || "0");
-    csvData.push([
-      `"${entry.description}"`,
-      format(new Date(entry.date), "yyyy-MM-dd"),
-      entry.duration.toFixed(2),
-      rate.toFixed(2),
-      entry.amount.toFixed(2),
-      `"${entry.weekLabel || ""}"`,
-      `"${entry.project?.name || ""}"`
-    ].join(","));
-  });
-  
-  csvData.push("");
-  
-  // Totals
-  csvData.push("Summary");
-  csvData.push(`Subtotal,${invoice.subtotal}`);
-  if (settings.enableTax && invoice.tax) {
-    csvData.push(`Tax,${invoice.tax}`);
-    if (invoice.taxRate) {
-      csvData.push(`Tax Rate,${invoice.taxRate}%`);
-    }
-  }
-  csvData.push(`Total,${invoice.total}`);
-  
-  if (invoice.notes) {
-    csvData.push("");
-    csvData.push("Notes");
-    csvData.push(`"${invoice.notes}"`);
-  }
-
-  // Create and download CSV
-  const csvContent = csvData.join("\n");
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const link = document.createElement("a");
-  
-  if (link.download !== undefined) {
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Invoice-${invoice.invoiceNumber}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
 }

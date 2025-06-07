@@ -37,7 +37,7 @@ export async function generatePdf(options: PdfOptions): Promise<void> {
   console.log("PDF Generation - Starting with options:", JSON.stringify({
     type: options.type,
     filename: options.filename,
-    hasInvoice: !!options.type === 'invoice' && !!(options as any).invoice,
+    hasInvoice: options.type === 'invoice' && !!(options as any).invoice,
     hasReportData: !!options.reportData,
     timeEntriesCount: options.reportData?.timeEntries?.length || 0
   }));
@@ -526,8 +526,16 @@ function generateInvoicePdf(options: {
           let duration = 0;
           if (entry.editedDuration !== undefined && entry.editedDuration !== null) {
             duration = typeof entry.editedDuration === 'string' ? parseFloat(entry.editedDuration) : entry.editedDuration;
+          } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
+            duration = typeof entry.adjustedDuration === 'string' ? parseFloat(entry.adjustedDuration) : entry.adjustedDuration;
           } else if (entry.duration !== undefined && entry.duration !== null) {
-            duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : entry.duration;
+            // Handle both string and numeric duration values
+            duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : parseFloat(String(entry.duration));
+          }
+          
+          // Ensure duration is a valid number
+          if (isNaN(duration)) {
+            duration = 0;
           }
           
           console.log(`PDF Weekly - Entry ${entry.id}: duration=${entry.duration}, editedDuration=${entry.editedDuration}, calculated=${duration}`);
@@ -572,8 +580,16 @@ function generateInvoicePdf(options: {
         let duration = 0;
         if (entry.editedDuration !== undefined && entry.editedDuration !== null) {
           duration = typeof entry.editedDuration === 'string' ? parseFloat(entry.editedDuration) : entry.editedDuration;
+        } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
+          duration = typeof entry.adjustedDuration === 'string' ? parseFloat(entry.adjustedDuration) : entry.adjustedDuration;
         } else if (entry.duration !== undefined && entry.duration !== null) {
-          duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : entry.duration;
+          // Handle both string and numeric duration values
+          duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : parseFloat(String(entry.duration));
+        }
+        
+        // Ensure duration is a valid number
+        if (isNaN(duration)) {
+          duration = 0;
         }
         
         console.log(`PDF Direct - Entry ${entry.id}: duration=${entry.duration}, editedDuration=${entry.editedDuration}, calculated=${duration}`);
