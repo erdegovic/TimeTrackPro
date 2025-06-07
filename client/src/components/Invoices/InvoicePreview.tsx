@@ -654,35 +654,34 @@ export default function InvoicePreview({
           </div>
         </div>
         
-        <div className="mb-8 flex justify-between">
-          <div>
-            <div className="text-gray-900 font-medium">Invoice Details</div>
-            <div className="text-sm text-gray-600 mt-2">
-              <p><span className="text-gray-500">Invoice Number:</span> {invoiceNumber}</p>
-              <p><span className="text-gray-500">Issue Date:</span> {issueDate}</p>
-              {showDueDate && <p><span className="text-gray-500">Due Date:</span> {dueDate}</p>}
-            </div>
+        {/* Payment Details Section */}
+        <div className="mb-8">
+          <div 
+            className="text-lg font-medium mb-2"
+            style={{ color: templateConfig.colors.primary }}
+          >
+            Payment Details:
           </div>
-          
-          <div className="text-right">
-            <div className="text-gray-900 font-medium">Payment Details</div>
-            <div className="text-sm text-gray-600 mt-2">
-              <p><span className="text-gray-500">Bank Name:</span> {settings.bankName}</p>
-              <p><span className="text-gray-500">Account Name:</span> {settings.bankAccountName}</p>
-              <p><span className="text-gray-500">Account Number:</span> {settings.bankAccountNumber}</p>
-            </div>
+          <div className="text-sm text-gray-600">
+            {settings?.bankName && <p><span className="font-medium">Bank:</span> {settings.bankName}</p>}
+            {settings?.bankAccountName && <p><span className="font-medium">Account Name:</span> {settings.bankAccountName}</p>}
+            {settings?.bankAccountNumber && <p><span className="font-medium">Account Number:</span> {settings.bankAccountNumber}</p>}
+            {settings?.bankSortCode && <p><span className="font-medium">Sort Code:</span> {settings.bankSortCode}</p>}
           </div>
         </div>
         
         <div className="overflow-x-auto mb-8">
           <table className="min-w-full divide-y divide-gray-200 border">
             <thead>
-              <tr className="bg-gray-50">
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r">Week</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r">Description</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r">Hours</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r">Rate</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+              <tr 
+                className="text-white"
+                style={{ backgroundColor: templateConfig.colors.primary }}
+              >
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider border-r border-gray-300">Week</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider border-r border-gray-300">Description</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider border-r border-gray-300">Hours</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider border-r border-gray-300">Rate</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Amount</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
