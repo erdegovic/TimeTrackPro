@@ -586,15 +586,31 @@ export default function SettingsPage() {
       
       form.reset(formData);
       
-      // Auto-apply bold red theme for media template
-      if (formData.invoiceTemplate === "media") {
-        const boldRedPalette = colorPalettes.find(p => p.name === "Bold Red");
-        if (boldRedPalette) {
-          form.setValue("invoiceColorTheme", boldRedPalette.primary);
-          form.setValue("invoiceAccentColor", boldRedPalette.accent);
-          form.setValue("invoiceTextColor", boldRedPalette.text);
-          form.setValue("invoiceBackgroundColor", boldRedPalette.background);
-        }
+      // Auto-apply template-specific color themes
+      let targetPalette;
+      switch (formData.invoiceTemplate) {
+        case "professional":
+          targetPalette = colorPalettes.find(p => p.name === "Elegant Black");
+          break;
+        case "modern":
+          targetPalette = colorPalettes.find(p => p.name === "Professional Blue");
+          break;
+        case "classic":
+          targetPalette = colorPalettes.find(p => p.name === "Professional Blue");
+          break;
+        case "minimal":
+          targetPalette = colorPalettes.find(p => p.name === "Elegant Black");
+          break;
+        case "media":
+          targetPalette = colorPalettes.find(p => p.name === "Bold Red");
+          break;
+      }
+      
+      if (targetPalette) {
+        form.setValue("invoiceColorTheme", targetPalette.primary);
+        form.setValue("invoiceAccentColor", targetPalette.accent);
+        form.setValue("invoiceTextColor", targetPalette.text);
+        form.setValue("invoiceBackgroundColor", targetPalette.background);
       }
       
       if (settings.companyLogo) {
