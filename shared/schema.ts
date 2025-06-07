@@ -157,6 +157,8 @@ export const settings = pgTable("settings", {
   // Invoice customization fields
   companyLogo: text("company_logo"), // Base64 encoded image
   showLogo: boolean("show_logo").default(true),
+  logoSize: text("logo_size").default("64"), // Logo height in pixels
+  showBusinessName: boolean("show_business_name").default(true),
   invoiceColorTheme: text("invoice_color_theme").default("#1f2937"), // Primary color
   invoiceAccentColor: text("invoice_accent_color").default("#3b82f6"), // Accent color
   invoiceTextColor: text("invoice_text_color").default("#374151"), // Text color

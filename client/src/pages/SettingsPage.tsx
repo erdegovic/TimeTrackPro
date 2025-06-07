@@ -570,6 +570,8 @@ export default function SettingsPage() {
         showDueDate: settings.showDueDate ?? true,
         companyLogo: settings.companyLogo || "",
         showLogo: settings.showLogo ?? true,
+        logoSize: settings.logoSize || "64",
+        showBusinessName: settings.showBusinessName ?? true,
         invoiceColorTheme: settings.invoiceColorTheme || "#1f2937",
         invoiceAccentColor: settings.invoiceAccentColor || "#3b82f6",
         invoiceTextColor: settings.invoiceTextColor || "#374151",
@@ -1573,6 +1575,27 @@ export default function SettingsPage() {
                                       <FormLabel className="text-xs font-medium">Show Logo</FormLabel>
                                       <div className="text-xs text-gray-600">
                                         Display logo on invoices
+                                      </div>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name="showBusinessName"
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                      <FormLabel className="text-xs font-medium">Show Business Name</FormLabel>
+                                      <div className="text-xs text-gray-600">
+                                        Display business name on invoices
                                       </div>
                                     </div>
                                     <FormControl>
