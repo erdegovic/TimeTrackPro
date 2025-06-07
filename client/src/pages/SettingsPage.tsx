@@ -1888,14 +1888,22 @@ export default function SettingsPage() {
                       
                       {/* Modern template billing section */}
                       {watchedValues.invoiceTemplate === "modern" && (
-                        <div className="mb-6">
+                        <div className="grid grid-cols-2 gap-8 mb-6">
                           <div className="info-block">
                             <div className="space-y-2">
-                              <div className="font-bold">Bill To:</div>
-                              <div className="text-gray-600">Sample Client</div>
+                              <div className="font-bold">Sample Client</div>
                               <div className="text-gray-600">Attn: Project Manager</div>
                               <div className="text-gray-600">123 Client Street</div>
                               <div className="text-gray-600">Client City, State 12345</div>
+                              <div className="text-gray-600">PO #CLIENT-2023-42</div>
+                            </div>
+                          </div>
+                          
+                          <div className="info-block">
+                            <div className="space-y-2">
+                              <div className="font-bold">Sample Project</div>
+                              <div className="text-gray-600">Time Period: {new Date().toLocaleDateString()}</div>
+                              <div className="text-gray-600">Currency: {watchedValues.displayCurrency}</div>
                             </div>
                           </div>
                         </div>
@@ -2089,6 +2097,12 @@ export default function SettingsPage() {
                       ) : (
                         /* Other Templates Client Information */
                         <div className="mb-6">
+                          <h3 
+                            className="font-semibold mb-2"
+                            style={{ color: watchedValues.invoiceAccentColor }}
+                          >
+                            Bill To:
+                          </h3>
                           <div>
                             <div className="font-medium">Sample Client</div>
                             <div className="text-sm">123 Client Street</div>
