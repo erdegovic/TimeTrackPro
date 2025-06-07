@@ -2089,12 +2089,6 @@ export default function SettingsPage() {
                       ) : (
                         /* Other Templates Client Information */
                         <div className="mb-6">
-                          <h3 
-                            className="font-semibold mb-2"
-                            style={{ color: watchedValues.invoiceAccentColor }}
-                          >
-                            Bill To:
-                          </h3>
                           <div>
                             <div className="font-medium">Sample Client</div>
                             <div className="text-sm">123 Client Street</div>
