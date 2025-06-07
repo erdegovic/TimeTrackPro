@@ -65,6 +65,8 @@ const settingsSchema = z.object({
   // Invoice Customization
   companyLogo: z.string().optional(),
   showLogo: z.boolean().default(true),
+  logoSize: z.string().default("64"),
+  showBusinessName: z.boolean().default(true),
   invoiceColorTheme: z.string().regex(/^#[0-9A-F]{6}$/i, "Invalid hex color"),
   invoiceAccentColor: z.string().regex(/^#[0-9A-F]{6}$/i, "Invalid hex color"),
   invoiceTextColor: z.string().regex(/^#[0-9A-F]{6}$/i, "Invalid hex color"),
@@ -519,6 +521,8 @@ export default function SettingsPage() {
       showDueDate: true,
       companyLogo: "",
       showLogo: true,
+      logoSize: "64",
+      showBusinessName: true,
       invoiceColorTheme: "#1f2937",
       invoiceAccentColor: "#3b82f6",
       invoiceTextColor: "#374151",
@@ -1632,21 +1636,53 @@ export default function SettingsPage() {
                                 />
 
                                 {logoPreview && (
-                                  <div className="relative">
-                                    <img
-                                      src={logoPreview}
-                                      alt="Logo Preview"
-                                      className="w-full max-h-16 object-contain border rounded"
+                                  <div className="space-y-3">
+                                    <div className="relative">
+                                      <img
+                                        src={logoPreview}
+                                        alt="Logo Preview"
+                                        className="w-full object-contain border rounded"
+                                        style={{ maxHeight: `${watchedValues.logoSize}px` }}
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={removeLogo}
+                                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0"
+                                      >
+                                        <X className="h-2 w-2" />
+                                      </Button>
+                                    </div>
+                                    
+                                    <FormField
+                                      control={form.control}
+                                      name="logoSize"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel className="text-xs font-medium">Logo Size</FormLabel>
+                                          <div className="space-y-2">
+                                            <FormControl>
+                                              <input
+                                                type="range"
+                                                min="32"
+                                                max="128"
+                                                step="8"
+                                                value={field.value}
+                                                onChange={(e) => field.onChange(e.target.value)}
+                                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                              />
+                                            </FormControl>
+                                            <div className="flex justify-between text-xs text-gray-500">
+                                              <span>Small (32px)</span>
+                                              <span>{field.value}px</span>
+                                              <span>Large (128px)</span>
+                                            </div>
+                                          </div>
+                                          <FormMessage className="text-xs" />
+                                        </FormItem>
+                                      )}
                                     />
-                                    <Button
-                                      type="button"
-                                      variant="destructive"
-                                      size="sm"
-                                      onClick={removeLogo}
-                                      className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0"
-                                    >
-                                      <X className="h-2 w-2" />
-                                    </Button>
                                   </div>
                                 )}
                               </div>
@@ -1814,9 +1850,11 @@ export default function SettingsPage() {
                           }}
                         >
                           <div className="company-info">
-                            <h1 className="text-4xl font-bold mb-2 tracking-wider">
-                              {watchedValues.businessName?.toUpperCase() || "YOUR BUSINESS NAME"}
-                            </h1>
+                            {watchedValues.showBusinessName && (
+                              <h1 className="text-4xl font-bold mb-2 tracking-wider">
+                                {watchedValues.businessName?.toUpperCase() || "YOUR BUSINESS NAME"}
+                              </h1>
+                            )}
                             <p className="text-lg opacity-90">Professional services and solutions</p>
                           </div>
                           
@@ -1888,9 +1926,11 @@ export default function SettingsPage() {
                           <div className="w-full">
                             <div className="flex justify-between items-start">
                               <div className="company-info">
-                                <h1 className="text-4xl font-bold mb-2" style={{ color: watchedValues.invoiceColorTheme }}>
-                                  {watchedValues.businessName?.toUpperCase() || "YOUR BUSINESS"}
-                                </h1>
+                                {watchedValues.showBusinessName && (
+                                  <h1 className="text-4xl font-bold mb-2" style={{ color: watchedValues.invoiceColorTheme }}>
+                                    {watchedValues.businessName?.toUpperCase() || "YOUR BUSINESS"}
+                                  </h1>
+                                )}
                                 <p className="text-gray-600 mb-1">Professional media services</p>
                                 {watchedValues.showCompanyDetails && (
                                   <div className="text-sm text-gray-600 space-y-1">
@@ -1959,17 +1999,20 @@ export default function SettingsPage() {
                                 <img 
                                   src={logoPreview} 
                                   alt="Company Logo" 
-                                  className="max-h-16 mb-4"
+                                  className="mb-4"
+                                  style={{ maxHeight: `${watchedValues.logoSize}px` }}
                                 />
                               )}
                               {watchedValues.showCompanyDetails && (
                                 <div>
-                                  <h2 
-                                    className="text-xl font-bold mb-2"
-                                    style={{ color: watchedValues.invoiceColorTheme }}
-                                  >
-                                    {watchedValues.businessName || "Your Business Name"}
-                                  </h2>
+                                  {watchedValues.showBusinessName && (
+                                    <h2 
+                                      className="text-xl font-bold mb-2"
+                                      style={{ color: watchedValues.invoiceColorTheme }}
+                                    >
+                                      {watchedValues.businessName || "Your Business Name"}
+                                    </h2>
+                                  )}
                                   <div className="text-sm space-y-1">
                                     {watchedValues.businessAddress && <div>{watchedValues.businessAddress}</div>}
                                     <div>
