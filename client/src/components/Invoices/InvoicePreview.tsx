@@ -818,11 +818,10 @@ export default function InvoicePreview({
                 // Group by week if weekly categorization is enabled and groups exist
                 if (settings?.enableWeeklyCategorization && reportData.groups && reportData.groups.length > 0) {
                   return reportData.groups.map((group: any, groupIndex: number) => {
-                    const groupEntries = filteredEntries.filter((entry: any) => {
-                      // Match entries to weeks using weekLabel or week number/year
+                    // Use entries directly from the group if available, otherwise filter
+                    const groupEntries = group.entries || filteredEntries.filter((entry: any) => {
                       return entry.weekLabel === group.weekLabel || 
-                             (entry.weekNumber === group.weekNumber && entry.year === group.year) ||
-                             (group.entries && group.entries.some((ge: any) => ge.id === entry.id));
+                             (entry.weekNumber === group.weekNumber && entry.year === group.year);
                     });
                     
                     if (groupEntries.length === 0) return null;
@@ -839,7 +838,7 @@ export default function InvoicePreview({
                       </tr>,
                       // Week entries
                       ...groupEntries.map((entry: any, index: number) => {
-                        // Get the actual duration value - use the same logic as the PDF generator
+                        // Get the actual duration value - prioritize the grouped/merged duration
                         let duration = 0;
                         const editedEntry = editableEntries.find(e => e.id === entry.id);
                         
@@ -848,16 +847,24 @@ export default function InvoicePreview({
                         } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
                           duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
                         } else if (entry.duration !== undefined && entry.duration !== null) {
-                          duration = typeof entry.duration === 'number' ? entry.duration : parseFloat(String(entry.duration));
+                          // Handle both string and number duration values from grouped data
+                          duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : entry.duration;
                         }
                         
                         // Ensure valid number
                         if (isNaN(duration) || duration < 0) duration = 0;
+                        
+                        console.log(`Invoice Preview - Entry ${entry.id}: duration=${duration}, sessionCount=${entry.sessionCount}, dateRange=${entry.dateRange}`);
 
                         return (
                           <tr key={`entry-${entry.id}-${index}`} className="border-b border-gray-200">
                             <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
                               {entry.description}
+                              {entry.sessionCount > 1 && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {entry.sessionCount} sessions{entry.dateRange ? ` (${entry.dateRange})` : ''}
+                                </div>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
                               {isEditing ? (
@@ -902,9 +909,9 @@ export default function InvoicePreview({
                     ];
                   }).flat().filter(Boolean);
                 } else {
-                  // Default: show entries without weekly grouping
+                  // Default: show entries without weekly grouping but with description grouping
                   return filteredEntries.map((entry: any, index: number) => {
-                    // Get the actual duration value - use the same logic as the PDF generator
+                    // Get the actual duration value - prioritize the grouped/merged duration
                     let duration = 0;
                     const editedEntry = editableEntries.find(e => e.id === entry.id);
                     
@@ -913,16 +920,24 @@ export default function InvoicePreview({
                     } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
                       duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
                     } else if (entry.duration !== undefined && entry.duration !== null) {
-                      duration = typeof entry.duration === 'number' ? entry.duration : parseFloat(String(entry.duration));
+                      // Handle both string and number duration values from grouped data
+                      duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : entry.duration;
                     }
                     
                     // Ensure valid number
                     if (isNaN(duration) || duration < 0) duration = 0;
+                    
+                    console.log(`Invoice Preview (No Weekly) - Entry ${entry.id}: duration=${duration}, sessionCount=${entry.sessionCount}`);
 
                     return (
                       <tr key={`entry-${entry.id}-${index}`} className="border-b border-gray-200">
                         <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
                           {entry.description}
+                          {entry.sessionCount > 1 && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              {entry.sessionCount} sessions{entry.dateRange ? ` (${entry.dateRange})` : ''}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
                           {isEditing ? (
