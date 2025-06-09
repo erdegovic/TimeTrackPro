@@ -1010,7 +1010,7 @@ export default function SettingsPage() {
                   <Separator />
 
                   <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Tax Settings</h3>
+                    <h3 className="text-lg font-medium">Field Settings</h3>
                     
                     <FormField
                       control={form.control}
@@ -1071,11 +1071,6 @@ export default function SettingsPage() {
                     )}
                   />
 
-                  <Separator />
-
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Report Settings</h3>
-                    
                     <FormField
                       control={form.control}
                       name="enableWeeklyCategorization"
@@ -1117,7 +1112,27 @@ export default function SettingsPage() {
                         </FormItem>
                       )}
                     />
-                  </div>
+                    
+                    <FormField
+                      control={form.control}
+                      name="showHourlyRate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Show Hourly Rate</FormLabel>
+                            <div className="text-sm text-gray-600">
+                              Display the hourly rate column in invoices. When disabled, only time and amounts are shown.
+                            </div>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
                 </CardContent>
               </Card>
 
@@ -1613,26 +1628,7 @@ export default function SettingsPage() {
                                 )}
                               />
 
-                              <FormField
-                                control={form.control}
-                                name="showHourlyRate"
-                                render={({ field }) => (
-                                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                                    <div className="space-y-0.5">
-                                      <FormLabel className="text-xs font-medium">Show Hourly Rate</FormLabel>
-                                      <div className="text-xs text-gray-600">
-                                        Display hourly rate column in invoice tables
-                                      </div>
-                                    </div>
-                                    <FormControl>
-                                      <Switch
-                                        checked={field.value}
-                                        onCheckedChange={field.onChange}
-                                      />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
+
 
                               <div className="space-y-2">
                                 <Button
