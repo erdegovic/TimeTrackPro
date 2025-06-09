@@ -769,22 +769,17 @@ export default function InvoicePreview({
           </div>
         )}
         
-        <div className="overflow-x-auto mb-8">
-          <table className="min-w-full divide-y divide-gray-200 border">
+        <div className={currentTemplate === 'media' ? "mx-10 mb-8" : "mb-8"}>
+          <table className="w-full border-collapse">
             <thead>
-              <tr 
-                className="text-white"
-                style={{ 
-                  backgroundColor: currentTemplate === 'media' ? '#8B1538' : templateConfig.colors.primary 
-                }}
-              >
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider border-r border-gray-300">Description</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider border-r border-gray-300">Hours</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider border-r border-gray-300">Rate</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Amount</th>
+              <tr className="border-b">
+                <th className="text-left py-2 font-medium" style={{ color: templateConfig.colors.primary }}>Description</th>
+                <th className="text-left py-2 font-medium" style={{ color: templateConfig.colors.primary }}>Hours</th>
+                <th className="text-left py-2 font-medium" style={{ color: templateConfig.colors.primary }}>Rate</th>
+                <th className="text-right py-2 font-medium" style={{ color: templateConfig.colors.primary }}>Amount</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody>
               {reportData.timeEntries
                 .filter((entry: any) => client && entry.client && entry.client.id === client.id)
                 .map((entry: any, index: number) => {
@@ -804,20 +799,15 @@ export default function InvoicePreview({
                   if (isNaN(duration) || duration < 0) duration = 0;
 
                   return (
-                    <tr 
-                      key={`entry-${entry.id}-${index}`}
-                      data-entry-id={entry.id}
-                      data-edited-duration={duration}
-                      data-edited-amount={editableEntries.find(e => e.id === entry.id)?.amount || entry.amount}
-                    >
-                      <td className="px-6 py-3 text-sm text-gray-900 border-r">
-                        {entry.description} ({format(new Date(entry.date), "MMM d")})
+                    <tr key={`entry-${entry.id}-${index}`} className="border-b">
+                      <td className="py-2">
+                        {entry.description}
                       </td>
-                      <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900 border-r">
+                      <td className="py-2">
                         {isEditing ? (
                           <input
                             type="text"
-                            className="w-24 h-8 p-1 text-sm font-mono border rounded"
+                            className="w-20 p-1 text-sm border rounded"
                             defaultValue={formatTime(duration, reportData.timeFormat as TimeFormat)}
                             onBlur={(e) => {
                               const timeValue = e.target.value;
@@ -829,12 +819,12 @@ export default function InvoicePreview({
                           formatTime(duration, reportData.timeFormat as TimeFormat)
                         )}
                       </td>
-                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 border-r">
+                      <td className="py-2">
                         {client?.currency 
                           ? formatCurrency(parseFloat(entry.hourlyRate), client.currency)
                           : `$${parseFloat(entry.hourlyRate).toFixed(2)}`}
                       </td>
-                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                      <td className="py-2 text-right">
                         {client?.currency 
                           ? formatCurrency(
                               editableEntries.find(e => e.id === entry.id)?.amount
@@ -852,27 +842,10 @@ export default function InvoicePreview({
                   );
                 })}
               
-              <tr className="bg-gray-100 font-medium">
-                <td colSpan={2} className="px-6 py-3 text-sm text-gray-900 border-r">Subtotal</td>
-                <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900 border-r">
-                  {formatTime(
-                    typeof reportData.totalHours === 'number' 
-                      ? reportData.totalHours 
-                      : parseFloat(reportData.totalHours || '0'), 
-                    reportData.timeFormat as TimeFormat
-                  )}
-                </td>
-                <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                  {client?.currency
-                    ? formatCurrency(subtotal > 0 ? subtotal : reportData.totalAmount, client.currency)
-                    : `$${(subtotal > 0 ? subtotal : reportData.totalAmount).toFixed(2)}`}
-                </td>
-              </tr>
-              
               {/* Additional items */}
               {additionalItems.map(item => (
-                <tr key={`additional-${item.id}`}>
-                  <td colSpan={2} className={`px-6 py-3 text-sm ${isEditing ? "text-blue-600" : "text-gray-900"} border-r`}>
+                <tr key={`additional-${item.id}`} className="border-b">
+                  <td colSpan={2} className={`py-2 ${isEditing ? "text-blue-600" : "text-gray-900"}`}>
                     {isEditing ? (
                       <Input
                         type="text"
@@ -884,8 +857,7 @@ export default function InvoicePreview({
                       item.description
                     )}
                   </td>
-                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900 border-r"></td>
-                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900 border-r">
+                  <td className="py-2">
                     {isEditing && (
                       <Button
                         variant="ghost"
@@ -897,7 +869,7 @@ export default function InvoicePreview({
                       </Button>
                     )}
                   </td>
-                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                  <td className="py-2 text-right">
                     {isEditing ? (
                       <input
                         type="number"
@@ -917,7 +889,7 @@ export default function InvoicePreview({
               {/* Add item button (only visible in edit mode) */}
               {isEditing && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-2 text-center border-t border-dashed">
+                  <td colSpan={4} className="py-2 text-center border-t border-dashed">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -930,29 +902,43 @@ export default function InvoicePreview({
                   </td>
                 </tr>
               )}
-              {/* Only show tax if it's enabled */}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* Consistent Totals Section for All Templates */}
+        <div className={currentTemplate === 'media' ? "mx-10 mb-8" : "mb-8"}>
+          <div className="flex justify-end">
+            <div className="text-right space-y-1 min-w-[200px]">
+              <div className="flex justify-between">
+                <span>Subtotal:</span>
+                <span>
+                  {client?.currency
+                    ? formatCurrency(subtotal > 0 ? subtotal : reportData.totalAmount, client.currency)
+                    : `$${(subtotal > 0 ? subtotal : reportData.totalAmount).toFixed(2)}`}
+                </span>
+              </div>
               {enableTax && (
-                <tr>
-                  <td colSpan={4} className="px-6 py-3 text-sm text-gray-900 text-right border-r">
-                    Tax ({taxRate}%)
-                  </td>
-                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                <div className="flex justify-between">
+                  <span>Tax ({taxRate}%):</span>
+                  <span>
                     {client?.currency
                       ? formatCurrency(reportData.totalAmount * (taxRate / 100), client.currency)
                       : `$${(reportData.totalAmount * (taxRate / 100)).toFixed(2)}`}
-                  </td>
-                </tr>
+                  </span>
+                </div>
               )}
-              <tr className="bg-primary font-semibold">
-                <td colSpan={4} className="px-6 py-3 text-sm text-white text-right border-r">Total Due</td>
-                <td className="px-6 py-3 whitespace-nowrap text-sm text-white">
+              <div className="flex justify-between font-bold pt-2 border-t"
+                   style={{ color: templateConfig.colors.primary }}>
+                <span>Total:</span>
+                <span>
                   {client?.currency
                     ? formatCurrency(total, client.currency)
                     : `$${total.toFixed(2)}`}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
         
         <div className="mb-6">

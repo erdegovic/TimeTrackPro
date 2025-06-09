@@ -2101,96 +2101,56 @@ export default function SettingsPage() {
                         </div>
                       )}
 
-                      {/* Sample invoice content with template styling */}
-                      {watchedValues.invoiceTemplate === "media" ? (
-                        /* Media Template Table */
-                        <div className="mx-10 mb-8">
-                          <table className="w-full border-collapse">
-                            <thead>
-                              <tr className="bg-gray-50 border-b-2 border-gray-200">
-                                <th className="text-left p-4 text-gray-900 font-semibold w-1/2">Description</th>
-                                <th className="text-left p-4 text-gray-900 font-semibold">Hours</th>
-                                <th className="text-left p-4 text-gray-900 font-semibold">Rate</th>
-                                <th className="text-left p-4 text-gray-900 font-semibold">Amount</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr className="border-b border-gray-200">
-                                <td className="p-4">
-                                  <div className="font-semibold">Web Development</div>
-                                  <div className="text-sm uppercase tracking-wide" style={{ color: watchedValues.invoiceColorTheme }}>Sample Project</div>
-                                </td>
-                                <td className="p-4">8.5</td>
-                                <td className="p-4">{watchedValues.displayCurrency}75.00</td>
-                                <td className="p-4">{watchedValues.displayCurrency}637.50</td>
-                              </tr>
-                              <tr className="border-b border-gray-200">
-                                <td className="p-4">
-                                  <div className="font-semibold">Project Planning</div>
-                                  <div className="text-sm uppercase tracking-wide" style={{ color: watchedValues.invoiceColorTheme }}>Sample Project</div>
-                                </td>
-                                <td className="p-4">4.0</td>
-                                <td className="p-4">{watchedValues.displayCurrency}75.00</td>
-                                <td className="p-4">{watchedValues.displayCurrency}300.00</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        /* Other Templates Table */
-                        <div className={`${currentTemplate.borderStyle || ''} py-4 mb-6`}>
-                          <div className="grid grid-cols-4 gap-4 font-semibold text-sm mb-2">
-                            <div style={{ color: watchedValues.invoiceAccentColor }}>Description</div>
-                            <div style={{ color: watchedValues.invoiceAccentColor }}>Hours</div>
-                            <div style={{ color: watchedValues.invoiceAccentColor }}>Rate</div>
-                            <div style={{ color: watchedValues.invoiceAccentColor }} className="text-right">Amount</div>
-                          </div>
-                          <div className="grid grid-cols-4 gap-4 text-sm">
-                            <div>Web Development</div>
-                            <div>8.5</div>
-                            <div>{watchedValues.displayCurrency}75.00</div>
-                            <div className="text-right">{watchedValues.displayCurrency}637.50</div>
-                          </div>
-                        </div>
-                      )}
+                      {/* Consistent Simple Table for All Templates */}
+                      <div className={watchedValues.invoiceTemplate === "media" ? "mx-10 mb-8" : "mb-8"}>
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 font-medium" style={{ color: watchedValues.invoiceColorTheme }}>Description</th>
+                              <th className="text-left py-2 font-medium" style={{ color: watchedValues.invoiceColorTheme }}>Hours</th>
+                              <th className="text-left py-2 font-medium" style={{ color: watchedValues.invoiceColorTheme }}>Rate</th>
+                              <th className="text-right py-2 font-medium" style={{ color: watchedValues.invoiceColorTheme }}>Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-b">
+                              <td className="py-2">Web Development</td>
+                              <td className="py-2">8.50</td>
+                              <td className="py-2">{watchedValues.displayCurrency}75.00</td>
+                              <td className="py-2 text-right">{watchedValues.displayCurrency}637.50</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2">Project Planning</td>
+                              <td className="py-2">4.00</td>
+                              <td className="py-2">{watchedValues.displayCurrency}75.00</td>
+                              <td className="py-2 text-right">{watchedValues.displayCurrency}300.00</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
 
-                      {/* Totals Section */}
-                      {watchedValues.invoiceTemplate === "media" ? (
-                        /* Media Template Totals */
-                        <div className="mx-10 my-8 pt-4 border-t-2 border-dashed border-gray-300">
-                          <div className="flex justify-between mb-3">
-                            <span>Subtotal:</span>
-                            <span>{watchedValues.displayCurrency}937.50</span>
-                          </div>
-                          {watchedValues.enableTax && (
-                            <div className="flex justify-between mb-3">
-                              <span>Tax ({watchedValues.defaultTaxRate}%):</span>
-                              <span>{watchedValues.displayCurrency}{(937.50 * parseFloat(watchedValues.defaultTaxRate) / 100).toFixed(2)}</span>
+                      {/* Consistent Totals Section for All Templates */}
+                      <div className={watchedValues.invoiceTemplate === "media" ? "mx-10 mb-8" : "mb-8"}>
+                        <div className="flex justify-end">
+                          <div className="text-right space-y-1 min-w-[200px]">
+                            <div className="flex justify-between">
+                              <span>Subtotal:</span>
+                              <span>{watchedValues.displayCurrency}937.50</span>
                             </div>
-                          )}
-                          <div className="flex justify-between font-bold text-lg mt-4 pt-4 border-t-2 border-dashed border-gray-300"
-                               style={{ color: watchedValues.invoiceColorTheme }}>
-                            <span>TOTAL DUE:</span>
-                            <span>{watchedValues.displayCurrency}{watchedValues.enableTax ? (937.50 + (937.50 * parseFloat(watchedValues.defaultTaxRate) / 100)).toFixed(2) : "937.50"}</span>
-                          </div>
-                        </div>
-                      ) : (
-                        /* Other Templates Totals */
-                        <div className="flex justify-end mb-6">
-                          <div className="text-right space-y-1">
-                            <div>Subtotal: {watchedValues.displayCurrency}637.50</div>
                             {watchedValues.enableTax && (
-                              <div>Tax ({watchedValues.defaultTaxRate}%): {watchedValues.displayCurrency}{(637.50 * parseFloat(watchedValues.defaultTaxRate) / 100).toFixed(2)}</div>
+                              <div className="flex justify-between">
+                                <span>Tax ({watchedValues.defaultTaxRate}%):</span>
+                                <span>{watchedValues.displayCurrency}{(937.50 * parseFloat(watchedValues.defaultTaxRate) / 100).toFixed(2)}</span>
+                              </div>
                             )}
-                            <div 
-                              className="text-lg font-bold pt-2 border-t"
-                              style={{ color: watchedValues.invoiceColorTheme }}
-                            >
-                              Total: {watchedValues.displayCurrency}{watchedValues.enableTax ? (637.50 + (637.50 * parseFloat(watchedValues.defaultTaxRate) / 100)).toFixed(2) : "637.50"}
+                            <div className="flex justify-between font-bold pt-2 border-t"
+                                 style={{ color: watchedValues.invoiceColorTheme }}>
+                              <span>Total:</span>
+                              <span>{watchedValues.displayCurrency}{watchedValues.enableTax ? (937.50 + (937.50 * parseFloat(watchedValues.defaultTaxRate) / 100)).toFixed(2) : "937.50"}</span>
                             </div>
                           </div>
                         </div>
-                      )}
+                      </div>
 
                       {watchedValues.showBankDetails && (
                         <div className={`mb-6 ${watchedValues.invoiceTemplate === "modern" ? "p-6 bg-gray-50" : "p-4 bg-gray-50 rounded"}`}>
