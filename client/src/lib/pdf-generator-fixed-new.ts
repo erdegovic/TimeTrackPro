@@ -552,12 +552,21 @@ function generateInvoicePdf(options: {
               ? parseFloat(String(entry.amount)) 
               : duration * hourlyRate;
           
-          tableContent.push([
-            entry.description,
-            formatTime(duration, reportData.timeFormat || 'decimal'),
-            formatCurrency(hourlyRate, currencyToUse),
-            formatCurrency(amount, currencyToUse)
-          ]);
+          // Conditionally include hourly rate column based on settings
+          if (settings.showHourlyRate !== false) {
+            tableContent.push([
+              entry.description,
+              formatTime(duration, reportData.timeFormat || 'decimal'),
+              formatCurrency(hourlyRate, currencyToUse),
+              formatCurrency(amount, currencyToUse)
+            ]);
+          } else {
+            tableContent.push([
+              entry.description,
+              formatTime(duration, reportData.timeFormat || 'decimal'),
+              formatCurrency(amount, currencyToUse)
+            ]);
+          }
           
           subtotal += amount;
           totalHours += duration;
@@ -671,7 +680,7 @@ function generateInvoicePdf(options: {
   
   autoTable(doc, {
     startY: tableStartY,
-    head: [['Description', 'Hours', 'Rate', 'Amount']],
+    head: [settings.showHourlyRate !== false ? ['Description', 'Hours', 'Rate', 'Amount'] : ['Description', 'Hours', 'Amount']],
     body: tableContent,
     theme: 'grid',
     headStyles: {
@@ -679,9 +688,16 @@ function generateInvoicePdf(options: {
       textColor: [255, 255, 255],
       fontStyle: 'bold'
     },
-    columnStyles: {
-      3: { halign: 'right' }
-    },
+    columnStyles: settings.showHourlyRate !== false 
+      ? {
+          1: { halign: 'center' },
+          2: { halign: 'right' },
+          3: { halign: 'right' }
+        }
+      : {
+          1: { halign: 'center' },
+          2: { halign: 'right' }
+        },
     styles: {
       overflow: 'linebreak',
       cellWidth: 'wrap',

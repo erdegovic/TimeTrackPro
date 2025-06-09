@@ -599,12 +599,21 @@ function generateTimeEntriesTable({
       
       console.log(`Entry ${entry.id} - Final amount: ${amount}`);
       
-      tableContent.push([
-        entry.description || "No description",
-        formatTime(duration, reportData.timeFormat || 'decimal'),
-        `${currencySymbol}${hourlyRate.toFixed(2)}`,
-        `${currencySymbol}${amount.toFixed(2)}`
-      ]);
+      // Conditionally include hourly rate column based on settings
+      if (settings.showHourlyRate !== false) {
+        tableContent.push([
+          entry.description || "No description",
+          formatTime(duration, reportData.timeFormat || 'decimal'),
+          `${currencySymbol}${hourlyRate.toFixed(2)}`,
+          `${currencySymbol}${amount.toFixed(2)}`
+        ]);
+      } else {
+        tableContent.push([
+          entry.description || "No description",
+          formatTime(duration, reportData.timeFormat || 'decimal'),
+          `${currencySymbol}${amount.toFixed(2)}`
+        ]);
+      }
       
       subtotal += amount;
       totalHours += duration;
@@ -613,10 +622,25 @@ function generateTimeEntriesTable({
   
   console.log(`PDF Table Summary - Total hours: ${totalHours}, Subtotal: ${subtotal}`);
   
-  // Generate the table
+  // Generate the table with conditional headers and column styles
+  const headers = settings.showHourlyRate !== false 
+    ? [['Description', 'Hours', 'Rate', 'Amount']]
+    : [['Description', 'Hours', 'Amount']];
+    
+  const columnStyles = settings.showHourlyRate !== false 
+    ? {
+        1: { halign: 'center' },
+        2: { halign: 'right' },
+        3: { halign: 'right' }
+      }
+    : {
+        1: { halign: 'center' },
+        2: { halign: 'right' }
+      };
+
   autoTable(doc, {
     startY: yPosition,
-    head: [['Description', 'Hours', 'Rate', 'Amount']],
+    head: headers,
     body: tableContent,
     styles: {
       fontSize: fontSize - 1,
@@ -628,11 +652,7 @@ function generateTimeEntriesTable({
       fontSize: fontSize,
       fontStyle: 'bold'
     },
-    columnStyles: {
-      1: { halign: 'center' },
-      2: { halign: 'right' },
-      3: { halign: 'right' }
-    },
+    columnStyles: columnStyles,
     margin: { left: 20, right: 20 }
   });
   
