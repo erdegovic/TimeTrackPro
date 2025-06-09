@@ -496,32 +496,67 @@ export default function InvoicePreview({
   // Get the selected template from settings
   const currentTemplate = settings?.invoiceTemplate || 'professional';
   
+  // Get template-specific default colors
+  const getTemplateDefaultColors = (template: string) => {
+    switch (template) {
+      case 'professional':
+        return { primary: "#1f2937", accent: "#3b82f6" };
+      case 'modern':
+        return { primary: "#065f46", accent: "#10b981" };
+      case 'classic':
+        return { primary: "#1f2937", accent: "#3b82f6" };
+      case 'minimal':
+        return { primary: "#000000", accent: "#6b7280" };
+      case 'media':
+        return { primary: "#8B1538", accent: "#ef4444" };
+      default:
+        return { primary: "#1f2937", accent: "#3b82f6" };
+    }
+  };
+
+  const defaultColors = getTemplateDefaultColors(currentTemplate);
+
   // Template configurations
   const templateConfigs = {
     professional: {
       headerStyle: "border-b border-gray-300 pb-4 mb-8",
       titleSize: "text-3xl",
-      colors: { primary: settings?.invoiceColorTheme || "#1f2937", accent: settings?.invoiceAccentColor || "#3b82f6" }
+      colors: { 
+        primary: settings?.invoiceColorTheme || defaultColors.primary, 
+        accent: settings?.invoiceAccentColor || defaultColors.accent 
+      }
     },
     modern: {
       headerStyle: "relative mb-8",
       titleSize: "text-4xl",
-      colors: { primary: settings?.invoiceColorTheme || "#1f2937", accent: settings?.invoiceAccentColor || "#3b82f6" }
+      colors: { 
+        primary: settings?.invoiceColorTheme || defaultColors.primary, 
+        accent: settings?.invoiceAccentColor || defaultColors.accent 
+      }
     },
     classic: {
       headerStyle: "text-center border-b border-gray-300 pb-6 mb-8",
       titleSize: "text-2xl",
-      colors: { primary: settings?.invoiceColorTheme || "#1f2937", accent: settings?.invoiceAccentColor || "#3b82f6" }
+      colors: { 
+        primary: settings?.invoiceColorTheme || defaultColors.primary, 
+        accent: settings?.invoiceAccentColor || defaultColors.accent 
+      }
     },
     minimal: {
       headerStyle: "border-b border-gray-200 pb-4 mb-6",
       titleSize: "text-xl",
-      colors: { primary: settings?.invoiceColorTheme || "#1f2937", accent: settings?.invoiceAccentColor || "#3b82f6" }
+      colors: { 
+        primary: settings?.invoiceColorTheme || defaultColors.primary, 
+        accent: settings?.invoiceAccentColor || defaultColors.accent 
+      }
     },
     media: {
       headerStyle: "bg-gradient-to-r border-4 border-gray-800 p-6 mb-8",
       titleSize: "text-4xl",
-      colors: { primary: settings?.invoiceColorTheme || "#991b1b", accent: settings?.invoiceAccentColor || "#ef4444" }
+      colors: { 
+        primary: settings?.invoiceColorTheme || defaultColors.primary, 
+        accent: settings?.invoiceAccentColor || defaultColors.accent 
+      }
     }
   };
   
