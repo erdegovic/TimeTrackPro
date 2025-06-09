@@ -168,6 +168,7 @@ export const settings = pgTable("settings", {
   customFontSize: text("custom_font_size").default("12"), // Font size in px
   invoiceFooterText: text("invoice_footer_text"),
   showCompanyDetails: boolean("show_company_details").default(true),
+  showHourlyRate: boolean("show_hourly_rate").default(true), // Show/hide hourly rate column
   showBankDetails: boolean("show_bank_details").default(true),
   showFooterNotes: boolean("show_footer_notes").default(true),
   invoiceTemplate: text("invoice_template").default("professional"), // Template style

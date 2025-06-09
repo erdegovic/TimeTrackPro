@@ -76,6 +76,7 @@ const settingsSchema = z.object({
   showCompanyDetails: z.boolean().default(true),
   showBankDetails: z.boolean().default(true),
   showFooterNotes: z.boolean().default(true),
+  showHourlyRate: z.boolean().default(true),
   invoiceTemplate: z.enum(["professional", "modern", "classic", "minimal", "media"]),
   
   // Report Settings
@@ -1612,6 +1613,27 @@ export default function SettingsPage() {
                                 )}
                               />
 
+                              <FormField
+                                control={form.control}
+                                name="showHourlyRate"
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                      <FormLabel className="text-xs font-medium">Show Hourly Rate</FormLabel>
+                                      <div className="text-xs text-gray-600">
+                                        Display hourly rate column in invoice tables
+                                      </div>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+
                               <div className="space-y-2">
                                 <Button
                                   type="button"
@@ -2102,7 +2124,9 @@ export default function SettingsPage() {
                             >
                               <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Description</th>
                               <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Hours</th>
-                              <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Rate</th>
+                              {watchedValues.showHourlyRate && (
+                                <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Rate</th>
+                              )}
                               <th className="px-4 py-3 text-right text-sm font-semibold">Amount</th>
                             </tr>
                           </thead>
@@ -2110,13 +2134,17 @@ export default function SettingsPage() {
                             <tr className="border-b border-gray-200">
                               <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">Web Development</td>
                               <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">8.50</td>
-                              <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{watchedValues.displayCurrency}75.00</td>
+                              {watchedValues.showHourlyRate && (
+                                <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{watchedValues.displayCurrency}75.00</td>
+                              )}
                               <td className="px-4 py-3 text-sm text-gray-900 text-right">{watchedValues.displayCurrency}637.50</td>
                             </tr>
                             <tr className="border-b border-gray-200">
                               <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">Project Planning</td>
                               <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">4.00</td>
-                              <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{watchedValues.displayCurrency}75.00</td>
+                              {watchedValues.showHourlyRate && (
+                                <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{watchedValues.displayCurrency}75.00</td>
+                              )}
                               <td className="px-4 py-3 text-sm text-gray-900 text-right">{watchedValues.displayCurrency}300.00</td>
                             </tr>
                           </tbody>

@@ -804,7 +804,9 @@ export default function InvoicePreview({
               >
                 <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Description</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Hours</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Rate</th>
+                {settings?.showHourlyRate !== false && (
+                  <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Rate</th>
+                )}
                 <th className="px-4 py-3 text-right text-sm font-semibold">Amount</th>
               </tr>
             </thead>
