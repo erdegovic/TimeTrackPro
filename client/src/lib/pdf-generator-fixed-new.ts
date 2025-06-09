@@ -490,38 +490,49 @@ function generateInvoicePdf(options: {
   
   if (reportData) {
     // Use report data for generating invoice
-    if (reportData.weeklyData && reportData.weeklyData.length > 0) {
-      // Group entries by week using weeklyData
-      reportData.weeklyData.forEach((weekData: any) => {
-        if (!weekData.entries || weekData.entries.length === 0) return; // Skip empty weeks
+    if (settings.enableWeeklyCategorization && reportData.groups && reportData.groups.length > 0) {
+      // Group entries by week using groups structure
+      reportData.groups.forEach((group: any) => {
+        const weekEntries = group.entries || reportData.timeEntries.filter((entry: any) => 
+          entry.weekLabel === group.weekLabel || 
+          (entry.weekNumber === group.weekNumber && entry.year === group.year)
+        );
+        
+        if (weekEntries.length === 0) return; // Skip empty weeks
         
         // Add week header
-        tableContent.push([
-          {
-            content: weekData.weekLabel,
-            colSpan: 3,
-            styles: { fillColor: [240, 240, 240], fontStyle: 'bold' }
-          },
-          {
-            content: formatCurrency(weekData.totalAmount, currencyToUse),
-            styles: { halign: 'right', fillColor: [240, 240, 240], fontStyle: 'bold' }
-          }
-        ]);
+        if (settings.showHourlyRate !== false) {
+          tableContent.push([
+            {
+              content: group.weekLabel || `Week ${group.weekNumber}, ${group.year}`,
+              colSpan: 4,
+              styles: { fillColor: [240, 240, 240], fontStyle: 'bold' }
+            }
+          ]);
+        } else {
+          tableContent.push([
+            {
+              content: group.weekLabel || `Week ${group.weekNumber}, ${group.year}`,
+              colSpan: 3,
+              styles: { fillColor: [240, 240, 240], fontStyle: 'bold' }
+            }
+          ]);
+        }
         
         // Apply any edited entries from the invoice notes
-        let weekEntries = [...weekData.entries];
+        let processedEntries = [...weekEntries];
         
         // Check if we have edited entries to incorporate
         if (editedEntries && editedEntries.length > 0) {
           // Replace entries with their edited versions if available
-          weekEntries = weekEntries.map((entry: any) => {
+          processedEntries = processedEntries.map((entry: any) => {
             const edited = editedEntries.find((e: any) => e.id === entry.id);
             return edited || entry;
           });
         }
         
         // Process each entry in this week
-        weekEntries.forEach((entry: any) => {
+        processedEntries.forEach((entry: any) => {
           // Use edited duration if available, otherwise use the stored duration
           let duration = 0;
           if (entry.editedDuration !== undefined && entry.editedDuration !== null) {

@@ -542,82 +542,188 @@ function generateTimeEntriesTable({
   console.log("Processing time entries for PDF table...");
   
   if (reportData?.timeEntries) {
-    reportData.timeEntries.forEach((entry: any, index: number) => {
-      console.log(`Processing entry ${index + 1}/${reportData.timeEntries.length}:`, {
-        id: entry.id,
-        description: entry.description,
-        duration: entry.duration,
-        adjustedDuration: entry.adjustedDuration,
-        editedDuration: entry.editedDuration,
-        amount: entry.amount,
-        editedAmount: entry.editedAmount
+    // Group entries by week if weekly categorization is enabled
+    if (settings.enableWeeklyCategorization && reportData.groups && reportData.groups.length > 0) {
+      console.log(`Processing ${reportData.groups.length} weekly groups for PDF...`);
+      
+      reportData.groups.forEach((group: any, groupIndex: number) => {
+        console.log(`Processing group ${groupIndex + 1}: ${group.weekLabel || `Week ${group.weekNumber}, ${group.year}`}`);
+        
+        // Add week header row
+        if (settings.showHourlyRate !== false) {
+          tableContent.push([
+            { content: group.weekLabel || `Week ${group.weekNumber}, ${group.year}`, colSpan: 4, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
+          ]);
+        } else {
+          tableContent.push([
+            { content: group.weekLabel || `Week ${group.weekNumber}, ${group.year}`, colSpan: 3, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
+          ]);
+        }
+        
+        // Get entries for this week
+        const weekEntries = group.entries || reportData.timeEntries.filter((entry: any) => 
+          entry.weekLabel === group.weekLabel || 
+          (entry.weekNumber === group.weekNumber && entry.year === group.year)
+        );
+        
+        console.log(`Week has ${weekEntries.length} entries`);
+        
+        weekEntries.forEach((entry: any, index: number) => {
+          console.log(`Processing week entry ${index + 1}/${weekEntries.length}:`, {
+            id: entry.id,
+            description: entry.description,
+            duration: entry.duration,
+            adjustedDuration: entry.adjustedDuration,
+            editedDuration: entry.editedDuration,
+            amount: entry.amount,
+            editedAmount: entry.editedAmount
+          });
+          
+          // Use the EXACT same logic as the preview to ensure consistency
+          let duration = 0;
+          
+          // Check if this entry has been edited in the preview
+          if (entry.editedDuration !== undefined && entry.editedDuration !== null) {
+            duration = typeof entry.editedDuration === 'number' ? entry.editedDuration : parseFloat(String(entry.editedDuration));
+          } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
+            duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
+          } else if (entry.duration !== undefined && entry.duration !== null) {
+            duration = typeof entry.duration === 'number' ? entry.duration : parseFloat(String(entry.duration));
+          }
+          
+          // Ensure valid number
+          if (isNaN(duration) || duration < 0) duration = 0;
+          
+          console.log(`PDF - Entry ${entry.id}: duration=${duration}, original=${entry.duration}, adjusted=${entry.adjustedDuration}`);
+          
+          // Get hourly rate
+          let hourlyRate = 0;
+          if (entry.project?.hourlyRate) {
+            hourlyRate = parseFloat(String(entry.project.hourlyRate));
+          } else if (entry.hourlyRate) {
+            hourlyRate = parseFloat(String(entry.hourlyRate));
+          } else if (client.hourlyRate) {
+            hourlyRate = parseFloat(String(client.hourlyRate));
+          }
+          
+          // Calculate amount
+          let amount = 0;
+          if (entry.editedAmount !== undefined && entry.editedAmount !== null) {
+            amount = parseFloat(String(entry.editedAmount));
+          } else if (entry.amount !== undefined && entry.amount !== null) {
+            amount = parseFloat(String(entry.amount));
+          } else {
+            amount = duration * hourlyRate;
+          }
+          
+          // Ensure amount is valid
+          if (isNaN(amount) || amount < 0) {
+            amount = 0;
+          }
+          
+          console.log(`Entry ${entry.id} - Final amount: ${amount}`);
+          
+          // Conditionally include hourly rate column based on settings
+          if (settings.showHourlyRate !== false) {
+            tableContent.push([
+              entry.description || "No description",
+              formatTime(duration, reportData.timeFormat || 'decimal'),
+              `${currencySymbol}${hourlyRate.toFixed(2)}`,
+              `${currencySymbol}${amount.toFixed(2)}`
+            ]);
+          } else {
+            tableContent.push([
+              entry.description || "No description",
+              formatTime(duration, reportData.timeFormat || 'decimal'),
+              `${currencySymbol}${amount.toFixed(2)}`
+            ]);
+          }
+          
+          subtotal += amount;
+          totalHours += duration;
+        });
       });
+    } else {
+      // Default: flat list without weekly grouping
+      console.log(`Processing ${reportData.timeEntries.length} entries in flat list for PDF...`);
       
-      // Use the EXACT same logic as the preview to ensure consistency
-      let duration = 0;
-      
-      // Check if this entry has been edited in the preview
-      if (entry.editedDuration !== undefined && entry.editedDuration !== null) {
-        duration = typeof entry.editedDuration === 'number' ? entry.editedDuration : parseFloat(String(entry.editedDuration));
-      } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
-        duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
-      } else if (entry.duration !== undefined && entry.duration !== null) {
-        duration = typeof entry.duration === 'number' ? entry.duration : parseFloat(String(entry.duration));
-      }
-      
-      // Ensure valid number
-      if (isNaN(duration) || duration < 0) duration = 0;
-      
-      console.log(`PDF - Entry ${entry.id}: duration=${duration}, original=${entry.duration}, adjusted=${entry.adjustedDuration}`);
-      
-      console.log(`Entry ${entry.id} - Final duration: ${duration}`);
-      
-      // Get hourly rate
-      let hourlyRate = 0;
-      if (entry.project?.hourlyRate) {
-        hourlyRate = parseFloat(String(entry.project.hourlyRate));
-      } else if (entry.hourlyRate) {
-        hourlyRate = parseFloat(String(entry.hourlyRate));
-      } else if (client.hourlyRate) {
-        hourlyRate = parseFloat(String(client.hourlyRate));
-      }
-      
-      // Calculate amount
-      let amount = 0;
-      if (entry.editedAmount !== undefined && entry.editedAmount !== null) {
-        amount = parseFloat(String(entry.editedAmount));
-      } else if (entry.amount !== undefined && entry.amount !== null) {
-        amount = parseFloat(String(entry.amount));
-      } else {
-        amount = duration * hourlyRate;
-      }
-      
-      // Ensure amount is valid
-      if (isNaN(amount) || amount < 0) {
-        amount = 0;
-      }
-      
-      console.log(`Entry ${entry.id} - Final amount: ${amount}`);
-      
-      // Conditionally include hourly rate column based on settings
-      if (settings.showHourlyRate !== false) {
-        tableContent.push([
-          entry.description || "No description",
-          formatTime(duration, reportData.timeFormat || 'decimal'),
-          `${currencySymbol}${hourlyRate.toFixed(2)}`,
-          `${currencySymbol}${amount.toFixed(2)}`
-        ]);
-      } else {
-        tableContent.push([
-          entry.description || "No description",
-          formatTime(duration, reportData.timeFormat || 'decimal'),
-          `${currencySymbol}${amount.toFixed(2)}`
-        ]);
-      }
-      
-      subtotal += amount;
-      totalHours += duration;
-    });
+      reportData.timeEntries.forEach((entry: any, index: number) => {
+        console.log(`Processing entry ${index + 1}/${reportData.timeEntries.length}:`, {
+          id: entry.id,
+          description: entry.description,
+          duration: entry.duration,
+          adjustedDuration: entry.adjustedDuration,
+          editedDuration: entry.editedDuration,
+          amount: entry.amount,
+          editedAmount: entry.editedAmount
+        });
+        
+        // Use the EXACT same logic as the preview to ensure consistency
+        let duration = 0;
+        
+        // Check if this entry has been edited in the preview
+        if (entry.editedDuration !== undefined && entry.editedDuration !== null) {
+          duration = typeof entry.editedDuration === 'number' ? entry.editedDuration : parseFloat(String(entry.editedDuration));
+        } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
+          duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
+        } else if (entry.duration !== undefined && entry.duration !== null) {
+          duration = typeof entry.duration === 'number' ? entry.duration : parseFloat(String(entry.duration));
+        }
+        
+        // Ensure valid number
+        if (isNaN(duration) || duration < 0) duration = 0;
+        
+        console.log(`PDF - Entry ${entry.id}: duration=${duration}, original=${entry.duration}, adjusted=${entry.adjustedDuration}`);
+        
+        console.log(`Entry ${entry.id} - Final duration: ${duration}`);
+        
+        // Get hourly rate
+        let hourlyRate = 0;
+        if (entry.project?.hourlyRate) {
+          hourlyRate = parseFloat(String(entry.project.hourlyRate));
+        } else if (entry.hourlyRate) {
+          hourlyRate = parseFloat(String(entry.hourlyRate));
+        } else if (client.hourlyRate) {
+          hourlyRate = parseFloat(String(client.hourlyRate));
+        }
+        
+        // Calculate amount
+        let amount = 0;
+        if (entry.editedAmount !== undefined && entry.editedAmount !== null) {
+          amount = parseFloat(String(entry.editedAmount));
+        } else if (entry.amount !== undefined && entry.amount !== null) {
+          amount = parseFloat(String(entry.amount));
+        } else {
+          amount = duration * hourlyRate;
+        }
+        
+        // Ensure amount is valid
+        if (isNaN(amount) || amount < 0) {
+          amount = 0;
+        }
+        
+        console.log(`Entry ${entry.id} - Final amount: ${amount}`);
+        
+        // Conditionally include hourly rate column based on settings
+        if (settings.showHourlyRate !== false) {
+          tableContent.push([
+            entry.description || "No description",
+            formatTime(duration, reportData.timeFormat || 'decimal'),
+            `${currencySymbol}${hourlyRate.toFixed(2)}`,
+            `${currencySymbol}${amount.toFixed(2)}`
+          ]);
+        } else {
+          tableContent.push([
+            entry.description || "No description",
+            formatTime(duration, reportData.timeFormat || 'decimal'),
+            `${currencySymbol}${amount.toFixed(2)}`
+          ]);
+        }
+        
+        subtotal += amount;
+        totalHours += duration;
+      });
+    }
   }
   
   console.log(`PDF Table Summary - Total hours: ${totalHours}, Subtotal: ${subtotal}`);

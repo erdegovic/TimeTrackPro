@@ -811,69 +811,161 @@ export default function InvoicePreview({
               </tr>
             </thead>
             <tbody className="bg-white">
-              {reportData.timeEntries
-                .filter((entry: any) => client && entry.client && entry.client.id === client.id)
-                .map((entry: any, index: number) => {
-                  // Get the actual duration value - use the same logic as the PDF generator
-                  let duration = 0;
-                  const editedEntry = editableEntries.find(e => e.id === entry.id);
-                  
-                  if (editedEntry?.editedDuration !== undefined) {
-                    duration = typeof editedEntry.editedDuration === 'number' ? editedEntry.editedDuration : parseFloat(String(editedEntry.editedDuration));
-                  } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
-                    duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
-                  } else if (entry.duration !== undefined && entry.duration !== null) {
-                    duration = typeof entry.duration === 'number' ? entry.duration : parseFloat(String(entry.duration));
-                  }
-                  
-                  // Ensure valid number
-                  if (isNaN(duration) || duration < 0) duration = 0;
-
-                  return (
-                    <tr key={`entry-${entry.id}-${index}`} className="border-b border-gray-200">
-                      <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
-                        {entry.description}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            className="w-20 p-1 text-sm border rounded"
-                            defaultValue={formatTime(duration, reportData.timeFormat as TimeFormat)}
-                            onBlur={(e) => {
-                              const timeValue = e.target.value;
-                              const durationInHours = parseTime(timeValue, reportData.timeFormat as TimeFormat);
-                              updateEntryDuration(entry.id, durationInHours, reportData.timeFormat as TimeFormat);
-                            }}
-                          />
-                        ) : (
-                          formatTime(duration, reportData.timeFormat as TimeFormat)
-                        )}
-                      </td>
-                      {settings?.showHourlyRate !== false && (
-                        <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
-                          {client?.currency 
-                            ? formatCurrency(parseFloat(entry.hourlyRate), client.currency)
-                            : `$${parseFloat(entry.hourlyRate).toFixed(2)}`}
+              {(() => {
+                const filteredEntries = reportData.timeEntries
+                  .filter((entry: any) => client && entry.client && entry.client.id === client.id);
+                
+                // Group by week if weekly categorization is enabled and groups exist
+                if (settings?.enableWeeklyCategorization && reportData.groups && reportData.groups.length > 0) {
+                  return reportData.groups.map((group: any, groupIndex: number) => {
+                    const groupEntries = filteredEntries.filter((entry: any) => {
+                      // Match entries to weeks using weekLabel or week number/year
+                      return entry.weekLabel === group.weekLabel || 
+                             (entry.weekNumber === group.weekNumber && entry.year === group.year) ||
+                             (group.entries && group.entries.some((ge: any) => ge.id === entry.id));
+                    });
+                    
+                    if (groupEntries.length === 0) return null;
+                    
+                    return [
+                      // Week header row
+                      <tr key={`week-${groupIndex}`} className="bg-gray-50">
+                        <td 
+                          colSpan={settings?.showHourlyRate !== false ? 4 : 3} 
+                          className="px-4 py-2 text-sm font-semibold text-gray-700 border-b border-gray-200"
+                        >
+                          {group.weekLabel || `Week ${group.weekNumber}, ${group.year}`}
                         </td>
-                      )}
-                      <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                        {client?.currency 
-                          ? formatCurrency(
-                              editableEntries.find(e => e.id === entry.id)?.amount
-                                ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
-                                : parseFloat(entry.amount),
-                              client.currency
-                            )
-                          : `$${(
-                              editableEntries.find(e => e.id === entry.id)?.amount
-                                ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
-                                : parseFloat(entry.amount)
-                            ).toFixed(2)}`}
-                      </td>
-                    </tr>
-                  );
-                })}
+                      </tr>,
+                      // Week entries
+                      ...groupEntries.map((entry: any, index: number) => {
+                        // Get the actual duration value - use the same logic as the PDF generator
+                        let duration = 0;
+                        const editedEntry = editableEntries.find(e => e.id === entry.id);
+                        
+                        if (editedEntry?.editedDuration !== undefined) {
+                          duration = typeof editedEntry.editedDuration === 'number' ? editedEntry.editedDuration : parseFloat(String(editedEntry.editedDuration));
+                        } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
+                          duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
+                        } else if (entry.duration !== undefined && entry.duration !== null) {
+                          duration = typeof entry.duration === 'number' ? entry.duration : parseFloat(String(entry.duration));
+                        }
+                        
+                        // Ensure valid number
+                        if (isNaN(duration) || duration < 0) duration = 0;
+
+                        return (
+                          <tr key={`entry-${entry.id}-${index}`} className="border-b border-gray-200">
+                            <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
+                              {entry.description}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  className="w-20 p-1 text-sm border rounded"
+                                  defaultValue={formatTime(duration, reportData.timeFormat as TimeFormat)}
+                                  onBlur={(e) => {
+                                    const timeValue = e.target.value;
+                                    const durationInHours = parseTime(timeValue, reportData.timeFormat as TimeFormat);
+                                    updateEntryDuration(entry.id, durationInHours, reportData.timeFormat as TimeFormat);
+                                  }}
+                                />
+                              ) : (
+                                formatTime(duration, reportData.timeFormat as TimeFormat)
+                              )}
+                            </td>
+                            {settings?.showHourlyRate !== false && (
+                              <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
+                                {client?.currency 
+                                  ? formatCurrency(parseFloat(entry.hourlyRate), client.currency)
+                                  : `$${parseFloat(entry.hourlyRate).toFixed(2)}`}
+                              </td>
+                            )}
+                            <td className="px-4 py-3 text-sm text-gray-900 text-right">
+                              {client?.currency 
+                                ? formatCurrency(
+                                    editableEntries.find(e => e.id === entry.id)?.amount
+                                      ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
+                                      : parseFloat(entry.amount),
+                                    client.currency
+                                  )
+                                : `$${(
+                                    editableEntries.find(e => e.id === entry.id)?.amount
+                                      ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
+                                      : parseFloat(entry.amount)
+                                  ).toFixed(2)}`}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ];
+                  }).flat().filter(Boolean);
+                } else {
+                  // Default: show entries without weekly grouping
+                  return filteredEntries.map((entry: any, index: number) => {
+                    // Get the actual duration value - use the same logic as the PDF generator
+                    let duration = 0;
+                    const editedEntry = editableEntries.find(e => e.id === entry.id);
+                    
+                    if (editedEntry?.editedDuration !== undefined) {
+                      duration = typeof editedEntry.editedDuration === 'number' ? editedEntry.editedDuration : parseFloat(String(editedEntry.editedDuration));
+                    } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
+                      duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
+                    } else if (entry.duration !== undefined && entry.duration !== null) {
+                      duration = typeof entry.duration === 'number' ? entry.duration : parseFloat(String(entry.duration));
+                    }
+                    
+                    // Ensure valid number
+                    if (isNaN(duration) || duration < 0) duration = 0;
+
+                    return (
+                      <tr key={`entry-${entry.id}-${index}`} className="border-b border-gray-200">
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
+                          {entry.description}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              className="w-20 p-1 text-sm border rounded"
+                              defaultValue={formatTime(duration, reportData.timeFormat as TimeFormat)}
+                              onBlur={(e) => {
+                                const timeValue = e.target.value;
+                                const durationInHours = parseTime(timeValue, reportData.timeFormat as TimeFormat);
+                                updateEntryDuration(entry.id, durationInHours, reportData.timeFormat as TimeFormat);
+                              }}
+                            />
+                          ) : (
+                            formatTime(duration, reportData.timeFormat as TimeFormat)
+                          )}
+                        </td>
+                        {settings?.showHourlyRate !== false && (
+                          <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
+                            {client?.currency 
+                              ? formatCurrency(parseFloat(entry.hourlyRate), client.currency)
+                              : `$${parseFloat(entry.hourlyRate).toFixed(2)}`}
+                          </td>
+                        )}
+                        <td className="px-4 py-3 text-sm text-gray-900 text-right">
+                          {client?.currency 
+                            ? formatCurrency(
+                                editableEntries.find(e => e.id === entry.id)?.amount
+                                  ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
+                                  : parseFloat(entry.amount),
+                                client.currency
+                              )
+                            : `$${(
+                                editableEntries.find(e => e.id === entry.id)?.amount
+                                  ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
+                                  : parseFloat(entry.amount)
+                              ).toFixed(2)}`}
+                        </td>
+                      </tr>
+                    );
+                  });
+                }
+              })()}
               
               {/* Additional items */}
               {additionalItems.map(item => (
