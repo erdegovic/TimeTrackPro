@@ -674,7 +674,8 @@ function generateTimeEntriesTable({
         } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
           duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
         } else if (entry.duration !== undefined && entry.duration !== null) {
-          duration = typeof entry.duration === 'number' ? entry.duration : parseFloat(String(entry.duration));
+          // Handle both string and number duration values from grouped data
+          duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : entry.duration;
         }
         
         // Ensure valid number
@@ -711,17 +712,23 @@ function generateTimeEntriesTable({
         
         console.log(`Entry ${entry.id} - Final amount: ${amount}`);
         
+        // Format description with session count if grouped
+        let descriptionText = entry.description || "No description";
+        if (entry.sessionCount > 1) {
+          descriptionText += ` (${entry.sessionCount} sessions)`;
+        }
+        
         // Conditionally include hourly rate column based on settings
         if (settings.showHourlyRate !== false) {
           tableContent.push([
-            entry.description || "No description",
+            descriptionText,
             formatTime(duration, reportData.timeFormat || 'decimal'),
             `${currencySymbol}${hourlyRate.toFixed(2)}`,
             `${currencySymbol}${amount.toFixed(2)}`
           ]);
         } else {
           tableContent.push([
-            entry.description || "No description",
+            descriptionText,
             formatTime(duration, reportData.timeFormat || 'decimal'),
             `${currencySymbol}${amount.toFixed(2)}`
           ]);

@@ -540,12 +540,12 @@ function generateInvoicePdf(options: {
           } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
             duration = typeof entry.adjustedDuration === 'string' ? parseFloat(entry.adjustedDuration) : entry.adjustedDuration;
           } else if (entry.duration !== undefined && entry.duration !== null) {
-            // Handle both string and numeric duration values
-            duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : parseFloat(String(entry.duration));
+            // Handle both string and numeric duration values from grouped data
+            duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : entry.duration;
           }
           
           // Ensure duration is a valid number
-          if (isNaN(duration)) {
+          if (isNaN(duration) || duration < 0) {
             duration = 0;
           }
           
@@ -563,17 +563,23 @@ function generateInvoicePdf(options: {
               ? parseFloat(String(entry.amount)) 
               : duration * hourlyRate;
           
+          // Format description with session count if grouped
+          let descriptionText = entry.description || "No description";
+          if (entry.sessionCount > 1) {
+            descriptionText += ` (${entry.sessionCount} sessions)`;
+          }
+          
           // Conditionally include hourly rate column based on settings
           if (settings.showHourlyRate !== false) {
             tableContent.push([
-              entry.description,
+              descriptionText,
               formatTime(duration, reportData.timeFormat || 'decimal'),
               formatCurrency(hourlyRate, currencyToUse),
               formatCurrency(amount, currencyToUse)
             ]);
           } else {
             tableContent.push([
-              entry.description,
+              descriptionText,
               formatTime(duration, reportData.timeFormat || 'decimal'),
               formatCurrency(amount, currencyToUse)
             ]);
@@ -603,12 +609,12 @@ function generateInvoicePdf(options: {
         } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
           duration = typeof entry.adjustedDuration === 'string' ? parseFloat(entry.adjustedDuration) : entry.adjustedDuration;
         } else if (entry.duration !== undefined && entry.duration !== null) {
-          // Handle both string and numeric duration values
-          duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : parseFloat(String(entry.duration));
+          // Handle both string and numeric duration values from grouped data
+          duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : entry.duration;
         }
         
         // Ensure duration is a valid number
-        if (isNaN(duration)) {
+        if (isNaN(duration) || duration < 0) {
           duration = 0;
         }
         
@@ -661,12 +667,27 @@ function generateInvoicePdf(options: {
           amount = duration * hourlyRate;
         }
         
-        tableContent.push([
-          entry.description,
-          formatTime(duration, reportData.timeFormat || 'decimal'),
-          formatCurrency(hourlyRate, currencyToUse),
-          formatCurrency(amount, currencyToUse)
-        ]);
+        // Format description with session count if grouped
+        let descriptionText = entry.description || "No description";
+        if (entry.sessionCount > 1) {
+          descriptionText += ` (${entry.sessionCount} sessions)`;
+        }
+        
+        // Conditionally include hourly rate column based on settings
+        if (settings.showHourlyRate !== false) {
+          tableContent.push([
+            descriptionText,
+            formatTime(duration, reportData.timeFormat || 'decimal'),
+            formatCurrency(hourlyRate, currencyToUse),
+            formatCurrency(amount, currencyToUse)
+          ]);
+        } else {
+          tableContent.push([
+            descriptionText,
+            formatTime(duration, reportData.timeFormat || 'decimal'),
+            formatCurrency(amount, currencyToUse)
+          ]);
+        }
         
         subtotal += amount;
         totalHours += duration;
