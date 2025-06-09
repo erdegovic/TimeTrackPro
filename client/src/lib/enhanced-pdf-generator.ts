@@ -297,7 +297,7 @@ function generateInvoicePdf({
     doc.setTextColor(textColor.r, textColor.g, textColor.b);
     doc.setFontSize(fontSize - 2);
     doc.setFont("helvetica", "bold");
-    const clientName = client?.name || invoice?.clientName || "Sample Client";
+    const clientName = client?.name || "Sample Client";
     doc.text(clientName, 45, yPosition);
     
     yPosition += 5;

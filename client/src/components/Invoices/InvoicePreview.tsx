@@ -759,16 +759,21 @@ export default function InvoicePreview({
         )}
         
         <div className={currentTemplate === 'media' ? "mx-10 mb-8" : "mb-8"}>
-          <table className="w-full border-collapse">
+          <table className="w-full border-collapse border border-gray-300">
             <thead>
-              <tr className="border-b">
-                <th className="text-left py-2 font-medium" style={{ color: templateConfig.colors.primary }}>Description</th>
-                <th className="text-left py-2 font-medium" style={{ color: templateConfig.colors.primary }}>Hours</th>
-                <th className="text-left py-2 font-medium" style={{ color: templateConfig.colors.primary }}>Rate</th>
-                <th className="text-right py-2 font-medium" style={{ color: templateConfig.colors.primary }}>Amount</th>
+              <tr 
+                className="text-white"
+                style={{ 
+                  backgroundColor: currentTemplate === 'media' ? '#8B1538' : templateConfig.colors.primary 
+                }}
+              >
+                <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Description</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Hours</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Rate</th>
+                <th className="px-4 py-3 text-right text-sm font-semibold">Amount</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-white">
               {reportData.timeEntries
                 .filter((entry: any) => client && entry.client && entry.client.id === client.id)
                 .map((entry: any, index: number) => {
@@ -788,11 +793,11 @@ export default function InvoicePreview({
                   if (isNaN(duration) || duration < 0) duration = 0;
 
                   return (
-                    <tr key={`entry-${entry.id}-${index}`} className="border-b">
-                      <td className="py-2">
+                    <tr key={`entry-${entry.id}-${index}`} className="border-b border-gray-200">
+                      <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
                         {entry.description}
                       </td>
-                      <td className="py-2">
+                      <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
                         {isEditing ? (
                           <input
                             type="text"
@@ -808,12 +813,12 @@ export default function InvoicePreview({
                           formatTime(duration, reportData.timeFormat as TimeFormat)
                         )}
                       </td>
-                      <td className="py-2">
+                      <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
                         {client?.currency 
                           ? formatCurrency(parseFloat(entry.hourlyRate), client.currency)
                           : `$${parseFloat(entry.hourlyRate).toFixed(2)}`}
                       </td>
-                      <td className="py-2 text-right">
+                      <td className="px-4 py-3 text-sm text-gray-900 text-right">
                         {client?.currency 
                           ? formatCurrency(
                               editableEntries.find(e => e.id === entry.id)?.amount
@@ -833,8 +838,8 @@ export default function InvoicePreview({
               
               {/* Additional items */}
               {additionalItems.map(item => (
-                <tr key={`additional-${item.id}`} className="border-b">
-                  <td colSpan={2} className={`py-2 ${isEditing ? "text-blue-600" : "text-gray-900"}`}>
+                <tr key={`additional-${item.id}`} className="border-b border-gray-200">
+                  <td colSpan={2} className={`px-4 py-3 text-sm border-r border-gray-200 ${isEditing ? "text-blue-600" : "text-gray-900"}`}>
                     {isEditing ? (
                       <Input
                         type="text"
@@ -846,7 +851,7 @@ export default function InvoicePreview({
                       item.description
                     )}
                   </td>
-                  <td className="py-2">
+                  <td className="px-4 py-3 text-sm border-r border-gray-200">
                     {isEditing && (
                       <Button
                         variant="ghost"
@@ -858,7 +863,7 @@ export default function InvoicePreview({
                       </Button>
                     )}
                   </td>
-                  <td className="py-2 text-right">
+                  <td className="px-4 py-3 text-sm text-gray-900 text-right">
                     {isEditing ? (
                       <input
                         type="number"
@@ -878,7 +883,7 @@ export default function InvoicePreview({
               {/* Add item button (only visible in edit mode) */}
               {isEditing && (
                 <tr>
-                  <td colSpan={4} className="py-2 text-center border-t border-dashed">
+                  <td colSpan={4} className="px-4 py-3 text-center border-t border-dashed border-gray-200">
                     <Button
                       variant="ghost"
                       size="sm"

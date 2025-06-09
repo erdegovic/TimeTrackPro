@@ -2090,29 +2090,34 @@ export default function SettingsPage() {
                         </div>
                       )}
 
-                      {/* Consistent Simple Table for All Templates */}
+                      {/* Professional Table with Borders */}
                       <div className={watchedValues.invoiceTemplate === "media" ? "mx-10 mb-8" : "mb-8"}>
-                        <table className="w-full border-collapse">
+                        <table className="w-full border-collapse border border-gray-300">
                           <thead>
-                            <tr className="border-b">
-                              <th className="text-left py-2 font-medium" style={{ color: watchedValues.invoiceColorTheme }}>Description</th>
-                              <th className="text-left py-2 font-medium" style={{ color: watchedValues.invoiceColorTheme }}>Hours</th>
-                              <th className="text-left py-2 font-medium" style={{ color: watchedValues.invoiceColorTheme }}>Rate</th>
-                              <th className="text-right py-2 font-medium" style={{ color: watchedValues.invoiceColorTheme }}>Amount</th>
+                            <tr 
+                              className="text-white"
+                              style={{ 
+                                backgroundColor: watchedValues.invoiceTemplate === 'media' ? '#8B1538' : watchedValues.invoiceColorTheme 
+                              }}
+                            >
+                              <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Description</th>
+                              <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Hours</th>
+                              <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Rate</th>
+                              <th className="px-4 py-3 text-right text-sm font-semibold">Amount</th>
                             </tr>
                           </thead>
-                          <tbody>
-                            <tr className="border-b">
-                              <td className="py-2">Web Development</td>
-                              <td className="py-2">8.50</td>
-                              <td className="py-2">{watchedValues.displayCurrency}75.00</td>
-                              <td className="py-2 text-right">{watchedValues.displayCurrency}637.50</td>
+                          <tbody className="bg-white">
+                            <tr className="border-b border-gray-200">
+                              <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">Web Development</td>
+                              <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">8.50</td>
+                              <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{watchedValues.displayCurrency}75.00</td>
+                              <td className="px-4 py-3 text-sm text-gray-900 text-right">{watchedValues.displayCurrency}637.50</td>
                             </tr>
-                            <tr className="border-b">
-                              <td className="py-2">Project Planning</td>
-                              <td className="py-2">4.00</td>
-                              <td className="py-2">{watchedValues.displayCurrency}75.00</td>
-                              <td className="py-2 text-right">{watchedValues.displayCurrency}300.00</td>
+                            <tr className="border-b border-gray-200">
+                              <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">Project Planning</td>
+                              <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">4.00</td>
+                              <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{watchedValues.displayCurrency}75.00</td>
+                              <td className="px-4 py-3 text-sm text-gray-900 text-right">{watchedValues.displayCurrency}300.00</td>
                             </tr>
                           </tbody>
                         </table>
