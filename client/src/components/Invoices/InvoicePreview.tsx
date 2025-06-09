@@ -618,8 +618,8 @@ export default function InvoicePreview({
               </div>
             </div>
             
-            {/* Billing Info Grid - exactly like settings */}
-            <div className="grid grid-cols-2 gap-8 p-10 bg-gray-50 mb-6">
+            {/* Billing Info Grid - simplified without project details */}
+            <div className="p-10 bg-gray-50 mb-6">
               <div className="info-block">
                 <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide"
                     style={{ color: templateConfig.colors.primary }}>
@@ -631,17 +631,6 @@ export default function InvoicePreview({
                   <div className="text-sm text-gray-600">{client?.address || "123 Client Street"}</div>
                   <div className="text-sm text-gray-600">{client?.city || "Client City"}, {client?.state || "State"} {client?.zipCode || "12345"}</div>
                   <div className="text-sm text-gray-600">PO #CLIENT-2023-42</div>
-                </div>
-              </div>
-              <div className="info-block">
-                <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide"
-                    style={{ color: templateConfig.colors.primary }}>
-                  Project Details
-                </h3>
-                <div className="space-y-1">
-                  <div className="text-sm"><span className="font-medium">Project:</span> Sample Project</div>
-                  <div className="text-sm"><span className="font-medium">Time Period:</span> 5/7/2025</div>
-                  <div className="text-sm"><span className="font-medium">Currency:</span> {client?.currency || "USD"}</div>
                 </div>
               </div>
             </div>

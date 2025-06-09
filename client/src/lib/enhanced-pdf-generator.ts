@@ -280,13 +280,13 @@ function generateInvoicePdf({
     
     yPosition += 15;
     
-    // Billing Info Section - gray background like settings
+    // Billing Info Section - gray background like settings, simplified
     const sectionStartY = yPosition;
-    const sectionHeight = 80;
+    const sectionHeight = 60;
     doc.setFillColor(250, 250, 250); // Light gray background
     doc.rect(30, sectionStartY, doc.internal.pageSize.width - 60, sectionHeight, 'F');
     
-    // Bill To section
+    // Bill To section only
     yPosition += 15;
     doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
     doc.setFontSize(fontSize - 2);
@@ -316,25 +316,6 @@ function generateInvoicePdf({
     
     yPosition += 5;
     doc.text("PO #CLIENT-2023-42", 45, yPosition);
-    
-    // Project Details section (right column)
-    let projectY = sectionStartY + 15;
-    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-    doc.setFontSize(fontSize - 2);
-    doc.setFont("helvetica", "bold");
-    doc.text("PROJECT DETAILS", doc.internal.pageSize.width / 2 + 15, projectY);
-    
-    projectY += 8;
-    doc.setTextColor(textColor.r, textColor.g, textColor.b);
-    doc.setFontSize(fontSize - 2);
-    doc.setFont("helvetica", "normal");
-    doc.text("Project: Sample Project", doc.internal.pageSize.width / 2 + 15, projectY);
-    
-    projectY += 5;
-    doc.text("Time Period: 5/7/2025", doc.internal.pageSize.width / 2 + 15, projectY);
-    
-    projectY += 5;
-    doc.text(`Currency: ${client?.currency || "USD"}`, doc.internal.pageSize.width / 2 + 15, projectY);
     
     yPosition = sectionStartY + sectionHeight + 20;
   } else {

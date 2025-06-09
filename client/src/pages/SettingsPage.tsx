@@ -2037,8 +2037,8 @@ export default function SettingsPage() {
                       {/* Media Template Billing Section */}
                       {watchedValues.invoiceTemplate === "media" ? (
                         <>
-                          {/* Billing Info Grid */}
-                          <div className="grid grid-cols-2 gap-8 p-10 bg-gray-50 mb-6">
+                          {/* Billing Info Grid - simplified without project details */}
+                          <div className="p-10 bg-gray-50 mb-6">
                             <div className="info-block">
                               <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide"
                                   style={{ color: watchedValues.invoiceColorTheme }}>
@@ -2050,17 +2050,6 @@ export default function SettingsPage() {
                                 <div className="text-sm text-gray-600">123 Client Street</div>
                                 <div className="text-sm text-gray-600">Client City, State 12345</div>
                                 <div className="text-sm text-gray-600">PO #CLIENT-2023-42</div>
-                              </div>
-                            </div>
-                            <div className="info-block">
-                              <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide"
-                                  style={{ color: watchedValues.invoiceColorTheme }}>
-                                Project Details
-                              </h3>
-                              <div className="space-y-1">
-                                <div><span className="font-bold">Project:</span> Sample Project</div>
-                                <div><span className="font-bold">Time Period:</span> {new Date().toLocaleDateString()}</div>
-                                <div><span className="font-bold">Currency:</span> {watchedValues.displayCurrency}</div>
                               </div>
                             </div>
                           </div>
