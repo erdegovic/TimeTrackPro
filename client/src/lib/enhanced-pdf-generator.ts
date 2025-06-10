@@ -791,7 +791,7 @@ function generateTimeEntriesTable({
   const rightAlign = doc.internal.pageSize.width - 20;
   
   doc.text(`Total Hours: ${formatTime(totalHours, reportData?.timeFormat || 'decimal')}`, rightAlign, finalY, { align: 'right' });
-  doc.text(`Subtotal: ${currencySymbol}${subtotal.toFixed(2)}`, rightAlign, finalY + 8, { align: 'right' });
+  doc.text(`Subtotal: ${formatCurrency(subtotal, clientCurrency)}`, rightAlign, finalY + 8, { align: 'right' });
   
   // Tax calculation if enabled
   if (settings.enableTax && settings.defaultTaxRate) {
@@ -799,13 +799,13 @@ function generateTimeEntriesTable({
     const taxAmount = subtotal * taxRate;
     const total = subtotal + taxAmount;
     
-    doc.text(`Tax (${settings.defaultTaxRate}%): ${currencySymbol}${taxAmount.toFixed(2)}`, rightAlign, finalY + 16, { align: 'right' });
+    doc.text(`Tax (${settings.defaultTaxRate}%): ${formatCurrency(taxAmount, clientCurrency)}`, rightAlign, finalY + 16, { align: 'right' });
     
     doc.setFont("helvetica", "bold");
-    doc.text(`Total: ${currencySymbol}${total.toFixed(2)}`, rightAlign, finalY + 24, { align: 'right' });
+    doc.text(`Total: ${formatCurrency(total, clientCurrency)}`, rightAlign, finalY + 24, { align: 'right' });
   } else {
     doc.setFont("helvetica", "bold");
-    doc.text(`Total: ${currencySymbol}${subtotal.toFixed(2)}`, rightAlign, finalY + 16, { align: 'right' });
+    doc.text(`Total: ${formatCurrency(subtotal, clientCurrency)}`, rightAlign, finalY + 16, { align: 'right' });
   }
 }
 
