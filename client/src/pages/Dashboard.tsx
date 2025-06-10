@@ -33,22 +33,12 @@ export default function Dashboard() {
 
   // Fetch time entries for this week
   const { data: weekEntries = [] } = useQuery<TimeEntry[]>({
-    queryKey: ["/api/time-entries", "week"],
-    queryFn: async () => {
-      const res = await fetch(`/api/time-entries?startDate=${weekStart}&endDate=${weekEnd}`);
-      if (!res.ok) throw new Error("Failed to fetch weekly time entries");
-      return res.json();
-    },
+    queryKey: [`/api/time-entries?startDate=${weekStart}&endDate=${weekEnd}`],
   });
 
   // Fetch time entries for this month
   const { data: monthEntries = [] } = useQuery<TimeEntry[]>({
-    queryKey: ["/api/time-entries", "month"],
-    queryFn: async () => {
-      const res = await fetch(`/api/time-entries?startDate=${monthStart}&endDate=${monthEnd}`);
-      if (!res.ok) throw new Error("Failed to fetch monthly time entries");
-      return res.json();
-    },
+    queryKey: [`/api/time-entries?startDate=${monthStart}&endDate=${monthEnd}`],
   });
 
   // Fetch clients
