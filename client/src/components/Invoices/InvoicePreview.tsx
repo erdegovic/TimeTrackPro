@@ -845,7 +845,7 @@ export default function InvoicePreview({
                       </tr>,
                       // Week entries
                       ...groupEntries.map((entry: any, index: number) => {
-                        // Get the actual duration value - prioritize the grouped/merged duration
+                        // Get the actual duration value - use the original database duration for consistency
                         let duration = 0;
                         const editedEntry = editableEntries.find(e => e.id === entry.id);
                         
@@ -853,6 +853,9 @@ export default function InvoicePreview({
                           duration = typeof editedEntry.editedDuration === 'number' ? editedEntry.editedDuration : parseFloat(String(editedEntry.editedDuration));
                         } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
                           duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
+                        } else if (entry.originalDuration !== undefined && entry.originalDuration !== null) {
+                          // Use originalDuration if available (from report data)
+                          duration = typeof entry.originalDuration === 'number' ? entry.originalDuration : parseFloat(String(entry.originalDuration));
                         } else if (entry.duration !== undefined && entry.duration !== null) {
                           // Handle both string and number duration values from grouped data
                           duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : entry.duration;
@@ -913,7 +916,7 @@ export default function InvoicePreview({
                 } else {
                   // Default: show entries without weekly grouping but with description grouping
                   return filteredEntries.map((entry: any, index: number) => {
-                    // Get the actual duration value - prioritize the grouped/merged duration
+                    // Get the actual duration value - use the original database duration for consistency
                     let duration = 0;
                     const editedEntry = editableEntries.find(e => e.id === entry.id);
                     
@@ -921,6 +924,9 @@ export default function InvoicePreview({
                       duration = typeof editedEntry.editedDuration === 'number' ? editedEntry.editedDuration : parseFloat(String(editedEntry.editedDuration));
                     } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
                       duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
+                    } else if (entry.originalDuration !== undefined && entry.originalDuration !== null) {
+                      // Use originalDuration if available (from report data)
+                      duration = typeof entry.originalDuration === 'number' ? entry.originalDuration : parseFloat(String(entry.originalDuration));
                     } else if (entry.duration !== undefined && entry.duration !== null) {
                       // Handle both string and number duration values from grouped data
                       duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : entry.duration;

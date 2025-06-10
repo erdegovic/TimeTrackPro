@@ -587,19 +587,23 @@ function generateTimeEntriesTable({
           // Use the EXACT same logic as the preview to ensure consistency
           let duration = 0;
           
-          // First check if this is grouped data with a totalDuration field
-          if (entry.totalDuration !== undefined && entry.totalDuration !== null) {
-            duration = typeof entry.totalDuration === 'number' ? entry.totalDuration : parseFloat(String(entry.totalDuration));
-          }
           // Check if this entry has been edited in the preview
-          else if (entry.editedDuration !== undefined && entry.editedDuration !== null) {
+          if (entry.editedDuration !== undefined && entry.editedDuration !== null) {
             duration = typeof entry.editedDuration === 'number' ? entry.editedDuration : parseFloat(String(entry.editedDuration));
           } 
           // Check adjusted duration
           else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
             duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
           } 
-          // Use original duration
+          // Use originalDuration if available (from report data)
+          else if (entry.originalDuration !== undefined && entry.originalDuration !== null) {
+            duration = typeof entry.originalDuration === 'number' ? entry.originalDuration : parseFloat(String(entry.originalDuration));
+          }
+          // Check if this is grouped data with a totalDuration field
+          else if (entry.totalDuration !== undefined && entry.totalDuration !== null) {
+            duration = typeof entry.totalDuration === 'number' ? entry.totalDuration : parseFloat(String(entry.totalDuration));
+          }
+          // Use duration field as fallback
           else if (entry.duration !== undefined && entry.duration !== null) {
             // Handle both string and number duration values from grouped data
             duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : entry.duration;
@@ -678,19 +682,23 @@ function generateTimeEntriesTable({
         // Use the EXACT same logic as the preview to ensure consistency
         let duration = 0;
         
-        // First check if this is grouped data with a totalDuration field
-        if (entry.totalDuration !== undefined && entry.totalDuration !== null) {
-          duration = typeof entry.totalDuration === 'number' ? entry.totalDuration : parseFloat(String(entry.totalDuration));
-        }
         // Check if this entry has been edited in the preview
-        else if (entry.editedDuration !== undefined && entry.editedDuration !== null) {
+        if (entry.editedDuration !== undefined && entry.editedDuration !== null) {
           duration = typeof entry.editedDuration === 'number' ? entry.editedDuration : parseFloat(String(entry.editedDuration));
         } 
         // Check adjusted duration
         else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
           duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
         } 
-        // Use original duration
+        // Use originalDuration if available (from report data)
+        else if (entry.originalDuration !== undefined && entry.originalDuration !== null) {
+          duration = typeof entry.originalDuration === 'number' ? entry.originalDuration : parseFloat(String(entry.originalDuration));
+        }
+        // Check if this is grouped data with a totalDuration field
+        else if (entry.totalDuration !== undefined && entry.totalDuration !== null) {
+          duration = typeof entry.totalDuration === 'number' ? entry.totalDuration : parseFloat(String(entry.totalDuration));
+        }
+        // Use duration field as fallback
         else if (entry.duration !== undefined && entry.duration !== null) {
           // Handle both string and number duration values from grouped data
           duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : entry.duration;
