@@ -96,83 +96,118 @@ export default function InvoiceViewEdit({ invoice, onClose, onSave }: InvoiceVie
       setNotes(invoiceNotes);
       setAdditionalItems(additionalItemsList);
 
-      // Fetch time entries for this invoice
-      const timeEntriesRes = await fetch("/api/time-entries");
-      const allTimeEntries = await timeEntriesRes.json();
+      // Get the client for this invoice to generate grouped report data
+      const clientsRes = await fetch("/api/clients");
+      const allClients = await clientsRes.json();
+      const invoiceClient = allClients.find((c: any) => c.id === invoice.clientId);
       
-      // Filter entries for this invoice
-      const invoiceEntries = allTimeEntries.filter((entry: any) => 
-        entry.invoiceId === invoice.id
-      );
-
-      if (invoiceEntries.length === 0) {
+      if (!invoiceClient) {
         setIsLoading(false);
         return;
       }
 
-      // Fetch all projects
-      const projectsRes = await fetch("/api/projects");
-      const allProjects = await projectsRes.json();
-      
-      // Create a map for efficient lookups
-      const projectsMap = new Map();
-      allProjects.forEach((project: any) => {
-        projectsMap.set(project.id, project);
-      });
+      // Generate a report for this client to get properly grouped data
+      const reportFilters = {
+        clientId: invoice.clientId,
+        startDate: invoice.periodStart || '2024-01-01',
+        endDate: invoice.periodEnd || new Date().toISOString().split('T')[0],
+        timeFormat: 'decimal',
+        roundingType: 'none',
+        timeAdjustment: {
+          increaseByPercentage: false,
+          percentage: 10,
+          roundToNearestTenth: false
+        }
+      };
 
-      // Enhance time entries with project data and calculate amounts
-      const enhancedEntries = invoiceEntries.map((entry: any) => {
-        // Add project data if missing
-        const project = entry.project || projectsMap.get(entry.projectId);
+      console.log("Generating grouped report for invoice with filters:", reportFilters);
+
+      const reportRes = await fetch("/api/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reportFilters),
+      });
+      
+      const reportData = await reportRes.json();
+      console.log("Grouped report data for invoice:", reportData);
+
+      if (!reportData.timeEntries || reportData.timeEntries.length === 0) {
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if we need to filter for specific invoice entries
+      const timeEntriesRes = await fetch("/api/time-entries");
+      const allTimeEntries = await timeEntriesRes.json();
+      const specificInvoiceEntries = allTimeEntries.filter((entry: any) => 
+        entry.invoiceId === invoice.id
+      );
+
+      let finalReportData = reportData;
+
+      if (specificInvoiceEntries.length > 0) {
+        // Filter the grouped report data to only include entries that belong to this invoice
+        const specificIds = new Set(specificInvoiceEntries.map((e: any) => e.id));
         
-        // Get hourly rate from project
-        const hourlyRate = parseFloat(project?.hourlyRate || "0");
+        // Filter grouped entries to only include those in this invoice
+        if (reportData.groups && reportData.groups.length > 0) {
+          finalReportData.groups = reportData.groups.map((group: any) => ({
+            ...group,
+            entries: group.entries.filter((entry: any) => specificIds.has(entry.id))
+          })).filter((group: any) => group.entries.length > 0);
+        }
         
-        // Get edited values if they exist
+        finalReportData.timeEntries = reportData.timeEntries.filter((entry: any) => specificIds.has(entry.id));
+      }
+
+      // Apply any edited entries from invoice notes
+      const enhancedEntries = finalReportData.timeEntries.map((entry: any) => {
         const editedEntry = editedEntriesList.find((e: any) => e.id === entry.id);
         
-        // Calculate or use existing values
-        const duration = editedEntry ? editedEntry.duration : entry.duration;
-        let amount;
-        
         if (editedEntry) {
-          // Use the edited amount if available
-          amount = editedEntry.amount;
-        } else {
-          // Otherwise calculate it from duration and hourly rate
-          const durationValue = parseFloat(duration || "0");
-          amount = (hourlyRate * durationValue).toFixed(2);
+          return {
+            ...entry,
+            duration: editedEntry.duration,
+            amount: editedEntry.amount,
+            editedDuration: editedEntry.duration,
+            editedAmount: editedEntry.amount,
+            wasEdited: true
+          };
         }
         
         return {
           ...entry,
-          project,
-          hourlyRate,
-          duration,
-          amount,
-          wasEdited: !!editedEntry
+          wasEdited: false
         };
       });
 
-      // Group entries by week
-      const weeklyGroups = groupEntriesByWeek(enhancedEntries);
+      // Use the grouped data from the report instead of manual grouping
+      const reportDataForState = {
+        timeEntries: enhancedEntries,
+        groups: finalReportData.groups || [],
+        total: finalReportData.total || 0,
+        timeFormat: finalReportData.timeFormat || 'decimal'
+      };
       
-      // Calculate totals
+      // Calculate totals from the report data
       const hours = enhancedEntries.reduce(
         (sum, entry) => sum + parseFloat(entry.duration || 0), 
         0
       );
       
-      const amount = enhancedEntries.reduce(
+      const amount = finalReportData.total || enhancedEntries.reduce(
         (sum, entry) => sum + parseFloat(entry.amount || 0), 
         0
       );
 
-      // Set state values
+      // Set state values with grouped report data
       setTimeEntries(enhancedEntries);
-      setWeeklyData(weeklyGroups);
+      setWeeklyData(finalReportData.groups || []);
       setTotalHours(hours);
       setTotalAmount(amount);
+      
+      // Store the complete report data for the invoice preview
+      setReportData(reportDataForState);
       setIsLoading(false);
     } catch (error) {
       console.error("Error loading invoice data:", error);
