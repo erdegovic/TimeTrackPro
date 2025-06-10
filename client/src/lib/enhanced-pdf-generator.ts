@@ -536,8 +536,10 @@ function generateTimeEntriesTable({
   let subtotal = 0;
   let totalHours = 0;
   
-  const currencySymbol = settings.displayCurrency === 'GBP' ? '£' : 
-                        settings.displayCurrency === 'EUR' ? '€' : '$';
+  // Use client's currency first, then fall back to report data currency, then settings
+  const clientCurrency = client?.currency || reportData?.clientCurrency || settings.displayCurrency || 'USD';
+  const currencySymbol = clientCurrency === 'GBP' ? '£' : 
+                        clientCurrency === 'EUR' ? '€' : '$';
   
   console.log("Processing time entries for PDF table...");
   

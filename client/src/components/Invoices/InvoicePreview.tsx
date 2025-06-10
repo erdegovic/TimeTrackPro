@@ -816,8 +816,15 @@ export default function InvoicePreview({
                   .filter((entry: any) => client && entry.client && entry.client.id === client.id);
                 
                 // Group by week if weekly categorization is enabled and groups exist
-                if (settings?.enableWeeklyCategorization && reportData.groups && reportData.groups.length > 0) {
-                  return reportData.groups.map((group: any, groupIndex: number) => {
+                const hasWeeklyData = reportData.groups && reportData.groups.length > 0 || 
+                                    reportData.weeklyData && reportData.weeklyData.length > 0;
+                
+                if (settings?.enableWeeklyCategorization && hasWeeklyData) {
+                  // Use groups if available, otherwise use weeklyData
+                  const groupsToUse = reportData.groups && reportData.groups.length > 0 ? 
+                                     reportData.groups : reportData.weeklyData;
+                  
+                  return groupsToUse.map((group: any, groupIndex: number) => {
                     // Use entries directly from the group if available, otherwise filter
                     const groupEntries = group.entries || filteredEntries.filter((entry: any) => {
                       return entry.weekLabel === group.weekLabel || 
@@ -854,7 +861,7 @@ export default function InvoicePreview({
                         // Ensure valid number
                         if (isNaN(duration) || duration < 0) duration = 0;
                         
-                        console.log(`Invoice Preview - Entry ${entry.id}: duration=${duration}, sessionCount=${entry.sessionCount}, dateRange=${entry.dateRange}`);
+                        console.log(`Invoice Preview (Weekly) - Entry ${entry.id}: duration=${duration}, sessionCount=${entry.sessionCount}, dateRange=${entry.dateRange}`);
 
                         return (
                           <tr key={`entry-${entry.id}-${index}`} className="border-b border-gray-200">
