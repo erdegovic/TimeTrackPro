@@ -538,8 +538,8 @@ function generateTimeEntriesTable({
   
   // Use client's currency first, then fall back to report data currency, then settings
   const clientCurrency = client?.currency || reportData?.clientCurrency || settings.displayCurrency || 'USD';
-  const currencySymbol = clientCurrency === 'GBP' ? '£' : 
-                        clientCurrency === 'EUR' ? '€' : '$';
+  
+  console.log(`PDF Generator using currency: ${clientCurrency}`);
   
   console.log("Processing time entries for PDF table...");
   
@@ -640,14 +640,14 @@ function generateTimeEntriesTable({
             tableContent.push([
               descriptionText,
               formatTime(duration, reportData.timeFormat || 'decimal'),
-              `${currencySymbol}${hourlyRate.toFixed(2)}`,
-              `${currencySymbol}${amount.toFixed(2)}`
+              formatCurrency(hourlyRate, clientCurrency),
+              formatCurrency(amount, clientCurrency)
             ]);
           } else {
             tableContent.push([
               descriptionText,
               formatTime(duration, reportData.timeFormat || 'decimal'),
-              `${currencySymbol}${amount.toFixed(2)}`
+              formatCurrency(amount, clientCurrency)
             ]);
           }
           
@@ -728,14 +728,14 @@ function generateTimeEntriesTable({
           tableContent.push([
             descriptionText,
             formatTime(duration, reportData.timeFormat || 'decimal'),
-            `${currencySymbol}${hourlyRate.toFixed(2)}`,
-            `${currencySymbol}${amount.toFixed(2)}`
+            formatCurrency(hourlyRate, clientCurrency),
+            formatCurrency(amount, clientCurrency)
           ]);
         } else {
           tableContent.push([
             descriptionText,
             formatTime(duration, reportData.timeFormat || 'decimal'),
-            `${currencySymbol}${amount.toFixed(2)}`
+            formatCurrency(amount, clientCurrency)
           ]);
         }
         
