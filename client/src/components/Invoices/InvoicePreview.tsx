@@ -867,11 +867,6 @@ export default function InvoicePreview({
                           <tr key={`entry-${entry.id}-${index}`} className="border-b border-gray-200">
                             <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
                               {entry.description}
-                              {entry.sessionCount > 1 && (
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {entry.sessionCount} sessions{entry.dateRange ? ` (${entry.dateRange})` : ''}
-                                </div>
-                              )}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
                               {isEditing ? (
@@ -940,11 +935,6 @@ export default function InvoicePreview({
                       <tr key={`entry-${entry.id}-${index}`} className="border-b border-gray-200">
                         <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
                           {entry.description}
-                          {entry.sessionCount > 1 && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              {entry.sessionCount} sessions{entry.dateRange ? ` (${entry.dateRange})` : ''}
-                            </div>
-                          )}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
                           {isEditing ? (
