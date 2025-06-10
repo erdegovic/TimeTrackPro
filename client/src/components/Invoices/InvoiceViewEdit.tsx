@@ -25,6 +25,7 @@ export default function InvoiceViewEdit({ invoice, onClose, onSave }: InvoiceVie
   const [totalHours, setTotalHours] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
   const [editedEntries, setEditedEntries] = useState<Record<number, { duration: string; amount: string }>>({});
+  const [reportData, setReportData] = useState<any>(null);
 
   // Fetch client data
   const { data: clients = [] } = useQuery<Client[]>({
@@ -107,10 +108,14 @@ export default function InvoiceViewEdit({ invoice, onClose, onSave }: InvoiceVie
       }
 
       // Generate a report for this client to get properly grouped data
+      // Use issue date as start and current date as end for the report range
+      const startDate = new Date(invoice.issueDate);
+      startDate.setMonth(startDate.getMonth() - 1); // Go back 1 month from issue date
+      
       const reportFilters = {
         clientId: invoice.clientId,
-        startDate: invoice.periodStart || '2024-01-01',
-        endDate: invoice.periodEnd || new Date().toISOString().split('T')[0],
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: new Date().toISOString().split('T')[0],
         timeFormat: 'decimal',
         roundingType: 'none',
         timeAdjustment: {
@@ -191,12 +196,12 @@ export default function InvoiceViewEdit({ invoice, onClose, onSave }: InvoiceVie
       
       // Calculate totals from the report data
       const hours = enhancedEntries.reduce(
-        (sum, entry) => sum + parseFloat(entry.duration || 0), 
+        (sum: number, entry: any) => sum + parseFloat(entry.duration || 0), 
         0
       );
       
       const amount = finalReportData.total || enhancedEntries.reduce(
-        (sum, entry) => sum + parseFloat(entry.amount || 0), 
+        (sum: number, entry: any) => sum + parseFloat(entry.amount || 0), 
         0
       );
 
@@ -462,17 +467,20 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
         return edited || entry;
       });
       
-      // Prepare export data
+      // Prepare export data using the grouped report structure
       const exportData = {
-        timeEntries: updatedTimeEntries, // Use updated entries with current edits
-        weeklyData,
+        timeEntries: updatedTimeEntries, // Keep for backwards compatibility
+        weeklyData, // This contains the properly grouped data
+        groups: reportData?.groups || weeklyData, // Use the report groups structure
+        total: totalAmount,
         totalHours,
         totalAmount,
         timeFormat: "decimal",
         clientCurrency: client.currency || settings.defaultCurrency || "USD",
         additionalItems,
         hasEditedData: Object.keys(editedEntries).length > 0,
-        useWeeklyGrouping: true // Force weekly grouping in PDF export
+        useWeeklyGrouping: true, // Force weekly grouping in PDF export
+        isGroupedData: true // Flag to indicate this uses grouped structure
       };
       
       console.log("Exporting invoice with data:", {
@@ -595,7 +603,7 @@ EDITED_ENTRIES:${JSON.stringify(editedEntriesList)}`
                 </tr>
                 
                 {/* Week entries */}
-                {week.entries.map(entry => (
+                {week.entries.map((entry: any) => (
                   <tr key={`entry-${entry.id}`} className="text-sm">
                     <td className="p-3 text-gray-500">Week {week.weekNumber}</td>
                     <td className="p-3">
