@@ -707,7 +707,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           project,
           hourlyRate: project?.hourlyRate || "0",
           amount: convertedAmount.toFixed(2),
-          duration: durationHours.toFixed(2)
+          duration: durationHours.toFixed(2),
+          originalDuration: durationHours // Preserve full precision for invoice calculations
         };
       }));
       
@@ -748,6 +749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ...entry,
               duration: 0,
               amount: 0,
+              originalDuration: 0,
               mergedCount: 0,
               dates: [] // Track all dates for this grouped entry
             };
@@ -759,8 +761,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             acc[weekKey].groupedEntries[groupKey].dates.push(entryDateStr);
           }
           
-          // Merge the entry
+          // Merge the entry using original precise duration values
           acc[weekKey].groupedEntries[groupKey].duration += parseFloat(entry.duration);
+          acc[weekKey].groupedEntries[groupKey].originalDuration += entry.originalDuration;
           acc[weekKey].groupedEntries[groupKey].amount += parseFloat(entry.amount);
           acc[weekKey].groupedEntries[groupKey].mergedCount += 1;
           
@@ -775,6 +778,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           groupedData[weekKey].entries = Object.values(groupedData[weekKey].groupedEntries).map((entry: any) => ({
             ...entry,
             duration: entry.duration.toFixed(6),
+            originalDuration: entry.originalDuration, // Preserve original duration
             amount: entry.amount.toFixed(2),
             // Use the first date from the grouped dates for display
             date: entry.dates[0],
@@ -796,6 +800,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ...entry,
               duration: 0,
               amount: 0,
+              originalDuration: 0,
               mergedCount: 0,
               dates: [] // Track all dates for this grouped entry
             };
@@ -808,6 +813,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           acc[groupKey].duration += parseFloat(entry.duration);
+          acc[groupKey].originalDuration += entry.originalDuration;
           acc[groupKey].amount += parseFloat(entry.amount);
           acc[groupKey].mergedCount += 1;
           
@@ -826,6 +832,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             entries: Object.values(groupedEntries).map((entry: any) => ({
               ...entry,
               duration: entry.duration.toFixed(6),
+              originalDuration: entry.originalDuration, // Preserve original duration
               amount: entry.amount.toFixed(2),
               // Use the first date from the grouped dates for display
               date: entry.dates[0],
