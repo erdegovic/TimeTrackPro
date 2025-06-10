@@ -490,9 +490,13 @@ function generateInvoicePdf(options: {
   
   if (reportData) {
     // Use report data for generating invoice
-    if (settings.enableWeeklyCategorization && reportData.groups && reportData.groups.length > 0) {
+    // Use grouped data if available (prioritize grouped data over settings)
+    const groupsToProcess = reportData.groups && reportData.groups.length > 0 ? reportData.groups : 
+                           reportData.weeklyData && reportData.weeklyData.length > 0 ? reportData.weeklyData : null;
+    
+    if (groupsToProcess) {
       // Group entries by week using groups structure
-      reportData.groups.forEach((group: any) => {
+      groupsToProcess.forEach((group: any) => {
         const weekEntries = group.entries || reportData.timeEntries.filter((entry: any) => 
           entry.weekLabel === group.weekLabel || 
           (entry.weekNumber === group.weekNumber && entry.year === group.year)

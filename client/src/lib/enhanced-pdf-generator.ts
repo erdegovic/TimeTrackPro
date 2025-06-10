@@ -542,11 +542,14 @@ function generateTimeEntriesTable({
   console.log("Processing time entries for PDF table...");
   
   if (reportData?.timeEntries) {
-    // Group entries by week if weekly categorization is enabled
-    if (settings.enableWeeklyCategorization && reportData.groups && reportData.groups.length > 0) {
-      console.log(`Processing ${reportData.groups.length} weekly groups for PDF...`);
+    // Group entries by week if grouped data is available (prioritize grouped data over settings)
+    const groupsToProcess = reportData.groups && reportData.groups.length > 0 ? reportData.groups : 
+                           reportData.weeklyData && reportData.weeklyData.length > 0 ? reportData.weeklyData : null;
+    
+    if (groupsToProcess) {
+      console.log(`Processing ${groupsToProcess.length} weekly groups for PDF...`);
       
-      reportData.groups.forEach((group: any, groupIndex: number) => {
+      groupsToProcess.forEach((group: any, groupIndex: number) => {
         console.log(`Processing group ${groupIndex + 1}: ${group.weekLabel || `Week ${group.weekNumber}, ${group.year}`}`);
         
         // Add week header row
