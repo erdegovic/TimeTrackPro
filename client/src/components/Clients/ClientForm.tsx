@@ -142,8 +142,7 @@ export default function ClientForm({ onSuccess, onCancel, initialData, isEditing
     }
   };
 
-  console.log("★ Form errors:", form.formState.errors);
-  console.log("★ Form is valid:", form.formState.isValid);
+
   
   return (
     <Form {...form}>
