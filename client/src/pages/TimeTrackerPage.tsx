@@ -20,6 +20,8 @@ export default function TimeTrackerPage() {
   const [showNewClientDialog, setShowNewClientDialog] = useState(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
   const [selectedClientIdForProject, setSelectedClientIdForProject] = useState<number | undefined>(undefined);
+  
+  console.log("★ TimeTrackerPage render, showNewClientDialog:", showNewClientDialog);
 
   const { setSelectedClientId, setSelectedProjectId } = useTimerContext();
 
@@ -36,7 +38,10 @@ export default function TimeTrackerPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">Time Tracker</h1>
         <div className="flex items-center space-x-2">
-          <Button onClick={() => setShowNewClientDialog(true)} variant="outline" size="sm">
+          <Button onClick={() => {
+            console.log("★ Client button clicked, opening dialog");
+            setShowNewClientDialog(true);
+          }} variant="outline" size="sm">
             <Plus className="mr-1 h-4 w-4" /> Client
           </Button>
           <Button onClick={() => setShowNewProjectDialog(true)} variant="outline" size="sm">
@@ -60,6 +65,7 @@ export default function TimeTrackerPage() {
           <DialogHeader>
             <DialogTitle>Add New Client</DialogTitle>
           </DialogHeader>
+          {console.log("★ Dialog is open, showNewClientDialog:", showNewClientDialog)}
           <ClientForm
             onSuccess={(createdClient) => {
               console.log("★ Client created in TimeTrackerPage:", createdClient);
