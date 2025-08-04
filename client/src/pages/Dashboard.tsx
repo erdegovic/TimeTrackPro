@@ -31,14 +31,36 @@ export default function Dashboard() {
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(today), "yyyy-MM-dd");
 
-  // Fetch time entries for this week
-  const { data: weekEntries = [] } = useQuery<TimeEntry[]>({
-    queryKey: [`/api/time-entries?startDate=${weekStart}&endDate=${weekEnd}`],
+  console.log("📅 Dashboard date calculations:", {
+    today: format(today, "yyyy-MM-dd"),
+    weekStart,
+    weekEnd,
+    monthStart,
+    monthEnd
   });
 
-  // Fetch time entries for this month
-  const { data: monthEntries = [] } = useQuery<TimeEntry[]>({
-    queryKey: [`/api/time-entries?startDate=${monthStart}&endDate=${monthEnd}`],
+  // Fetch all time entries first, then filter client-side for now
+  const { data: allEntries = [] } = useQuery<TimeEntry[]>({
+    queryKey: ["/api/time-entries"],
+  });
+
+  // Filter entries for this week on the client side
+  const weekEntries = allEntries.filter(entry => {
+    const entryDate = entry.date;
+    return entryDate >= weekStart && entryDate <= weekEnd;
+  });
+
+  // Filter entries for this month on the client side
+  const monthEntries = allEntries.filter(entry => {
+    const entryDate = entry.date;
+    return entryDate >= monthStart && entryDate <= monthEnd;
+  });
+
+  console.log("📊 Dashboard entries filtered:", {
+    totalEntries: allEntries.length,
+    weekEntries: weekEntries.length,
+    monthEntries: monthEntries.length,
+    weekEntriesData: weekEntries.map(e => ({ id: e.id, date: e.date, duration: e.duration }))
   });
 
   // Fetch clients
