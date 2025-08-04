@@ -505,12 +505,28 @@ export default function EnhancedTimeEntry({
         {/* Description */}
         <div className="flex-1 min-w-0 px-4">
           {isEditingEntry ? (
-            <div className="space-y-2">
+            <div 
+              className="space-y-2"
+              onBlur={(e) => {
+                // Only save if we're not clicking on another input within this edit area
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  handleSaveEntry();
+                }
+              }}
+            >
               <Input
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 placeholder="What are you working on?"
                 className="text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSaveEntry();
+                  } else if (e.key === 'Escape') {
+                    handleCancelEdit();
+                  }
+                }}
+                autoFocus
               />
               <div className="flex space-x-2">
                 <Select value={editClientId?.toString() || ""} onValueChange={(value) => {
@@ -707,28 +723,7 @@ export default function EnhancedTimeEntry({
 
           {/* Action buttons */}
           <div className="flex items-center space-x-1">
-            {isEditingEntry ? (
-              <>
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  className="h-8 w-8 text-green-600 hover:text-white hover:bg-green-600"
-                  onClick={handleSaveEntry}
-                  title="Save changes"
-                >
-                  <Save className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  className="h-8 w-8 text-gray-500 hover:text-white hover:bg-gray-500"
-                  onClick={handleCancelEdit}
-                  title="Cancel editing"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </>
-            ) : (
+            {!isEditingEntry && (
               <>
                 {onPlay && (
                   <Button 
