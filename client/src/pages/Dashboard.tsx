@@ -31,14 +31,6 @@ export default function Dashboard() {
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(today), "yyyy-MM-dd");
 
-  console.log("📅 Dashboard date calculations:", {
-    today: format(today, "yyyy-MM-dd"),
-    weekStart,
-    weekEnd,
-    monthStart,
-    monthEnd
-  });
-
   // Fetch all time entries first, then filter client-side for now
   const { data: allEntries = [] } = useQuery<TimeEntry[]>({
     queryKey: ["/api/time-entries"],
@@ -54,13 +46,6 @@ export default function Dashboard() {
   const monthEntries = allEntries.filter(entry => {
     const entryDate = entry.date;
     return entryDate >= monthStart && entryDate <= monthEnd;
-  });
-
-  console.log("📊 Dashboard entries filtered:", {
-    totalEntries: allEntries.length,
-    weekEntries: weekEntries.length,
-    monthEntries: monthEntries.length,
-    weekEntriesData: weekEntries.map(e => ({ id: e.id, date: e.date, duration: e.duration }))
   });
 
   // Fetch clients

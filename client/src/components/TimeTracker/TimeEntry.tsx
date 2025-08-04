@@ -234,10 +234,31 @@ export default function TimeEntryRow({
   return (
     <>
       <tr className={newEntryClass}>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.description}</td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.client?.name || "—"}</td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+          <span 
+            className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+            onClick={() => setIsEditing(true)}
+            title="Click to edit description"
+          >
+            {entry.description}
+          </span>
+        </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-          <span style={{ color: entry.project?.color || "#000000" }}>
+          <span 
+            className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+            onClick={() => setIsEditing(true)}
+            title="Click to edit client"
+          >
+            {entry.client?.name || "—"}
+          </span>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+          <span 
+            style={{ color: entry.project?.color || "#000000" }}
+            className="cursor-pointer hover:opacity-75 hover:underline transition-all"
+            onClick={() => setIsEditing(true)}
+            title="Click to edit project"
+          >
             {entry.project?.name || "—"}
           </span>
         </td>
@@ -272,9 +293,7 @@ export default function TimeEntryRow({
           <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} className="text-primary hover:text-white hover:bg-primary">
             <Edit className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={handleDuplicate} className="text-gray-500 hover:text-white hover:bg-gray-500">
-            <Copy className="h-4 w-4" />
-          </Button>
+
           <Button variant="ghost" size="icon" onClick={() => onDelete(entry.id)} className="text-destructive hover:text-white hover:bg-destructive">
             <Trash2 className="h-4 w-4" />
           </Button>
