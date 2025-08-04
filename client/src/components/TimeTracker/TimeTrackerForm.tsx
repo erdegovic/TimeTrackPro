@@ -122,6 +122,21 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
     };
   }, [startTimerWithData, setSelectedClientId]);
 
+  // Close popovers when selections change (for automatic selection after creation)
+  useEffect(() => {
+    if (selectedClientId) {
+      setClientPopoverOpen(false);
+      setClientSearchTerm("");
+    }
+  }, [selectedClientId]);
+
+  useEffect(() => {
+    if (selectedProjectId) {
+      setProjectPopoverOpen(false);
+      setProjectSearchTerm("");
+    }
+  }, [selectedProjectId]);
+
   // Handle client selection
   const handleClientChange = (value: string) => {
     const clientId = Number(value);

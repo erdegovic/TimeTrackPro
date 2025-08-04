@@ -66,8 +66,10 @@ export default function TimeTrackerPage() {
             <DialogTitle>Add New Client</DialogTitle>
           </DialogHeader>
           <ClientForm onSuccess={(createdClient) => {
+            console.log("Client created:", createdClient);
             if (createdClient) {
               // Automatically select the newly created client
+              console.log("Setting selected client ID to:", createdClient.id);
               setSelectedClientId(createdClient.id);
             }
             setShowNewClientDialog(false);
@@ -83,8 +85,10 @@ export default function TimeTrackerPage() {
           </DialogHeader>
           <ProjectForm 
             onSuccess={(createdProject) => {
+              console.log("Project created:", createdProject);
               if (createdProject) {
                 // Automatically select the newly created project
+                console.log("Setting selected project ID to:", createdProject.id);
                 setSelectedProjectId(createdProject.id);
               }
               setShowNewProjectDialog(false);
