@@ -61,6 +61,7 @@ export default function ClientForm({ onSuccess, initialData, isEditing = false, 
       return apiRequest("POST", "/api/clients", data);
     },
     onSuccess: (createdClient) => {
+      console.log("ClientForm mutation success, created client:", createdClient);
       // Invalidate all related queries to refresh the data everywhere
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
@@ -70,6 +71,7 @@ export default function ClientForm({ onSuccess, initialData, isEditing = false, 
         title: "Client created",
         description: "New client has been created successfully.",
       });
+      console.log("Calling onSuccess callback with:", createdClient);
       onSuccess(createdClient);
       setIsSubmitting(false);
     },
