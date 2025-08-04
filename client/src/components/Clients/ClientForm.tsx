@@ -118,10 +118,15 @@ export default function ClientForm({ onSuccess, initialData, isEditing = false, 
   });
 
   const onSubmit = async (data: z.infer<typeof clientSchema>) => {
+    console.log("★ ClientForm onSubmit called with data:", data);
+    console.log("★ isEditing:", isEditing, "clientId:", clientId);
+    
     setIsSubmitting(true);
     if (isEditing && clientId) {
+      console.log("★ Using UPDATE client mutation");
       updateClient.mutate(data);
     } else {
+      console.log("★ Using CREATE client mutation");
       createClient.mutate(data);
     }
   };
