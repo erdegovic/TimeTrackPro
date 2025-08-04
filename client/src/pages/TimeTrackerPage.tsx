@@ -8,11 +8,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Client, Project } from "@shared/schema";
 import ClientForm from "@/components/Clients/ClientForm";
 import ProjectForm from "@/components/Projects/ProjectForm";
+import { useTimerContext } from "@/context/TimerContext";
 
 export default function TimeTrackerPage() {
   const [showNewClientDialog, setShowNewClientDialog] = useState(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
-  const [selectedClientId, setSelectedClientId] = useState<number | undefined>(undefined);
+  const [selectedClientIdForProject, setSelectedClientIdForProject] = useState<number | undefined>(undefined);
+  
+  // Use timer context to manage selected client and project
+  const { setSelectedClientId, setSelectedProjectId } = useTimerContext();
 
   // Fetch clients
   const { data: clients = [] } = useQuery<Client[]>({
@@ -49,7 +53,7 @@ export default function TimeTrackerPage() {
       <TimeTrackerForm 
         onAddClient={() => setShowNewClientDialog(true)}
         onAddProject={(clientId) => {
-          setSelectedClientId(clientId);
+          setSelectedClientIdForProject(clientId);
           setShowNewProjectDialog(true);
         }}
       />
@@ -61,7 +65,13 @@ export default function TimeTrackerPage() {
           <DialogHeader>
             <DialogTitle>Add New Client</DialogTitle>
           </DialogHeader>
-          <ClientForm onSuccess={() => setShowNewClientDialog(false)} />
+          <ClientForm onSuccess={(createdClient) => {
+            if (createdClient) {
+              // Automatically select the newly created client
+              setSelectedClientId(createdClient.id);
+            }
+            setShowNewClientDialog(false);
+          }} />
         </DialogContent>
       </Dialog>
 
@@ -72,10 +82,16 @@ export default function TimeTrackerPage() {
             <DialogTitle>Add New Project</DialogTitle>
           </DialogHeader>
           <ProjectForm 
-            onSuccess={() => setShowNewProjectDialog(false)} 
+            onSuccess={(createdProject) => {
+              if (createdProject) {
+                // Automatically select the newly created project
+                setSelectedProjectId(createdProject.id);
+              }
+              setShowNewProjectDialog(false);
+            }} 
             initialData={{
               name: "",
-              clientId: selectedClientId || "",
+              clientId: selectedClientIdForProject || "",
               description: "",
               active: true,
               hourlyRate: "0"

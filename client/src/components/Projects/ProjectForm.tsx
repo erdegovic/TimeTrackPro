@@ -38,7 +38,7 @@ const projectColors = [
 ];
 
 type ProjectFormProps = {
-  onSuccess: () => void;
+  onSuccess: (project?: any) => void;
   initialData?: Omit<InsertProject, "clientId"> & { clientId: number | string };
   isEditing?: boolean;
   projectId?: number;
@@ -77,7 +77,7 @@ export default function ProjectForm({ onSuccess, initialData, isEditing = false,
       };
       return apiRequest("POST", "/api/projects", projectData);
     },
-    onSuccess: () => {
+    onSuccess: (createdProject) => {
       // Invalidate all related queries to refresh the data everywhere
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
@@ -87,7 +87,7 @@ export default function ProjectForm({ onSuccess, initialData, isEditing = false,
         title: "Project created",
         description: "New project has been created successfully.",
       });
-      onSuccess();
+      onSuccess(createdProject);
       setIsSubmitting(false);
     },
     onError: (error) => {
