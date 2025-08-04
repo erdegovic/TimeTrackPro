@@ -1,3 +1,4 @@
+// ClientForm.tsx
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -5,14 +6,26 @@ import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { InsertClient } from "@shared/schema";
 
-// Extended schema with validation
 const clientSchema = z.object({
   name: z.string().min(1, "Client name is required"),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
@@ -28,17 +41,19 @@ const clientSchema = z.object({
 
 type ClientFormProps = {
   onSuccess: (client?: any) => void;
+  onCancel?: () => void;
   initialData?: InsertClient;
   isEditing?: boolean;
   clientId?: number;
 };
 
-export default function ClientForm({ onSuccess, initialData, isEditing = false, clientId }: ClientFormProps) {
+export default function ClientForm({ onSuccess, onCancel, initialData, isEditing = false, clientId }: ClientFormProps) {
+  console.log("★ ClientForm component rendered with props:", { onSuccess: !!onSuccess, onCancel: !!onCancel, isEditing, clientId });
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Initialize form with default values
   const form = useForm<z.infer<typeof clientSchema>>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
@@ -55,34 +70,31 @@ export default function ClientForm({ onSuccess, initialData, isEditing = false, 
     },
   });
 
-  // Create mutation
   const createClient = useMutation({
     mutationFn: async (data: z.infer<typeof clientSchema>) => {
       return apiRequest("POST", "/api/clients", data);
     },
     onSuccess: (createdClient) => {
-      console.log("ClientForm mutation success, created client:", createdClient);
-      // Invalidate all related queries to refresh the data everywhere
+      console.log("★ ClientForm mutation success, created client:", createdClient);
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-      
+
       toast({
         title: "Client created",
         description: "New client has been created successfully.",
       });
-      console.log("Calling onSuccess callback with:", createdClient);
-      
-      // Immediately trigger callback to ensure it's called
+
       try {
         onSuccess(createdClient);
+        console.log("★ Called onSuccess from ClientForm with:", createdClient);
       } catch (error) {
         console.error("Error calling onSuccess callback:", error);
       }
-      
+
       setIsSubmitting(false);
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Error",
         description: "Failed to create client. Please try again.",
@@ -92,7 +104,6 @@ export default function ClientForm({ onSuccess, initialData, isEditing = false, 
     },
   });
 
-  // Update mutation
   const updateClient = useMutation({
     mutationFn: async (data: z.infer<typeof clientSchema>) => {
       return apiRequest("PUT", `/api/clients/${clientId}`, data);
@@ -107,7 +118,7 @@ export default function ClientForm({ onSuccess, initialData, isEditing = false, 
       onSuccess();
       setIsSubmitting(false);
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Error",
         description: "Failed to update client. Please try again.",
@@ -120,7 +131,7 @@ export default function ClientForm({ onSuccess, initialData, isEditing = false, 
   const onSubmit = async (data: z.infer<typeof clientSchema>) => {
     console.log("★ ClientForm onSubmit called with data:", data);
     console.log("★ isEditing:", isEditing, "clientId:", clientId);
-    
+
     setIsSubmitting(true);
     if (isEditing && clientId) {
       console.log("★ Using UPDATE client mutation");
@@ -131,6 +142,9 @@ export default function ClientForm({ onSuccess, initialData, isEditing = false, 
     }
   };
 
+  console.log("★ Form errors:", form.formState.errors);
+  console.log("★ Form is valid:", form.formState.isValid);
+  
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -271,10 +285,7 @@ export default function ClientForm({ onSuccess, initialData, isEditing = false, 
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Client Currency</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                >
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select currency" />
@@ -295,7 +306,7 @@ export default function ClientForm({ onSuccess, initialData, isEditing = false, 
         </div>
 
         <div className="flex justify-end space-x-2 pt-4">
-          <Button type="button" variant="outline" onClick={onSuccess}>
+          <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>

@@ -1,10 +1,16 @@
+// TimeTrackerPage.tsx
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TimeTrackerForm from "@/components/TimeTracker/TimeTrackerForm";
 import TimeEntryList from "@/components/TimeTracker/TimeEntryList";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Client, Project } from "@shared/schema";
 import ClientForm from "@/components/Clients/ClientForm";
 import ProjectForm from "@/components/Projects/ProjectForm";
@@ -14,16 +20,13 @@ export default function TimeTrackerPage() {
   const [showNewClientDialog, setShowNewClientDialog] = useState(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
   const [selectedClientIdForProject, setSelectedClientIdForProject] = useState<number | undefined>(undefined);
-  
-  // Use timer context to manage selected client and project
+
   const { setSelectedClientId, setSelectedProjectId } = useTimerContext();
 
-  // Fetch clients
   const { data: clients = [] } = useQuery<Client[]>({
     queryKey: ["/api/clients"],
   });
 
-  // Fetch projects
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
@@ -33,24 +36,16 @@ export default function TimeTrackerPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">Time Tracker</h1>
         <div className="flex items-center space-x-2">
-          <Button
-            onClick={() => setShowNewClientDialog(true)}
-            variant="outline"
-            size="sm"
-          >
+          <Button onClick={() => setShowNewClientDialog(true)} variant="outline" size="sm">
             <Plus className="mr-1 h-4 w-4" /> Client
           </Button>
-          <Button
-            onClick={() => setShowNewProjectDialog(true)}
-            variant="outline"
-            size="sm"
-          >
+          <Button onClick={() => setShowNewProjectDialog(true)} variant="outline" size="sm">
             <Plus className="mr-1 h-4 w-4" /> Project
           </Button>
         </div>
       </div>
 
-      <TimeTrackerForm 
+      <TimeTrackerForm
         onAddClient={() => setShowNewClientDialog(true)}
         onAddProject={(clientId) => {
           setSelectedClientIdForProject(clientId);
@@ -65,23 +60,35 @@ export default function TimeTrackerPage() {
           <DialogHeader>
             <DialogTitle>Add New Client</DialogTitle>
           </DialogHeader>
-          <ClientForm onSuccess={(createdClient) => {
-            console.log("★ Client created in TimeTrackerPage:", createdClient);
-            setShowNewClientDialog(false);
-            
-            if (createdClient && createdClient.id) {
-              console.log("★ Setting client ID directly:", createdClient.id);
-              setSelectedClientId(createdClient.id);
-              
-              import("@/hooks/use-toast").then(({ toast }) => {
-                toast({
-                  title: "Client auto-selected",
-                  description: `"${createdClient.name}" is now selected in the time tracker.`,
-                  duration: 3000,
+          <ClientForm
+            onSuccess={(createdClient) => {
+              console.log("★ Client created in TimeTrackerPage:", createdClient);
+
+              if (!createdClient) {
+                console.warn("⚠️ onSuccess called with undefined client");
+                return;
+              }
+
+              setShowNewClientDialog(false);
+
+              if (createdClient.id) {
+                console.log("★ Setting client ID directly:", createdClient.id);
+                setSelectedClientId(createdClient.id);
+
+                import("@/hooks/use-toast").then(({ toast }) => {
+                  toast({
+                    title: "Client auto-selected",
+                    description: `"${createdClient.name}" is now selected in the time tracker.`,
+                    duration: 3000,
+                  });
                 });
-              });
-            }
-          }} />
+              }
+            }}
+            onCancel={() => {
+              console.log("★ Cancel clicked");
+              setShowNewClientDialog(false);
+            }}
+          />
         </DialogContent>
       </Dialog>
 
@@ -91,15 +98,15 @@ export default function TimeTrackerPage() {
           <DialogHeader>
             <DialogTitle>Add New Project</DialogTitle>
           </DialogHeader>
-          <ProjectForm 
+          <ProjectForm
             onSuccess={(createdProject) => {
               console.log("★ Project created in TimeTrackerPage:", createdProject);
               setShowNewProjectDialog(false);
-              
+
               if (createdProject && createdProject.id) {
                 console.log("★ Setting project ID directly:", createdProject.id);
                 setSelectedProjectId(createdProject.id);
-                
+
                 import("@/hooks/use-toast").then(({ toast }) => {
                   toast({
                     title: "Project auto-selected",
@@ -108,13 +115,13 @@ export default function TimeTrackerPage() {
                   });
                 });
               }
-            }} 
+            }}
             initialData={{
               name: "",
               clientId: selectedClientIdForProject || "",
               description: "",
               active: true,
-              hourlyRate: "0"
+              hourlyRate: "0",
             }}
           />
         </DialogContent>
