@@ -508,7 +508,27 @@ export default function EnhancedTimeEntry({
             <div 
               className="space-y-2"
               onBlur={(e) => {
-                // Only save if we're not clicking on another input within this edit area
+                // Create safe zones - don't save if clicking on dropdown elements
+                const relatedTarget = e.relatedTarget as Element;
+                if (relatedTarget) {
+                  // Check if clicking on dropdown content, triggers, or Radix UI portal elements
+                  const isDropdownElement = 
+                    relatedTarget.closest('[role="listbox"]') ||
+                    relatedTarget.closest('[role="combobox"]') ||
+                    relatedTarget.closest('[data-radix-select-content]') ||
+                    relatedTarget.closest('[data-radix-select-trigger]') ||
+                    relatedTarget.closest('[data-radix-popper-content-wrapper]') ||
+                    relatedTarget.getAttribute('role') === 'option' ||
+                    relatedTarget.classList.contains('select-trigger') ||
+                    relatedTarget.classList.contains('select-content');
+                  
+                  // Don't save if clicking on dropdown or staying within edit area
+                  if (isDropdownElement || e.currentTarget.contains(relatedTarget)) {
+                    return;
+                  }
+                }
+                
+                // Save if clicking outside edit area and not on dropdown
                 if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                   handleSaveEntry();
                 }
@@ -528,39 +548,51 @@ export default function EnhancedTimeEntry({
                 }}
                 autoFocus
               />
-              <div className="flex space-x-2">
-                <Select value={editClientId?.toString() || ""} onValueChange={(value) => {
-                  const clientId = value ? Number(value) : undefined;
-                  setEditClientId(clientId);
-                  setEditProjectId(undefined); // Reset project when client changes
-                }}>
-                  <SelectTrigger className="text-xs h-6">
-                    <SelectValue placeholder="Client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id.toString()}>
-                        {client.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={editProjectId?.toString() || ""} onValueChange={(value) => {
-                  setEditProjectId(value ? Number(value) : undefined);
-                }} disabled={!editClientId}>
-                  <SelectTrigger className="text-xs h-6">
-                    <SelectValue placeholder="Project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.filter(p => p.clientId === editClientId).map((project) => (
-                      <SelectItem key={project.id} value={project.id.toString()}>
-                        <span style={{ color: (project as any).color || "#000000" }}>
-                          {project.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex items-center space-x-2">
+                <div className="flex space-x-2 flex-1">
+                  <Select value={editClientId?.toString() || ""} onValueChange={(value) => {
+                    const clientId = value ? Number(value) : undefined;
+                    setEditClientId(clientId);
+                    setEditProjectId(undefined); // Reset project when client changes
+                  }}>
+                    <SelectTrigger className="text-xs h-6 select-trigger">
+                      <SelectValue placeholder="Client" />
+                    </SelectTrigger>
+                    <SelectContent className="select-content">
+                      {clients.map((client) => (
+                        <SelectItem key={client.id} value={client.id.toString()}>
+                          {client.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={editProjectId?.toString() || ""} onValueChange={(value) => {
+                    setEditProjectId(value ? Number(value) : undefined);
+                  }} disabled={!editClientId}>
+                    <SelectTrigger className="text-xs h-6 select-trigger">
+                      <SelectValue placeholder="Project" />
+                    </SelectTrigger>
+                    <SelectContent className="select-content">
+                      {projects.filter(p => p.clientId === editClientId).map((project) => (
+                        <SelectItem key={project.id} value={project.id.toString()}>
+                          <span style={{ color: (project as any).color || "#000000" }}>
+                            {project.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Save icon as backup */}
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="h-6 w-6 p-0 text-green-600 hover:text-white hover:bg-green-600 flex-shrink-0"
+                  onClick={handleSaveEntry}
+                  title="Save changes (or click outside to auto-save)"
+                >
+                  <Save className="h-3 w-3" />
+                </Button>
               </div>
             </div>
           ) : (
