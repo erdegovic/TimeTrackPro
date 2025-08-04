@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Edit, Copy, Trash2, Play, Square, ChevronDown, ChevronRight, Calendar, Check, Save, X } from "lucide-react";
+import { Edit, Trash2, Play, Square, ChevronDown, ChevronRight, Calendar, Check, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -285,24 +285,7 @@ export default function EnhancedTimeEntry({
     }
   };
 
-  const handleDuplicate = async () => {
-    try {
-      const { id, ...entryWithoutId } = entry;
-      await apiRequest("POST", "/api/time-entries", entryWithoutId);
-      queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-      
-      toast({
-        title: "Time entry duplicated",
-        description: "Your time entry has been duplicated successfully.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to duplicate time entry. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
+
 
   const updateDuration = async (newDuration: number) => {
     if (!groupedEntry || newDuration <= 0) return;
@@ -566,30 +549,59 @@ export default function EnhancedTimeEntry({
             </div>
           ) : (
             <>
-              <div className="text-sm font-medium text-gray-900 truncate">
+              <div 
+                className="text-sm font-medium text-gray-900 truncate cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                onClick={handleEditEntry}
+                title="Click to edit description"
+              >
                 {groupedEntry.description}
               </div>
               <div className="text-xs text-gray-500">
 
                 {/* Always show project name with color */}
                 {groupedEntry.project && (
-                  <span style={{ color: groupedEntry.project.color || "#000000" }}>
+                  <span 
+                    style={{ color: groupedEntry.project.color || "#000000" }}
+                    className="cursor-pointer hover:opacity-75 hover:underline transition-all"
+                    onClick={handleEditEntry}
+                    title="Click to edit project"
+                  >
                     {groupedEntry.project.name}
                   </span>
                 )}
                 {/* Always show client name if project exists (since all projects have clients) */}
                 {groupedEntry.project && groupedEntry.client && (
-                  <span className="ml-2">• {groupedEntry.client.name}</span>
+                  <span 
+                    className="ml-2 cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                    onClick={handleEditEntry}
+                    title="Click to edit client"
+                  >
+                    • {groupedEntry.client.name}
+                  </span>
                 )}
                 {/* Fallback: if no client data but we have project, find client from projects */}
                 {groupedEntry.project && !groupedEntry.client && (() => {
                   const foundClient = clients.find(c => c.id === groupedEntry.project?.clientId);
-                  return foundClient ? <span className="ml-2">• {foundClient.name}</span> : null;
+                  return foundClient ? (
+                    <span 
+                      className="ml-2 cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                      onClick={handleEditEntry}
+                      title="Click to edit client"
+                    >
+                      • {foundClient.name}
+                    </span>
+                  ) : null;
                 })()}
                 
                 {/* Show message when no project is assigned */}
                 {!groupedEntry.project && (
-                  <span className="text-gray-400 italic">No project assigned</span>
+                  <span 
+                    className="text-gray-400 italic cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                    onClick={handleEditEntry}
+                    title="Click to assign project"
+                  >
+                    No project assigned
+                  </span>
                 )}
               </div>
             </>
@@ -757,14 +769,7 @@ export default function EnhancedTimeEntry({
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  className="h-8 w-8 text-gray-500 hover:text-white hover:bg-gray-500"
-                  onClick={handleDuplicate}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
+
                 <Button 
                   variant="ghost" 
                   size="icon"
