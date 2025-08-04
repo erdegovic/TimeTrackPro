@@ -72,7 +72,14 @@ export default function ClientForm({ onSuccess, initialData, isEditing = false, 
         description: "New client has been created successfully.",
       });
       console.log("Calling onSuccess callback with:", createdClient);
-      onSuccess(createdClient);
+      
+      // Immediately trigger callback to ensure it's called
+      try {
+        onSuccess(createdClient);
+      } catch (error) {
+        console.error("Error calling onSuccess callback:", error);
+      }
+      
       setIsSubmitting(false);
     },
     onError: (error) => {

@@ -66,22 +66,20 @@ export default function TimeTrackerPage() {
             <DialogTitle>Add New Client</DialogTitle>
           </DialogHeader>
           <ClientForm onSuccess={(createdClient) => {
-            console.log("Client created:", createdClient);
+            console.log("★ Client created in TimeTrackerPage:", createdClient);
             setShowNewClientDialog(false);
+            
             if (createdClient && createdClient.id) {
-              // Wait a bit for query invalidation, then select the client
-              setTimeout(() => {
-                console.log("Auto-selecting client ID:", createdClient.id);
-                setSelectedClientId(createdClient.id);
-                // Show a toast to confirm selection
-                import("@/hooks/use-toast").then(({ toast }) => {
-                  toast({
-                    title: "Client auto-selected",
-                    description: `"${createdClient.name}" is now selected in the time tracker.`,
-                    duration: 3000,
-                  });
+              console.log("★ Setting client ID directly:", createdClient.id);
+              setSelectedClientId(createdClient.id);
+              
+              import("@/hooks/use-toast").then(({ toast }) => {
+                toast({
+                  title: "Client auto-selected",
+                  description: `"${createdClient.name}" is now selected in the time tracker.`,
+                  duration: 3000,
                 });
-              }, 100);
+              });
             }
           }} />
         </DialogContent>
@@ -95,22 +93,20 @@ export default function TimeTrackerPage() {
           </DialogHeader>
           <ProjectForm 
             onSuccess={(createdProject) => {
-              console.log("Project created:", createdProject);
+              console.log("★ Project created in TimeTrackerPage:", createdProject);
               setShowNewProjectDialog(false);
+              
               if (createdProject && createdProject.id) {
-                // Wait a bit for query invalidation, then select the project
-                setTimeout(() => {
-                  console.log("Auto-selecting project ID:", createdProject.id);
-                  setSelectedProjectId(createdProject.id);
-                  // Show a toast to confirm selection
-                  import("@/hooks/use-toast").then(({ toast }) => {
-                    toast({
-                      title: "Project auto-selected",
-                      description: `"${createdProject.name}" is now selected in the time tracker.`,
-                      duration: 3000,
-                    });
+                console.log("★ Setting project ID directly:", createdProject.id);
+                setSelectedProjectId(createdProject.id);
+                
+                import("@/hooks/use-toast").then(({ toast }) => {
+                  toast({
+                    title: "Project auto-selected",
+                    description: `"${createdProject.name}" is now selected in the time tracker.`,
+                    duration: 3000,
                   });
-                }, 100);
+                });
               }
             }} 
             initialData={{
