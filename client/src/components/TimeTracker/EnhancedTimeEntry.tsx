@@ -390,18 +390,25 @@ export default function EnhancedTimeEntry({
   };
 
   const handleSaveEntry = async () => {
-    if (!groupedEntry || !editDescription.trim()) return;
+    if (!groupedEntry) return;
+    
+    // Allow saving even if description is empty (user might just want to change project/client)
+    const trimmedDescription = editDescription.trim();
+    if (!trimmedDescription && !editProjectId) {
+      // Don't save if both description and project are empty
+      return;
+    }
 
     try {
       // Check if this would create a merge by looking for existing entries
       const project = projects.find(p => p.id === editProjectId);
-      console.log('Checking for merge. Edit data:', { description: editDescription.trim(), projectId: editProjectId, date: entry.date });
+      console.log('Checking for merge. Edit data:', { description: trimmedDescription, projectId: editProjectId, date: entry.date });
       console.log('Available entries:', allTimeEntries.map(e => ({ id: e.id, description: e.description, projectId: e.projectId, date: e.date })));
       
       const willMerge = allTimeEntries.some((existingEntry: any) => 
         existingEntry.id !== entry.id &&
         existingEntry.date === entry.date &&
-        existingEntry.description === editDescription.trim() &&
+        existingEntry.description === trimmedDescription &&
         existingEntry.projectId === editProjectId
       );
       
@@ -409,7 +416,7 @@ export default function EnhancedTimeEntry({
 
       // Update all blocks in the group with new details
       const updateData = {
-        description: editDescription.trim(),
+        description: trimmedDescription,
         projectId: editProjectId
       };
 
@@ -431,7 +438,7 @@ export default function EnhancedTimeEntry({
         window.dispatchEvent(new CustomEvent('timeEntryMerging', {
           detail: {
             sourceEntryId: entry.id,
-            description: editDescription.trim(),
+            description: trimmedDescription,
             projectId: editProjectId,
             date: entry.date
           }
@@ -530,7 +537,10 @@ export default function EnhancedTimeEntry({
                 
                 // Save if clicking outside edit area and not on dropdown
                 if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                  handleSaveEntry();
+                  // Make sure we have the latest values from dropdowns before saving
+                  setTimeout(() => {
+                    handleSaveEntry();
+                  }, 0);
                 }
               }}
             >
