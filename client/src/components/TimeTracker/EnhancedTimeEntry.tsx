@@ -663,9 +663,15 @@ export default function EnhancedTimeEntry({
                   ) : null;
                 })()}
                 
-                {/* Show client or fallback message when no project is assigned */}
+                {/* Show client when no project is assigned */}
                 {!groupedEntry.project && (() => {
-                  // Client information is available from the backend enrichment
+                  console.log('Debug - No project entry:', {
+                    hasClient: !!groupedEntry.client,
+                    client: groupedEntry.client,
+                    entryId: groupedEntry.id,
+                    description: groupedEntry.description
+                  });
+                  
                   if (groupedEntry.client) {
                     return (
                       <span 
@@ -673,21 +679,22 @@ export default function EnhancedTimeEntry({
                         onClick={handleEditEntry}
                         title="Click to edit client or assign project"
                       >
-                        {groupedEntry.client.name} • No project
-                      </span>
-                    );
-                  } else {
-                    return (
-                      <span 
-                        className="text-gray-400 italic cursor-pointer hover:text-blue-600 hover:underline transition-colors"
-                        onClick={handleEditEntry}
-                        title="Click to assign client and project"
-                      >
-                        No project assigned
+                        {groupedEntry.client.name}
                       </span>
                     );
                   }
+                  return null;
                 })()}
+                {/* Only show fallback when no project AND no client */}
+                {!groupedEntry.project && !groupedEntry.client && (
+                  <span 
+                    className="text-gray-400 italic cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                    onClick={handleEditEntry}
+                    title="Click to assign client and project"
+                  >
+                    No project assigned
+                  </span>
+                )}
               </div>
             </>
           )}
