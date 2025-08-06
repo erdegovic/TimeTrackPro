@@ -394,8 +394,8 @@ export default function EnhancedTimeEntry({
     
     // Allow saving even if description is empty (user might just want to change project/client)
     const trimmedDescription = editDescription.trim();
-    if (!trimmedDescription && !editProjectId) {
-      // Don't save if both description and project are empty
+    if (!trimmedDescription && !editProjectId && !editClientId) {
+      // Don't save if description, project AND client are all empty
       return;
     }
 
@@ -415,10 +415,15 @@ export default function EnhancedTimeEntry({
       console.log('Will merge?', willMerge);
 
       // Update all blocks in the group with new details
-      const updateData = {
+      const updateData: any = {
         description: trimmedDescription,
-        projectId: editProjectId
       };
+      
+      // Always include projectId - can be null if no project selected
+      updateData.projectId = editProjectId || null;
+      
+      // Include clientId info for logging but API will derive it from project
+      console.log('Update data:', updateData, 'Client ID:', editClientId);
 
       // For grouped entries, update all blocks
       if (groupedEntry.blocks.length > 1) {

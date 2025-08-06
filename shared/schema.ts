@@ -231,7 +231,7 @@ export const insertTimeEntryNoteSchema = createInsertSchema(timeEntryNotes).omit
 // Create a more flexible schema specifically for updates
 export const timeEntryUpdateSchema = z.object({
   description: z.string().optional(),
-  projectId: z.coerce.number().optional(),
+  projectId: z.coerce.number().nullable().optional(),
   startTime: z.string().optional(),    // Add startTime to schema
   endTime: z.string().optional(),      // Add endTime to schema
   duration: z.string().optional(),
