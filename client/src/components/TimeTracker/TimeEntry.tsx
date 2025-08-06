@@ -41,15 +41,31 @@ export default function TimeEntryRow({
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editedEntry, setEditedEntry] = useState({ ...entry });
-  const [editedClientId, setEditedClientId] = useState(entry.project?.clientId?.toString() || "");
+  const [editedClientId, setEditedClientId] = useState(
+    entry.project?.clientId?.toString() || 
+    entry.clientId?.toString() || 
+    ""
+  );
   const [timeInputValue, setTimeInputValue] = useState("");
   
-  // Set initial time input value when dialog opens
+  // Set initial values when dialog opens
   useEffect(() => {
-    if (isEditing && timeFormat === "time") {
-      setTimeInputValue(formatDecimalToTime(editedEntry.duration || "0"));
+    if (isEditing) {
+      // Reset edited entry to current entry values
+      setEditedEntry({ ...entry });
+      
+      // Set client ID from project or direct client assignment
+      const clientId = entry.project?.clientId?.toString() || 
+                      entry.clientId?.toString() || 
+                      "";
+      setEditedClientId(clientId);
+      
+      // Set time input value for time format
+      if (timeFormat === "time") {
+        setTimeInputValue(formatDecimalToTime(editedEntry.duration || "0"));
+      }
     }
-  }, [isEditing, timeFormat, editedEntry.duration]);
+  }, [isEditing, entry, timeFormat]);
 
   // Filtered projects for the selected client
   const clientProjects = editedClientId 
@@ -68,9 +84,13 @@ export default function TimeEntryRow({
       
       console.log("Updating time entry with new duration:", newDuration, "hours");
       
-      // Get the project to calculate hourly rate
-      const project = projects.find(p => p.id === editedEntry.projectId) || 
-                      projects.find(p => p.id === entry.projectId);
+      // Get the project to calculate hourly rate (if project is selected)
+      const project = editedEntry.projectId ? projects.find(p => p.id === editedEntry.projectId) : null;
+      
+      // Get the client (either from selected project or directly selected client)
+      const client = project ? 
+        clients.find(c => c.id === project.clientId) :
+        clients.find(c => c.id === Number(editedClientId));
       
       // Calculate hourly rate and amount
       const hourlyRate = project?.hourlyRate || "0";
@@ -85,7 +105,8 @@ export default function TimeEntryRow({
       const updateData = {
         duration: formattedDuration,
         description: editedEntry.description || entry.description,
-        projectId: editedEntry.projectId || entry.projectId,
+        projectId: editedEntry.projectId || null,
+        clientId: editedEntry.projectId ? null : Number(editedClientId) || null,
         hourlyRate: hourlyRate,
         amount: amount
       };
@@ -96,8 +117,8 @@ export default function TimeEntryRow({
         ...entry,
         ...updateData,
         // Make sure we include any fields needed for display
-        project: project || entry.project,
-        client: entry.client
+        project: project || null,
+        client: client || entry.client
       };
       
       // Close dialog immediately for better UX
@@ -259,7 +280,7 @@ export default function TimeEntryRow({
             onClick={() => setIsEditing(true)}
             title="Click to edit project"
           >
-            {entry.project?.name || "—"}
+            {entry.project?.name || (entry.client?.name ? `${entry.client.name} (no project)` : "—")}
           </span>
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-medium text-gray-900">
@@ -320,7 +341,7 @@ export default function TimeEntryRow({
                 value={editedClientId} 
                 onValueChange={(val) => {
                   setEditedClientId(val);
-                  setEditedEntry({ ...editedEntry, projectId: 0 }); // Reset project when client changes
+                  setEditedEntry({ ...editedEntry, projectId: null }); // Reset project when client changes
                 }}
               >
                 <SelectTrigger>
@@ -337,16 +358,17 @@ export default function TimeEntryRow({
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Project</label>
+              <label className="text-sm font-medium text-gray-700">Project (optional)</label>
               <Select 
-                value={editedEntry.projectId.toString()} 
-                onValueChange={(val) => setEditedEntry({ ...editedEntry, projectId: Number(val) })}
+                value={editedEntry.projectId?.toString() || ""} 
+                onValueChange={(val) => setEditedEntry({ ...editedEntry, projectId: val ? Number(val) : null })}
                 disabled={!editedClientId}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select project" />
+                  <SelectValue placeholder="Select project (optional)" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="">No project</SelectItem>
                   {clientProjects.map((project) => (
                     <SelectItem key={project.id} value={project.id.toString()}>
                       {project.name}
@@ -449,7 +471,7 @@ export default function TimeEntryRow({
               <Button variant="outline" onClick={() => setIsEditing(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleEdit} disabled={!editedEntry.description || !editedEntry.projectId}>
+              <Button onClick={handleEdit} disabled={!editedEntry.description || (!editedEntry.projectId && !editedClientId)}>
                 Save Changes
               </Button>
             </div>
