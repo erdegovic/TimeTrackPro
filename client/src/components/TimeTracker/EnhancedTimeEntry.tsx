@@ -665,19 +665,15 @@ export default function EnhancedTimeEntry({
                 
                 {/* Show client or fallback message when no project is assigned */}
                 {!groupedEntry.project && (() => {
-                  // Try to find client from the editClientId if we're editing, or look for stored client info
-                  const selectedClient = isEditingEntry 
-                    ? clients.find(c => c.id === editClientId)
-                    : groupedEntry.client;
-                  
-                  if (selectedClient) {
+                  // Client information is available from the backend enrichment
+                  if (groupedEntry.client) {
                     return (
                       <span 
                         className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
                         onClick={handleEditEntry}
                         title="Click to edit client or assign project"
                       >
-                        {selectedClient.name} • No project
+                        {groupedEntry.client.name} • No project
                       </span>
                     );
                   } else {
