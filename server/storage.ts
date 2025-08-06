@@ -115,11 +115,16 @@ export class MemStorage implements Partial<IStorage> {
     const id = this.userId++;
     const newUser: User = {
       id,
-      ...userData,
+      email: userData.email,
+      username: userData.username,
+      password: userData.password,
+      firstName: userData.firstName || null,
+      lastName: userData.lastName || null,
+      profileImageUrl: userData.profileImageUrl || null,
       role: userData.role || "user",
       status: userData.status || "pending",
-      verificationToken: null,
-      resetPasswordToken: null,
+      verificationToken: userData.verificationToken || null,
+      resetPasswordToken: userData.resetPasswordToken || null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -211,6 +216,41 @@ export class MemStorage implements Partial<IStorage> {
       nextInvoiceNumber: 1001,
       defaultTimeFormat: "decimal",
       defaultCurrency: "USD",
+      // Add all missing required fields with null defaults
+      invoiceNotes: null,
+      templateType: null,
+      showBusinessLogo: null,
+      showClientLogo: null,
+      showBankDetails: null,
+      showPaymentMethods: null,
+      showProjectColumn: null,
+      showRateColumn: null,
+      showQuantityColumn: null,
+      showAmountColumn: null,
+      showTaxColumn: null,
+      showDescriptionColumn: null,
+      showDateColumn: null,
+      enableCustomFields: null,
+      customField1Name: null,
+      customField2Name: null,
+      customField3Name: null,
+      customField1Value: null,
+      customField2Value: null,
+      customField3Value: null,
+      defaultRoundingType: null,
+      paymentMethodType: null,
+      bankSortCode: null,
+      iban: null,
+      swift: null,
+      paypalEmail: null,
+      stripePublishableKey: null,
+      cryptoWalletAddress: null,
+      cryptoWalletType: null,
+      otherPaymentInstructions: null,
+      logoUrl: null,
+      primaryColor: null,
+      accentColor: null,
+      fontFamily: null,
     };
 
     // Add some sample data
@@ -227,6 +267,7 @@ export class MemStorage implements Partial<IStorage> {
       password: "$2a$10$K4L.QF3QrsSE.KWXCCq8yutlJMBBpkj/Y4Kfk7bARnrJM0H9iy4ee", // password123
       firstName: "Test",
       lastName: "User",
+      profileImageUrl: null,
       role: "admin",
       status: "active",
       verificationToken: null,
@@ -248,7 +289,9 @@ export class MemStorage implements Partial<IStorage> {
       zipCode: "54321",
       country: "USA",
       phone: "+1 (987) 654-3210",
-      taxId: "98-7654321"
+      taxId: "98-7654321",
+      currency: "USD",
+      userId: 1
     };
     
     const client2: Client = {
@@ -261,7 +304,9 @@ export class MemStorage implements Partial<IStorage> {
       zipCode: "67890",
       country: "USA",
       phone: "+1 (123) 987-6543",
-      taxId: "45-6789012"
+      taxId: "45-6789012",
+      currency: "USD",
+      userId: 1
     };
     
     const client3: Client = {
@@ -274,7 +319,9 @@ export class MemStorage implements Partial<IStorage> {
       zipCode: "12345",
       country: "USA",
       phone: "+1 (456) 789-0123",
-      taxId: "78-9012345"
+      taxId: "78-9012345",
+      currency: "USD",
+      userId: 1
     };
     
     this.clientsData.set(client1.id, client1);
@@ -288,7 +335,9 @@ export class MemStorage implements Partial<IStorage> {
       clientId: client1.id,
       description: "Complete website redesign for Acme Inc.",
       active: true,
-      hourlyRate: "100"
+      hourlyRate: "100",
+      color: "#007BFF",
+      userId: 1
     };
     
     const project2: Project = {
@@ -297,7 +346,9 @@ export class MemStorage implements Partial<IStorage> {
       clientId: client2.id,
       description: "Integration with third-party APIs for TechFirm LLC",
       active: true,
-      hourlyRate: "120"
+      hourlyRate: "120",
+      color: "#28A745",
+      userId: 1
     };
     
     const project3: Project = {
@@ -306,7 +357,9 @@ export class MemStorage implements Partial<IStorage> {
       clientId: client3.id,
       description: "Blog posts and content writing for Design Studios",
       active: true,
-      hourlyRate: "90"
+      hourlyRate: "90",
+      color: "#FFC107",
+      userId: 1
     };
     
     this.projectsData.set(project1.id, project1);
@@ -325,7 +378,20 @@ export class MemStorage implements Partial<IStorage> {
 
   async createClient(client: InsertClient): Promise<Client> {
     const id = this.clientId++;
-    const newClient = { id, ...client };
+    const newClient: Client = { 
+      id, 
+      name: client.name,
+      email: client.email || null,
+      address: client.address || null,
+      city: client.city || null,
+      state: client.state || null,
+      zipCode: client.zipCode || null,
+      country: client.country || null,
+      phone: client.phone || null,
+      taxId: client.taxId || null,
+      currency: client.currency || null,
+      userId: client.userId || null
+    };
     this.clientsData.set(id, newClient);
     return newClient;
   }
@@ -334,7 +400,20 @@ export class MemStorage implements Partial<IStorage> {
     const existingClient = this.clientsData.get(id);
     if (!existingClient) return undefined;
 
-    const updatedClient = { ...existingClient, ...client };
+    const updatedClient: Client = { 
+      ...existingClient, 
+      name: client.name ?? existingClient.name,
+      email: client.email ?? existingClient.email,
+      address: client.address ?? existingClient.address,
+      city: client.city ?? existingClient.city,
+      state: client.state ?? existingClient.state,
+      zipCode: client.zipCode ?? existingClient.zipCode,
+      country: client.country ?? existingClient.country,
+      phone: client.phone ?? existingClient.phone,
+      taxId: client.taxId ?? existingClient.taxId,
+      currency: client.currency ?? existingClient.currency,
+      userId: client.userId ?? existingClient.userId
+    };
     this.clientsData.set(id, updatedClient);
     return updatedClient;
   }
@@ -360,7 +439,16 @@ export class MemStorage implements Partial<IStorage> {
 
   async createProject(project: InsertProject): Promise<Project> {
     const id = this.projectId++;
-    const newProject = { id, ...project };
+    const newProject: Project = { 
+      id, 
+      name: project.name,
+      clientId: project.clientId,
+      description: project.description || null,
+      active: project.active || null,
+      hourlyRate: project.hourlyRate || null,
+      color: project.color || null,
+      userId: project.userId || null
+    };
     this.projectsData.set(id, newProject);
     return newProject;
   }
@@ -369,7 +457,16 @@ export class MemStorage implements Partial<IStorage> {
     const existingProject = this.projectsData.get(id);
     if (!existingProject) return undefined;
 
-    const updatedProject = { ...existingProject, ...project };
+    const updatedProject: Project = { 
+      ...existingProject, 
+      name: project.name ?? existingProject.name,
+      clientId: project.clientId ?? existingProject.clientId,
+      description: project.description ?? existingProject.description,
+      active: project.active ?? existingProject.active,
+      hourlyRate: project.hourlyRate ?? existingProject.hourlyRate,
+      color: project.color ?? existingProject.color,
+      userId: project.userId ?? existingProject.userId
+    };
     this.projectsData.set(id, updatedProject);
     return updatedProject;
   }
@@ -401,7 +498,7 @@ export class MemStorage implements Partial<IStorage> {
     if (filters.clientId) {
       const clientProjects = await this.getProjectsByClient(filters.clientId);
       const projectIds = clientProjects.map(p => p.id);
-      entries = entries.filter(entry => projectIds.includes(entry.projectId));
+      entries = entries.filter(entry => entry.projectId && projectIds.includes(entry.projectId));
     }
 
     if (filters.projectId) {
@@ -410,7 +507,7 @@ export class MemStorage implements Partial<IStorage> {
 
     if (filters.startDate && filters.endDate) {
       entries = entries.filter(
-        entry => entry.date >= filters.startDate && entry.date <= filters.endDate
+        entry => entry.date >= filters.startDate! && entry.date <= filters.endDate!
       );
     }
 
@@ -423,7 +520,7 @@ export class MemStorage implements Partial<IStorage> {
 
   async createTimeEntry(timeEntry: InsertTimeEntry): Promise<TimeEntry> {
     const id = this.timeEntryId++;
-    const entryDate = new Date(timeEntry.date);
+    const entryDate = new Date(timeEntry.date!);
     const year = getYear(entryDate);
     const month = format(entryDate, 'yyyy-MM');
     const weekOfMonth = getWeekOfMonth(entryDate);
@@ -434,12 +531,20 @@ export class MemStorage implements Partial<IStorage> {
     
     const newEntry: TimeEntry = { 
       id, 
-      ...timeEntry,
+      description: timeEntry.description!,
+      projectId: timeEntry.projectId || null,
+      clientId: timeEntry.clientId || null,
+      startTime: timeEntry.startTime!,
+      endTime: timeEntry.endTime || null,
+      duration: timeEntry.duration || null,
+      date: timeEntry.date!,
       weekNumber: weekOfMonth,
       weekLabel,
       month,
       year,
-      invoiceId: null
+      billable: timeEntry.billable || null,
+      invoiceId: null,
+      userId: timeEntry.userId || null
     };
     
     this.timeEntriesData.set(id, newEntry);
@@ -500,7 +605,20 @@ export class MemStorage implements Partial<IStorage> {
 
   async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
     const id = this.invoiceId++;
-    const newInvoice = { id, ...invoice };
+    const newInvoice: Invoice = { 
+      id, 
+      invoiceNumber: invoice.invoiceNumber,
+      clientId: invoice.clientId,
+      issueDate: invoice.issueDate,
+      dueDate: invoice.dueDate,
+      status: invoice.status || "draft",
+      subtotal: invoice.subtotal,
+      tax: invoice.tax || null,
+      taxRate: invoice.taxRate || null,
+      total: invoice.total,
+      notes: invoice.notes || null,
+      userId: invoice.userId || null
+    };
     this.invoicesData.set(id, newInvoice);
 
     // Update the next invoice number in settings
