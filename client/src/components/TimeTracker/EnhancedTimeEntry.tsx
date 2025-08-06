@@ -422,7 +422,14 @@ export default function EnhancedTimeEntry({
       // Always include projectId - can be null if no project selected
       updateData.projectId = editProjectId || null;
       
-      // Include clientId info for logging but API will derive it from project
+      // Include clientId when no project is selected or when client is explicitly chosen
+      if (!editProjectId && editClientId) {
+        updateData.clientId = editClientId;
+      } else if (editProjectId) {
+        // If project is selected, clientId should be derived from project, so set to null
+        updateData.clientId = null;
+      }
+      
       console.log('Update data:', updateData, 'Client ID:', editClientId);
 
       // For grouped entries, update all blocks
@@ -656,16 +663,35 @@ export default function EnhancedTimeEntry({
                   ) : null;
                 })()}
                 
-                {/* Show message when no project is assigned */}
-                {!groupedEntry.project && (
-                  <span 
-                    className="text-gray-400 italic cursor-pointer hover:text-blue-600 hover:underline transition-colors"
-                    onClick={handleEditEntry}
-                    title="Click to assign project"
-                  >
-                    No project assigned
-                  </span>
-                )}
+                {/* Show client or fallback message when no project is assigned */}
+                {!groupedEntry.project && (() => {
+                  // Try to find client from the editClientId if we're editing, or look for stored client info
+                  const selectedClient = isEditingEntry 
+                    ? clients.find(c => c.id === editClientId)
+                    : groupedEntry.client;
+                  
+                  if (selectedClient) {
+                    return (
+                      <span 
+                        className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                        onClick={handleEditEntry}
+                        title="Click to edit client or assign project"
+                      >
+                        {selectedClient.name} • No project
+                      </span>
+                    );
+                  } else {
+                    return (
+                      <span 
+                        className="text-gray-400 italic cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                        onClick={handleEditEntry}
+                        title="Click to assign client and project"
+                      >
+                        No project assigned
+                      </span>
+                    );
+                  }
+                })()}
               </div>
             </>
           )}

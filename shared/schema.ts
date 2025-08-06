@@ -98,6 +98,7 @@ export const timeEntries = pgTable("time_entries", {
   id: serial("id").primaryKey(),
   description: text("description").notNull(),
   projectId: integer("project_id").references(() => projects.id, { onDelete: 'cascade' }),
+  clientId: integer("client_id").references(() => clients.id, { onDelete: 'cascade' }), // Direct client reference for entries without projects
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time"),
   duration: numeric("duration", { precision: 10, scale: 6 }), // Duration in hours with second precision
@@ -232,6 +233,7 @@ export const insertTimeEntryNoteSchema = createInsertSchema(timeEntryNotes).omit
 export const timeEntryUpdateSchema = z.object({
   description: z.string().optional(),
   projectId: z.coerce.number().nullable().optional(),
+  clientId: z.coerce.number().nullable().optional(),
   startTime: z.string().optional(),    // Add startTime to schema
   endTime: z.string().optional(),      // Add endTime to schema
   duration: z.string().optional(),

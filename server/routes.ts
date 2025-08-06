@@ -455,7 +455,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Enrich time entries with project and client data including colors
       const enrichedEntries = timeEntries.map(entry => {
         const project = projects.find(p => p.id === entry.projectId);
-        const client = project ? clients.find(c => c.id === project.clientId) : null;
+        // Client can come from project relationship or direct clientId field
+        let client = project ? clients.find(c => c.id === project.clientId) : null;
+        if (!client && entry.clientId) {
+          client = clients.find(c => c.id === entry.clientId);
+        }
         
         return {
           ...entry,
