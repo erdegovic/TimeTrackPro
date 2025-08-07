@@ -27,6 +27,16 @@ export default function SimpleTimer({
     startTimer, 
     stopTimer 
   } = useTimerContext();
+  
+  console.log("[SimpleTimer] Current state:", { 
+    isTracking, 
+    currentDuration, 
+    startTime, 
+    description, 
+    projectId, 
+    clientId, 
+    isDisabled 
+  });
   const queryClient = useQueryClient();
 
   // Handle stop from this component
