@@ -77,12 +77,13 @@ export default function ClientsPage() {
     {
       header: "Actions",
       accessorKey: (row: Client) => (
-        <div className="flex space-x-2">
+        <div className="flex space-x-1 justify-end">
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={() => handleEditClient(row)}
-            className="h-8 w-8"
+            className="h-8 w-8 flex-shrink-0"
+            title="Edit Client"
           >
             <Edit className="h-4 w-4" />
           </Button>
@@ -90,7 +91,8 @@ export default function ClientsPage() {
             variant="ghost" 
             size="icon" 
             onClick={() => setSelectedClientId(row.id)}
-            className="h-8 w-8 text-destructive hover:text-destructive/80"
+            className="h-8 w-8 flex-shrink-0 text-destructive hover:text-destructive/80"
+            title="Delete Client"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -101,9 +103,9 @@ export default function ClientsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">Clients</h1>
-        <Button onClick={() => setShowNewClientDialog(true)}>
+        <Button onClick={() => setShowNewClientDialog(true)} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Add Client
         </Button>
@@ -116,11 +118,12 @@ export default function ClientsPage() {
             Manage your clients and their contact information
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <DataTable
-            data={clients}
-            columns={columns}
-            isLoading={isLoading}
+        <CardContent className="p-0 sm:p-6">
+          <div className="overflow-x-auto">
+            <DataTable
+              data={clients}
+              columns={columns}
+              isLoading={isLoading}
             emptyState={
               <div className="text-center py-8 text-gray-500">
                 <User className="h-12 w-12 mx-auto text-gray-400" />
@@ -139,12 +142,13 @@ export default function ClientsPage() {
               </div>
             }
           />
+          </div>
         </CardContent>
       </Card>
 
       {/* New Client Dialog */}
       <Dialog open={showNewClientDialog} onOpenChange={setShowNewClientDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[95vw] max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Add New Client</DialogTitle>
           </DialogHeader>
@@ -154,7 +158,7 @@ export default function ClientsPage() {
 
       {/* Edit Client Dialog */}
       <Dialog open={editingClient !== null} onOpenChange={(open) => !open && setEditingClient(null)}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[95vw] max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Edit Client</DialogTitle>
           </DialogHeader>

@@ -98,7 +98,7 @@ export default function ProjectsPage() {
     {
       header: "Description",
       accessorKey: (row: Project) => (
-        <div className="max-w-[200px] truncate" title={row.description || ""}>
+        <div className="max-w-[150px] sm:max-w-[200px] truncate" title={row.description || ""}>
           {row.description || "—"}
         </div>
       ),
@@ -106,12 +106,13 @@ export default function ProjectsPage() {
     {
       header: "Actions",
       accessorKey: (row: Project) => (
-        <div className="flex space-x-2">
+        <div className="flex space-x-1 justify-end">
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={() => handleEditProject(row)}
-            className="h-8 w-8"
+            className="h-8 w-8 flex-shrink-0"
+            title="Edit Project"
           >
             <Edit className="h-4 w-4" />
           </Button>
@@ -119,7 +120,8 @@ export default function ProjectsPage() {
             variant="ghost" 
             size="icon" 
             onClick={() => setSelectedProjectId(row.id)}
-            className="h-8 w-8 text-destructive hover:text-destructive/80"
+            className="h-8 w-8 flex-shrink-0 text-destructive hover:text-destructive/80"
+            title="Delete Project"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -130,9 +132,9 @@ export default function ProjectsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
-        <Button onClick={() => setShowNewProjectDialog(true)}>
+        <Button onClick={() => setShowNewProjectDialog(true)} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Add Project
         </Button>
@@ -145,11 +147,12 @@ export default function ProjectsPage() {
             Manage your projects and their rates
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <DataTable
-            data={projects}
-            columns={columns}
-            isLoading={isLoading}
+        <CardContent className="p-0 sm:p-6">
+          <div className="overflow-x-auto">
+            <DataTable
+              data={projects}
+              columns={columns}
+              isLoading={isLoading}
             emptyState={
               <div className="text-center py-8 text-gray-500">
                 <Folder className="h-12 w-12 mx-auto text-gray-400" />
@@ -168,12 +171,13 @@ export default function ProjectsPage() {
               </div>
             }
           />
+          </div>
         </CardContent>
       </Card>
 
       {/* New Project Dialog */}
       <Dialog open={showNewProjectDialog} onOpenChange={setShowNewProjectDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[95vw] max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Add New Project</DialogTitle>
           </DialogHeader>
@@ -183,7 +187,7 @@ export default function ProjectsPage() {
 
       {/* Edit Project Dialog */}
       <Dialog open={editingProject !== null} onOpenChange={(open) => !open && setEditingProject(null)}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[95vw] max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
           </DialogHeader>
