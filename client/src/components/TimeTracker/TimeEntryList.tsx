@@ -49,7 +49,7 @@ export default function TimeEntryList() {
   const { data: timeEntries = [], isLoading: isLoadingEntries, refetch: refetchTimeEntries } = useQuery<TimeEntry[]>({
     queryKey: ["/api/time-entries"],
     staleTime: 0, // Always fetch fresh data
-    cacheTime: 0   // Don't cache results
+    gcTime: 0   // Don't cache results (renamed from cacheTime in React Query v5)
   });
 
   // Fetch settings for currency information
@@ -472,10 +472,10 @@ export default function TimeEntryList() {
       {/* Time View Toggle - Added more spacing from main tracker */}
       <div className="flex flex-col gap-4 mb-4 mt-8">
         {/* Large screens: All controls in one row */}
-        <div className={`hidden ${creativitySidebarCollapsed ? 'lg:flex' : 'xl:flex'} items-center gap-4`}>
-          <div className="flex items-center">
-            <label htmlFor="time-format" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
-            <div className="relative inline-block w-32">
+        <div className="hidden lg:flex items-center gap-2 lg:gap-4 flex-wrap">
+          <div className="flex items-center flex-shrink-0">
+            <label htmlFor="time-format" className="mr-2 text-sm font-medium text-gray-700 whitespace-nowrap">Format:</label>
+            <div className="relative w-28 sm:w-32">
               <Select value={timeFormat} onValueChange={(val: "decimal" | "time") => setTimeFormat(val)}>
                 <SelectTrigger id="time-format">
                   <SelectValue placeholder="Select format" />
@@ -488,9 +488,9 @@ export default function TimeEntryList() {
             </div>
           </div>
           
-          <div className="flex items-center">
-            <label htmlFor="group-by" className="mr-2 text-sm font-medium text-gray-700">Group by:</label>
-            <div className="relative inline-block w-32">
+          <div className="flex items-center flex-shrink-0">
+            <label htmlFor="group-by" className="mr-2 text-sm font-medium text-gray-700 whitespace-nowrap">Group by:</label>
+            <div className="relative w-28 sm:w-32">
               <Select value={groupBy} onValueChange={(val: "date" | "project" | "client") => setGroupBy(val)}>
                 <SelectTrigger id="group-by">
                   <SelectValue placeholder="Select grouping" />
@@ -504,13 +504,13 @@ export default function TimeEntryList() {
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Date Range:</label>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Date Range:</label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm h-auto min-w-[200px] justify-start"
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm h-auto w-48 justify-start"
                 >
                   <Calendar className="w-4 h-4" />
                   {startDate && endDate ? (
@@ -589,7 +589,7 @@ export default function TimeEntryList() {
         </div>
 
         {/* Medium screens: Date moves to separate row */}
-        <div className={`${creativitySidebarCollapsed ? 'hidden md:block lg:hidden' : 'hidden lg:block xl:hidden'}`}>
+        <div className="hidden md:block lg:hidden">
           <div className="flex items-center gap-4 mb-3">
             <div className="flex items-center">
               <label htmlFor="time-format-md" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
@@ -670,7 +670,7 @@ export default function TimeEntryList() {
         </div>
 
         {/* Small screens: All controls stacked vertically */}
-        <div className={`${creativitySidebarCollapsed ? 'md:hidden' : 'lg:hidden'} flex flex-col gap-3`}>
+        <div className="md:hidden flex flex-col gap-3">
           <div className="flex items-center">
             <label htmlFor="time-format-mobile" className="mr-2 text-sm font-medium text-gray-700">Format:</label>
             <div className="relative inline-block w-32">

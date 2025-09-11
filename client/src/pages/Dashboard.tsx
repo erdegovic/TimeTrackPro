@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
@@ -23,6 +24,7 @@ function formatTimeFromDecimal(decimalHours: number): string {
 
 export default function Dashboard() {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [timeFormat, setTimeFormat] = useState<"decimal" | "time">("decimal");
   const [displayCurrency, setDisplayCurrency] = useState<string>("USD");
   const today = new Date();
@@ -274,13 +276,13 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center space-x-2">
-            <label htmlFor="time-format" className="text-sm font-medium text-gray-500">Format:</label>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Dashboard</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <div className="flex items-center space-x-2 flex-wrap">
+            <label htmlFor="time-format" className="text-sm font-medium text-gray-500 whitespace-nowrap">Format:</label>
             <Select value={timeFormat} onValueChange={(val: "decimal" | "time") => setTimeFormat(val)}>
-              <SelectTrigger id="time-format" className="w-[130px]">
+              <SelectTrigger id="time-format" className="w-[130px] max-w-full">
                 <SelectValue placeholder="Select format" />
               </SelectTrigger>
               <SelectContent>
@@ -363,17 +365,25 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-12">
-        <Card className="col-span-6">
+        <Card className="md:col-span-2 lg:col-span-6">
           <CardHeader>
             <CardTitle>Weekly Activity</CardTitle>
             <CardDescription>Your time tracking activity for this week</CardDescription>
           </CardHeader>
           <CardContent className="pl-2">
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={isMobile ? 220 : 300}>
               <BarChart data={dailyHoursData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis label={{ value: 'Hours', angle: -90, position: 'insideLeft' }} />
+                <XAxis 
+                  dataKey="day" 
+                  fontSize={12}
+                  className="sm:text-sm"
+                />
+                <YAxis 
+                  label={{ value: 'Hours', angle: -90, position: 'insideLeft' }}
+                  fontSize={12}
+                  className="sm:text-sm"
+                />
                 <Tooltip 
                   formatter={(value) => {
                     const numValue = Number(value);
@@ -392,14 +402,14 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="col-span-3">
+        <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle>Time by Project</CardTitle>
-            <CardDescription>Distribution of hours across projects</CardDescription>
+            <CardTitle className="text-base sm:text-lg">Time by Project</CardTitle>
+            <CardDescription className="text-sm">Distribution of hours across projects</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <div className="h-[180px] w-[180px] mb-3">
+              <div className="h-[160px] w-[160px] sm:h-[180px] sm:w-[180px] mb-3">
                 {projectData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -407,8 +417,8 @@ export default function Dashboard() {
                         data={projectData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={35}
-                        outerRadius={65}
+                        innerRadius={30}
+                        outerRadius={60}
                         fill="#8884d8"
                         paddingAngle={2}
                         dataKey="hours"
@@ -431,7 +441,7 @@ export default function Dashboard() {
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-full w-full flex items-center justify-center text-gray-500">
+                  <div className="h-full w-full flex items-center justify-center text-gray-500 text-sm">
                     No project data available
                   </div>
                 )}
@@ -439,17 +449,17 @@ export default function Dashboard() {
               
               {/* Legend */}
               {projectData.length > 0 && (
-                <div className="w-full space-y-1 max-h-24 overflow-y-auto">
+                <div className="w-full space-y-1 max-h-20 sm:max-h-24 overflow-y-auto">
                   {projectData.slice(0, 4).map((project) => (
                     <div key={project.id} className="flex items-center justify-between text-xs">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 min-w-0 flex-1">
                         <div 
                           className="w-2 h-2 rounded-full flex-shrink-0" 
                           style={{ backgroundColor: project.color }}
                         />
                         <span className="text-gray-700 truncate">{project.name}</span>
                       </div>
-                      <span className="text-gray-500 font-medium">
+                      <span className="text-gray-500 font-medium ml-2 flex-shrink-0">
                         {timeFormat === "decimal" 
                           ? `${project.hours.toFixed(1)}h` 
                           : formatTimeFromDecimal(project.hours)}
@@ -462,14 +472,14 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="col-span-3">
+        <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle>Time by Client</CardTitle>
-            <CardDescription>Distribution of hours across clients</CardDescription>
+            <CardTitle className="text-base sm:text-lg">Time by Client</CardTitle>
+            <CardDescription className="text-sm">Distribution of hours across clients</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center">
-              <div className="h-[180px] w-[180px] mb-3">
+              <div className="h-[160px] w-[160px] sm:h-[180px] sm:w-[180px] mb-3">
                 {clientData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -477,8 +487,8 @@ export default function Dashboard() {
                         data={clientData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={35}
-                        outerRadius={65}
+                        innerRadius={30}
+                        outerRadius={60}
                         fill="#8884d8"
                         paddingAngle={2}
                         dataKey="hours"
@@ -501,7 +511,7 @@ export default function Dashboard() {
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-full w-full flex items-center justify-center text-gray-500">
+                  <div className="h-full w-full flex items-center justify-center text-gray-500 text-sm">
                     No client data available
                   </div>
                 )}
@@ -509,17 +519,17 @@ export default function Dashboard() {
               
               {/* Legend */}
               {clientData.length > 0 && (
-                <div className="w-full space-y-1 max-h-24 overflow-y-auto">
+                <div className="w-full space-y-1 max-h-20 sm:max-h-24 overflow-y-auto">
                   {clientData.slice(0, 4).map((client) => (
                     <div key={client.id} className="flex items-center justify-between text-xs">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 min-w-0 flex-1">
                         <div 
                           className="w-2 h-2 rounded-full flex-shrink-0" 
                           style={{ backgroundColor: client.color }}
                         />
                         <span className="text-gray-700 truncate">{client.name}</span>
                       </div>
-                      <span className="text-gray-500 font-medium">
+                      <span className="text-gray-500 font-medium ml-2 flex-shrink-0">
                         {timeFormat === "decimal" 
                           ? `${client.hours.toFixed(1)}h` 
                           : formatTimeFromDecimal(client.hours)}
@@ -547,16 +557,16 @@ export default function Dashboard() {
                   const percentage = (project.hours / monthlyHours) * 100;
                   return (
                     <div key={project.id} className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center space-x-2">
+                      <div className="flex items-center justify-between text-sm gap-2">
+                        <div className="flex items-center space-x-2 min-w-0 flex-1">
                           <div 
-                            className="w-3 h-3 rounded-full" 
+                            className="w-3 h-3 rounded-full flex-shrink-0" 
                             style={{ backgroundColor: project.color }}
                           />
                           <span className="font-medium truncate">{project.name}</span>
                         </div>
-                        <div className="flex items-center space-x-2 text-gray-600">
-                          <span>
+                        <div className="flex items-center space-x-1 sm:space-x-2 text-gray-600 flex-shrink-0">
+                          <span className="text-xs sm:text-sm">
                             {timeFormat === "decimal" 
                               ? `${project.hours.toFixed(1)}h` 
                               : formatTimeFromDecimal(project.hours)}
@@ -597,16 +607,16 @@ export default function Dashboard() {
                   const percentage = (client.hours / monthlyHours) * 100;
                   return (
                     <div key={client.id} className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center space-x-2">
+                      <div className="flex items-center justify-between text-sm gap-2">
+                        <div className="flex items-center space-x-2 min-w-0 flex-1">
                           <div 
-                            className="w-3 h-3 rounded-full" 
+                            className="w-3 h-3 rounded-full flex-shrink-0" 
                             style={{ backgroundColor: client.color }}
                           />
                           <span className="font-medium truncate">{client.name}</span>
                         </div>
-                        <div className="flex items-center space-x-2 text-gray-600">
-                          <span>
+                        <div className="flex items-center space-x-1 sm:space-x-2 text-gray-600 flex-shrink-0">
+                          <span className="text-xs sm:text-sm">
                             {timeFormat === "decimal" 
                               ? `${client.hours.toFixed(1)}h` 
                               : formatTimeFromDecimal(client.hours)}

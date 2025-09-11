@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Music, FileText, Lightbulb, Target, Heart, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
 import CreativityPanelPlayer from "./SpotifyStylePlayer";
 import NotesSection from "./NotesSection";
 import InspirationSection from "./InspirationSection";
@@ -14,6 +15,12 @@ interface CreativitySidebarProps {
 
 export default function CreativitySidebar({ isCollapsed = false, onToggle }: CreativitySidebarProps) {
   const [activeSection, setActiveSection] = useState<string>("music");
+  const isMobile = useIsMobile();
+
+  // Hide creativity sidebar on mobile devices
+  if (isMobile) {
+    return null;
+  }
 
   const sections = [
     { id: "music", label: "Music", icon: Music, color: "from-purple-400 to-pink-400" },
@@ -24,7 +31,7 @@ export default function CreativitySidebar({ isCollapsed = false, onToggle }: Cre
   ];
 
   return (
-    <div className={`fixed right-0 top-0 h-full z-30 transition-all duration-500 ease-in-out ${
+    <div className={`hidden lg:block fixed right-0 top-0 h-full z-30 transition-all duration-500 ease-in-out ${
       isCollapsed ? 'w-16' : 'w-80'
     }`}>
       {/* Background with glassmorphism effect */}

@@ -69,21 +69,21 @@ export default function TimeTrackerPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Time Tracker</h1>
-        <div className="flex items-center space-x-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Time Tracker</h1>
+        <div className="flex items-center space-x-2 flex-wrap">
           <Button onClick={() => {
             console.log("🎯 Capturing existing client IDs before opening dialog");
             setPreDialogClientIds(new Set(clients.map(c => c.id)));
             setShowNewClientDialog(true);
-          }} variant="outline" size="sm">
+          }} variant="outline" size="sm" className="flex-shrink-0">
             <Plus className="mr-1 h-4 w-4" /> Client
           </Button>
           <Button onClick={() => {
             console.log("🎯 Capturing existing project IDs before opening dialog");
             setPreDialogProjectIds(new Set(projects.map(p => p.id)));
             setShowNewProjectDialog(true);
-          }} variant="outline" size="sm">
+          }} variant="outline" size="sm" className="flex-shrink-0">
             <Plus className="mr-1 h-4 w-4" /> Project
           </Button>
         </div>
