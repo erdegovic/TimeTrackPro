@@ -158,17 +158,17 @@ export default function AccountPage() {
   };
 
   return (
-    <div className="container mx-auto py-10">
-      <h1 className="text-3xl font-bold mb-6">Account Settings</h1>
+    <div className="container mx-auto py-4 sm:py-6 lg:py-10 px-4">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Account Settings</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-4 sm:gap-6">
         {/* Left sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col items-center space-y-4">
+            <CardContent className="pt-4 sm:pt-6">
+              <div className="flex flex-col items-center space-y-3 sm:space-y-4">
                 <div className="relative">
-                  <Avatar className="h-24 w-24 cursor-pointer" onClick={handleAvatarClick}>
+                  <Avatar className="h-20 w-20 sm:h-24 sm:w-24 cursor-pointer" onClick={handleAvatarClick}>
                     <AvatarImage src={user?.profileImageUrl || avatarUrl} alt="Profile" />
                     <AvatarFallback className="bg-gray-100">
                       <User className="h-10 w-10 text-gray-400" />
@@ -190,8 +190,8 @@ export default function AccountPage() {
                   />
                 </div>
                 <div className="text-center">
-                  <h3 className="font-medium">{user?.firstName} {user?.lastName}</h3>
-                  <p className="text-sm text-muted-foreground">{user?.email}</p>
+                  <h3 className="text-sm sm:text-base font-medium">{user?.firstName} {user?.lastName}</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">{user?.email}</p>
                 </div>
               </div>
             </CardContent>
@@ -199,15 +199,16 @@ export default function AccountPage() {
         </div>
         
         {/* Main content */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <Tabs defaultValue="profile">
-            <TabsList className="mb-4">
-              <TabsTrigger value="profile" className="flex items-center">
-                <User className="mr-2 h-4 w-4" />
-                Profile
+            <TabsList className="mb-4 w-full grid grid-cols-2">
+              <TabsTrigger value="profile" className="flex items-center text-xs sm:text-sm">
+                <User className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Profile</span>
+                <span className="sm:hidden">Info</span>
               </TabsTrigger>
-              <TabsTrigger value="security" className="flex items-center">
-                <Lock className="mr-2 h-4 w-4" />
+              <TabsTrigger value="security" className="flex items-center text-xs sm:text-sm">
+                <Lock className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                 Security
               </TabsTrigger>
             </TabsList>
@@ -313,10 +314,10 @@ export default function AccountPage() {
                       
                       <Button 
                         type="submit" 
-                        className="w-full md:w-auto"
+                        className="w-full sm:w-auto"
                         disabled={isUpdating}
                       >
-                        Update Password
+                        {isUpdating ? "Updating..." : "Update Password"}
                       </Button>
                     </form>
                   </Form>

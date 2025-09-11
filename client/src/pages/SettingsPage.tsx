@@ -246,7 +246,7 @@ const EnhancedRichTextEditor = ({ value, onChange, placeholder }: {
   return (
     <div className="border rounded-md">
       {/* Enhanced Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 p-2 border-b bg-gray-50">
+      <div className="flex flex-wrap items-center gap-1 p-2 border-b bg-gray-50 overflow-x-auto">
         {/* Text Formatting */}
         <div className="flex items-center gap-1 border-r pr-2 mr-2">
           <Button
@@ -421,7 +421,7 @@ const RichTextEditor = ({ value, onChange, placeholder }: {
   return (
     <div className="border rounded-md">
       {/* Toolbar */}
-      <div className="flex items-center gap-1 p-2 border-b bg-gray-50">
+      <div className="flex items-center gap-1 p-2 border-b bg-gray-50 overflow-x-auto">
         <Button
           type="button"
           variant="ghost"
@@ -740,32 +740,35 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto py-4 sm:py-6 space-y-4 sm:space-y-6 px-4">
       <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-gray-600">
+        <h1 className="text-2xl sm:text-3xl font-bold">Settings</h1>
+        <p className="text-sm sm:text-base text-gray-600">
           Manage your business information, invoice customization, and preferences
         </p>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="business" className="flex items-center gap-2">
-                <Building className="h-4 w-4" />
-                Business
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+              <TabsTrigger value="business" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Building className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Business</span>
+                <span className="sm:hidden">Info</span>
               </TabsTrigger>
-              <TabsTrigger value="invoice" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Invoice Settings
+              <TabsTrigger value="invoice" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Invoice Settings</span>
+                <span className="sm:hidden">Invoice</span>
               </TabsTrigger>
-              <TabsTrigger value="customization" className="flex items-center gap-2">
-                <Palette className="h-4 w-4" />
-                Invoice Customization
+              <TabsTrigger value="customization" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Palette className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Invoice Customization</span>
+                <span className="sm:hidden">Custom</span>
               </TabsTrigger>
-              <TabsTrigger value="preview" className="flex items-center gap-2">
-                <Eye className="h-4 w-4" />
+              <TabsTrigger value="preview" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
                 Preview
               </TabsTrigger>
             </TabsList>
@@ -780,7 +783,7 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="businessName"
@@ -824,7 +827,7 @@ export default function SettingsPage() {
                     )}
                   />
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <FormField
                       control={form.control}
                       name="businessCity"
@@ -868,7 +871,7 @@ export default function SettingsPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <FormField
                       control={form.control}
                       name="businessCountry"
@@ -927,7 +930,7 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <FormField
                       control={form.control}
                       name="nextInvoiceNumber"
@@ -983,7 +986,7 @@ export default function SettingsPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="defaultTimeFormat"
@@ -1188,7 +1191,7 @@ export default function SettingsPage() {
 
                     {/* Dynamic Fields Based on Payment Method */}
                     {watchedValues.paymentMethodType === "bank_transfer_eu" && (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
                           name="iban"
@@ -1245,7 +1248,7 @@ export default function SettingsPage() {
                     )}
 
                     {watchedValues.paymentMethodType === "bank_transfer_uk" && (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
                           name="bankAccountNumber"
@@ -1302,7 +1305,7 @@ export default function SettingsPage() {
                     )}
 
                     {watchedValues.paymentMethodType === "bank_transfer_us" && (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
                           name="bankAccountNumber"
@@ -1463,9 +1466,9 @@ export default function SettingsPage() {
 
             {/* Invoice Customization Tab - Split Screen */}
             <TabsContent value="customization" className="space-y-0">
-              <div className="h-[calc(100vh-200px)] flex border rounded-lg overflow-hidden">
+              <div className="min-h-[500px] flex flex-col lg:flex-row border rounded-lg overflow-hidden gap-4 lg:gap-0">
                 {/* Customization Panel */}
-                <div className="w-96 border-r bg-gray-50 overflow-y-auto">
+                <div className="w-full lg:w-96 border-b lg:border-b-0 lg:border-r bg-gray-50 overflow-y-auto max-h-96 lg:max-h-none">
                   <div className="p-4">
                     <h3 className="font-semibold flex items-center gap-2 text-lg mb-6">
                       <Zap className="h-5 w-5" />
@@ -1712,7 +1715,7 @@ export default function SettingsPage() {
                             <div className="space-y-3">
                               <div>
                                 <Label className="text-xs font-medium">Quick Palettes</Label>
-                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-2">
                                   {colorPalettes.map((palette) => (
                                     <Button
                                       key={palette.name}
@@ -2368,13 +2371,13 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="border-t border-b py-4 mb-6">
-                      <div className="grid grid-cols-4 gap-4 font-semibold text-sm mb-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 font-semibold text-xs sm:text-sm mb-2">
                         <div style={{ color: watchedValues.invoiceAccentColor }}>Description</div>
                         <div style={{ color: watchedValues.invoiceAccentColor }}>Hours</div>
                         <div style={{ color: watchedValues.invoiceAccentColor }}>Rate</div>
                         <div style={{ color: watchedValues.invoiceAccentColor }} className="text-right">Amount</div>
                       </div>
-                      <div className="grid grid-cols-4 gap-4 text-sm">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 text-xs sm:text-sm">
                         <div>Web Development</div>
                         <div>8.5</div>
                         <div>{watchedValues.displayCurrency}75.00</div>
