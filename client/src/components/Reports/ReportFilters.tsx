@@ -71,7 +71,7 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
         <div className="col-span-1">
           <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
           <Select 
@@ -126,9 +126,9 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
           </Select>
         </div>
         
-        <div className="col-span-1">
+        <div className="col-span-1 sm:col-span-2 lg:col-span-1">
           <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-          <div className="flex space-x-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Input
                 type="date"
@@ -136,7 +136,7 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
                 onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
               />
             </div>
-            <span className="flex items-center text-gray-500">to</span>
+            <span className="flex items-center justify-center text-gray-500 sm:px-2">to</span>
             <div className="relative flex-1">
               <Input
                 type="date"
@@ -148,24 +148,24 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
         </div>
       </div>
       
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
-        <div className="flex space-x-4">
-          <Button onClick={handleApplyFilters}>
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+          <Button onClick={handleApplyFilters} className="w-full sm:w-auto">
             <Filter className="mr-2 h-4 w-4" />
             Apply Filters
           </Button>
-          <Button variant="outline" onClick={handleReset}>
+          <Button variant="outline" onClick={handleReset} className="w-full sm:w-auto">
             <RotateCcw className="mr-2 h-4 w-4" />
             Reset
           </Button>
         </div>
         
-        <div className="flex space-x-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
           <Select 
             value={filters.timeFormat} 
             onValueChange={(val: TimeFormat) => setFilters({ ...filters, timeFormat: val })}
           >
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Time format" />
             </SelectTrigger>
             <SelectContent>
@@ -178,7 +178,7 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
             value={filters.roundingType} 
             onValueChange={(val: RoundingType) => setFilters({ ...filters, roundingType: val })}
           >
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Rounding" />
             </SelectTrigger>
             <SelectContent>
@@ -194,7 +194,7 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
       {/* Time adjustment section */}
       <div className="bg-gray-50 p-4 rounded-md mb-6">
         <h3 className="text-sm font-medium text-gray-700 mb-2">Time Adjustments</h3>
-        <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-4 items-start md:items-center">
+        <div className="flex flex-col lg:flex-row gap-3 lg:gap-4 items-start lg:items-center">
           <div className="flex items-center space-x-2">
             <Checkbox 
               id="adjustment-percentage" 
@@ -212,7 +212,7 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
             <label htmlFor="adjustment-percentage" className="text-sm text-gray-700">Increase by percentage</label>
           </div>
           
-          <div className="relative w-24">
+          <div className="relative w-20 sm:w-24">
             <Input
               type="number"
               value={filters.timeAdjustment?.percentage || 10}
@@ -234,7 +234,7 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
             </div>
           </div>
           
-          <div className="flex items-center space-x-2 ml-0 md:ml-4">
+          <div className="flex items-center space-x-2 ml-0 lg:ml-4">
             <Checkbox 
               id="round-tenths" 
               checked={filters.timeAdjustment?.roundToNearestTenth}
@@ -256,6 +256,7 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
             size="sm"
             onClick={handleApplyFilters}
             disabled={!filters.timeAdjustment?.increaseByPercentage && !filters.timeAdjustment?.roundToNearestTenth}
+            className="w-full sm:w-auto mt-2 lg:mt-0"
           >
             Apply
           </Button>
