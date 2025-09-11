@@ -276,12 +276,12 @@ export default function InvoicesPage() {
     {
       header: "Actions",
       accessorKey: (row: Invoice) => (
-        <div className="flex space-x-2">
+        <div className="flex space-x-1 justify-end">
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={() => handleExportPdf(row)}
-            className="h-8 w-8"
+            className="h-8 w-8 flex-shrink-0"
             title="Export PDF"
           >
             <File className="h-4 w-4" />
@@ -307,7 +307,7 @@ export default function InvoicesPage() {
                   });
                 });
             }}
-            className="h-8 w-8"
+            className="h-8 w-8 flex-shrink-0"
             title="Edit Invoice"
           >
             <Edit className="h-4 w-4" />
@@ -316,7 +316,7 @@ export default function InvoicesPage() {
             variant="ghost" 
             size="icon" 
             onClick={() => setSelectedInvoiceId(row.id)}
-            className="h-8 w-8 text-destructive hover:text-destructive/80"
+            className="h-8 w-8 flex-shrink-0 text-destructive hover:text-destructive/80"
             title="Delete Invoice"
           >
             <Trash2 className="h-4 w-4" />
@@ -342,21 +342,23 @@ export default function InvoicesPage() {
             View all your created invoices
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <DataTable
-            data={invoices}
-            columns={columns}
-            isLoading={isLoading}
-            emptyState={
-              <div className="text-center py-8 text-gray-500">
-                <FileText className="h-12 w-12 mx-auto text-gray-400" />
-                <h3 className="mt-2 text-sm font-semibold text-gray-900">No invoices</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  You haven't created any invoices yet. Generate a report first and create an invoice from there.
-                </p>
-              </div>
-            }
-          />
+        <CardContent className="p-0 sm:p-6">
+          <div className="overflow-x-auto">
+            <DataTable
+              data={invoices}
+              columns={columns}
+              isLoading={isLoading}
+              emptyState={
+                <div className="text-center py-8 text-gray-500">
+                  <FileText className="h-12 w-12 mx-auto text-gray-400" />
+                  <h3 className="mt-2 text-sm font-semibold text-gray-900">No invoices</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    You haven't created any invoices yet. Generate a report first and create an invoice from there.
+                  </p>
+                </div>
+              }
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -383,7 +385,7 @@ export default function InvoicesPage() {
       
       {/* Edit Invoice Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-[900px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Generate Invoice</DialogTitle>
           </DialogHeader>
