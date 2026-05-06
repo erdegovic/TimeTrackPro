@@ -156,9 +156,28 @@ export default function InvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
-        <p className="text-gray-500 mt-1 text-sm">Manage your invoices and track payments.</p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
+          <p className="text-gray-500 mt-1 text-sm">Manage your invoices and track payments.</p>
+        </div>
+      </div>
+
+      {/* How to create an invoice */}
+      <div className="flex gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <div className="flex-shrink-0 mt-0.5">
+          <FileText className="h-5 w-5 text-blue-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-blue-900">Creating invoices</p>
+          <p className="text-sm text-blue-700 mt-0.5">
+            Invoices are generated from your time reports. Go to the{" "}
+            <a href="/reports" className="font-semibold underline underline-offset-2 hover:text-blue-900">
+              Reports tab
+            </a>
+            , apply your filters, then click <span className="font-semibold">Generate Invoice</span> to create and preview an invoice from your tracked time.
+          </p>
+        </div>
       </div>
 
       {/* Stats */}

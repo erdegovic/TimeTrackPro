@@ -128,22 +128,20 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
         
         <div className="col-span-1 sm:col-span-2 lg:col-span-1">
           <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1">
-              <Input
-                type="date"
-                value={filters.startDate}
-                onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-              />
-            </div>
-            <span className="flex items-center justify-center text-gray-500 sm:px-2">to</span>
-            <div className="relative flex-1">
-              <Input
-                type="date"
-                value={filters.endDate}
-                onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-              />
-            </div>
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+            <Input
+              type="date"
+              value={filters.startDate}
+              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+              className="min-w-0 w-full"
+            />
+            <span className="text-gray-400 text-sm px-1">→</span>
+            <Input
+              type="date"
+              value={filters.endDate}
+              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+              className="min-w-0 w-full"
+            />
           </div>
         </div>
       </div>
