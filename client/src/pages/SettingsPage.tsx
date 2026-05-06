@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -23,6 +23,8 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Settings } from "@shared/schema";
+import { generateInvoiceHTML, TEMPLATE_OPTIONS, InvoiceTemplateData } from "@/lib/invoice-html-generator";
+import { format } from "date-fns";
 
 // Enhanced schema with invoice customization validation
 const settingsSchema = z.object({
@@ -77,7 +79,7 @@ const settingsSchema = z.object({
   showBankDetails: z.boolean().default(true),
   showFooterNotes: z.boolean().default(true),
   showHourlyRate: z.boolean().default(true),
-  invoiceTemplate: z.enum(["professional", "modern", "classic", "minimal", "media"]),
+  invoiceTemplate: z.enum(["classic", "professional", "media", "web", "graphic", "minimalistic", "freelancer", "avant", "luxe"]),
   
   // Report Settings
   enableWeeklyCategorization: z.boolean().default(true),
@@ -132,44 +134,6 @@ const colorPalettes = [
   }
 ];
 
-// Template styles that affect invoice layout
-const templateStyles = {
-  professional: {
-    headerStyle: "flex justify-between items-start",
-    titleSize: "text-3xl",
-    spacing: "mb-8",
-    borderStyle: "border-t border-b",
-    layoutClass: "traditional"
-  },
-  modern: {
-    headerStyle: "flex justify-between items-center bg-gray-50 p-6 rounded-lg",
-    titleSize: "text-4xl",
-    spacing: "mb-6",
-    borderStyle: "border-l-4 bg-gray-50 p-4",
-    layoutClass: "clean"
-  },
-  classic: {
-    headerStyle: "text-center border-b-2",
-    titleSize: "text-2xl",
-    spacing: "mb-12",
-    borderStyle: "border border-gray-300",
-    layoutClass: "formal"
-  },
-  minimal: {
-    headerStyle: "flex justify-between items-baseline",
-    titleSize: "text-xl font-light",
-    spacing: "mb-4",
-    borderStyle: "border-b",
-    layoutClass: "simple"
-  },
-  media: {
-    headerStyle: "flex justify-between items-start p-10 border-b border-gray-200",
-    titleSize: "text-4xl font-bold",
-    spacing: "mb-8",
-    borderStyle: "border-b border-gray-200",
-    layoutClass: "cinematic"
-  }
-};
 
 interface CollapsibleSection {
   id: string;
@@ -533,7 +497,7 @@ export default function SettingsPage() {
       showCompanyDetails: true,
       showBankDetails: true,
       showFooterNotes: true,
-      invoiceTemplate: "professional",
+      invoiceTemplate: "professional" as const,
       enableWeeklyCategorization: true,
       showDateColumn: true,
     },
@@ -586,7 +550,7 @@ export default function SettingsPage() {
         showCompanyDetails: settings.showCompanyDetails ?? true,
         showBankDetails: settings.showBankDetails ?? true,
         showFooterNotes: settings.showFooterNotes ?? true,
-        invoiceTemplate: (settings.invoiceTemplate as "professional" | "modern" | "classic" | "minimal" | "media") || "professional",
+        invoiceTemplate: (settings.invoiceTemplate as "classic" | "professional" | "media" | "web" | "graphic" | "minimalistic" | "freelancer" | "avant" | "luxe") || "professional",
         enableWeeklyCategorization: settings.enableWeeklyCategorization ?? true,
         showDateColumn: settings.showDateColumn ?? true,
       };
@@ -594,32 +558,6 @@ export default function SettingsPage() {
       form.reset(formData);
       
       // Auto-apply template-specific color themes
-      let targetPalette;
-      switch (formData.invoiceTemplate) {
-        case "professional":
-          targetPalette = colorPalettes.find(p => p.name === "Elegant Black");
-          break;
-        case "modern":
-          targetPalette = colorPalettes.find(p => p.name === "Professional Blue");
-          break;
-        case "classic":
-          targetPalette = colorPalettes.find(p => p.name === "Professional Blue");
-          break;
-        case "minimal":
-          targetPalette = colorPalettes.find(p => p.name === "Elegant Black");
-          break;
-        case "media":
-          targetPalette = colorPalettes.find(p => p.name === "Bold Red");
-          break;
-      }
-      
-      if (targetPalette) {
-        form.setValue("invoiceColorTheme", targetPalette.primary);
-        form.setValue("invoiceAccentColor", targetPalette.accent);
-        form.setValue("invoiceTextColor", targetPalette.text);
-        form.setValue("invoiceBackgroundColor", targetPalette.background);
-      }
-      
       if (settings.companyLogo) {
         setLogoPreview(settings.companyLogo);
       }
@@ -693,8 +631,39 @@ export default function SettingsPage() {
     });
   };
 
-  // Get current template style
-  const currentTemplate = templateStyles[watchedValues.invoiceTemplate as keyof typeof templateStyles] || templateStyles.professional;
+  // Build live preview HTML for the selected template
+  const settingsPreviewHtml = useMemo(() => {
+    const currency = watchedValues.displayCurrency || "$";
+    const data: InvoiceTemplateData = {
+      template: watchedValues.invoiceTemplate || "professional",
+      businessName: watchedValues.businessName || "Your Business",
+      businessMeta: "Professional services",
+      businessAddress: [watchedValues.businessAddress, watchedValues.businessCity, watchedValues.businessState].filter(Boolean).join(", "),
+      businessEmail: watchedValues.businessEmail || "you@example.com",
+      businessPhone: watchedValues.businessPhone || "",
+      invoiceNumber: `INV-${watchedValues.nextInvoiceNumber || "001"}`,
+      issueDate: format(new Date(), "MMMM d, yyyy"),
+      dueDate: format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), "MMMM d, yyyy"),
+      clientName: "Sample Client Co.",
+      clientAddress: "123 Client Street",
+      clientCity: "Client City",
+      clientState: "ST",
+      clientZip: "12345",
+      clientEmail: "client@example.com",
+      lineItems: [
+        { description: "Web Development", subDescription: "Project Alpha", qty: "8.5", rate: `${currency}75.00`, amount: `${currency}637.50` },
+        { description: "Design Review", subDescription: "UI/UX Pass", qty: "2.0", rate: `${currency}75.00`, amount: `${currency}150.00` },
+        { description: "Consultation", subDescription: "Strategy session", qty: "1.5", rate: `${currency}90.00`, amount: `${currency}135.00` },
+      ],
+      subtotalFormatted: "922.50",
+      taxFormatted: "0.00",
+      taxLabel: "Tax",
+      totalFormatted: "922.50",
+      notes: "Thank you for your business. Payment due within 30 days.",
+      currency,
+    };
+    return generateInvoiceHTML(data);
+  }, [watchedValues.invoiceTemplate, watchedValues.businessName, watchedValues.businessAddress, watchedValues.businessCity, watchedValues.businessState, watchedValues.businessEmail, watchedValues.businessPhone, watchedValues.displayCurrency, watchedValues.nextInvoiceNumber]);
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({
@@ -1493,71 +1462,18 @@ export default function SettingsPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel className="text-sm font-medium">Choose Template</FormLabel>
-                            <Select onValueChange={(value) => {
-                              field.onChange(value);
-                              // Auto-apply default color themes based on template
-                              let targetPalette;
-                              switch (value) {
-                                case "professional":
-                                  targetPalette = colorPalettes.find(p => p.name === "Elegant Black");
-                                  break;
-                                case "modern":
-                                  targetPalette = colorPalettes.find(p => p.name === "Professional Blue");
-                                  break;
-                                case "classic":
-                                  targetPalette = colorPalettes.find(p => p.name === "Professional Blue");
-                                  break;
-                                case "minimal":
-                                  targetPalette = colorPalettes.find(p => p.name === "Elegant Black");
-                                  break;
-                                case "media":
-                                  targetPalette = colorPalettes.find(p => p.name === "Bold Red");
-                                  break;
-                              }
-                              
-                              if (targetPalette) {
-                                form.setValue("invoiceColorTheme", targetPalette.primary);
-                                form.setValue("invoiceAccentColor", targetPalette.accent);
-                                form.setValue("invoiceTextColor", targetPalette.text);
-                                form.setValue("invoiceBackgroundColor", targetPalette.background);
-                              }
-                            }} value={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger className="h-10 text-sm bg-white border-2 hover:border-blue-300 transition-colors">
                                   <SelectValue />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="professional">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-gray-700 rounded-sm"></div>
-                                    Professional
-                                  </div>
-                                </SelectItem>
-                                <SelectItem value="modern">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-blue-500 rounded-sm"></div>
-                                    Modern
-                                  </div>
-                                </SelectItem>
-                                <SelectItem value="classic">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-amber-600 rounded-sm"></div>
-                                    Classic
-                                  </div>
-                                </SelectItem>
-                                <SelectItem value="minimal">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-slate-400 rounded-sm"></div>
-                                    Minimal
-                                  </div>
-                                </SelectItem>
-                                <SelectItem value="media">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-red-600 rounded-sm"></div>
-                                    Media
-                                  </div>
-                                </SelectItem>
+                                {TEMPLATE_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
 
@@ -1837,451 +1753,20 @@ export default function SettingsPage() {
 
                 {/* Live Preview */}
                 <div className="flex-1 p-6 bg-gray-100 overflow-y-auto">
-                  <div className="max-w-2xl mx-auto">
+                  <div className="max-w-3xl mx-auto">
                     <div className="mb-4 flex items-center gap-2 text-sm text-gray-600">
                       <Zap className="h-4 w-4" />
-                      Live Preview - {watchedValues.invoiceTemplate} template
+                      Live Preview — {TEMPLATE_OPTIONS.find(t => t.value === watchedValues.invoiceTemplate)?.label || watchedValues.invoiceTemplate} template
                     </div>
-                    
-                    <div 
-                      className={`bg-white shadow-lg rounded-lg overflow-hidden min-h-[600px] ${currentTemplate.layoutClass}`}
-                      style={{ 
-                        backgroundColor: watchedValues.invoiceBackgroundColor,
-                        color: watchedValues.invoiceTextColor,
-                        fontSize: `${watchedValues.customFontSize}px`
-                      }}
-                    >
-                      {/* Colored top bar for Media template */}
-                      {watchedValues.invoiceTemplate === "media" && (
-                        <div 
-                          className="w-full h-2"
-                          style={{ 
-                            background: `linear-gradient(to right, ${watchedValues.invoiceColorTheme}, ${watchedValues.invoiceAccentColor})`
-                          }}
-                        ></div>
-                      )}
-                      
-                      {/* Modern template gradient header - outside padding container */}
-                      {watchedValues.invoiceTemplate === "modern" && (
-                        <div 
-                          className="relative text-center text-white w-full"
-                          style={{ 
-                            background: `linear-gradient(135deg, ${watchedValues.invoiceColorTheme}, ${watchedValues.invoiceAccentColor})`,
-                            padding: '2.5rem 2rem'
-                          }}
-                        >
-                          <div className="company-info">
-                            {watchedValues.showBusinessName && (
-                              <h1 className="text-4xl font-bold mb-2 tracking-wider">
-                                {watchedValues.businessName?.toUpperCase() || "YOUR BUSINESS NAME"}
-                              </h1>
-                            )}
-                            {watchedValues.showCompanyDetails && (
-                              <div className="text-sm opacity-90 space-y-1">
-                                {watchedValues.businessAddress && <div>{watchedValues.businessAddress}</div>}
-                                <div>
-                                  {[watchedValues.businessCity, watchedValues.businessState, watchedValues.businessZipCode]
-                                    .filter(Boolean).join(", ")}
-                                </div>
-                                {watchedValues.businessEmail && <div>{watchedValues.businessEmail}</div>}
-                                {watchedValues.businessPhone && <div>{watchedValues.businessPhone}</div>}
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="flex justify-center gap-8 mt-6">
-                            <div 
-                              className="px-6 py-3 rounded-full"
-                              style={{ background: 'rgba(255, 255, 255, 0.15)' }}
-                            >
-                              <div className="text-lg font-semibold">INV #{watchedValues.nextInvoiceNumber}</div>
-                            </div>
-                            <div 
-                              className="px-6 py-3 rounded-full"
-                              style={{ background: 'rgba(255, 255, 255, 0.15)' }}
-                            >
-                              <div className="text-sm">Issued: {new Date().toLocaleDateString()}</div>
-                              {watchedValues.showDueDate && (
-                                <div className="text-sm">Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
-                              )}
-                            </div>
-                          </div>
-                          
-                          {/* Diamond accent */}
-                          <div 
-                            className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-white rotate-45"
-                            style={{ zIndex: 1 }}
-                          ></div>
-                        </div>
-                      )}
-                      
-                      <div className={watchedValues.invoiceTemplate === "modern" ? "p-8 pt-12" : "p-8"}>
-                      
-
-                      
-                      {/* Dotted Divider for Modern template */}
-                      {watchedValues.invoiceTemplate === "modern" && (
-                        <div 
-                          className="h-px mb-6"
-                          style={{
-                            background: `repeating-linear-gradient(to right, #e0e0e0, #e0e0e0 3px, transparent 3px, transparent 6px)`
-                          }}
-                        ></div>
-                      )}
-
-                      {/* Template-specific Header */}
-                      <div className={`${watchedValues.invoiceTemplate === "modern" ? "hidden" : currentTemplate.headerStyle} ${currentTemplate.spacing || ''}`}>
-                        {watchedValues.invoiceTemplate === "media" ? (
-                          // Media template layout
-                          <div className="w-full">
-                            <div className="flex justify-between items-start">
-                              <div className="company-info">
-                                {watchedValues.showBusinessName && (
-                                  <h1 className="text-4xl font-bold mb-2" style={{ color: watchedValues.invoiceColorTheme }}>
-                                    {watchedValues.businessName?.toUpperCase() || "YOUR BUSINESS"}
-                                  </h1>
-                                )}
-                                <p className="text-gray-600 mb-1">Professional media services</p>
-                                {watchedValues.showCompanyDetails && (
-                                  <div className="text-sm text-gray-600 space-y-1">
-                                    {watchedValues.businessAddress && <div>{watchedValues.businessAddress}</div>}
-                                    <div>
-                                      {[watchedValues.businessCity, watchedValues.businessState, watchedValues.businessZipCode]
-                                        .filter(Boolean).join(", ")}
-                                    </div>
-                                    <div>
-                                      {[watchedValues.businessEmail, watchedValues.businessPhone]
-                                        .filter(Boolean).join(" | ")}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="invoice-meta text-right">
-                                <div className="text-2xl font-semibold mb-2" style={{ color: watchedValues.invoiceColorTheme }}>
-                                  INV #{watchedValues.nextInvoiceNumber}
-                                </div>
-                                <div className="text-sm text-gray-600 space-y-1">
-                                  <div>Date: {new Date().toLocaleDateString()}</div>
-                                  {watchedValues.showDueDate && (
-                                    <div>Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ) : watchedValues.invoiceTemplate === "classic" ? (
-                          // Classic centered layout
-                          <div className="w-full text-center">
-                            {watchedValues.showLogo && logoPreview && (
-                              <img 
-                                src={logoPreview} 
-                                alt="Company Logo" 
-                                className="max-h-16 mx-auto mb-4"
-                              />
-                            )}
-                            <h1 
-                              className={`${currentTemplate.titleSize} font-bold mb-2`}
-                              style={{ color: watchedValues.invoiceColorTheme }}
-                            >
-                              INVOICE
-                            </h1>
-                            {watchedValues.showCompanyDetails && (
-                              <div className="text-sm">
-                                <div className="font-bold">{watchedValues.businessName || "Your Business Name"}</div>
-                                {watchedValues.businessAddress && <div>{watchedValues.businessAddress}</div>}
-                                <div>
-                                  {[watchedValues.businessCity, watchedValues.businessState, watchedValues.businessZipCode]
-                                    .filter(Boolean).join(", ")}
-                                </div>
-                                {watchedValues.businessEmail && <div>{watchedValues.businessEmail}</div>}
-                              </div>
-                            )}
-                            <div className="mt-4 text-sm">
-                              <div>Invoice #: {watchedValues.nextInvoiceNumber}</div>
-                              <div>Date: {new Date().toLocaleDateString()}</div>
-                            </div>
-                          </div>
-                        ) : (
-                          // Other templates - side by side layout
-                          <>
-                            <div>
-                              {watchedValues.showLogo && logoPreview && (
-                                <img 
-                                  src={logoPreview} 
-                                  alt="Company Logo" 
-                                  className="mb-4"
-                                  style={{ maxHeight: `${watchedValues.logoSize}px` }}
-                                />
-                              )}
-                              {watchedValues.showCompanyDetails && (
-                                <div>
-                                  {watchedValues.showBusinessName && (
-                                    <h2 
-                                      className="text-xl font-bold mb-2"
-                                      style={{ color: watchedValues.invoiceColorTheme }}
-                                    >
-                                      {watchedValues.businessName || "Your Business Name"}
-                                    </h2>
-                                  )}
-                                  <div className="text-sm space-y-1">
-                                    {watchedValues.businessAddress && <div>{watchedValues.businessAddress}</div>}
-                                    <div>
-                                      {[watchedValues.businessCity, watchedValues.businessState, watchedValues.businessZipCode]
-                                        .filter(Boolean).join(", ")}
-                                    </div>
-                                    {watchedValues.businessEmail && <div>{watchedValues.businessEmail}</div>}
-                                    {watchedValues.businessPhone && <div>{watchedValues.businessPhone}</div>}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className={watchedValues.invoiceTemplate === "minimal" ? "text-right" : "text-right"}>
-                              <h1 
-                                className={`${currentTemplate.titleSize} font-bold mb-2`}
-                                style={{ color: watchedValues.invoiceColorTheme }}
-                              >
-                                INVOICE
-                              </h1>
-                              <div className="text-sm space-y-1">
-                                <div>Invoice #: {watchedValues.nextInvoiceNumber}</div>
-                                <div>Date: {new Date().toLocaleDateString()}</div>
-                                {watchedValues.showDueDate && (
-                                  <div>Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
-                                )}
-                              </div>
-                            </div>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Media Template Billing Section */}
-                      {watchedValues.invoiceTemplate === "media" ? (
-                        <>
-                          {/* Billing Info Grid - simplified without project details */}
-                          <div className="p-10 bg-gray-50 mb-6">
-                            <div className="info-block">
-                              <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide"
-                                  style={{ color: watchedValues.invoiceColorTheme }}>
-                                Bill To
-                              </h3>
-                              <div className="space-y-1">
-                                <div className="font-bold">Sample Client</div>
-                                <div className="text-sm text-gray-600">Attn: Producer</div>
-                                <div className="text-sm text-gray-600">123 Client Street</div>
-                                <div className="text-sm text-gray-600">Client City, State 12345</div>
-                                <div className="text-sm text-gray-600">PO #CLIENT-2023-42</div>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* Filmstrip Divider */}
-                          <div className="mx-10 mb-8">
-                            <div className="h-5 bg-black relative">
-                              <div className="absolute inset-0 bg-repeat-x" 
-                                   style={{
-                                     backgroundImage: `repeating-linear-gradient(90deg, 
-                                       white 0px, 
-                                       white 10px, 
-                                       black 10px, 
-                                       black 20px
-                                     )`
-                                   }}>
-                              </div>
-                              <div className="absolute -left-5 top-0 w-5 h-full bg-black rounded-l-lg"></div>
-                              <div className="absolute -right-5 top-0 w-5 h-full bg-black rounded-r-lg"></div>
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        /* Other Templates Client Information */
-                        <div className="mb-6">
-                          <h3 
-                            className="font-semibold mb-2"
-                            style={{ color: watchedValues.invoiceAccentColor }}
-                          >
-                            Bill To:
-                          </h3>
-                          <div>
-                            <div className="font-medium">Sample Client</div>
-                            <div className="text-sm">123 Client Street</div>
-                            <div className="text-sm">Client City, State 12345</div>
-                            <div className="text-sm">client@example.com</div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Professional Table with Borders */}
-                      <div className={watchedValues.invoiceTemplate === "media" ? "mx-10 mb-8" : "mb-8"}>
-                        <table className="w-full border-collapse border border-gray-300">
-                          <thead>
-                            <tr 
-                              className="text-white"
-                              style={{ 
-                                backgroundColor: watchedValues.invoiceTemplate === 'media' ? '#8B1538' : watchedValues.invoiceColorTheme 
-                              }}
-                            >
-                              <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Description</th>
-                              <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Hours</th>
-                              {watchedValues.showHourlyRate && (
-                                <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Rate</th>
-                              )}
-                              <th className="px-4 py-3 text-right text-sm font-semibold">Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white">
-                            <tr className="border-b border-gray-200">
-                              <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">Web Development</td>
-                              <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">8.50</td>
-                              {watchedValues.showHourlyRate && (
-                                <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{watchedValues.displayCurrency}75.00</td>
-                              )}
-                              <td className="px-4 py-3 text-sm text-gray-900 text-right">{watchedValues.displayCurrency}637.50</td>
-                            </tr>
-                            <tr className="border-b border-gray-200">
-                              <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">Project Planning</td>
-                              <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">4.00</td>
-                              {watchedValues.showHourlyRate && (
-                                <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">{watchedValues.displayCurrency}75.00</td>
-                              )}
-                              <td className="px-4 py-3 text-sm text-gray-900 text-right">{watchedValues.displayCurrency}300.00</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Consistent Totals Section for All Templates */}
-                      <div className={watchedValues.invoiceTemplate === "media" ? "mx-10 mb-8" : "mb-8"}>
-                        <div className="flex justify-end">
-                          <div className="text-right space-y-1 min-w-[200px]">
-                            <div className="flex justify-between">
-                              <span>Subtotal:</span>
-                              <span>{watchedValues.displayCurrency}937.50</span>
-                            </div>
-                            {watchedValues.enableTax && (
-                              <div className="flex justify-between">
-                                <span>Tax ({watchedValues.defaultTaxRate}%):</span>
-                                <span>{watchedValues.displayCurrency}{(937.50 * parseFloat(watchedValues.defaultTaxRate) / 100).toFixed(2)}</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between font-bold pt-2 border-t"
-                                 style={{ color: watchedValues.invoiceColorTheme }}>
-                              <span>Total:</span>
-                              <span>{watchedValues.displayCurrency}{watchedValues.enableTax ? (937.50 + (937.50 * parseFloat(watchedValues.defaultTaxRate) / 100)).toFixed(2) : "937.50"}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {watchedValues.showBankDetails && (
-                        <div className={`mb-6 ${watchedValues.invoiceTemplate === "modern" ? "p-6 bg-gray-50" : "p-4 bg-gray-50 rounded"}`}>
-                          {watchedValues.invoiceTemplate === "modern" ? (
-                            <div className="text-center">
-                              <div className="text-sm space-y-2 max-w-md mx-auto">
-                                {watchedValues.paymentMethodType === "bank_transfer_eu" && watchedValues.iban && (
-                                  <div><strong>Bank Details:</strong> IBAN {watchedValues.iban}</div>
-                                )}
-                                {watchedValues.paymentMethodType === "bank_transfer_uk" && (
-                                  <div><strong>Bank Details:</strong> {watchedValues.bankName} | Sort Code {watchedValues.bankSortCode} | Account {watchedValues.bankAccountNumber}</div>
-                                )}
-                                {watchedValues.paymentMethodType === "bank_transfer_us" && (
-                                  <div><strong>Bank Details:</strong> {watchedValues.bankName} | Routing #{watchedValues.routingNumber} | Account #{watchedValues.bankAccountNumber}</div>
-                                )}
-                                {watchedValues.paymentMethodType === "other" && watchedValues.otherPaymentInstructions && (
-                                  <div 
-                                    dangerouslySetInnerHTML={{ __html: watchedValues.otherPaymentInstructions }}
-                                  />
-                                )}
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <h3 className="font-semibold text-sm mb-2" style={{ color: watchedValues.invoiceColorTheme }}>
-                                Payment Details
-                              </h3>
-                              <div className="text-sm space-y-1">
-                                {/* EU Bank Transfer */}
-                                {watchedValues.paymentMethodType === "bank_transfer_eu" && (
-                                  <>
-                                    {watchedValues.iban && <div>IBAN: {watchedValues.iban}</div>}
-                                    {watchedValues.swift && <div>SWIFT/BIC: {watchedValues.swift}</div>}
-                                    {watchedValues.bankName && <div>Bank: {watchedValues.bankName}</div>}
-                                    {watchedValues.bankAccountName && <div>Account Name: {watchedValues.bankAccountName}</div>}
-                                  </>
-                                )}
-                                
-                                {/* UK Bank Transfer */}
-                                {watchedValues.paymentMethodType === "bank_transfer_uk" && (
-                                  <>
-                                    {watchedValues.bankAccountNumber && <div>Account Number: {watchedValues.bankAccountNumber}</div>}
-                                    {watchedValues.bankSortCode && <div>Sort Code: {watchedValues.bankSortCode}</div>}
-                                    {watchedValues.bankName && <div>Bank: {watchedValues.bankName}</div>}
-                                    {watchedValues.bankAccountName && <div>Account Name: {watchedValues.bankAccountName}</div>}
-                                  </>
-                                )}
-                                
-                                {/* US Bank Transfer */}
-                                {watchedValues.paymentMethodType === "bank_transfer_us" && (
-                                  <>
-                                    {watchedValues.bankAccountNumber && <div>Account Number: {watchedValues.bankAccountNumber}</div>}
-                                    {watchedValues.routingNumber && <div>Routing Number: {watchedValues.routingNumber}</div>}
-                                    {watchedValues.bankName && <div>Bank: {watchedValues.bankName}</div>}
-                                    {watchedValues.bankAccountName && <div>Account Name: {watchedValues.bankAccountName}</div>}
-                                  </>
-                                )}
-                                
-                                {/* PayPal */}
-                                {watchedValues.paymentMethodType === "paypal" && (
-                                  <>
-                                    {watchedValues.paypalEmail && <div>PayPal: {watchedValues.paypalEmail}</div>}
-                                  </>
-                                )}
-                                
-                                {/* Wise/Payoneer */}
-                                {watchedValues.paymentMethodType === "wise_payoneer" && (
-                                  <>
-                                    {watchedValues.wiseEmail && <div>Wise/Payoneer: {watchedValues.wiseEmail}</div>}
-                                  </>
-                                )}
-                                
-                                {/* Other - Rich Text */}
-                                {watchedValues.paymentMethodType === "other" && watchedValues.otherPaymentInstructions && (
-                                  <div 
-                                    className="rich-payment-instructions" 
-                                    dangerouslySetInnerHTML={{ __html: watchedValues.otherPaymentInstructions }}
-                                  />
-                                )}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Footer Section */}
-                      {(watchedValues.showFooterNotes ?? true) && (
-                        watchedValues.invoiceTemplate === "media" ? (
-                          /* Media Template Footer */
-                          <div className="p-8 bg-gray-50 text-center text-gray-600 text-sm">
-                            {/* Custom Invoice Notes */}
-                            {watchedValues.invoiceFooterText && (
-                              <div 
-                                className="invoice-footer-notes mb-4"
-                                dangerouslySetInnerHTML={{ __html: watchedValues.invoiceFooterText }}
-                              />
-                            )}
-                          </div>
-                        ) : (
-                          /* Other Templates Footer */
-                          watchedValues.invoiceFooterText && (
-                            <div className="text-center text-sm border-t pt-4 mt-8">
-                              <div 
-                                className="invoice-footer-notes"
-                                dangerouslySetInnerHTML={{ __html: watchedValues.invoiceFooterText }}
-                              />
-                            </div>
-                          )
-                        )
-                      )}
+                    <div style={{ background: "#f1f3f5", borderRadius: "8px", padding: "16px", overflowX: "auto" }}>
+                      <div style={{ width: "794px", transformOrigin: "top left", transform: "scale(0.65)", marginBottom: "-393px" }}>
+                        <iframe
+                          srcDoc={settingsPreviewHtml}
+                          width="794"
+                          height="1123"
+                          style={{ border: "none", display: "block", width: "794px", height: "1123px" }}
+                          title="Invoice Template Live Preview"
+                        />
                       </div>
                     </div>
                   </div>
@@ -2295,109 +1780,22 @@ export default function SettingsPage() {
                 <CardHeader>
                   <CardTitle>Invoice Preview</CardTitle>
                   <CardDescription>
-                    See how your customizations will look on actual invoices
+                    See how your selected template looks with your business details
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div 
-                    className="border rounded-lg p-6 max-w-2xl mx-auto"
-                    style={{ 
-                      backgroundColor: watchedValues.invoiceBackgroundColor,
-                      color: watchedValues.invoiceTextColor,
-                      fontSize: `${watchedValues.customFontSize}px`
-                    }}
-                  >
-                    {/* Same preview content as customization tab but without live editing */}
-                    <div className={`${currentTemplate.headerStyle} ${currentTemplate.spacing}`}>
-                      <div>
-                        {watchedValues.showLogo && logoPreview && (
-                          <img 
-                            src={logoPreview} 
-                            alt="Company Logo" 
-                            className="max-h-16 mb-4"
-                          />
-                        )}
-                        {watchedValues.showCompanyDetails && (
-                          <div>
-                            <h2 
-                              className="text-xl font-bold"
-                              style={{ color: watchedValues.invoiceColorTheme }}
-                            >
-                              {watchedValues.businessName || "Your Business Name"}
-                            </h2>
-                            <div className="text-sm">
-                              {watchedValues.businessAddress && <div>{watchedValues.businessAddress}</div>}
-                              <div>
-                                {[watchedValues.businessCity, watchedValues.businessState, watchedValues.businessZipCode]
-                                  .filter(Boolean).join(", ")}
-                              </div>
-                              {watchedValues.businessEmail && <div>{watchedValues.businessEmail}</div>}
-                              {watchedValues.businessPhone && <div>{watchedValues.businessPhone}</div>}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="text-right">
-                        <h1 
-                          className="text-2xl font-bold"
-                          style={{ color: watchedValues.invoiceColorTheme }}
-                        >
-                          INVOICE
-                        </h1>
-                        <div className="text-sm">
-                          <div>Invoice #: {watchedValues.nextInvoiceNumber}</div>
-                          <div>Date: {new Date().toLocaleDateString()}</div>
-                          {watchedValues.showDueDate && (
-                            <div>Due: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</div>
-                          )}
-                        </div>
+                  <div className="flex justify-center">
+                    <div style={{ background: "#f1f3f5", borderRadius: "8px", padding: "16px", overflowX: "auto", width: "100%" }}>
+                      <div style={{ width: "794px", transformOrigin: "top left", transform: "scale(0.72)", marginBottom: "-322px", margin: "0 auto" }}>
+                        <iframe
+                          srcDoc={settingsPreviewHtml}
+                          width="794"
+                          height="1123"
+                          style={{ border: "none", display: "block", width: "794px", height: "1123px" }}
+                          title="Invoice Preview"
+                        />
                       </div>
                     </div>
-
-                    <div className="mb-6">
-                      <h3 
-                        className="font-semibold mb-2"
-                        style={{ color: watchedValues.invoiceAccentColor }}
-                      >
-                        Bill To:
-                      </h3>
-                      <div>
-                        <div className="font-medium">Sample Client</div>
-                        <div className="text-sm">123 Client Street</div>
-                        <div className="text-sm">Client City, State 12345</div>
-                        <div className="text-sm">client@example.com</div>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-b py-4 mb-6">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 font-semibold text-xs sm:text-sm mb-2">
-                        <div style={{ color: watchedValues.invoiceAccentColor }}>Description</div>
-                        <div style={{ color: watchedValues.invoiceAccentColor }}>Hours</div>
-                        <div style={{ color: watchedValues.invoiceAccentColor }}>Rate</div>
-                        <div style={{ color: watchedValues.invoiceAccentColor }} className="text-right">Amount</div>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 text-xs sm:text-sm">
-                        <div>Web Development</div>
-                        <div>8.5</div>
-                        <div>{watchedValues.displayCurrency}75.00</div>
-                        <div className="text-right">{watchedValues.displayCurrency}637.50</div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <div className="text-right">
-                        <div className="text-lg font-bold" style={{ color: watchedValues.invoiceColorTheme }}>
-                          Total: {watchedValues.displayCurrency}637.50
-                        </div>
-                      </div>
-                    </div>
-
-                    {watchedValues.invoiceFooterText && (
-                      <div className="text-center text-sm border-t pt-4 mt-8">
-                        {watchedValues.invoiceFooterText}
-                      </div>
-                    )}
                   </div>
                 </CardContent>
               </Card>

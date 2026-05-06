@@ -13,7 +13,7 @@ TimeTrackPro is a comprehensive time tracking app for freelancers and small busi
 - **Backend**: Node.js + Express.js + TypeScript (ESM)
 - **Database**: PostgreSQL (Neon serverless) + Drizzle ORM
 - **Auth**: Session-based (express-session), bcrypt passwords, email verification tokens
-- **PDF**: jsPDF + autoTable (client-side, 5 templates)
+- **PDF**: html2canvas + jsPDF (client-side, 9 HTML templates)
 
 ## Where things live
 - `shared/schema.ts` — DB schema + Zod insert schemas + all types (source of truth)
@@ -21,8 +21,9 @@ TimeTrackPro is a comprehensive time tracking app for freelancers and small busi
 - `server/routes/auth.ts` — registration, login, email verification, password reset
 - `server/storage.ts` — DB access layer (IStorage interface + PostgresStorage)
 - `client/src/pages/` — page components (InvoicesPage, Dashboard, TimeTrackerPage, etc.)
-- `client/src/components/Invoices/` — InvoiceEditor (new), InvoicePreview, InvoiceViewEdit
-- `client/src/lib/enhanced-pdf-generator.ts` — PDF generation (5 templates)
+- `client/src/components/Invoices/` — InvoiceEditor, InvoicePreview (iframe-based), InvoiceViewEdit
+- `client/src/lib/invoice-html-generator.ts` — 9 HTML invoice templates (source of truth for all template CSS/structure)
+- `client/src/lib/invoice-pdf.ts` — html2canvas PDF export from template HTML
 - `client/src/index.css` — CSS variables, Tickd brand tokens
 
 ## Architecture decisions
@@ -54,5 +55,7 @@ TimeTrackPro is a comprehensive time tracking app for freelancers and small busi
 
 ## Pointers
 - DB schema: `shared/schema.ts`
-- PDF templates: `client/src/lib/enhanced-pdf-generator.ts`
+- Invoice templates + HTML generator: `client/src/lib/invoice-html-generator.ts`
+- PDF export: `client/src/lib/invoice-pdf.ts`
+- Invoice preview (iframe): `client/src/components/Invoices/InvoicePreview.tsx`
 - Invoice editor: `client/src/components/Invoices/InvoiceEditor.tsx`

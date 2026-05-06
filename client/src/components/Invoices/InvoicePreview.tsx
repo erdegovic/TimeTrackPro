@@ -1,15 +1,16 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit, FileSpreadsheet, File, Plus, Minus } from "lucide-react";
+import { Edit, FileSpreadsheet, File, Plus, Minus, Loader2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { generatePdf } from "@/lib/enhanced-pdf-generator";
 import { formatTime, formatCurrency, parseTime } from "@/lib/utils/timeUtils";
 import { Client, Settings, TimeFormat } from "@shared/schema";
+import { generateInvoiceHTML, InvoiceTemplateData } from "@/lib/invoice-html-generator";
+import { exportInvoicePdf } from "@/lib/invoice-pdf";
 
 interface InvoicePreviewProps {
   reportData: any;
@@ -31,7 +32,7 @@ interface InvoicePreviewProps {
   invoice?: any;
 }
 
-export default function InvoicePreview({ 
+export default function InvoicePreview({
   reportData,
   clientId,
   client: propClient,
@@ -41,988 +42,422 @@ export default function InvoicePreview({
   dueDate: propDueDate,
   setDueDate,
   additionalItems: propAdditionalItems,
-  setAdditionalItems: propSetAdditionalItems, 
+  setAdditionalItems: propSetAdditionalItems,
   notes: propNotes,
   setNotes: propSetNotes,
   showDueDate: propShowDueDate,
   setShowDueDate: propSetShowDueDate,
   onEditInvoice,
   isEditing = false,
-  invoice
+  invoice,
 }: InvoicePreviewProps) {
   const { toast } = useToast();
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [editableEntries, setEditableEntries] = useState<any[]>([]);
-  const [additionalItems, setAdditionalItems] = useState<{
-    description: string;
-    amount: number;
-    id: number;
-  }[]>(propAdditionalItems || []);
+  const [additionalItems, setAdditionalItems] = useState<{ description: string; amount: number; id: number }[]>(
+    propAdditionalItems || []
+  );
   const [subtotal, setSubtotal] = useState(0);
   const [total, setTotal] = useState(0);
   const [notes, setNotes] = useState(propNotes || "");
   const [showDueDate, setShowDueDate] = useState(propShowDueDate !== undefined ? propShowDueDate : true);
-  
-  // Fetch next invoice number
+  const [taxRate, setTaxRate] = useState(0);
+  const [enableTax, setEnableTax] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
   const { data: invoiceNumberData } = useQuery({
     queryKey: ["/api/next-invoice-number"],
     queryFn: async () => {
-      const response = await fetch("/api/next-invoice-number");
-      if (!response.ok) throw new Error("Failed to fetch next invoice number");
-      return response.json();
-    }
+      const res = await fetch("/api/next-invoice-number");
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
   });
-  
-  // Set invoice number when data is available
+
   useEffect(() => {
-    if (invoiceNumberData?.invoiceNumber) {
-      setInvoiceNumber(invoiceNumberData.invoiceNumber);
-    }
+    if (invoiceNumberData?.invoiceNumber) setInvoiceNumber(invoiceNumberData.invoiceNumber);
   }, [invoiceNumberData]);
-  
-  // Fetch client data
+
   const { data: client } = useQuery<Client>({
     queryKey: ["/api/clients", clientId],
     queryFn: async () => {
       const res = await fetch(`/api/clients/${clientId}`);
-      if (!res.ok) throw new Error("Failed to fetch client");
+      if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    enabled: !!clientId
+    enabled: !!clientId,
   });
-  
-  // Fetch business settings
+
   const { data: settings } = useQuery<Settings>({
     queryKey: ["/api/settings"],
   });
-  
-  // Note: notes state is already defined above with propNotes
-  const [taxRate, setTaxRate] = useState(0);
-  const [enableTax, setEnableTax] = useState(false);
-  // showDueDate is already defined above
-  
-  // Get tax settings from business settings
+
+  const activeClient = propClient || client;
+  const activeSettings = propSettings || settings;
+
   useEffect(() => {
-    if (settings) {
-      const taxEnabled = typeof settings.enableTax === 'boolean' ? settings.enableTax : false;
-      const rate = typeof settings.defaultTaxRate === 'number' 
-        ? settings.defaultTaxRate 
-        : parseFloat(settings.defaultTaxRate?.toString() || '0');
-      
+    if (activeSettings) {
+      const taxEnabled = typeof activeSettings.enableTax === "boolean" ? activeSettings.enableTax : false;
+      const rate =
+        typeof activeSettings.defaultTaxRate === "number"
+          ? activeSettings.defaultTaxRate
+          : parseFloat(activeSettings.defaultTaxRate?.toString() || "0");
       setEnableTax(taxEnabled);
       setTaxRate(rate);
-      
-      // Check if showDueDate setting exists and set it
-      if (typeof settings.showDueDate === 'boolean') {
-        setShowDueDate(settings.showDueDate);
-      }
+      if (typeof activeSettings.showDueDate === "boolean") setShowDueDate(activeSettings.showDueDate);
     }
-  }, [settings]);
-  
-  const issueDate = format(new Date(), "MMMM d, yyyy");
-  const dueDate = format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), "MMMM d, yyyy");
-  
-  // Initialize editable entries when report data changes
+  }, [activeSettings]);
+
+  const issueDate = propIssueDate || format(new Date(), "MMMM d, yyyy");
+  const dueDate = propDueDate || format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), "MMMM d, yyyy");
+
   useEffect(() => {
-    if (reportData && reportData.timeEntries) {
-      // Create a deep copy of time entries with additional editing properties
-      const editableData = reportData.timeEntries.map((entry: any) => ({
-        ...entry,
-        originalDuration: entry.adjustedDuration || entry.duration,
-        editedDuration: entry.adjustedDuration || entry.duration,
-        originalAmount: parseFloat(entry.amount)
+    if (reportData?.timeEntries) {
+      const data = reportData.timeEntries.map((e: any) => ({
+        ...e,
+        originalDuration: e.adjustedDuration || e.duration,
+        editedDuration: e.adjustedDuration || e.duration,
+        originalAmount: parseFloat(e.amount),
       }));
-      
-      setEditableEntries(editableData);
-      
-      // Set initial subtotal
+      setEditableEntries(data);
       setSubtotal(reportData.totalAmount);
-      
-      // Calculate initial total
-      const initialTax = enableTax ? reportData.totalAmount * (taxRate / 100) : 0;
-      setTotal(reportData.totalAmount + initialTax);
+      const tax = enableTax ? reportData.totalAmount * (taxRate / 100) : 0;
+      setTotal(reportData.totalAmount + tax);
     }
   }, [reportData, enableTax, taxRate]);
-  
-  // Handle toggling edit mode
-  const handleToggleEdit = () => {
-    if (onEditInvoice) {
-      onEditInvoice();
-    }
-  };
-  
+
+  const getAdditionalItemsTotal = useCallback(
+    () => additionalItems.reduce((s, i) => s + i.amount, 0),
+    [additionalItems]
+  );
+
+  const recalculateTotals = useCallback(
+    (entries = editableEntries) => {
+      const entriesTotal = entries.reduce((s, e) => s + parseFloat(e.amount), 0);
+      setSubtotal(entriesTotal);
+      const additionalTotal = additionalItems.reduce((s, i) => s + i.amount, 0);
+      const tax = enableTax ? entriesTotal * (taxRate / 100) : 0;
+      setTotal(entriesTotal + additionalTotal + tax);
+    },
+    [additionalItems, enableTax, taxRate]
+  );
+
   const updateEntryDuration = (entryId: number, newDuration: number, timeFormat: TimeFormat) => {
-    setEditableEntries(prev => {
-      const updated = prev.map(entry => {
-        if (entry.id === entryId) {
-          const hourlyRate = parseFloat(entry.hourlyRate || entry.project?.hourlyRate || '0');
-          const newAmount = hourlyRate * newDuration;
-          return {
-            ...entry,
-            editedDuration: newDuration,
-            duration: newDuration,
-            editedAmount: newAmount,
-            amount: newAmount.toString(),
-            wasEdited: true,
-          };
+    setEditableEntries((prev) => {
+      const updated = prev.map((e) => {
+        if (e.id === entryId) {
+          const rate = parseFloat(e.hourlyRate || e.project?.hourlyRate || "0");
+          return { ...e, editedDuration: newDuration, duration: newDuration, editedAmount: rate * newDuration, amount: (rate * newDuration).toString(), wasEdited: true };
         }
-        return entry;
+        return e;
       });
       recalculateTotals(updated);
       return updated;
     });
   };
-  
-  // Calculate additional items total
-  const getAdditionalItemsTotal = () => {
-    return additionalItems.reduce((sum, item) => sum + item.amount, 0);
-  };
-  
-  // Recalculate subtotal and total based on current entries and additional items
-  const recalculateTotals = (entries = editableEntries) => {
-    // Sum up all entry amounts (subtotal only includes time entries)
-    const entriesTotal = entries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
-    
-    // Set new subtotal (without additional items)
-    setSubtotal(entriesTotal);
-    
-    // Calculate additional items total separately
-    const additionalTotal = getAdditionalItemsTotal();
-    
-    // Calculate tax based on subtotal only
-    const tax = enableTax ? entriesTotal * (taxRate / 100) : 0;
-    
-    // Set total (subtotal + additional items + tax)
-    setTotal(entriesTotal + additionalTotal + tax);
-  };
-  
-  // Add a new additional item
+
   const addItem = () => {
-    const newItems = [
-      ...additionalItems, 
-      { 
-        id: Date.now(), 
-        description: "Additional Item", 
-        amount: 0 
-      }
-    ];
+    const newItems = [...additionalItems, { id: Date.now(), description: "Additional Item", amount: 0 }];
     setAdditionalItems(newItems);
-    
-    // Force recalculation immediately after adding an item
-    setTimeout(() => {
-      recalculateTotals(editableEntries);
-    }, 0);
+    setTimeout(() => recalculateTotals(editableEntries), 0);
   };
-  
-  // Update an additional item
-  const updateAdditionalItem = (id: number, field: 'description' | 'amount', value: string) => {
-    // First update the item data
-    const updatedItems = additionalItems.map(item => {
-      if (item.id === id) {
-        if (field === 'amount') {
-          return { ...item, [field]: parseFloat(value) || 0 };
-        }
-        return { ...item, [field]: value };
-      }
-      return item;
-    });
-    
-    // Set the updated items state
-    setAdditionalItems(updatedItems);
-    
-    // Immediately recalculate totals with the new data
-    const additionalTotal = updatedItems.reduce((sum, item) => sum + item.amount, 0);
-    const entriesTotal = editableEntries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
+
+  const updateAdditionalItem = (id: number, field: "description" | "amount", value: string) => {
+    const updated = additionalItems.map((item) =>
+      item.id === id ? { ...item, [field]: field === "amount" ? parseFloat(value) || 0 : value } : item
+    );
+    setAdditionalItems(updated);
+    const additionalTotal = updated.reduce((s, i) => s + i.amount, 0);
+    const entriesTotal = editableEntries.reduce((s, e) => s + parseFloat(e.amount), 0);
     const tax = enableTax ? entriesTotal * (taxRate / 100) : 0;
-    
     setSubtotal(entriesTotal);
     setTotal(entriesTotal + additionalTotal + tax);
   };
-  
-  // Remove an additional item
+
   const removeItem = (id: number) => {
-    // Filter out the item to be removed
-    const filteredItems = additionalItems.filter(item => item.id !== id);
-    
-    // Update the state
-    setAdditionalItems(filteredItems);
-    
-    // Immediately recalculate totals with the updated data
-    const additionalTotal = filteredItems.reduce((sum, item) => sum + item.amount, 0);
-    const entriesTotal = editableEntries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
+    const filtered = additionalItems.filter((i) => i.id !== id);
+    setAdditionalItems(filtered);
+    const additionalTotal = filtered.reduce((s, i) => s + i.amount, 0);
+    const entriesTotal = editableEntries.reduce((s, e) => s + parseFloat(e.amount), 0);
     const tax = enableTax ? entriesTotal * (taxRate / 100) : 0;
-    
     setSubtotal(entriesTotal);
     setTotal(entriesTotal + additionalTotal + tax);
   };
-  
+
   const handleCreateInvoice = async () => {
-    if (!reportData || !client) {
-      toast({
-        title: "Error",
-        description: "Missing client or report data",
-        variant: "destructive",
-      });
+    if (!reportData || !activeClient) {
+      toast({ title: "Error", description: "Missing client or report data", variant: "destructive" });
       return;
     }
-    
     try {
-      const timeEntryIds = reportData.timeEntries.map((entry: any) => entry.id);
-      
-      const entriesSubtotal = editableEntries.reduce((sum, entry) => {
-        return sum + parseFloat(entry.amount.toString());
-      }, 0);
-      const additionalItemsTotal = additionalItems.reduce((sum, item) => sum + (item.amount || 0), 0);
-      const subtotal = entriesSubtotal;
-      const tax = enableTax ? subtotal * (taxRate / 100) : 0;
-      const invoiceTotal = subtotal + additionalItemsTotal + tax;
+      const timeEntryIds = reportData.timeEntries.map((e: any) => e.id);
+      const entriesSubtotal = editableEntries.reduce((s, e) => s + parseFloat(e.amount.toString()), 0);
+      const additionalItemsTotal = additionalItems.reduce((s, i) => s + (i.amount || 0), 0);
+      const invoiceSubtotal = entriesSubtotal;
+      const tax = enableTax ? invoiceSubtotal * (taxRate / 100) : 0;
+      const invoiceTotal = invoiceSubtotal + additionalItemsTotal + tax;
 
-      // Build lineItems JSON to store edits for later use in InvoiceEditor
       const lineItemsData = [
         ...editableEntries.map((e: any) => ({
           timeEntryId: e.id,
           isTimeEntry: true,
           description: e.description,
-          hours: typeof e.editedDuration === 'number' ? e.editedDuration : parseFloat(e.duration || '0'),
-          rate: parseFloat(e.hourlyRate || e.project?.hourlyRate || '0'),
-          amount: typeof e.editedAmount === 'number' ? e.editedAmount : parseFloat(e.amount?.toString() || '0'),
+          hours: typeof e.editedDuration === "number" ? e.editedDuration : parseFloat(e.duration || "0"),
+          rate: parseFloat(e.hourlyRate || e.project?.hourlyRate || "0"),
+          amount: typeof e.editedAmount === "number" ? e.editedAmount : parseFloat(e.amount?.toString() || "0"),
         })),
-        ...additionalItems.map(item => ({
-          id: item.id,
-          isTimeEntry: false,
-          description: item.description,
-          amount: item.amount,
-        })),
+        ...additionalItems.map((item) => ({ id: item.id, isTimeEntry: false, description: item.description, amount: item.amount })),
       ];
 
-      const invoiceData = {
-        clientId: client.id,
-        subtotal: subtotal.toFixed(2),
+      await apiRequest("POST", "/api/invoices", {
+        clientId: activeClient.id,
+        subtotal: invoiceSubtotal.toFixed(2),
         tax: tax.toFixed(2),
         taxRate: (enableTax ? taxRate : 0).toFixed(2),
         total: invoiceTotal.toFixed(2),
         notes,
         timeEntryIds,
-        issueDate: format(new Date(issueDate), 'yyyy-MM-dd'),
-        dueDate: format(new Date(dueDate), 'yyyy-MM-dd'),
+        issueDate: format(new Date(issueDate), "yyyy-MM-dd"),
+        dueDate: format(new Date(dueDate), "yyyy-MM-dd"),
         invoiceNumber,
-        status: 'draft',
+        status: "draft",
         lineItems: JSON.stringify(lineItemsData),
-      };
-      
-      await apiRequest("POST", "/api/invoices", invoiceData);
-      
+      });
+
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
-      
-      toast({
-        title: "Invoice created",
-        description: "Your invoice has been saved successfully.",
-      });
-      
+      toast({ title: "Invoice created", description: "Your invoice has been saved successfully." });
     } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create invoice. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to create invoice.", variant: "destructive" });
     }
   };
-  
-  const exportAsPdf = () => {
-    if (!reportData || !client || !settings) return;
-    
-    const timestamp = new Date().getTime();
-    const filename = `invoice-${invoiceNumber.replace('INV-', '')}-${timestamp}.pdf`;
-    
-    const enhancedEntries = editableEntries.map(entry => {
-      const hourlyRate = parseFloat(entry.hourlyRate || entry.project?.hourlyRate || '0');
-      const duration = typeof entry.editedDuration === 'number'
-        ? entry.editedDuration
-        : parseFloat(entry.duration || '0');
-      const amount = typeof entry.editedAmount === 'number'
-        ? entry.editedAmount
-        : parseFloat(entry.amount?.toString() || (hourlyRate * duration).toString());
-      return {
-        ...entry,
-        editedDuration: duration,
-        editedAmount: amount,
-        duration,
-        amount,
-      };
-    });
-    
-    const totalHours = enhancedEntries.reduce((sum, e) => sum + e.duration, 0);
-    const totalAmount = enhancedEntries.reduce((sum, e) => sum + e.amount, 0);
-    
-    // Pass a flat list only (no weekly grouping) so amounts are always computed correctly
-    const modifiedReportData = {
-      ...reportData,
-      timeEntries: enhancedEntries,
-      weeklyData: null,
-      groups: null,
-      totalHours,
-      totalAmount,
-      subtotal: totalAmount,
-      additionalItems,
-      total,
-    };
-    
-    generatePdf({
-      filename,
-      reportData: modifiedReportData,
-      client,
-      settings,
-      invoiceNumber,
+
+  const templateData = useMemo((): InvoiceTemplateData => {
+    const currency = activeClient?.currency || "USD";
+    const timeFormat = (reportData?.timeFormat as TimeFormat) || "decimal";
+
+    const lineItems = [
+      ...editableEntries.map((e) => {
+        const duration = typeof e.editedDuration === "number" ? e.editedDuration : parseFloat(e.duration || "0");
+        const amount = typeof e.editedAmount === "number" ? e.editedAmount : parseFloat(e.amount?.toString() || "0");
+        const rate = parseFloat(e.hourlyRate || e.project?.hourlyRate || "0");
+        return {
+          description: e.description || "Service",
+          subDescription: e.project?.name || "",
+          qty: formatTime(duration, timeFormat),
+          rate: formatCurrency(rate, currency),
+          amount: formatCurrency(amount, currency),
+        };
+      }),
+      ...additionalItems.map((item) => ({
+        description: item.description || "Additional Item",
+        subDescription: "",
+        qty: "1",
+        rate: formatCurrency(item.amount, currency),
+        amount: formatCurrency(item.amount, currency),
+      })),
+    ];
+
+    const taxAmount = enableTax ? subtotal * (taxRate / 100) : 0;
+    const totalAmount = subtotal + getAdditionalItemsTotal() + taxAmount;
+
+    const s = activeSettings;
+    const c = activeClient;
+    return {
+      template: s?.invoiceTemplate || "professional",
+      businessName: s?.businessName || "Your Business",
+      businessMeta: (s as any)?.businessTagline || "",
+      businessAddress: [s?.businessAddress, s?.businessCity, s?.businessState].filter(Boolean).join(", "),
+      businessEmail: s?.businessEmail || "",
+      businessPhone: s?.businessPhone || "",
+      invoiceNumber: propInvoiceNumber || invoiceNumber,
       issueDate,
-      dueDate,
+      dueDate: showDueDate ? dueDate : "",
+      clientName: c?.name || "Client",
+      clientAddress: c?.address || "",
+      clientCity: c?.city || "",
+      clientState: c?.state || "",
+      clientZip: c?.zipCode || "",
+      clientEmail: c?.email || "",
+      lineItems,
+      subtotalFormatted: subtotal.toFixed(2),
+      taxFormatted: taxAmount.toFixed(2),
+      taxLabel: enableTax && taxRate > 0 ? `Tax (${taxRate}%)` : "Tax",
+      totalFormatted: totalAmount.toFixed(2),
       notes,
-      type: "invoice",
-      showDueDate,
-    });
-    
-    toast({
-      title: "Invoice exported",
-      description: `Your invoice has been exported as ${filename} with all edited values included.`,
-    });
+      currency,
+    };
+  }, [editableEntries, additionalItems, notes, activeSettings, activeClient, invoiceNumber, propInvoiceNumber, subtotal, taxRate, enableTax, issueDate, dueDate, showDueDate, reportData, getAdditionalItemsTotal]);
+
+  const htmlString = useMemo(() => generateInvoiceHTML(templateData), [templateData]);
+
+  const handleExportPdf = async () => {
+    if (!activeClient) return;
+    setPdfLoading(true);
+    try {
+      const timestamp = new Date().getTime();
+      const filename = `invoice-${(propInvoiceNumber || invoiceNumber).replace("INV-", "")}-${timestamp}.pdf`;
+      await exportInvoicePdf(templateData, filename);
+      toast({ title: "Invoice exported", description: `Saved as ${filename}` });
+    } catch (err) {
+      toast({ title: "Export failed", description: err instanceof Error ? err.message : "Could not generate PDF.", variant: "destructive" });
+    } finally {
+      setPdfLoading(false);
+    }
   };
-  
-  if (!reportData || !client || !settings) {
+
+  if (!reportData || !activeClient || !activeSettings) {
     return (
       <div className="flex justify-center items-center h-40">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
-  
-  // Get the selected template from settings
-  const currentTemplate = settings?.invoiceTemplate || 'professional';
-  
-  // Get template-specific default colors
-  const getTemplateDefaultColors = (template: string) => {
-    switch (template) {
-      case 'professional':
-        return { primary: "#1f2937", accent: "#3b82f6" };
-      case 'modern':
-        return { primary: "#065f46", accent: "#10b981" };
-      case 'classic':
-        return { primary: "#1f2937", accent: "#3b82f6" };
-      case 'minimal':
-        return { primary: "#000000", accent: "#6b7280" };
-      case 'media':
-        return { primary: "#8B1538", accent: "#ef4444" };
-      default:
-        return { primary: "#1f2937", accent: "#3b82f6" };
-    }
-  };
 
-  const defaultColors = getTemplateDefaultColors(currentTemplate);
-
-  // Template configurations
-  const templateConfigs = {
-    professional: {
-      headerStyle: "border-b border-gray-300 pb-4 mb-8",
-      titleSize: "text-3xl",
-      colors: { 
-        primary: settings?.invoiceColorTheme || defaultColors.primary, 
-        accent: settings?.invoiceAccentColor || defaultColors.accent 
-      }
-    },
-    modern: {
-      headerStyle: "relative mb-8",
-      titleSize: "text-4xl",
-      colors: { 
-        primary: settings?.invoiceColorTheme || defaultColors.primary, 
-        accent: settings?.invoiceAccentColor || defaultColors.accent 
-      }
-    },
-    classic: {
-      headerStyle: "text-center border-b border-gray-300 pb-6 mb-8",
-      titleSize: "text-2xl",
-      colors: { 
-        primary: settings?.invoiceColorTheme || defaultColors.primary, 
-        accent: settings?.invoiceAccentColor || defaultColors.accent 
-      }
-    },
-    minimal: {
-      headerStyle: "border-b border-gray-200 pb-4 mb-6",
-      titleSize: "text-xl",
-      colors: { 
-        primary: settings?.invoiceColorTheme || defaultColors.primary, 
-        accent: settings?.invoiceAccentColor || defaultColors.accent 
-      }
-    },
-    media: {
-      headerStyle: "bg-gradient-to-r border-4 border-gray-800 p-6 mb-8",
-      titleSize: "text-4xl",
-      colors: { 
-        primary: settings?.invoiceColorTheme || defaultColors.primary, 
-        accent: settings?.invoiceAccentColor || defaultColors.accent 
-      }
-    }
-  };
-  
-  const templateConfig = templateConfigs[currentTemplate as keyof typeof templateConfigs] || templateConfigs.professional;
+  const currentTemplate = activeSettings?.invoiceTemplate || "professional";
+  const templateLabel = currentTemplate.charAt(0).toUpperCase() + currentTemplate.slice(1);
 
   return (
     <div className="bg-white shadow rounded-lg mb-6">
       <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-        <h2 className="text-lg font-medium text-gray-900">Invoice Preview - {currentTemplate.charAt(0).toUpperCase() + currentTemplate.slice(1)} Template</h2>
-        <p className="mt-1 text-sm text-gray-500">{invoiceNumber}</p>
+        <h2 className="text-lg font-medium text-gray-900">Invoice Preview — {templateLabel} Template</h2>
+        <p className="mt-1 text-sm text-gray-500">{propInvoiceNumber || invoiceNumber}</p>
       </div>
-      
+
       <div className="p-6">
-
-        
-        {/* Modern Template with Gradient Header */}
-        {currentTemplate === 'modern' && (
-          <div 
-            className="w-full text-white p-6 mb-8 rounded-lg"
-            style={{ 
-              background: `linear-gradient(135deg, ${templateConfig.colors.primary}, ${templateConfig.colors.accent})` 
-            }}
-          >
-            <div className="flex justify-between items-start">
-              <div>
-                {settings?.showBusinessName !== false && (
-                  <h1 className="text-3xl font-bold mb-2">
-                    {settings?.businessName?.toUpperCase() || "YOUR BUSINESS NAME"}
-                  </h1>
-                )}
-                {settings?.showCompanyDetails !== false && (
-                  <div className="text-sm opacity-90">
-                    {settings?.businessAddress && <div>{settings.businessAddress}</div>}
-                    {settings?.businessCity && (
-                      <div>{settings.businessCity}, {settings.businessState} {settings.businessZipCode}</div>
-                    )}
-                    {settings?.businessEmail && <div>{settings.businessEmail}</div>}
-                  </div>
-                )}
-              </div>
-              <div className="text-right">
-                <div className="text-xl font-bold mb-2">INV #{invoiceNumber}</div>
-                <div className="text-sm">
-                  <div>Issued: {issueDate}</div>
-                  {showDueDate && <div>Due: {dueDate}</div>}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Media Template - Exact copy from Settings Preview */}
-        {currentTemplate === 'media' && (
-          <div className="w-full">
-            {/* Colored top bar like in settings */}
-            <div 
-              className="w-full h-2"
-              style={{ 
-                background: `linear-gradient(to right, ${templateConfig.colors.primary}, ${templateConfig.colors.accent})`
+        {/* Invoice template preview */}
+        <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden" style={{ background: "#f1f3f5" }}>
+          <div style={{ width: "100%", overflowX: "auto", padding: "16px" }}>
+            <div
+              style={{
+                width: "794px",
+                minHeight: "1123px",
+                transformOrigin: "top left",
+                transform: "scale(0.72)",
+                marginBottom: "-322px",
               }}
-            ></div>
-            
-            {/* Header section exactly like settings */}
-            <div className="p-10">
-              <div className="flex justify-between items-start mb-8">
-                <div className="company-info">
-                  {settings?.showBusinessName !== false && (
-                    <h1 className="text-4xl font-bold mb-2" style={{ color: templateConfig.colors.primary }}>
-                      {settings?.businessName?.toUpperCase() || "AE PRODUCTIONS"}
-                    </h1>
-                  )}
-                  <p className="text-gray-600 mb-1">Professional media services</p>
-                  {settings?.showCompanyDetails !== false && (
-                    <div className="text-sm text-gray-600 space-y-1">
-                      {settings?.businessAddress && <div>{settings.businessAddress}</div>}
-                      <div>
-                        {[settings?.businessCity, settings?.businessState, settings?.businessZipCode]
-                          .filter(Boolean).join(", ")}
-                      </div>
-                      {settings?.businessEmail && <div>{settings.businessEmail}</div>}
-                      {settings?.businessPhone && <div>{settings.businessPhone}</div>}
-                    </div>
-                  )}
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold mb-2" style={{ color: templateConfig.colors.primary }}>
-                    INV #{invoiceNumber}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    Date: {issueDate}
-                    {showDueDate && <div>Due: {dueDate}</div>}
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Billing Info Grid - simplified without project details */}
-            <div className="p-10 bg-gray-50 mb-6">
-              <div className="info-block">
-                <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide"
-                    style={{ color: templateConfig.colors.primary }}>
-                  Bill To
-                </h3>
-                <div className="space-y-1">
-                  <div className="font-bold">{client?.name || "Sample Client"}</div>
-                  <div className="text-sm text-gray-600">Sample Producer</div>
-                  <div className="text-sm text-gray-600">{client?.address || "123 Client Street"}</div>
-                  <div className="text-sm text-gray-600">{client?.city || "Client City"}, {client?.state || "State"} {client?.zipCode || "12345"}</div>
-                  <div className="text-sm text-gray-600">PO #CLIENT-2023-42</div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Barcode graphic at bottom like in settings */}
-            <div className="mx-10 mb-8 flex justify-center">
-              <div className="flex space-x-1 h-8">
-                {[...Array(60)].map((_, i) => (
-                  <div 
-                    key={i} 
-                    className="bg-black"
-                    style={{ 
-                      width: Math.random() > 0.5 ? '2px' : '1px',
-                      height: '100%'
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Standard Header for Other Templates */}
-        {currentTemplate !== 'modern' && currentTemplate !== 'media' && (
-          <div className={templateConfig.headerStyle}>
-            {currentTemplate === 'classic' ? (
-              // Classic centered layout
-              <div className="text-center">
-                <h1 
-                  className={`${templateConfig.titleSize} font-bold mb-4`}
-                  style={{ color: templateConfig.colors.primary }}
-                >
-                  INVOICE
-                </h1>
-                {settings?.showBusinessName !== false && (
-                  <div 
-                    className="text-xl font-bold mb-4"
-                    style={{ color: templateConfig.colors.primary }}
-                  >
-                    {settings?.businessName || "Your Business Name"}
-                  </div>
-                )}
-                <div className="text-sm text-gray-600 mb-4">
-                  <div>Invoice #{invoiceNumber}</div>
-                  <div>Date: {issueDate}</div>
-                  {showDueDate && <div>Due: {dueDate}</div>}
-                </div>
-              </div>
-            ) : (
-              // Professional and Minimal side-by-side layout
-              <div className="flex justify-between items-start">
-                <div>
-                  {settings?.showBusinessName !== false && (
-                    <h2 
-                      className="text-xl font-bold mb-2"
-                      style={{ color: templateConfig.colors.primary }}
-                    >
-                      {settings?.businessName || "Your Business Name"}
-                    </h2>
-                  )}
-                  {settings?.showCompanyDetails !== false && (
-                    <div className="text-sm text-gray-600">
-                      {settings?.businessAddress && <div>{settings.businessAddress}</div>}
-                      {settings?.businessCity && (
-                        <div>{settings.businessCity}, {settings.businessState} {settings.businessZipCode}</div>
-                      )}
-                      {settings?.businessEmail && <div>{settings.businessEmail}</div>}
-                    </div>
-                  )}
-                </div>
-                <div className="text-right">
-                  <h1 
-                    className={`${templateConfig.titleSize} font-bold mb-2`}
-                    style={{ color: templateConfig.colors.primary }}
-                  >
-                    INVOICE
-                  </h1>
-                  <div className="text-sm text-gray-600">
-                    <div>Invoice #{invoiceNumber}</div>
-                    <div>Date: {issueDate}</div>
-                    {showDueDate && <div>Due: {dueDate}</div>}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        
-
-        
-        {/* Client Information - Other Templates */}
-        {currentTemplate !== 'media' && (
-          <div className="mb-8">
-            <div 
-              className="text-lg font-medium mb-2"
-              style={{ color: templateConfig.colors.primary }}
             >
-              Bill To:
-            </div>
-            <div className="text-sm text-gray-600">
-              <p className="font-medium">{client.name}</p>
-              {client.address && <p>{client.address}</p>}
-              {client.city && <p>{client.city}, {client.state} {client.zipCode}</p>}
-              {client.email && <p>{client.email}</p>}
-              {client.taxId && <p>Tax ID: {client.taxId}</p>}
-            </div>
-          </div>
-        )}
-        
-        {/* Payment Details Section - Not shown for Media template */}
-        {currentTemplate !== 'media' && (
-          <div className="mb-8">
-            <div 
-              className="text-lg font-medium mb-2"
-              style={{ color: templateConfig.colors.primary }}
-            >
-              Payment Details:
-            </div>
-            <div className="text-sm text-gray-600">
-              {settings?.bankName && <p><span className="font-medium">Bank:</span> {settings.bankName}</p>}
-              {settings?.bankAccountName && <p><span className="font-medium">Account Name:</span> {settings.bankAccountName}</p>}
-              {settings?.bankAccountNumber && <p><span className="font-medium">Account Number:</span> {settings.bankAccountNumber}</p>}
-              {settings?.bankSortCode && <p><span className="font-medium">Sort Code:</span> {settings.bankSortCode}</p>}
+              <iframe
+                srcDoc={htmlString}
+                width="794"
+                height="1123"
+                style={{ border: "none", display: "block", width: "794px", height: "1123px" }}
+                title="Invoice Preview"
+              />
             </div>
           </div>
-        )}
-        
-        <div className={currentTemplate === 'media' ? "mx-10 mb-8" : "mb-8"}>
-          <table className="w-full border-collapse border border-gray-300">
-            <thead>
-              <tr 
-                className="text-white"
-                style={{ 
-                  backgroundColor: currentTemplate === 'media' ? '#8B1538' : templateConfig.colors.primary 
-                }}
-              >
-                <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Description</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Hours</th>
-                {settings?.showHourlyRate !== false && (
-                  <th className="px-4 py-3 text-left text-sm font-semibold border-r border-white/20">Rate</th>
-                )}
-                <th className="px-4 py-3 text-right text-sm font-semibold">Amount</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white">
-              {(() => {
-                const filteredEntries = reportData.timeEntries
-                  .filter((entry: any) => client && entry.client && entry.client.id === client.id);
-                
-                // Group by week if weekly categorization is enabled and groups exist
-                const hasWeeklyData = reportData.groups && reportData.groups.length > 0 || 
-                                    reportData.weeklyData && reportData.weeklyData.length > 0;
-                
-                if (settings?.enableWeeklyCategorization && hasWeeklyData) {
-                  // Use groups if available, otherwise use weeklyData
-                  const groupsToUse = reportData.groups && reportData.groups.length > 0 ? 
-                                     reportData.groups : reportData.weeklyData;
-                  
-                  return groupsToUse.map((group: any, groupIndex: number) => {
-                    // Use entries directly from the group if available, otherwise filter
-                    const groupEntries = group.entries || filteredEntries.filter((entry: any) => {
-                      return entry.weekLabel === group.weekLabel || 
-                             (entry.weekNumber === group.weekNumber && entry.year === group.year);
-                    });
-                    
-                    if (groupEntries.length === 0) return null;
-                    
-                    return [
-                      // Week header row
-                      <tr key={`week-${groupIndex}`} className="bg-gray-50">
-                        <td 
-                          colSpan={settings?.showHourlyRate !== false ? 4 : 3} 
-                          className="px-4 py-2 text-sm font-semibold text-gray-700 border-b border-gray-200"
-                        >
-                          {group.weekLabel || `Week ${group.weekNumber}, ${group.year}`}
-                        </td>
-                      </tr>,
-                      // Week entries
-                      ...groupEntries.map((entry: any, index: number) => {
-                        // Get the actual duration value - use the original database duration for consistency
-                        let duration = 0;
-                        const editedEntry = editableEntries.find(e => e.id === entry.id);
-                        
-                        if (editedEntry?.editedDuration !== undefined) {
-                          duration = typeof editedEntry.editedDuration === 'number' ? editedEntry.editedDuration : parseFloat(String(editedEntry.editedDuration));
-                        } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
-                          duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
-                        } else if (entry.originalDuration !== undefined && entry.originalDuration !== null) {
-                          // Use originalDuration if available (from report data)
-                          duration = typeof entry.originalDuration === 'number' ? entry.originalDuration : parseFloat(String(entry.originalDuration));
-                        } else if (entry.duration !== undefined && entry.duration !== null) {
-                          // Handle both string and number duration values from grouped data
-                          duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : entry.duration;
-                        }
-                        
-                        // Ensure valid number
-                        if (isNaN(duration) || duration < 0) duration = 0;
-                        
+        </div>
 
-                        return (
-                          <tr key={`entry-${entry.id}-${index}`} className="border-b border-gray-200">
-                            <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
-                              {entry.description}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
-                              {isEditing ? (
-                                <input
-                                  type="text"
-                                  className="w-20 p-1 text-sm border rounded"
-                                  defaultValue={formatTime(duration, reportData.timeFormat as TimeFormat)}
-                                  onBlur={(e) => {
-                                    const timeValue = e.target.value;
-                                    const durationInHours = parseTime(timeValue, reportData.timeFormat as TimeFormat);
-                                    updateEntryDuration(entry.id, durationInHours, reportData.timeFormat as TimeFormat);
-                                  }}
-                                />
-                              ) : (
-                                formatTime(duration, reportData.timeFormat as TimeFormat)
-                              )}
-                            </td>
-                            {settings?.showHourlyRate !== false && (
-                              <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
-                                {client?.currency 
-                                  ? formatCurrency(parseFloat(entry.hourlyRate), client.currency)
-                                  : `$${parseFloat(entry.hourlyRate).toFixed(2)}`}
-                              </td>
-                            )}
-                            <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                              {client?.currency 
-                                ? formatCurrency(
-                                    editableEntries.find(e => e.id === entry.id)?.amount
-                                      ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
-                                      : parseFloat(entry.amount),
-                                    client.currency
-                                  )
-                                : `$${(
-                                    editableEntries.find(e => e.id === entry.id)?.amount
-                                      ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
-                                      : parseFloat(entry.amount)
-                                  ).toFixed(2)}`}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ];
-                  }).flat().filter(Boolean);
-                } else {
-                  // Default: show entries without weekly grouping but with description grouping
-                  return filteredEntries.map((entry: any, index: number) => {
-                    // Get the actual duration value - use the original database duration for consistency
-                    let duration = 0;
-                    const editedEntry = editableEntries.find(e => e.id === entry.id);
-                    
-                    if (editedEntry?.editedDuration !== undefined) {
-                      duration = typeof editedEntry.editedDuration === 'number' ? editedEntry.editedDuration : parseFloat(String(editedEntry.editedDuration));
-                    } else if (entry.adjustedDuration !== undefined && entry.adjustedDuration !== null) {
-                      duration = typeof entry.adjustedDuration === 'number' ? entry.adjustedDuration : parseFloat(String(entry.adjustedDuration));
-                    } else if (entry.originalDuration !== undefined && entry.originalDuration !== null) {
-                      // Use originalDuration if available (from report data)
-                      duration = typeof entry.originalDuration === 'number' ? entry.originalDuration : parseFloat(String(entry.originalDuration));
-                    } else if (entry.duration !== undefined && entry.duration !== null) {
-                      // Handle both string and number duration values from grouped data
-                      duration = typeof entry.duration === 'string' ? parseFloat(entry.duration) : entry.duration;
-                    }
-                    
-                    // Ensure valid number
-                    if (isNaN(duration) || duration < 0) duration = 0;
-                    
-
-                    return (
-                      <tr key={`entry-${entry.id}-${index}`} className="border-b border-gray-200">
-                        <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
-                          {entry.description}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
-                          {isEditing ? (
-                            <input
+        {/* Edit controls */}
+        <div className="space-y-4">
+          {/* Time entries table (editable when isEditing) */}
+          {isEditing && (
+            <div>
+              <div className="text-sm font-medium text-gray-700 mb-2">Time Entries</div>
+              <div className="border border-gray-200 rounded overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">Description</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600 w-24">Hours</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600 w-24">Rate</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-600 w-28">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {editableEntries.map((entry) => {
+                      const duration =
+                        typeof entry.editedDuration === "number" ? entry.editedDuration : parseFloat(entry.duration || "0");
+                      const amount =
+                        typeof entry.editedAmount === "number" ? entry.editedAmount : parseFloat(entry.amount?.toString() || "0");
+                      const rate = parseFloat(entry.hourlyRate || entry.project?.hourlyRate || "0");
+                      const currency = activeClient?.currency || "USD";
+                      return (
+                        <tr key={entry.id} className="border-b border-gray-100">
+                          <td className="px-3 py-2 text-gray-900">{entry.description}</td>
+                          <td className="px-3 py-2">
+                            <Input
                               type="text"
-                              className="w-20 p-1 text-sm border rounded"
+                              className="w-20 h-7 p-1 text-sm"
                               defaultValue={formatTime(duration, reportData.timeFormat as TimeFormat)}
-                              onBlur={(e) => {
-                                const timeValue = e.target.value;
-                                const durationInHours = parseTime(timeValue, reportData.timeFormat as TimeFormat);
-                                updateEntryDuration(entry.id, durationInHours, reportData.timeFormat as TimeFormat);
-                              }}
+                              onBlur={(e) => updateEntryDuration(entry.id, parseTime(e.target.value, reportData.timeFormat as TimeFormat), reportData.timeFormat as TimeFormat)}
                             />
-                          ) : (
-                            formatTime(duration, reportData.timeFormat as TimeFormat)
-                          )}
-                        </td>
-                        {settings?.showHourlyRate !== false && (
-                          <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
-                            {client?.currency 
-                              ? formatCurrency(parseFloat(entry.hourlyRate), client.currency)
-                              : `$${parseFloat(entry.hourlyRate).toFixed(2)}`}
                           </td>
-                        )}
-                        <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                          {client?.currency 
-                            ? formatCurrency(
-                                editableEntries.find(e => e.id === entry.id)?.amount
-                                  ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
-                                  : parseFloat(entry.amount),
-                                client.currency
-                              )
-                            : `$${(
-                                editableEntries.find(e => e.id === entry.id)?.amount
-                                  ? parseFloat(editableEntries.find(e => e.id === entry.id)?.amount || '0')
-                                  : parseFloat(entry.amount)
-                              ).toFixed(2)}`}
+                          <td className="px-3 py-2 text-gray-600">{formatCurrency(rate, currency)}</td>
+                          <td className="px-3 py-2 text-right text-gray-900">{formatCurrency(amount, currency)}</td>
+                        </tr>
+                      );
+                    })}
+                    {additionalItems.map((item) => (
+                      <tr key={`add-${item.id}`} className="border-b border-gray-100 bg-blue-50/30">
+                        <td className="px-3 py-2">
+                          <Input
+                            type="text"
+                            className="h-7 p-1 text-sm"
+                            value={item.description}
+                            onChange={(e) => updateAdditionalItem(item.id, "description", e.target.value)}
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-gray-400">—</td>
+                        <td className="px-3 py-2">
+                          <Button variant="ghost" size="icon" className="h-6 w-6 p-0" onClick={() => removeItem(item.id)}>
+                            <Minus className="h-3 w-3 text-red-500" />
+                          </Button>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <Input
+                            type="number"
+                            className="w-24 h-7 p-1 text-sm text-right"
+                            defaultValue={item.amount.toString()}
+                            onBlur={(e) => updateAdditionalItem(item.id, "amount", e.target.value)}
+                          />
                         </td>
                       </tr>
-                    );
-                  });
-                }
-              })()}
-              
-              {/* Additional items */}
-              {additionalItems.map(item => (
-                <tr key={`additional-${item.id}`} className="border-b border-gray-200">
-                  <td colSpan={2} className={`px-4 py-3 text-sm border-r border-gray-200 ${isEditing ? "text-blue-600" : "text-gray-900"}`}>
-                    {isEditing ? (
-                      <Input
-                        type="text"
-                        className="w-full h-8 p-1 text-sm"
-                        value={item.description}
-                        onChange={(e) => updateAdditionalItem(item.id, 'description', e.target.value)}
-                      />
-                    ) : (
-                      item.description
-                    )}
-                  </td>
-                  {settings?.showHourlyRate !== false && (
-                    <td className="px-4 py-3 text-sm border-r border-gray-200">
-                      {isEditing && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeItem(item.id)}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Minus className="h-4 w-4 text-red-600" />
+                    ))}
+                    <tr>
+                      <td colSpan={4} className="px-3 py-2 text-center border-t border-dashed border-gray-200">
+                        <Button variant="ghost" size="sm" onClick={addItem} className="text-blue-600">
+                          <Plus className="mr-1 h-3 w-3" />
+                          Add Item
                         </Button>
-                      )}
-                    </td>
-                  )}
-                  {settings?.showHourlyRate === false && isEditing && (
-                    <td className="px-4 py-3 text-sm border-r border-gray-200">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeItem(item.id)}
-                        className="h-6 w-6 p-0"
-                      >
-                        <Minus className="h-4 w-4 text-red-600" />
-                      </Button>
-                    </td>
-                  )}
-                  <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        className="w-24 h-8 p-1 text-sm text-right border rounded"
-                        defaultValue={item.amount.toString()}
-                        onBlur={(e) => updateAdditionalItem(item.id, 'amount', e.target.value)}
-                      />
-                    ) : (
-                      client?.currency
-                        ? formatCurrency(item.amount, client.currency)
-                        : `$${item.amount.toFixed(2)}`
-                    )}
-                  </td>
-                </tr>
-              ))}
-              
-              {/* Add item button (only visible in edit mode) */}
-              {isEditing && (
-                <tr>
-                  <td colSpan={settings?.showHourlyRate !== false ? 4 : 3} className="px-4 py-3 text-center border-t border-dashed border-gray-200">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={addItem}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      <Plus className="mr-1 h-4 w-4" />
-                      Add Item
-                    </Button>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        
-        {/* Consistent Totals Section for All Templates */}
-        <div className={currentTemplate === 'media' ? "mx-10 mb-8" : "mb-8"}>
-          <div className="flex justify-end">
-            <div className="text-right space-y-1 min-w-[200px]">
-              <div className="flex justify-between">
-                <span>Subtotal:</span>
-                <span>
-                  {client?.currency
-                    ? formatCurrency(subtotal > 0 ? subtotal : reportData.totalAmount, client.currency)
-                    : `$${(subtotal > 0 ? subtotal : reportData.totalAmount).toFixed(2)}`}
-                </span>
-              </div>
-              {enableTax && (
-                <div className="flex justify-between">
-                  <span>Tax ({taxRate}%):</span>
-                  <span>
-                    {client?.currency
-                      ? formatCurrency(reportData.totalAmount * (taxRate / 100), client.currency)
-                      : `$${(reportData.totalAmount * (taxRate / 100)).toFixed(2)}`}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between font-bold pt-2 border-t"
-                   style={{ color: templateConfig.colors.primary }}>
-                <span>Total:</span>
-                <span>
-                  {client?.currency
-                    ? formatCurrency(total, client.currency)
-                    : `$${total.toFixed(2)}`}
-                </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
-          </div>
-        </div>
-        
-        <div className="mb-6">
-          <div className="text-gray-900 font-medium mb-2">Notes</div>
-          <Textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="text-sm text-gray-600 bg-gray-50 p-4 rounded-md h-24"
-          />
-        </div>
-        
-        <div className="flex justify-between">
+          )}
+
+          {/* Notes */}
           <div>
-            <Button variant="outline" onClick={handleToggleEdit}>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Invoice
-            </Button>
+            <div className="text-sm font-medium text-gray-700 mb-2">Notes</div>
+            <Textarea
+              value={notes}
+              onChange={(e) => {
+                setNotes(e.target.value);
+                if (propSetNotes) propSetNotes(e.target.value);
+              }}
+              className="text-sm text-gray-600 bg-gray-50 h-20"
+              placeholder="Add notes or payment instructions..."
+            />
           </div>
-          <div className="space-x-2">
-            <Button variant="outline" onClick={handleCreateInvoice}>
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Save Invoice
+
+          {/* Action buttons */}
+          <div className="flex justify-between pt-2">
+            <Button variant="outline" onClick={onEditInvoice}>
+              <Edit className="mr-2 h-4 w-4" />
+              {isEditing ? "Done Editing" : "Edit Entries"}
             </Button>
-            <Button onClick={exportAsPdf}>
-              <File className="mr-2 h-4 w-4" />
-              PDF
-            </Button>
+            <div className="space-x-2">
+              <Button variant="outline" onClick={handleCreateInvoice}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Save Invoice
+              </Button>
+              <Button onClick={handleExportPdf} disabled={pdfLoading}>
+                {pdfLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <File className="mr-2 h-4 w-4" />}
+                Export PDF
+              </Button>
+            </div>
           </div>
         </div>
       </div>
