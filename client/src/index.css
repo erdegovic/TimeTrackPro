@@ -229,3 +229,43 @@
 .timer-input {
   @apply font-mono text-center text-lg;
 }
+
+/* Subtle custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.25);
+}
+
+/* Focus ring polish */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 2px solid hsl(var(--tickd-primary));
+  outline-offset: 2px;
+}
+
+/* Smooth page transitions */
+.page-transition {
+  animation: tickdSlideUp 0.25s ease-out forwards;
+}
+
+/* Table row hover */
+.table-row-hover {
+  transition: background-color 0.15s ease;
+}
+
+/* Badge status colors */
+.badge-draft { @apply bg-gray-100 text-gray-700 border-gray-200; }
+.badge-sent { @apply bg-blue-50 text-blue-700 border-blue-200; }
+.badge-paid { @apply bg-green-50 text-green-700 border-green-200; }

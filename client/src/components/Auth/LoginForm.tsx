@@ -9,9 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useLocation } from 'wouter';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
 
-// Login form schema
 const loginSchema = z.object({
   email: z.string().email("Valid email is required"),
   password: z.string().min(1, "Password is required"),
@@ -24,165 +23,129 @@ export default function LoginForm() {
   const { toast } = useToast();
   const [location, navigate] = useLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
-  
-  // Check if user just verified their email
+
   useEffect(() => {
     const params = new URLSearchParams(location.split('?')[1]);
-    const verified = params.get('verified');
-    
-    if (verified === 'true') {
-      setVerificationStatus('Your email has been verified successfully! You can now log in.');
+    if (params.get('verified') === 'true') {
+      setVerificationStatus('Your email has been verified! You can now sign in.');
     }
   }, [location]);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormValues>({
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-      rememberMe: false,
-    }
+    defaultValues: { email: '', password: '', rememberMe: false },
   });
 
   const onSubmit = async (data: LoginFormValues) => {
     try {
       setIsSubmitting(true);
-      
       const response = await fetch('/api/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
       });
-      
       const result = await response.json();
-      
+
       if (response.ok) {
-        toast({
-          title: "Login successful",
-          description: "Welcome back!"
-        });
-        
-        // Redirect to dashboard
-        navigate("/dashboard");
-      } else if (response.status === 403 && result.message?.includes("verify your email")) {
-        // User has an unverified email - redirect to verification page
+        navigate("/");
+      } else if (response.status === 403 && result.message?.includes("verify")) {
         navigate(`/unverified-email?email=${encodeURIComponent(data.email)}`);
       } else {
-        toast({
-          title: "Login failed",
-          description: result.message || "Invalid credentials",
-          variant: "destructive"
-        });
+        toast({ title: "Sign in failed", description: result.message || "Invalid credentials", variant: "destructive" });
       }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
-      });
-      console.error('Login error:', error);
+    } catch {
+      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="space-y-6 max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold">Welcome Back</h1>
-        <p className="text-gray-600 mt-2">Sign in to your account</p>
-      </div>
-      
-      {verificationStatus && (
-        <Alert className="bg-green-50 border-green-200">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-700">
-            {verificationStatus}
-          </AlertDescription>
-        </Alert>
-      )}
-      
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            {...register("email")}
-            placeholder="Your email"
-          />
-          {errors.email && (
-            <p className="text-sm text-red-500">{errors.email.message}</p>
-          )}
+    <div className="w-full max-w-md">
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
+          <p className="text-gray-500 mt-1.5 text-sm">Sign in to your account to continue</p>
         </div>
-        
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password">Password</Label>
-            <a 
-              href="/forgot-password" 
-              className="text-sm text-blue-600 hover:underline"
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/forgot-password");
-              }}
-            >
-              Forgot password?
-            </a>
+
+        {verificationStatus && (
+          <Alert className="bg-green-50 border-green-200 mb-6">
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-700">{verificationStatus}</AlertDescription>
+          </Alert>
+        )}
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <div className="space-y-1.5">
+            <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              {...register("email")}
+              placeholder="you@example.com"
+              className="h-11"
+            />
+            {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
           </div>
-          <Input
-            id="password"
-            type="password"
-            {...register("password")}
-            placeholder="Your password"
-          />
-          {errors.password && (
-            <p className="text-sm text-red-500">{errors.password.message}</p>
-          )}
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id="rememberMe"
-            {...register("rememberMe")}
-          />
-          <Label 
-            htmlFor="rememberMe" 
-            className="text-sm font-normal cursor-pointer"
-          >
-            Remember me
-          </Label>
-        </div>
-        
-        <Button
-          type="submit"
-          className="w-full"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Signing in..." : "Sign in"}
-        </Button>
-      </form>
-      
-      <div className="text-center mt-4">
-        <p className="text-sm text-gray-600">
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password" className="text-sm font-medium text-gray-700">Password</Label>
+              <button
+                type="button"
+                className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                onClick={() => navigate("/forgot-password")}
+              >
+                Forgot password?
+              </button>
+            </div>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                {...register("password")}
+                placeholder="Your password"
+                className="h-11 pr-10"
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                onClick={() => setShowPassword(v => !v)}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox id="rememberMe" {...register("rememberMe")} />
+            <Label htmlFor="rememberMe" className="text-sm font-normal text-gray-600 cursor-pointer">
+              Remember me
+            </Label>
+          </div>
+
+          <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Signing in...</>
+            ) : "Sign in"}
+          </Button>
+        </form>
+
+        <p className="text-center text-sm text-gray-500 mt-6">
           Don't have an account?{" "}
-          <a 
-            href="/register" 
-            className="text-blue-600 hover:underline"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/register");
-            }}
+          <button
+            type="button"
+            className="text-blue-600 hover:text-blue-700 font-medium hover:underline"
+            onClick={() => navigate("/register")}
           >
-            Register
-          </a>
+            Create one
+          </button>
         </p>
       </div>
     </div>

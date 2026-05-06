@@ -16,6 +16,7 @@ import { z } from "zod";
 import { format, addDays } from "date-fns";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 import authRoutes from "./routes/auth";
 import profileRoutes from "./routes/profile";
 import verifyRoutes from "./routes/verify";
@@ -199,45 +200,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For development, accept test credentials
       const isTestCredential = email === 'test@example.com' && password === 'password123';
       
-      if (foundUser || isTestCredential) {
-        // Check if email is verified (except for test account)
-        if (foundUser && foundUser.status === 'pending' && !isTestCredential) {
-          console.log(`Login rejected - unverified email: ${email}`);
-          return res.status(403).json({ 
-            message: 'Please verify your email address before logging in',
-            needsVerification: true,
-            email: email
-          });
-        }
-        
-        // Set up user session
-        if (foundUser) {
-          req.session.userId = foundUser.id;
-          console.log(`Login successful - session created for user ${foundUser.id}`);
-          
-          return res.status(200).json({
-            message: "Login successful",
-            user: foundUser
-          });
-        } else {
-          // Use test user if no real user found
-          req.session.userId = 1;
-          console.log(`Login successful - session created for test user 1`);
-          
-          return res.status(200).json({
-            message: "Login successful",
-            user: {
-              id: 1,
-              username: "testuser",
-              firstName: "Attila", 
-              lastName: "Erdeg",
-              email: "test@example.com"
-            }
-          });
-        }
+      if (isTestCredential) {
+        // Dev-only test credentials bypass
+        req.session.userId = 1;
+        return res.status(200).json({
+          message: "Login successful",
+          user: { id: 1, username: "testuser", firstName: "Test", lastName: "User", email: "test@example.com" }
+        });
       }
+
+      if (!foundUser) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Verify password with bcrypt
+      const passwordValid = await bcrypt.compare(password, foundUser.password);
+      if (!passwordValid) {
+        console.log(`Login rejected - incorrect password for: ${email}`);
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Check if email is verified
+      if (foundUser.status === 'pending') {
+        console.log(`Login rejected - unverified email: ${email}`);
+        return res.status(403).json({ 
+          message: 'Please verify your email address before logging in',
+          needsVerification: true,
+          email: email
+        });
+      }
+
+      // Set up user session
+      req.session.userId = foundUser.id;
+      console.log(`Login successful - session created for user ${foundUser.id}`);
       
-      return res.status(401).json({ message: "Invalid email or password" });
+      const { password: _, ...userData } = foundUser;
+      return res.status(200).json({
+        message: "Login successful",
+        user: userData
+      });
     } catch (error) {
       console.error('Login error:', error);
       return res.status(500).json({ message: 'An error occurred during login' });
@@ -1101,6 +1102,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // PATCH for partial invoice status updates
+  app.patch("/api/invoices/:id/status", authenticate, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      
+      if (!['draft', 'sent', 'paid'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status. Must be draft, sent, or paid.' });
+      }
+      
+      const existingInvoice = await storage.getInvoice(id);
+      if (!existingInvoice) {
+        return res.status(404).json({ message: 'Invoice not found' });
+      }
+      
+      const userId = req.session?.userId;
+      if (existingInvoice.userId && existingInvoice.userId !== userId) {
+        return res.status(403).json({ message: 'Not authorized' });
+      }
+      
+      const invoice = await storage.updateInvoice(id, { status });
+      res.json(invoice);
+    } catch (error) {
+      console.error('Error updating invoice status:', error);
+      res.status(500).json({ message: 'Failed to update invoice status' });
+    }
+  });
+
   app.put("/api/invoices/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
@@ -1111,14 +1140,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Invoice not found' });
       }
       
-      // Check if invoice belongs to current user (unless in development)
-      if (existingInvoice.userId && 
-          existingInvoice.userId !== req.user?.id && 
-          process.env.NODE_ENV !== 'development') {
+      // Check if invoice belongs to current user
+      const userId = req.session?.userId;
+      if (existingInvoice.userId && existingInvoice.userId !== userId) {
         return res.status(403).json({ message: 'You are not authorized to update this invoice' });
       }
       
-      const data = insertInvoiceSchema.parse(req.body);
+      // Use partial schema to allow partial updates
+      const data = insertInvoiceSchema.partial().parse(req.body);
       const invoice = await storage.updateInvoice(id, data);
       
       if (!invoice) {

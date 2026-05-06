@@ -1,407 +1,364 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { File, FileText, Trash2, Download, Edit, PenTool } from "lucide-react";
+import {
+  FileText, Trash2, FileDown, Edit, Plus, CheckCircle, Send, Clock, MoreHorizontal
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { generatePdf } from "@/lib/enhanced-pdf-generator";
 import { Invoice, Client, Settings } from "@shared/schema";
-// Make sure to use relative path for imports
-import InvoiceEditView from "../components/Invoices/InvoiceEditView";
-import InvoiceViewEdit from "../components/Invoices/InvoiceViewEdit";
+import InvoiceEditor from "../components/Invoices/InvoiceEditor";
+
+const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline"; icon: any; className: string }> = {
+  draft:  { label: "Draft",  variant: "secondary", icon: Clock,        className: "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200" },
+  sent:   { label: "Sent",   variant: "outline",   icon: Send,         className: "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" },
+  paid:   { label: "Paid",   variant: "default",   icon: CheckCircle,  className: "bg-green-50 text-green-700 border-green-200 hover:bg-green-100" },
+};
+
+function getCurrencySymbol(currency: string) {
+  return currency === "GBP" ? "£" : currency === "EUR" ? "€" : currency === "RSD" ? "RSD " : "$";
+}
 
 export default function InvoicesPage() {
   const { toast } = useToast();
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  
-  // Fetch invoices with a shorter cache time to ensure data is fresh
+
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/invoices"],
-    staleTime: 5000, // 5 seconds stale time to ensure more frequent refreshes
+    staleTime: 0,
   });
-  
-  // Fetch clients for invoice data
-  const { data: clients = [] } = useQuery<Client[]>({
-    queryKey: ["/api/clients"],
-  });
-  
-  // Fetch settings for business details
-  const { data: settings } = useQuery<Settings>({
-    queryKey: ["/api/settings"],
-  });
-  
-  // Delete invoice mutation
+  const { data: clients = [] } = useQuery<Client[]>({ queryKey: ["/api/clients"] });
+  const { data: settings } = useQuery<Settings>({ queryKey: ["/api/settings"] });
+
   const deleteInvoice = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/invoices/${id}`);
-    },
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/invoices/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
-      toast({
-        title: "Invoice deleted",
-        description: "The invoice has been deleted successfully.",
-      });
-      setSelectedInvoiceId(null);
+      toast({ title: "Invoice deleted" });
+      setDeleteId(null);
     },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to delete the invoice. Please try again.",
-        variant: "destructive",
-      });
-    }
+    onError: () => toast({ title: "Error", description: "Failed to delete.", variant: "destructive" }),
   });
-  
-  const handleExportPdf = async (invoice: Invoice, format: 'pdf' | 'csv' = 'pdf') => {
+
+  const updateStatus = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      apiRequest("PATCH", `/api/invoices/${id}/status`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({ title: "Status updated" });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to update status.", variant: "destructive" }),
+  });
+
+  const handleExportPdf = async (invoice: Invoice) => {
     const client = clients.find(c => c.id === invoice.clientId);
-    
     if (!client || !settings) {
-      toast({
-        title: "Error",
-        description: "Failed to export invoice. Missing client or business details.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Missing client or business details.", variant: "destructive" });
       return;
     }
-    
-    // Fetch invoice data
+
     try {
-      // Get the full invoice data
-      const invoiceRes = await fetch(`/api/invoices/${invoice.id}`);
+      const [invoiceRes, entriesRes] = await Promise.all([
+        fetch(`/api/invoices/${invoice.id}`),
+        fetch("/api/time-entries"),
+      ]);
       const invoiceData = await invoiceRes.json();
-      
-      // Get all time entries and filter by those with matching invoiceId
-      const entriesRes = await fetch(`/api/time-entries`);
-      const allTimeEntries = await entriesRes.json();
-      let invoiceEntries = allTimeEntries.filter((entry: any) => entry.invoiceId === invoice.id);
-      
-      console.log(`Found ${invoiceEntries.length} time entries for invoice ${invoice.id}`);
-      
-      // Enrich entries with project and client data for currency display
-      const enrichedEntries = await Promise.all(invoiceEntries.map(async (entry: any) => {
-        // Make sure each entry has project data
-        if (!entry.project && entry.projectId) {
-          try {
-            const projectRes = await fetch(`/api/projects/${entry.projectId}`);
-            if (projectRes.ok) {
-              entry.project = await projectRes.json();
-            }
-          } catch (err) {
-            console.error("Failed to fetch project for entry:", err);
-          }
-        }
-        
-        // Ensure client data is attached for currency formatting
-        if (!entry.client) {
-          entry.client = client;
-        }
-        
-        return entry;
-      }));
-      
-      // Parse additional items from notes if they exist
-      let notes = invoiceData.notes || "";
-      let additionalItems = [];
-      
-      if (notes && notes.includes("ADDITIONAL_ITEMS:")) {
-        const parts = notes.split("ADDITIONAL_ITEMS:");
-        notes = parts[0].trim();
+      const allEntries = await entriesRes.json();
+      const invoiceEntries = allEntries.filter((e: any) => e.invoiceId === invoice.id);
+
+      let cleanNotes = invoiceData.notes || "";
+      let additionalItems: any[] = [];
+
+      // Support new lineItems field
+      if (invoiceData.lineItems) {
         try {
-          additionalItems = JSON.parse(parts[1].trim());
-          console.log("Found additional items in invoice notes:", additionalItems);
-        } catch (e) {
-          console.error("Failed to parse additional items:", e);
-        }
-      }
-      
-      // Determine which currency to use (client's currency takes precedence)
-      const usedCurrency = client.currency || settings.defaultCurrency || 'USD';
-      console.log("Using currency for PDF export:", usedCurrency);
-      
-      // Create report data
-      const reportData = {
-        timeEntries: enrichedEntries,
-        additionalItems,
-        clientCurrency: usedCurrency,
-        totalHours: enrichedEntries.reduce((sum: number, entry: any) => sum + parseFloat(entry.duration || 0), 0),
-        totalAmount: Number(invoiceData.total),
-        timeFormat: settings.defaultTimeFormat || 'decimal'
-      };
-      
-      // Group entries by week for enhanced display
-      const weeklyGroups = enrichedEntries.reduce((groups: any[], entry) => {
-        const weekLabel = entry.weekLabel || `Week of ${new Date(entry.date).toLocaleDateString()}`;
-        const existingGroup = groups.find(g => g.weekLabel === weekLabel);
-        
-        if (existingGroup) {
-          existingGroup.entries.push(entry);
-          existingGroup.totalHours += parseFloat(entry.duration || "0");
-          existingGroup.totalAmount += entry.amount || 0;
-        } else {
-          groups.push({
-            weekLabel: weekLabel,
-            entries: [entry],
-            totalHours: parseFloat(entry.duration || "0"),
-            totalAmount: entry.amount || 0
+          const parsed = JSON.parse(invoiceData.lineItems);
+          additionalItems = parsed.filter((i: any) => !i.isTimeEntry);
+          // Apply stored edits to time entries
+          invoiceEntries.forEach((entry: any) => {
+            const stored = parsed.find((i: any) => i.timeEntryId === entry.id);
+            if (stored) {
+              entry.duration = String(stored.hours ?? entry.duration);
+              entry.editedDuration = stored.hours;
+              entry.editedAmount = stored.amount;
+              entry.amount = String(stored.amount ?? entry.amount);
+            }
           });
-        }
-        
-        return groups;
-      }, []);
+        } catch {}
+      } else if (cleanNotes.includes("ADDITIONAL_ITEMS:")) {
+        const parts = cleanNotes.split("ADDITIONAL_ITEMS:");
+        cleanNotes = parts[0].trim();
+        try { additionalItems = JSON.parse(parts[1].trim()); } catch {}
+      }
+      if (cleanNotes.includes("EDITED_ENTRIES:")) {
+        cleanNotes = cleanNotes.split("EDITED_ENTRIES:")[0].split("ADDITIONAL_ITEMS:")[0].trim();
+      }
 
-      // Create enhanced invoice data for new PDF generator
-      const enhancedInvoiceData: EnhancedInvoiceData = {
-        invoice: {
-          id: invoiceData.id,
-          invoiceNumber: invoiceData.invoiceNumber,
-          issueDate: invoiceData.issueDate,
-          dueDate: invoiceData.dueDate || "",
-          status: invoiceData.status,
-          notes: notes,
-          subtotal: invoiceData.subtotal,
-          tax: invoiceData.tax || "0",
-          taxRate: invoiceData.taxRate || "0",
-          total: invoiceData.total
-        },
-        client: {
-          id: client.id,
-          name: client.name,
-          email: client.email || "",
-          address: client.address || "",
-          city: client.city || "",
-          state: client.state || "",
-          zipCode: client.zipCode || "",
-          country: client.country || "",
-          phone: client.phone || "",
-          taxId: client.taxId || ""
-        },
-        timeEntries: enrichedEntries.map(entry => ({
-          id: entry.id,
-          description: entry.description,
-          duration: parseFloat(entry.duration || "0"),
-          amount: entry.amount || 0,
-          date: entry.date,
-          weekLabel: entry.weekLabel || `Week of ${new Date(entry.date).toLocaleDateString()}`,
-          project: {
-            name: entry.project?.name || "Unknown Project",
-            hourlyRate: entry.project?.hourlyRate || "0"
-          }
-        })),
-        weeklyGroups: weeklyGroups,
-        timeAdjustment: undefined,
-        settings: settings
+      const currency = client.currency || settings.defaultCurrency || "USD";
+      const reportData = {
+        timeEntries: invoiceEntries,
+        additionalItems,
+        clientCurrency: currency,
+        totalHours: invoiceEntries.reduce((s: number, e: any) => s + parseFloat(e.duration || "0"), 0),
+        totalAmount: Number(invoiceData.total),
+        timeFormat: settings.defaultTimeFormat || "decimal",
       };
 
-      if (format === 'pdf') {
-        generateEnhancedInvoicePDF(enhancedInvoiceData);
-        toast({
-          title: "Invoice exported",
-          description: "Your customized invoice PDF has been generated with your branding",
-        });
-      } else {
-        generateInvoiceCSV(enhancedInvoiceData);
-        toast({
-          title: "Invoice exported",
-          description: "Your invoice data has been exported as CSV",
-        });
-      }
-    } catch (error) {
-      console.error("Error exporting invoice:", error);
-      toast({
-        title: "Error",
-        description: "Failed to export invoice. Please try again.",
-        variant: "destructive",
+      await generatePdf({
+        filename: `invoice-${invoiceData.invoiceNumber}.pdf`,
+        type: "invoice",
+        invoice: { ...invoiceData, notes: cleanNotes } as Invoice,
+        reportData,
+        client,
+        settings,
+        invoiceNumber: invoiceData.invoiceNumber,
+        issueDate: invoiceData.issueDate,
+        dueDate: invoiceData.dueDate,
+        notes: cleanNotes,
+        showDueDate: true,
       });
+
+      toast({ title: "PDF exported", description: `invoice-${invoiceData.invoiceNumber}.pdf downloaded.` });
+    } catch (err) {
+      console.error("Export error:", err);
+      toast({ title: "Error", description: "Failed to export PDF.", variant: "destructive" });
     }
   };
-  
-  const columns = [
-    {
-      header: "Invoice #",
-      accessorKey: "invoiceNumber",
-      className: "font-medium",
-    },
-    {
-      header: "Client",
-      accessorKey: (row: Invoice) => {
-        const client = clients.find(c => c.id === row.clientId);
-        return client ? client.name : "Unknown Client";
-      },
-    },
-    {
-      header: "Issue Date",
-      accessorKey: (row: Invoice) => format(new Date(row.issueDate), "MMM d, yyyy"),
-    },
-    {
-      header: "Due Date",
-      accessorKey: (row: Invoice) => format(new Date(row.dueDate), "MMM d, yyyy"),
-    },
-    {
-      header: "Status",
-      accessorKey: (row: Invoice) => (
-        <Badge 
-          variant={
-            row.status === "paid" ? "default" : 
-            row.status === "sent" ? "outline" : 
-            "secondary"
-          }
-        >
-          {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
-        </Badge>
-      ),
-    },
-    {
-      header: "Amount",
-      accessorKey: (row: Invoice) => {
-        // Get client's currency
-        const client = clients.find(c => c.id === row.clientId);
-        const currency = client?.currency || 'USD';
-        
-        // Get the currency symbol
-        const symbol = currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : currency === 'RSD' ? 'RSD' : '$';
-        
-        // Format the amount with the correct currency symbol
-        return `${symbol}${Number(row.total).toFixed(2)}`;
-      },
-      className: "text-right",
-    },
-    {
-      header: "Actions",
-      accessorKey: (row: Invoice) => (
-        <div className="flex space-x-1 justify-end">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => handleExportPdf(row)}
-            className="h-8 w-8 flex-shrink-0"
-            title="Export PDF"
-          >
-            <File className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => {
-              // When clicking edit, fetch the full invoice data first
-              fetch(`/api/invoices/${row.id}`)
-                .then(res => res.json())
-                .then(fullInvoiceData => {
-                  console.log("Fetched full invoice data for editing:", fullInvoiceData);
-                  setEditingInvoice(fullInvoiceData);
-                  setIsEditDialogOpen(true);
-                })
-                .catch(err => {
-                  console.error("Error fetching invoice data:", err);
-                  toast({
-                    title: "Error",
-                    description: "Failed to load invoice data for editing.",
-                    variant: "destructive",
-                  });
-                });
-            }}
-            className="h-8 w-8 flex-shrink-0"
-            title="Edit Invoice"
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => setSelectedInvoiceId(row.id)}
-            className="h-8 w-8 flex-shrink-0 text-destructive hover:text-destructive/80"
-            title="Delete Invoice"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
-    },
-  ];
+
+  const openEdit = async (invoice: Invoice) => {
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}`);
+      const full = await res.json();
+      setEditingInvoice(full);
+    } catch {
+      toast({ title: "Error", description: "Failed to load invoice.", variant: "destructive" });
+    }
+  };
+
+  // Stats
+  const totalRevenue = invoices.filter(i => i.status === "paid").reduce((s, i) => s + Number(i.total), 0);
+  const outstanding = invoices.filter(i => i.status !== "paid").reduce((s, i) => s + Number(i.total), 0);
+  const unpaidCount = invoices.filter(i => i.status !== "paid").length;
+
+  const sortedInvoices = [...invoices].sort((a, b) =>
+    new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime()
+  );
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Invoices</h1>
-        <p className="text-gray-500 mt-1">
-          Manage your client invoices and track payments.
-        </p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
+        <p className="text-gray-500 mt-1 text-sm">Manage your invoices and track payments.</p>
       </div>
 
+      {/* Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-green-50">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Paid</p>
+                <p className="text-xl font-bold text-gray-900">${totalRevenue.toFixed(2)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-amber-50">
+                <Clock className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Outstanding</p>
+                <p className="text-xl font-bold text-gray-900">${outstanding.toFixed(2)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-50">
+                <FileText className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Total Invoices</p>
+                <p className="text-xl font-bold text-gray-900">{invoices.length}</p>
+                {unpaidCount > 0 && <p className="text-xs text-amber-600">{unpaidCount} unpaid</p>}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Invoices Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Invoices</CardTitle>
-          <CardDescription>
-            View all your created invoices
-          </CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle>All Invoices</CardTitle>
+          <CardDescription>Click the status badge to quickly update payment status</CardDescription>
         </CardHeader>
-        <CardContent className="p-0 sm:p-6">
-          <div className="overflow-x-auto">
-            <DataTable
-              data={invoices}
-              columns={columns}
-              isLoading={isLoading}
-              emptyState={
-                <div className="text-center py-8 text-gray-500">
-                  <FileText className="h-12 w-12 mx-auto text-gray-400" />
-                  <h3 className="mt-2 text-sm font-semibold text-gray-900">No invoices</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    You haven't created any invoices yet. Generate a report first and create an invoice from there.
-                  </p>
-                </div>
-              }
-            />
-          </div>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-40">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : sortedInvoices.length === 0 ? (
+            <div className="text-center py-16">
+              <FileText className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+              <h3 className="font-semibold text-gray-900">No invoices yet</h3>
+              <p className="mt-1 text-sm text-gray-500 max-w-sm mx-auto">
+                Generate a report from the Reports page, then create an invoice from there.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <th className="px-6 py-3 text-left">Invoice #</th>
+                    <th className="px-6 py-3 text-left">Client</th>
+                    <th className="px-6 py-3 text-left">Issue Date</th>
+                    <th className="px-6 py-3 text-left">Due Date</th>
+                    <th className="px-6 py-3 text-left">Status</th>
+                    <th className="px-6 py-3 text-right">Amount</th>
+                    <th className="px-6 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {sortedInvoices.map(invoice => {
+                    const client = clients.find(c => c.id === invoice.clientId);
+                    const currency = client?.currency || "USD";
+                    const symbol = getCurrencySymbol(currency);
+                    const sc = STATUS_CONFIG[invoice.status] || STATUS_CONFIG.draft;
+                    const StatusIcon = sc.icon;
+
+                    return (
+                      <tr key={invoice.id} className="hover:bg-gray-50 transition-colors group">
+                        <td className="px-6 py-4 font-semibold text-gray-900">{invoice.invoiceNumber}</td>
+                        <td className="px-6 py-4 text-gray-700">{client?.name || "Unknown"}</td>
+                        <td className="px-6 py-4 text-gray-500">
+                          {(() => { try { return format(new Date(invoice.issueDate), "MMM d, yyyy"); } catch { return invoice.issueDate; } })()}
+                        </td>
+                        <td className="px-6 py-4 text-gray-500">
+                          {(() => { try { return format(new Date(invoice.dueDate), "MMM d, yyyy"); } catch { return invoice.dueDate; } })()}
+                        </td>
+                        <td className="px-6 py-4">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer transition-colors ${sc.className}`}>
+                                <StatusIcon className="h-3 w-3" />
+                                {sc.label}
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-40">
+                              <DropdownMenuItem
+                                onClick={() => updateStatus.mutate({ id: invoice.id, status: "draft" })}
+                                className="gap-2"
+                              >
+                                <Clock className="h-3.5 w-3.5 text-gray-500" /> Draft
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => updateStatus.mutate({ id: invoice.id, status: "sent" })}
+                                className="gap-2"
+                              >
+                                <Send className="h-3.5 w-3.5 text-blue-500" /> Mark as Sent
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => updateStatus.mutate({ id: invoice.id, status: "paid" })}
+                                className="gap-2"
+                              >
+                                <CheckCircle className="h-3.5 w-3.5 text-green-500" /> Mark as Paid
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                        <td className="px-6 py-4 text-right font-semibold text-gray-900">
+                          {symbol}{Number(invoice.total).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost" size="icon"
+                              className="h-8 w-8 text-gray-400 hover:text-gray-700"
+                              title="Edit Invoice"
+                              onClick={() => openEdit(invoice)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost" size="icon"
+                              className="h-8 w-8 text-gray-400 hover:text-gray-700"
+                              title="Export PDF"
+                              onClick={() => handleExportPdf(invoice)}
+                            >
+                              <FileDown className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost" size="icon"
+                              className="h-8 w-8 text-gray-400 hover:text-red-600"
+                              title="Delete"
+                              onClick={() => setDeleteId(invoice.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={selectedInvoiceId !== null} onOpenChange={(open) => !open && setSelectedInvoiceId(null)}>
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Invoice?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the selected invoice.
+              This cannot be undone. The invoice will be permanently deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => selectedInvoiceId && deleteInvoice.mutate(selectedInvoiceId)}
-              className="bg-destructive text-destructive-foreground"
+            <AlertDialogAction
+              onClick={() => deleteId && deleteInvoice.mutate(deleteId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
+
       {/* Edit Invoice Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="w-[95vw] max-w-[900px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Generate Invoice</DialogTitle>
-          </DialogHeader>
-          
+      <Dialog open={editingInvoice !== null} onOpenChange={open => !open && setEditingInvoice(null)}>
+        <DialogContent className="w-[95vw] max-w-[800px] max-h-[90vh] overflow-y-auto">
           {editingInvoice && (
-            <InvoiceViewEdit 
+            <InvoiceEditor
               invoice={editingInvoice}
               onSave={() => {
-                setIsEditDialogOpen(false);
                 setEditingInvoice(null);
                 queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
               }}
-              onClose={() => {
-                setIsEditDialogOpen(false);
-                setEditingInvoice(null);
-              }}
+              onClose={() => setEditingInvoice(null)}
             />
           )}
         </DialogContent>
