@@ -81,12 +81,6 @@ export default function TimeEntryList() {
     updateCurrencyMutation.mutate(newCurrency);
   };
 
-  // Debug logging to track the issue
-  console.log(`[TimeEntryList] Received ${timeEntries.length} time entries from API`);
-  if (timeEntries.length < 10) {
-    console.log(`[TimeEntryList] Full API response:`, timeEntries);
-  }
-
   // Listen for timer updates to refresh total times immediately
   useEffect(() => {
     const handleTimeEntryUpdate = () => {
@@ -211,9 +205,6 @@ export default function TimeEntryList() {
       // ALWAYS use the stored duration field as the source of truth
       // This ensures that manually edited durations are reflected in totals
       const duration = Number(entry.duration || 0);
-      
-      // Log the entry details for debugging
-      console.log(`Entry ${entry.id}: using stored duration ${duration} hours`);
       
       return { 
         ...entry, 
@@ -395,8 +386,6 @@ export default function TimeEntryList() {
       // Convert to default display currency
       const convertedEarnings = convertCurrency(projectEarnings, projectCurrency, defaultCurrency);
       
-      console.log(`[Currency Debug] Entry ${entry.id}: ${duration}h × ${hourlyRate} ${projectCurrency} = ${projectEarnings} ${projectCurrency} → ${convertedEarnings} ${defaultCurrency}`);
-      
       return total + convertedEarnings;
     }, 0);
   };
@@ -407,13 +396,6 @@ export default function TimeEntryList() {
       return new Date(b[0]).getTime() - new Date(a[0]).getTime();
     }
     return a[1].label.localeCompare(b[1].label);
-  });
-
-  // Debug logging to track the grouping issue
-  console.log(`[TimeEntryList] Grouped entries:`, Object.keys(groupedEntries));
-  console.log(`[TimeEntryList] Total groups: ${sortedGroups.length}`);
-  sortedGroups.forEach(([key, group]) => {
-    console.log(`[TimeEntryList] Group "${key}": ${group.entries.length} entries`);
   });
 
   // Delete mutation

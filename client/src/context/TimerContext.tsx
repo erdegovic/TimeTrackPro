@@ -51,21 +51,15 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const storedTimer = localStorage.getItem("timeTracker");
-      console.log("[TimerContext] Loading stored timer:", storedTimer);
       if (storedTimer) {
         const parsedTimer = JSON.parse(storedTimer);
-        console.log("[TimerContext] Parsed timer:", parsedTimer);
         if (parsedTimer.startTime) {
-          console.log("[TimerContext] Restoring timer state with startTime:", parsedTimer.startTime);
           setDescription(parsedTimer.description || '');
           setSelectedProjectId(parsedTimer.projectId);
           setSelectedClientId(parsedTimer.clientId);
           setStartTime(parsedTimer.startTime);
           setIsTracking(true);
-          console.log("[TimerContext] Timer state restored, isTracking will be true");
         }
-      } else {
-        console.log("[TimerContext] No stored timer found");
       }
     } catch (error) {
       console.error("Error restoring timer state:", error);

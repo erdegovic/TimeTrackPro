@@ -28,15 +28,6 @@ export default function SimpleTimer({
     stopTimer 
   } = useTimerContext();
   
-  console.log("[SimpleTimer] Current state:", { 
-    isTracking, 
-    currentDuration, 
-    startTime, 
-    description, 
-    projectId, 
-    clientId, 
-    isDisabled 
-  });
   const queryClient = useQueryClient();
 
   // Handle stop from this component
@@ -47,8 +38,6 @@ export default function SimpleTimer({
     const startTimeDate = new Date(startTime);
     const diffMs = endTime.getTime() - startTimeDate.getTime();
     const duration = diffMs / (1000 * 60 * 60); // Convert to hours
-    
-    console.log(`Recording session: ${Math.floor(diffMs / 1000)} seconds (${duration.toFixed(6)} hours)`);
     
     // Use the context's stop timer function
     await stopTimer();

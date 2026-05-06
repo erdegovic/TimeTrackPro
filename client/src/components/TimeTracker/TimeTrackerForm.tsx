@@ -286,56 +286,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
                 clientId={selectedClientId || undefined}
                 isDisabled={!description}
                 onStop={async (data) => {
-                  console.log("Timer stopped with data:", data);
-                  
-                  // Format dates for display
-                  const dateStr = format(data.startTime, 'yyyy-MM-dd');
-                  const monthStr = format(data.startTime, 'MMMM');
-                  const yearNum = data.startTime.getFullYear();
-                  
-                  // Calculate week number and label
-                  const weekNum = Math.ceil(data.startTime.getDate() / 7);
-                  const weekLabel = `Week ${weekNum}`;
-                  
-                  // Format date values according to what the server expects
-                  const startDateTime = new Date(data.startTime);
-                  const endDateTime = new Date(data.endTime);
-                  
-                  // Calculate duration correctly
-                  const diffMs = endDateTime.getTime() - startDateTime.getTime();
-                  
-                  // Calculate exact duration with higher precision (no minimum value)
-                  const hoursDecimal = diffMs / (1000 * 60 * 60);
-                  
-                  // Convert to string with 4 decimal places to capture seconds precisely
-                  const diffHours = hoursDecimal.toFixed(4);
-                  
-                  console.log(`Client calculated exact duration: ${diffHours} hours from ${diffMs}ms (${hoursDecimal} raw hours)`);
-                  
-                  // Prepare time entry data
-                  const timeEntry = {
-                    description,
-                    projectId: selectedProjectId || 0,
-                    // Pass the Date objects directly - they'll be serialized to strings automatically
-                    startTime: startDateTime,
-                    endTime: endDateTime,
-                    // Use the properly calculated duration (as a string to preserve decimal precision)
-                    duration: diffHours,
-                    date: dateStr,
-                    month: monthStr,
-                    year: yearNum,
-                    weekNumber: weekNum,
-                    weekLabel: weekLabel,
-                    billable: true,
-                  };
-                  
-                  console.log("Saving time entry:", timeEntry);
-                  
-                  // BYPASS OLD SAVE LOGIC - SimpleTimer now handles everything
-                  // This prevents the duplicate creation issue
-                  console.log("Timer data received but bypassed - SimpleTimer handles save logic");
-                  
-                  // Just invalidate cache to refresh UI
+                  // SimpleTimer handles the actual save — just refresh UI
                   queryClient.invalidateQueries({ queryKey: ['/api/time-entries'] });
                   
                   // Reset form
@@ -479,59 +430,8 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
                 clientId={selectedClientId || undefined}
                 isDisabled={!description}
                 onStop={async (data) => {
-                  console.log("Timer stopped with data:", data);
-                  
-                  // Format dates for display
-                  const dateStr = format(data.startTime, 'yyyy-MM-dd');
-                  const monthStr = format(data.startTime, 'MMMM');
-                  const yearNum = data.startTime.getFullYear();
-                  
-                  // Calculate week number and label
-                  const weekNum = Math.ceil(data.startTime.getDate() / 7);
-                  const weekLabel = `Week ${weekNum}`;
-                  
-                  // Format date values according to what the server expects
-                  const startDateTime = new Date(data.startTime);
-                  const endDateTime = new Date(data.endTime);
-                  
-                  // Calculate duration correctly
-                  const diffMs = endDateTime.getTime() - startDateTime.getTime();
-                  
-                  // Calculate exact duration with higher precision (no minimum value)
-                  const hoursDecimal = diffMs / (1000 * 60 * 60);
-                  
-                  // Convert to string with 4 decimal places to capture seconds precisely
-                  const diffHours = hoursDecimal.toFixed(4);
-                  
-                  console.log(`Client calculated exact duration: ${diffHours} hours from ${diffMs}ms (${hoursDecimal} raw hours)`);
-                  
-                  // Prepare time entry data
-                  const timeEntry = {
-                    description,
-                    projectId: selectedProjectId || 0,
-                    // Pass the Date objects directly - they'll be serialized to strings automatically
-                    startTime: startDateTime,
-                    endTime: endDateTime,
-                    // Use the properly calculated duration (as a string to preserve decimal precision)
-                    duration: diffHours,
-                    date: dateStr,
-                    month: monthStr,
-                    year: yearNum,
-                    weekNumber: weekNum,
-                    weekLabel: weekLabel,
-                    billable: true,
-                  };
-                  
-                  console.log("Saving time entry:", timeEntry);
-                  
-                  // BYPASS OLD SAVE LOGIC - SimpleTimer now handles everything
-                  // This prevents the duplicate creation issue
-                  console.log("Timer data received but bypassed - SimpleTimer handles save logic");
-                  
-                  // Just invalidate cache to refresh UI
+                  // SimpleTimer handles the actual save — just refresh and reset
                   queryClient.invalidateQueries({ queryKey: ['/api/time-entries'] });
-                  
-                  // Reset form
                   setDescription("");
                 }}
               />

@@ -37,13 +37,9 @@ export default function TimeTrackerPage() {
 
   // Monitor for new clients and projects being created
   useEffect(() => {
-    // Find newly created clients
-    const currentClientIds = new Set(clients.map(c => c.id));
     const newClients = clients.filter(client => !preDialogClientIds.has(client.id));
-    
     if (newClients.length > 0 && preDialogClientIds.size > 0) {
-      const newClient = newClients[0]; // Take the first new client
-      console.log("🎯 New client detected via ID monitoring:", newClient);
+      const newClient = newClients[0];
       setSelectedClientId(newClient.id);
       toast({
         title: "Client auto-selected",
@@ -52,12 +48,9 @@ export default function TimeTrackerPage() {
       });
     }
     
-    // Find newly created projects
     const newProjects = projects.filter(project => !preDialogProjectIds.has(project.id));
-    
     if (newProjects.length > 0 && preDialogProjectIds.size > 0) {
-      const newProject = newProjects[0]; // Take the first new project
-      console.log("🎯 New project detected via ID monitoring:", newProject);
+      const newProject = newProjects[0];
       setSelectedProjectId(newProject.id);
       toast({
         title: "Project auto-selected", 
@@ -73,14 +66,12 @@ export default function TimeTrackerPage() {
         <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Time Tracker</h1>
         <div className="flex items-center space-x-2 flex-wrap">
           <Button onClick={() => {
-            console.log("🎯 Capturing existing client IDs before opening dialog");
             setPreDialogClientIds(new Set(clients.map(c => c.id)));
             setShowNewClientDialog(true);
           }} variant="outline" size="sm" className="flex-shrink-0">
             <Plus className="mr-1 h-4 w-4" /> Client
           </Button>
           <Button onClick={() => {
-            console.log("🎯 Capturing existing project IDs before opening dialog");
             setPreDialogProjectIds(new Set(projects.map(p => p.id)));
             setShowNewProjectDialog(true);
           }} variant="outline" size="sm" className="flex-shrink-0">
@@ -91,12 +82,10 @@ export default function TimeTrackerPage() {
 
       <TimeTrackerForm
         onAddClient={() => {
-          console.log("🎯 Capturing existing client IDs from TimeTrackerForm");
           setPreDialogClientIds(new Set(clients.map(c => c.id)));
           setShowNewClientDialog(true);
         }}
         onAddProject={(clientId) => {
-          console.log("🎯 Capturing existing project IDs from TimeTrackerForm");
           setPreDialogProjectIds(new Set(projects.map(p => p.id)));
           setSelectedClientIdForProject(clientId);
           setShowNewProjectDialog(true);
@@ -113,30 +102,18 @@ export default function TimeTrackerPage() {
 
           <ClientForm
             onSuccess={(createdClient) => {
-              console.log("★ Client created in TimeTrackerPage:", createdClient);
-
-              if (!createdClient) {
-                console.warn("⚠️ onSuccess called with undefined client");
-                return;
-              }
-
+              if (!createdClient) return;
               setShowNewClientDialog(false);
-
               if (createdClient.id) {
-                console.log("★ Setting client ID directly:", createdClient.id);
                 setSelectedClientId(createdClient.id);
-
-                import("@/hooks/use-toast").then(({ toast }) => {
-                  toast({
-                    title: "Client auto-selected",
-                    description: `"${createdClient.name}" is now selected in the time tracker.`,
-                    duration: 3000,
-                  });
+                toast({
+                  title: "Client auto-selected",
+                  description: `"${createdClient.name}" is now selected in the time tracker.`,
+                  duration: 3000,
                 });
               }
             }}
             onCancel={() => {
-              console.log("★ Cancel clicked");
               setShowNewClientDialog(false);
             }}
           />
@@ -151,19 +128,13 @@ export default function TimeTrackerPage() {
           </DialogHeader>
           <ProjectForm
             onSuccess={(createdProject) => {
-              console.log("★ Project created in TimeTrackerPage:", createdProject);
               setShowNewProjectDialog(false);
-
               if (createdProject && createdProject.id) {
-                console.log("★ Setting project ID directly:", createdProject.id);
                 setSelectedProjectId(createdProject.id);
-
-                import("@/hooks/use-toast").then(({ toast }) => {
-                  toast({
-                    title: "Project auto-selected",
-                    description: `"${createdProject.name}" is now selected in the time tracker.`,
-                    duration: 3000,
-                  });
+                toast({
+                  title: "Project auto-selected",
+                  description: `"${createdProject.name}" is now selected in the time tracker.`,
+                  duration: 3000,
                 });
               }
             }}

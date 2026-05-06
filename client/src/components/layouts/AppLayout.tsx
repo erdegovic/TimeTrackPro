@@ -275,7 +275,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </Avatar>
                 <div className="ml-3">
                   <p className="user-profile-name text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">{userName}</p>
-                  <p className="text-xs font-medium text-gray-500">Free Account</p>
+                  <p className="text-xs font-medium text-gray-500">{user?.email || ""}</p>
                 </div>
               </div>
             </Link>
@@ -287,16 +287,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
               size="sm" 
               className="w-full justify-start text-gray-600 hover:text-white hover:bg-red-600 mt-1"
               onClick={() => {
-                // No need to clear local storage anymore as we're using the database
-              // Just trigger the logout request
-                
-                fetch('/api/auth/logout')
-                  .then(() => {
-                    window.location.href = '/login?logout=true';
-                  })
-                  .catch(error => {
-                    console.error('Logout failed:', error);
-                    window.location.href = '/login?logout=true';
+                fetch('/api/logout', { method: 'POST' })
+                  .finally(() => {
+                    window.location.href = '/login';
                   });
               }}
             >

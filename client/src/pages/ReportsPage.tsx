@@ -5,8 +5,10 @@ import ReportTable from "@/components/Reports/ReportTable";
 import InvoicePreview from "@/components/Invoices/InvoicePreview";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReportFilters as ReportFiltersType } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ReportsPage() {
+  const { toast } = useToast();
   const [currentFilters, setCurrentFilters] = useState<ReportFiltersType | null>(null);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any>(null);
@@ -18,29 +20,26 @@ export default function ReportsPage() {
   };
 
   const handleGenerateInvoice = (reportData: any) => {
-    
-    // Check if we have a specific client selected or need to prompt for one
     if (currentFilters?.clientId) {
       setSelectedClientId(currentFilters.clientId);
       setInvoiceData(reportData);
       setShowInvoicePreview(true);
     } else {
-      // Get unique clients from the report data
       const clientIds = new Set<number>();
       reportData.timeEntries.forEach((entry: any) => {
-        if (entry.client) {
-          clientIds.add(entry.client.id);
-        }
+        if (entry.client) clientIds.add(entry.client.id);
       });
 
-      // If only one client in the report, use that
       if (clientIds.size === 1) {
         setSelectedClientId(Array.from(clientIds)[0]);
         setInvoiceData(reportData);
         setShowInvoicePreview(true);
       } else {
-        // If multiple clients, show an alert to select a specific client
-        alert("Please filter by a specific client before generating an invoice.");
+        toast({
+          title: "Select a specific client",
+          description: "Please filter by a single client before generating an invoice.",
+          variant: "destructive",
+        });
       }
     }
   };

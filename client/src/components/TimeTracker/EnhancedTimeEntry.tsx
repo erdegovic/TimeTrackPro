@@ -665,13 +665,6 @@ export default function EnhancedTimeEntry({
                 
                 {/* Show client when no project is assigned */}
                 {!groupedEntry.project && (() => {
-                  console.log('Debug - No project entry:', {
-                    hasClient: !!groupedEntry.client,
-                    client: groupedEntry.client,
-                    entryId: groupedEntry.id,
-                    description: groupedEntry.description
-                  });
-                  
                   if (groupedEntry.client) {
                     return (
                       <span 

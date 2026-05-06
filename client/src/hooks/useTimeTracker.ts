@@ -41,8 +41,6 @@ export function useTimeTracker() {
   
   // Update elapsed time when tracking
   useEffect(() => {
-    console.log("Timer effect running, isTracking:", isTracking, "startTime:", startTime);
-    
     // Clear any existing interval first
     if (timerRef.current) {
       clearInterval(timerRef.current);

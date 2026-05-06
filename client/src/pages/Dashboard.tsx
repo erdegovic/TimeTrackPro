@@ -343,7 +343,7 @@ export default function Dashboard() {
             />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{monthlyBillableAmount.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(monthlyBillableAmount, currentCurrency)}</div>
             <p className="text-xs text-muted-foreground">
               For {format(new Date(monthStart), "MMMM yyyy")}
             </p>
