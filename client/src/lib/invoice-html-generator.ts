@@ -79,6 +79,7 @@ const INVOICE_CSS = `
   .invoice-number { margin-top: 9px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-align: right; text-transform: uppercase; }
 
   .meta-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin: 28px 0 26px; }
+  .meta-grid.two-col { grid-template-columns: 1fr 1fr; }
   .meta-card { min-height: 70px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
   .label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 9.5px; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase; }
   .value { font-size: 13px; font-weight: 750; }
@@ -138,7 +139,7 @@ const INVOICE_CSS = `
 
   /* === MEDIA === */
   .media { color: #f7f7fb; background: #25222b; }
-  .media .media-watermark { position: absolute; right: -18mm; top: 23mm; color: rgba(255,255,255,0.055); font-size: 68px; font-weight: 950; letter-spacing: 0.04em; transform: rotate(90deg); white-space: nowrap; z-index: 0; }
+  .media .media-watermark { display: none; }
   .media .invoice { padding: 18mm 20mm; }
   .media .topline { padding: 16px; border-radius: 8px; background: #f04f5f; }
   .media .brand-meta, .media .address, .media .invoice-number { color: rgba(255,255,255,0.8); }
@@ -172,7 +173,7 @@ const INVOICE_CSS = `
 
   /* === GRAPHIC === */
   .graphic { background: linear-gradient(90deg,#101418 0 26mm,transparent 26mm), linear-gradient(153deg,transparent 0 58%,rgba(255,90,64,0.16) 58% 77%,transparent 77%), #ffffff; }
-  .graphic .design-label { position: absolute; left: -20mm; top: 122mm; color: #fff; font-size: 32px; font-weight: 950; letter-spacing: 0.26em; transform: rotate(-90deg); white-space: nowrap; z-index: 2; }
+  .graphic .design-label { position: absolute; left: 0; top: 0; bottom: 0; width: 26mm; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; transform: rotate(180deg); color: rgba(255,255,255,0.85); font-size: 13px; font-weight: 950; letter-spacing: 0.28em; z-index: 2; pointer-events: none; }
   .graphic .invoice { padding-left: 36mm; }
   .graphic .topline { grid-template-columns: 0.82fr 1.18fr; gap: 14px; }
   .graphic .mark { background: #ff5a40; border-radius: 0; }
@@ -219,7 +220,7 @@ const INVOICE_CSS = `
   /* === AVANT (Playful Pop Creative) === */
   .avant { background: repeating-linear-gradient(135deg,rgba(255,110,96,0.11) 0 2px,transparent 2px 16px), linear-gradient(160deg,#fff7db 0 27%,transparent 27%), linear-gradient(20deg,transparent 0 74%,rgba(67,97,238,0.13) 74%), #fffdf6; }
   .avant .color-bar { position: absolute; inset: 0 0 auto 0; height: 13mm; background: linear-gradient(90deg,#ff6b6b 0 21%,#ffd166 21% 42%,#06d6a0 42% 63%,#4361ee 63% 82%,#1b1b1f 82%); z-index: 2; }
-  .avant .creative-badge { position: absolute; right: -8mm; top: 53mm; padding: 4px 18px; color: #1b1b1f; border: 2px solid #1b1b1f; background: #ffd166; font-size: 10px; font-weight: 900; letter-spacing: 0.22em; transform: rotate(90deg); z-index: 3; }
+  .avant .creative-badge { position: absolute; right: 3mm; top: 66mm; padding: 4px 18px; color: #1b1b1f; border: 2px solid #1b1b1f; background: #ffd166; font-size: 10px; font-weight: 900; letter-spacing: 0.22em; transform: rotate(90deg); transform-origin: right center; z-index: 3; }
   .avant .invoice { padding: 23mm 22mm 20mm; }
   .avant .topline { align-items: end; padding: 13px 14px; border: 2px solid #1b1b1f; background: rgba(255,255,255,0.9); box-shadow: 7px 7px 0 #06d6a0; }
   .avant .mark { background: #ff6b6b; color: #1b1b1f; border: 2px solid #1b1b1f; box-shadow: 4px 4px 0 #ffd166; }
@@ -241,7 +242,7 @@ const INVOICE_CSS = `
   .luxe .luxe-header-bg { position: absolute; left: 0; top: 0; width: 100%; height: 37mm; z-index: 0; overflow: hidden; }
   .luxe .luxe-header-bg-dark { position: absolute; inset: 0; background: linear-gradient(120deg,#111827 0 44%,transparent 44%); }
   .luxe .luxe-header-bg-stripe { position: absolute; inset: 0; background: linear-gradient(90deg,transparent 0 48%,#ef476f 48% 59%,#118ab2 59% 73%,transparent 73%); }
-  .luxe .luxe-memo { position: absolute; left: 126mm; top: 27mm; width: 54mm; padding: 7px 9px; color: #111827; border: 2px solid #111827; background: #ffe66d; font-size: 9px; font-weight: 950; letter-spacing: 0.13em; text-align: center; transform: rotate(-4deg); box-shadow: 5px 5px 0 rgba(17,24,39,0.18); z-index: 3; }
+  .luxe .luxe-memo { position: absolute; right: 20mm; bottom: 32mm; width: 48mm; padding: 7px 9px; color: #111827; border: 2px solid #111827; background: #ffe66d; font-size: 9px; font-weight: 950; letter-spacing: 0.13em; text-align: center; transform: rotate(-4deg); box-shadow: 5px 5px 0 rgba(17,24,39,0.18); z-index: 3; }
   .luxe .invoice { padding-top: 21mm; }
   .luxe .brand-name, .luxe .brand-meta, .luxe .address { color: #fff; }
   .luxe .invoice-title { color: #111827; font-size: 43px; font-weight: 950; text-shadow: 4px 4px 0 #ffe66d; }
@@ -359,9 +360,9 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
       </div>
     </header>
 
-    <div class="meta-grid">
+    <div class="meta-grid${data.dueDate ? '' : ' two-col'}">
       <div class="meta-card"><span class="label">Issue Date</span><span class="value">${esc(data.issueDate)}</span></div>
-      <div class="meta-card"><span class="label">Due Date</span><span class="value">${esc(data.dueDate)}</span></div>
+      ${data.dueDate ? `<div class="meta-card"><span class="label">Due Date</span><span class="value">${esc(data.dueDate)}</span></div>` : ''}
       <div class="meta-card"><span class="label">Balance Due</span><span class="value">${esc(data.currency)} ${esc(data.totalFormatted)}</span></div>
     </div>
 

@@ -53,6 +53,9 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
 
   const isWeeklyCategorization = settings?.enableWeeklyCategorization ?? true;
 
+  // Use the display currency symbol from settings for consistent formatting
+  const currencySymbol: string = (settings as any)?.displayCurrency || '$';
+
   // Helper function to format decimal hours to HH:MM:SS
   const formatDecimalHours = (decimalHours: number): string => {
     const totalSeconds = Math.round(decimalHours * 3600);
@@ -214,8 +217,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                         {weekData.weekLabel}
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {formatCurrency(weekData.totalAmount, 
-                          filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
+                        {formatCurrency(weekData.totalAmount, currencySymbol)}
                       </td>
                     </tr>
                   );
@@ -260,13 +262,11 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                         </td>
                         {showRateColumn && (
                           <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                            {formatCurrency(parseFloat(String(entry.hourlyRate) || '0'), 
-                              filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
+                            {formatCurrency(parseFloat(String(entry.hourlyRate) || '0'), currencySymbol)}
                           </td>
                         )}
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {formatCurrency(parseFloat(String(entry.amount) || '0'), 
-                            filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
+                          {formatCurrency(parseFloat(String(entry.amount) || '0'), currencySymbol)}
                         </td>
                       </tr>
                     );
@@ -315,13 +315,11 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                       </td>
                       {showRateColumn && (
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                          {formatCurrency(parseFloat(String(entry.hourlyRate) || '0'), 
-                            filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
+                          {formatCurrency(parseFloat(String(entry.hourlyRate) || '0'), currencySymbol)}
                         </td>
                       )}
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {formatCurrency(parseFloat(String(entry.amount) || '0'), 
-                          filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
+                        {formatCurrency(parseFloat(String(entry.amount) || '0'), currencySymbol)}
                       </td>
                     </tr>
                   );
@@ -346,8 +344,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                   </div>
                 </td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                  {formatCurrency(reportData.totalAmount, 
-                    filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')}
+                  {formatCurrency(reportData.totalAmount, currencySymbol)}
                 </td>
               </tr>
             </tbody>
@@ -357,8 +354,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
         {/* Display single rate when all rates are the same */}
         {!showRateColumn && singleRate && parseFloat(singleRate) > 0 && (
           <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">
-            <strong>Hourly Rate:</strong> {formatCurrency(parseFloat(singleRate), 
-              filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD')} per hour
+            <strong>Hourly Rate:</strong> {formatCurrency(parseFloat(singleRate), currencySymbol)} per hour
           </div>
         )}
       </div>
