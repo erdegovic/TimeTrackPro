@@ -350,7 +350,7 @@ export default function InvoicesPage() {
 
       {/* Edit Invoice Dialog */}
       <Dialog open={editingInvoice !== null} onOpenChange={open => !open && setEditingInvoice(null)}>
-        <DialogContent className="w-[95vw] max-w-[800px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-[800px] max-h-[90vh] overflow-y-auto p-0 overflow-hidden rounded-xl">
           {editingInvoice && (
             <InvoiceEditor
               invoice={editingInvoice}

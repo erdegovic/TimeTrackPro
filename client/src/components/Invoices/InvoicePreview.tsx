@@ -151,41 +151,24 @@ export default function InvoicePreview({
     }
   };
   
-  // Update time entry duration and recalculate amounts - fixed to properly handle amounts
   const updateEntryDuration = (entryId: number, newDuration: number, timeFormat: TimeFormat) => {
-    console.log(`Updating entry ${entryId} duration to ${newDuration}`);
-    
     setEditableEntries(prev => {
       const updated = prev.map(entry => {
         if (entry.id === entryId) {
-          // Get hourly rate either from the entry directly or its project
-          const hourlyRate = parseFloat(entry.hourlyRate || 
-            (entry.project?.hourlyRate ? entry.project.hourlyRate : '0'));
-            
-          // Calculate new amount based on the hourly rate and new duration
+          const hourlyRate = parseFloat(entry.hourlyRate || entry.project?.hourlyRate || '0');
           const newAmount = hourlyRate * newDuration;
-          
-          console.log(`Entry ${entryId}: New duration=${newDuration}, rate=${hourlyRate}, calculated amount=${newAmount}`);
-          
-          // Create updated entry with edited values clearly marked
           return {
             ...entry,
-            editedDuration: newDuration,      // Store edited duration separately 
-            duration: newDuration,            // Also update the main duration field
-            editedAmount: newAmount,          // Store edited amount separately
-            amount: newAmount.toString(),     // Also update the main amount field
-            wasEdited: true                   // Flag that this entry was edited
+            editedDuration: newDuration,
+            duration: newDuration,
+            editedAmount: newAmount,
+            amount: newAmount.toString(),
+            wasEdited: true,
           };
         }
         return entry;
       });
-      
-      // Immediately recalculate totals based on updated entries
       recalculateTotals(updated);
-      
-      // Log the updated entries
-      console.log("Updated time entries:", updated);
-      
       return updated;
     });
   };
@@ -284,84 +267,60 @@ export default function InvoicePreview({
     }
     
     try {
-      console.log("Creating invoice with report data:", reportData);
-      
-      // Get time entry IDs for marking as invoiced
       const timeEntryIds = reportData.timeEntries.map((entry: any) => entry.id);
       
-      // Calculate correct totals based on edited entries
-      // Calculate the total hours from all edited entries
-      const totalHours = editableEntries.reduce((sum, entry) => {
-        // Always use the edited duration value
-        const duration = typeof entry.editedDuration === 'number' 
-          ? entry.editedDuration 
-          : typeof entry.duration === 'number'
-            ? entry.duration
-            : parseFloat(entry.duration || '0');
-        return sum + duration;
-      }, 0);
-      
-      // Calculate the subtotal from all edited entries amounts
       const entriesSubtotal = editableEntries.reduce((sum, entry) => {
         return sum + parseFloat(entry.amount.toString());
       }, 0);
-      
-      // Add additional items to the total
-      const additionalItemsTotal = additionalItems.reduce((sum, item) => {
-        return sum + (item.amount || 0);
-      }, 0);
-      
-      // Calculate final subtotal and total
+      const additionalItemsTotal = additionalItems.reduce((sum, item) => sum + (item.amount || 0), 0);
       const subtotal = entriesSubtotal;
       const tax = enableTax ? subtotal * (taxRate / 100) : 0;
-      const total = subtotal + additionalItemsTotal + tax;
-      
-      console.log("Invoice calculated values:", {
-        totalHours,
-        entriesSubtotal,
-        additionalItemsTotal,
-        subtotal,
-        tax,
-        total
-      });
-      
-      // Create invoice with all necessary fields, using the edited values
+      const invoiceTotal = subtotal + additionalItemsTotal + tax;
+
+      // Build lineItems JSON to store edits for later use in InvoiceEditor
+      const lineItemsData = [
+        ...editableEntries.map((e: any) => ({
+          timeEntryId: e.id,
+          isTimeEntry: true,
+          description: e.description,
+          hours: typeof e.editedDuration === 'number' ? e.editedDuration : parseFloat(e.duration || '0'),
+          rate: parseFloat(e.hourlyRate || e.project?.hourlyRate || '0'),
+          amount: typeof e.editedAmount === 'number' ? e.editedAmount : parseFloat(e.amount?.toString() || '0'),
+        })),
+        ...additionalItems.map(item => ({
+          id: item.id,
+          isTimeEntry: false,
+          description: item.description,
+          amount: item.amount,
+        })),
+      ];
+
       const invoiceData = {
         clientId: client.id,
-        amount: total, // Use the calculated total with all edited amounts and additional items
-        subtotal: subtotal,
-        tax: tax,
-        taxRate: String(enableTax ? taxRate : 0), // Send as string to match database schema
-        totalHours: totalHours, // Use calculated total hours
+        subtotal: subtotal.toFixed(2),
+        tax: tax.toFixed(2),
+        taxRate: (enableTax ? taxRate : 0).toFixed(2),
+        total: invoiceTotal.toFixed(2),
         notes,
         timeEntryIds,
-        currency: client.currency || 'USD', // Include currency
         issueDate: format(new Date(issueDate), 'yyyy-MM-dd'),
         dueDate: format(new Date(dueDate), 'yyyy-MM-dd'),
-        invoiceNumber: invoiceNumber,
+        invoiceNumber,
         status: 'draft',
-        // Include additional items as JSON string
-        additionalItems: JSON.stringify(additionalItems),
-        // Include edited time entries data to preserve edits
-        editedEntries: JSON.stringify(editableEntries)
+        lineItems: JSON.stringify(lineItemsData),
       };
       
-      console.log("Sending invoice data to server:", invoiceData);
+      await apiRequest("POST", "/api/invoices", invoiceData);
       
-      const response = await apiRequest("POST", "/api/invoices", invoiceData);
-      console.log("Invoice creation response:", response);
-      
-      // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
       
       toast({
         title: "Invoice created",
-        description: "Your invoice has been created successfully.",
+        description: "Your invoice has been saved successfully.",
       });
       
     } catch (error) {
-      console.error("Error creating invoice:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to create invoice. Please try again.",
@@ -376,95 +335,38 @@ export default function InvoicePreview({
     const timestamp = new Date().getTime();
     const filename = `invoice-${invoiceNumber.replace('INV-', '')}-${timestamp}.pdf`;
     
-    // Make editable entries extremely explicit with clear edits flagged
     const enhancedEntries = editableEntries.map(entry => {
-      console.log("Processing entry for PDF export:", entry);
-      
-      // Get hourly rate (either from entry or project)
-      const hourlyRate = parseFloat(entry.hourlyRate || '0');
-      
-      // Get edited duration (used edited if available, otherwise original)
-      const duration = typeof entry.editedDuration === 'number' 
-        ? entry.editedDuration 
+      const hourlyRate = parseFloat(entry.hourlyRate || entry.project?.hourlyRate || '0');
+      const duration = typeof entry.editedDuration === 'number'
+        ? entry.editedDuration
         : parseFloat(entry.duration || '0');
-        
-      // Calculate amount based on hourly rate and duration  
-      const calculatedAmount = hourlyRate * duration;
-      
-      // Get the actual amount to use (either from entry or calculated)
-      const amount = parseFloat(entry.amount || calculatedAmount.toString());
-      
-      // Create a new object with explicit edited values
+      const amount = typeof entry.editedAmount === 'number'
+        ? entry.editedAmount
+        : parseFloat(entry.amount?.toString() || (hourlyRate * duration).toString());
       return {
         ...entry,
-        // Strongly flag the edited values to ensure they're used
-        edited: true,
-        wasEdited: true,
         editedDuration: duration,
         editedAmount: amount,
-        // Duplicate these fields to make sure they're picked up
-        duration: duration,
-        amount: amount,
-        // Convert to string to avoid type issues
-        amountString: amount.toString(),
-        durationString: duration.toString(),
-        // Original values for reference
-        originalDuration: entry.originalDuration || entry.duration,
-        originalAmount: entry.originalAmount || entry.amount,
+        duration,
+        amount,
       };
     });
     
-    console.log("Enhanced entries for PDF:", enhancedEntries);
+    const totalHours = enhancedEntries.reduce((sum, e) => sum + e.duration, 0);
+    const totalAmount = enhancedEntries.reduce((sum, e) => sum + e.amount, 0);
     
-    // Calculate the correct total hours and amount from the enhanced entries
-    const totalHours = enhancedEntries.reduce((sum, entry) => sum + parseFloat(entry.duration.toString()), 0);
-    const totalAmount = enhancedEntries.reduce((sum, entry) => sum + parseFloat(entry.amount.toString()), 0);
-    
-    console.log(`Modified report data for PDF:`, {
-      totalHours,
-      totalAmount,
-      entriesCount: enhancedEntries.length
-    });
-    
-    // Update each week's data with corrected totals
-    const updatedWeeklyData = reportData.weeklyData.map((weekData: any) => {
-      // Filter entries for this week that match our enhanced entries
-      const weekEntries = enhancedEntries.filter(entry => 
-        entry.weekNumber === weekData.weekNumber);
-      
-      // Calculate corrected total for this week
-      const weekTotal = weekEntries.reduce((sum, entry) => 
-        sum + parseFloat(entry.amount.toString()), 0);
-      
-      // Return the updated week data
-      return {
-        ...weekData,
-        entries: weekEntries,
-        totalAmount: weekTotal
-      };
-    });
-    
-    // Create a modified version of reportData that includes all edited values
+    // Pass a flat list only (no weekly grouping) so amounts are always computed correctly
     const modifiedReportData = {
       ...reportData,
       timeEntries: enhancedEntries,
-      weeklyData: updatedWeeklyData,
-      totalHours: totalHours,
-      totalAmount: totalAmount,
+      weeklyData: null,
+      groups: null,
+      totalHours,
+      totalAmount,
       subtotal: totalAmount,
-      additionalItems: additionalItems,
-      total: total,
-      // Flag that these entries are edited to force using edited values
-      hasEditedEntries: true,
-      hasEditedValues: true,
-      useEditedValues: true
+      additionalItems,
+      total,
     };
-    
-    console.log("Modified report data for PDF:", {
-      totalHours: modifiedReportData.totalHours,
-      totalAmount: modifiedReportData.totalAmount,
-      entriesCount: modifiedReportData.timeEntries.length
-    });
     
     generatePdf({
       filename,
@@ -476,7 +378,7 @@ export default function InvoicePreview({
       dueDate,
       notes,
       type: "invoice",
-      showDueDate: showDueDate
+      showDueDate,
     });
     
     toast({
@@ -864,7 +766,6 @@ export default function InvoicePreview({
                         // Ensure valid number
                         if (isNaN(duration) || duration < 0) duration = 0;
                         
-                        console.log(`Invoice Preview (Weekly) - Entry ${entry.id}: duration=${duration}, sessionCount=${entry.sessionCount}, dateRange=${entry.dateRange}`);
 
                         return (
                           <tr key={`entry-${entry.id}-${index}`} className="border-b border-gray-200">
@@ -935,7 +836,6 @@ export default function InvoicePreview({
                     // Ensure valid number
                     if (isNaN(duration) || duration < 0) duration = 0;
                     
-                    console.log(`Invoice Preview (No Weekly) - Entry ${entry.id}: duration=${duration}, sessionCount=${entry.sessionCount}`);
 
                     return (
                       <tr key={`entry-${entry.id}-${index}`} className="border-b border-gray-200">

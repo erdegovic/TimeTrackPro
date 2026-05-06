@@ -67,14 +67,6 @@ const invoiceTemplates = {
 export async function generatePdf(options: PdfOptions): Promise<void> {
   const doc = new jsPDF();
   
-  console.log("Enhanced PDF Generation - Starting with options:", {
-    type: options.type,
-    filename: options.filename,
-    hasInvoice: options.type === 'invoice' && !!(options as any).invoice,
-    hasReportData: !!options.reportData,
-    timeEntriesCount: options.reportData?.timeEntries?.length || 0,
-    template: options.type === 'invoice' ? (options as any).settings?.invoiceTemplate : 'N/A'
-  });
   
   if (options.type === "invoice") {
     const invoiceOptions = options as Extract<PdfOptions, { type: "invoice" }>;
@@ -135,7 +127,6 @@ function generateInvoicePdf({
   const template = settings.invoiceTemplate || 'professional';
   const templateConfig = invoiceTemplates[template as keyof typeof invoiceTemplates] || invoiceTemplates.professional;
   
-  console.log("Generating invoice PDF with template:", template);
   
   // Parse colors from settings
   const primaryColor = hexToRgb(settings.invoiceColorTheme || templateConfig.colors.primary);
@@ -539,21 +530,13 @@ function generateTimeEntriesTable({
   // Use client's currency first, then fall back to report data currency, then settings
   const clientCurrency = client?.currency || reportData?.clientCurrency || settings.displayCurrency || 'USD';
   
-  console.log(`PDF Generator using currency: ${clientCurrency}`);
-  
-  console.log("Processing time entries for PDF table...");
-  
   if (reportData?.timeEntries) {
     // Group entries by week if grouped data is available (prioritize grouped data over settings)
     const groupsToProcess = reportData.groups && reportData.groups.length > 0 ? reportData.groups : 
                            reportData.weeklyData && reportData.weeklyData.length > 0 ? reportData.weeklyData : null;
     
     if (groupsToProcess) {
-      console.log(`Processing ${groupsToProcess.length} weekly groups for PDF...`);
-      
-      groupsToProcess.forEach((group: any, groupIndex: number) => {
-        console.log(`Processing group ${groupIndex + 1}: ${group.weekLabel || `Week ${group.weekNumber}, ${group.year}`}`);
-        
+      groupsToProcess.forEach((group: any) => {
         // Add week header row
         if (settings.showHourlyRate !== false) {
           tableContent.push([
@@ -571,19 +554,7 @@ function generateTimeEntriesTable({
           (entry.weekNumber === group.weekNumber && entry.year === group.year)
         );
         
-        console.log(`Week has ${weekEntries.length} entries`);
-        
-        weekEntries.forEach((entry: any, index: number) => {
-          console.log(`Processing week entry ${index + 1}/${weekEntries.length}:`, {
-            id: entry.id,
-            description: entry.description,
-            duration: entry.duration,
-            adjustedDuration: entry.adjustedDuration,
-            editedDuration: entry.editedDuration,
-            amount: entry.amount,
-            editedAmount: entry.editedAmount
-          });
-          
+        weekEntries.forEach((entry: any) => {
           // Use the EXACT same logic as the preview to ensure consistency
           let duration = 0;
           
@@ -612,8 +583,6 @@ function generateTimeEntriesTable({
           // Ensure valid number
           if (isNaN(duration) || duration < 0) duration = 0;
           
-          console.log(`PDF - Entry ${entry.id}: duration=${duration}, original=${entry.duration}, adjusted=${entry.adjustedDuration}`);
-          
           // Get hourly rate
           let hourlyRate = 0;
           if (entry.project?.hourlyRate) {
@@ -633,15 +602,9 @@ function generateTimeEntriesTable({
           } else {
             amount = duration * hourlyRate;
           }
+          if (isNaN(amount) || amount < 0) amount = 0;
           
-          // Ensure amount is valid
-          if (isNaN(amount) || amount < 0) {
-            amount = 0;
-          }
-          
-          console.log(`Entry ${entry.id} - Final amount: ${amount}`);
-          
-          // Format description without session count
+          // Format description
           let descriptionText = entry.description || "No description";
           
           // Conditionally include hourly rate column based on settings
@@ -666,18 +629,7 @@ function generateTimeEntriesTable({
       });
     } else {
       // Default: flat list without weekly grouping
-      console.log(`Processing ${reportData.timeEntries.length} entries in flat list for PDF...`);
-      
-      reportData.timeEntries.forEach((entry: any, index: number) => {
-        console.log(`Processing entry ${index + 1}/${reportData.timeEntries.length}:`, {
-          id: entry.id,
-          description: entry.description,
-          duration: entry.duration,
-          adjustedDuration: entry.adjustedDuration,
-          editedDuration: entry.editedDuration,
-          amount: entry.amount,
-          editedAmount: entry.editedAmount
-        });
+      reportData.timeEntries.forEach((entry: any) => {
         
         // Use the EXACT same logic as the preview to ensure consistency
         let duration = 0;
@@ -707,10 +659,6 @@ function generateTimeEntriesTable({
         // Ensure valid number
         if (isNaN(duration) || duration < 0) duration = 0;
         
-        console.log(`PDF - Entry ${entry.id}: duration=${duration}, original=${entry.duration}, adjusted=${entry.adjustedDuration}`);
-        
-        console.log(`Entry ${entry.id} - Final duration: ${duration}`);
-        
         // Get hourly rate
         let hourlyRate = 0;
         if (entry.project?.hourlyRate) {
@@ -730,15 +678,9 @@ function generateTimeEntriesTable({
         } else {
           amount = duration * hourlyRate;
         }
+        if (isNaN(amount) || amount < 0) amount = 0;
         
-        // Ensure amount is valid
-        if (isNaN(amount) || amount < 0) {
-          amount = 0;
-        }
-        
-        console.log(`Entry ${entry.id} - Final amount: ${amount}`);
-        
-        // Format description without session count
+        // Format description
         let descriptionText = entry.description || "No description";
         
         // Conditionally include hourly rate column based on settings
@@ -763,7 +705,6 @@ function generateTimeEntriesTable({
     }
   }
   
-  console.log(`PDF Table Summary - Total hours: ${totalHours}, Subtotal: ${subtotal}`);
   
   // Generate the table with conditional headers and column styles
   const headers = settings.showHourlyRate !== false 

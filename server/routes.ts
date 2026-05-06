@@ -10,12 +10,13 @@ import {
   insertSettingsSchema,
   timeFormatEnum,
   roundingTypeEnum,
-  timeEntryUpdateSchema
+  timeEntryUpdateSchema,
+  timeEntries as timeEntriesTable,
 } from "@shared/schema";
 import { z } from "zod";
 import { format, addDays } from "date-fns";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import authRoutes from "./routes/auth";
 import profileRoutes from "./routes/profile";
@@ -1078,17 +1079,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'User not authenticated' });
       }
       
-      // Parse the invoice data
-      const data = insertInvoiceSchema.parse(req.body);
-      
-      // Add the user ID to the invoice data
-      const invoiceWithUser = {
-        ...data,
-        userId: userId
-      };
-      
-      // Create the invoice in storage
-      const invoice = await storage.createInvoice(invoiceWithUser);
+      // Extract timeEntryIds before Zod parsing (not in schema, used separately)
+      const { timeEntryIds, ...bodyRest } = req.body;
+
+      const data = insertInvoiceSchema.parse(bodyRest);
+      const invoice = await storage.createInvoice({ ...data, userId });
+
+      // Link time entries to this invoice
+      if (Array.isArray(timeEntryIds) && timeEntryIds.length > 0) {
+        await db.update(timeEntriesTable)
+          .set({ invoiceId: invoice.id })
+          .where(inArray(timeEntriesTable.id, timeEntryIds));
+      }
+
       res.status(201).json(invoice);
     } catch (error) {
       if (error instanceof z.ZodError) {

@@ -216,200 +216,230 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
     );
   }
 
+  const statusDot: Record<string, string> = {
+    draft: "bg-gray-400",
+    sent: "bg-blue-500",
+    paid: "bg-green-500",
+  };
+
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900">Edit Invoice</h2>
-          <p className="text-sm text-gray-500 mt-0.5">{client?.name || "Unknown Client"}</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${(statusConfig[status] || statusConfig.draft).className}`}>
+    <div className="flex flex-col">
+      {/* Colored header band */}
+      <div className="bg-gradient-to-r from-gray-900 to-gray-700 rounded-t-lg px-6 py-5 text-white">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">Invoice</p>
+            <h2 className="text-2xl font-bold tracking-tight">{invoiceNumber}</h2>
+            <p className="text-sm text-gray-300 mt-0.5">{client?.name || "Unknown Client"}</p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-white border border-white/20 hover:bg-white/10 gap-2">
+                  <span className={`w-2 h-2 rounded-full ${statusDot[status] || statusDot.draft}`} />
                   {(statusConfig[status] || statusConfig.draft).label}
-                </span>
-                <ChevronDown className="h-3 w-3 text-gray-500" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setStatus("draft")}>
-                <span className="w-2 h-2 rounded-full bg-gray-400 mr-2 flex-shrink-0" /> Draft
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatus("sent")}>
-                <Send className="h-3 w-3 mr-2 text-blue-500 flex-shrink-0" /> Sent
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatus("paid")}>
-                <DollarSign className="h-3 w-3 mr-2 text-green-500 flex-shrink-0" /> Paid
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button variant="outline" size="sm" onClick={exportPdf} disabled={isLoading}>
-            <FileDown className="h-4 w-4 mr-1" /> PDF
-          </Button>
-          <Button size="sm" onClick={saveInvoice} disabled={isLoading}>
-            <Save className="h-4 w-4 mr-1" /> Save
-          </Button>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-            <X className="h-4 w-4" />
-          </Button>
+                  <ChevronDown className="h-3 w-3 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setStatus("draft")}>
+                  <span className="w-2 h-2 rounded-full bg-gray-400 mr-2 flex-shrink-0" /> Draft
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatus("sent")}>
+                  <Send className="h-3 w-3 mr-2 text-blue-500 flex-shrink-0" /> Sent
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatus("paid")}>
+                  <DollarSign className="h-3 w-3 mr-2 text-green-500 flex-shrink-0" /> Paid
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="ghost" size="sm" onClick={exportPdf} disabled={isLoading} className="text-white border border-white/20 hover:bg-white/10">
+              <FileDown className="h-4 w-4 mr-1.5" /> PDF
+            </Button>
+            <Button size="sm" onClick={saveInvoice} disabled={isLoading} className="bg-white text-gray-900 hover:bg-gray-100 font-semibold">
+              <Save className="h-4 w-4 mr-1.5" /> Save
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onClose} className="text-white/60 hover:text-white hover:bg-white/10 h-8 w-8">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Summary strip */}
+        <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-3 gap-4 text-center">
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide">Issued</p>
+            <p className="text-sm font-medium mt-0.5">{issueDate || "—"}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide">Due</p>
+            <p className="text-sm font-medium mt-0.5">{dueDate || "—"}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide">Total</p>
+            <p className="text-lg font-bold mt-0.5">{formatCurrency(total, currency)}</p>
+          </div>
         </div>
       </div>
 
-      <Separator />
-
-      {/* Invoice Metadata */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <Label htmlFor="invoiceNumber" className="text-xs font-medium text-gray-600">Invoice Number</Label>
-          <Input id="invoiceNumber" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className="mt-1" />
-        </div>
-        <div>
-          <Label htmlFor="issueDate" className="text-xs font-medium text-gray-600">Issue Date</Label>
-          <Input id="issueDate" type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} className="mt-1" />
-        </div>
-        <div>
-          <Label htmlFor="dueDate" className="text-xs font-medium text-gray-600">Due Date</Label>
-          <Input id="dueDate" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="mt-1" />
-        </div>
-      </div>
-
-      {/* Client */}
-      {client && (
-        <div className="rounded-lg border bg-gray-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Bill To</p>
-          <p className="font-semibold text-gray-900">{client.name}</p>
-          {client.email && <p className="text-sm text-gray-600">{client.email}</p>}
-          {client.address && <p className="text-sm text-gray-600">{client.address}</p>}
-          {(client.city || client.state) && (
-            <p className="text-sm text-gray-600">{[client.city, client.state, client.zipCode].filter(Boolean).join(", ")}</p>
-          )}
-        </div>
-      )}
-
-      <Separator />
-
-      {/* Line Items */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-900">Line Items</h3>
-          <Button variant="outline" size="sm" onClick={addCustomLineItem}>
-            <Plus className="h-4 w-4 mr-1" /> Add Line Item
-          </Button>
-        </div>
-
-        <div className="rounded-lg border overflow-hidden">
-          <div className="hidden sm:grid grid-cols-12 bg-gray-50 border-b px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            <div className="col-span-5">Description</div>
-            <div className="col-span-2 text-center">Hours</div>
-            <div className="col-span-2 text-center">Rate</div>
-            <div className="col-span-2 text-right">Amount</div>
-            <div className="col-span-1" />
+      <div className="flex flex-col gap-6 p-6">
+        {/* Metadata + Client row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Invoice fields */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">Invoice Details</p>
+            <div>
+              <Label htmlFor="invoiceNumber" className="text-xs text-gray-500">Invoice Number</Label>
+              <Input id="invoiceNumber" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className="mt-1 h-9" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="issueDate" className="text-xs text-gray-500">Issue Date</Label>
+                <Input id="issueDate" type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} className="mt-1 h-9" />
+              </div>
+              <div>
+                <Label htmlFor="dueDate" className="text-xs text-gray-500">Due Date</Label>
+                <Input id="dueDate" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="mt-1 h-9" />
+              </div>
+            </div>
           </div>
 
-          {lineItems.length === 0 ? (
-            <div className="px-4 py-10 text-center">
-              <Clock className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-400">No line items found. Time entries for this invoice will appear here.</p>
+          {/* Client */}
+          {client && (
+            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Bill To</p>
+              <p className="font-semibold text-gray-900">{client.name}</p>
+              {client.email && <p className="text-sm text-gray-500 mt-0.5">{client.email}</p>}
+              {client.address && <p className="text-sm text-gray-500">{client.address}</p>}
+              {(client.city || client.state) && (
+                <p className="text-sm text-gray-500">{[client.city, client.state, client.zipCode].filter(Boolean).join(", ")}</p>
+              )}
             </div>
-          ) : (
-            lineItems.map((item, idx) => (
-              <div key={item.id} className={`grid grid-cols-12 items-center px-4 py-2.5 border-b last:border-b-0 gap-2 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}>
-                <div className="col-span-12 sm:col-span-5">
-                  <Input
-                    value={item.description}
-                    onChange={e => updateLineItem(item.id, "description", e.target.value)}
-                    className="h-8 text-sm"
-                    placeholder="Description"
-                  />
-                  {item.isTimeEntry && <span className="text-xs text-blue-500 ml-1">Time entry</span>}
+          )}
+        </div>
+
+        {/* Line Items */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">Line Items</p>
+            <Button variant="outline" size="sm" onClick={addCustomLineItem} className="h-8 text-xs gap-1">
+              <Plus className="h-3.5 w-3.5" /> Add Item
+            </Button>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 overflow-hidden">
+            <div className="hidden sm:grid grid-cols-12 bg-gray-50 border-b px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+              <div className="col-span-5">Description</div>
+              <div className="col-span-2 text-center">Hours</div>
+              <div className="col-span-2 text-center">Rate</div>
+              <div className="col-span-2 text-right">Amount</div>
+              <div className="col-span-1" />
+            </div>
+
+            {lineItems.length === 0 ? (
+              <div className="px-4 py-12 text-center">
+                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                  <Clock className="h-5 w-5 text-gray-400" />
                 </div>
-                <div className="col-span-4 sm:col-span-2">
-                  <Input
-                    type="number" step="0.01" min="0"
-                    value={item.hours ?? ""}
-                    onChange={e => updateLineItem(item.id, "hours", parseFloat(e.target.value) || 0)}
-                    className="h-8 text-sm text-center"
-                    placeholder="hrs"
-                  />
-                </div>
-                <div className="col-span-4 sm:col-span-2">
-                  <Input
-                    type="number" step="0.01" min="0"
-                    value={item.rate ?? ""}
-                    onChange={e => updateLineItem(item.id, "rate", parseFloat(e.target.value) || 0)}
-                    className="h-8 text-sm text-center"
-                    placeholder="rate"
-                  />
-                </div>
-                <div className="col-span-3 sm:col-span-2 text-right">
-                  {item.isTimeEntry ? (
-                    <span className="text-sm font-medium text-gray-900">{formatCurrency(item.amount, currency)}</span>
-                  ) : (
+                <p className="text-sm font-medium text-gray-500">No line items</p>
+                <p className="text-xs text-gray-400 mt-0.5">Time entries linked to this invoice will appear here.</p>
+              </div>
+            ) : (
+              lineItems.map((item, idx) => (
+                <div
+                  key={item.id}
+                  className={`grid grid-cols-12 items-center px-4 py-3 border-b last:border-b-0 gap-2 transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"}`}
+                >
+                  <div className="col-span-12 sm:col-span-5">
+                    <Input
+                      value={item.description}
+                      onChange={e => updateLineItem(item.id, "description", e.target.value)}
+                      className="h-8 text-sm border-gray-200 focus:border-gray-400"
+                      placeholder="Description"
+                    />
+                    {item.isTimeEntry && (
+                      <span className="text-xs text-blue-500 font-medium ml-1 mt-0.5 inline-block">Time entry</span>
+                    )}
+                  </div>
+                  <div className="col-span-4 sm:col-span-2">
                     <Input
                       type="number" step="0.01" min="0"
-                      value={item.amount}
-                      onChange={e => updateLineItem(item.id, "amount", parseFloat(e.target.value) || 0)}
-                      className="h-8 text-sm text-right"
+                      value={item.hours ?? ""}
+                      onChange={e => updateLineItem(item.id, "hours", parseFloat(e.target.value) || 0)}
+                      className="h-8 text-sm text-center border-gray-200"
+                      placeholder="0"
                     />
-                  )}
+                  </div>
+                  <div className="col-span-4 sm:col-span-2">
+                    <Input
+                      type="number" step="0.01" min="0"
+                      value={item.rate ?? ""}
+                      onChange={e => updateLineItem(item.id, "rate", parseFloat(e.target.value) || 0)}
+                      className="h-8 text-sm text-center border-gray-200"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="col-span-3 sm:col-span-2 text-right">
+                    {item.isTimeEntry ? (
+                      <span className="text-sm font-semibold text-gray-900">{formatCurrency(item.amount, currency)}</span>
+                    ) : (
+                      <Input
+                        type="number" step="0.01" min="0"
+                        value={item.amount}
+                        onChange={e => updateLineItem(item.id, "amount", parseFloat(e.target.value) || 0)}
+                        className="h-8 text-sm text-right border-gray-200"
+                      />
+                    )}
+                  </div>
+                  <div className="col-span-1 flex justify-end">
+                    <Button
+                      variant="ghost" size="icon"
+                      className="h-7 w-7 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors rounded-lg"
+                      onClick={() => removeLineItem(item.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="col-span-1 flex justify-end">
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-300 hover:text-red-500 transition-colors" onClick={() => removeLineItem(item.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Totals + Notes row */}
+        <div className="flex flex-col sm:flex-row gap-4 items-start">
+          {/* Notes */}
+          <div className="flex-1 w-full">
+            <Label htmlFor="notes" className="text-xs font-semibold uppercase tracking-widest text-gray-400">Notes</Label>
+            <Textarea
+              id="notes"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Payment terms, bank details, thank you message..."
+              className="mt-2 h-28 resize-none text-sm border-gray-200"
+            />
+          </div>
+
+          {/* Totals */}
+          <div className="w-full sm:w-64 shrink-0">
+            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Summary</p>
+            <div className="rounded-xl border border-gray-200 overflow-hidden">
+              <div className="px-4 py-3 flex justify-between text-sm text-gray-600">
+                <span>Subtotal</span>
+                <span className="font-medium text-gray-900">{formatCurrency(subtotal, currency)}</span>
               </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Totals */}
-      <div className="flex justify-end">
-        <div className="w-full sm:w-72 space-y-2 rounded-lg border p-4 bg-gray-50">
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>Subtotal</span>
-            <span className="font-medium">{formatCurrency(subtotal, currency)}</span>
-          </div>
-          {(taxEnabled || taxAmount > 0) && (
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>Tax{taxRate > 0 ? ` (${taxRate}%)` : ""}</span>
-              <span>{formatCurrency(taxAmount, currency)}</span>
+              {(taxEnabled || taxAmount > 0) && (
+                <div className="px-4 py-3 border-t flex justify-between text-sm text-gray-600">
+                  <span>Tax{taxRate > 0 ? ` (${taxRate}%)` : ""}</span>
+                  <span>{formatCurrency(taxAmount, currency)}</span>
+                </div>
+              )}
+              <div className="px-4 py-3 bg-gray-900 flex justify-between items-center">
+                <span className="text-sm font-semibold text-white">Total</span>
+                <span className="text-base font-bold text-white">{formatCurrency(total, currency)}</span>
+              </div>
             </div>
-          )}
-          <Separator />
-          <div className="flex justify-between font-bold text-gray-900">
-            <span>Total</span>
-            <span className="text-lg">{formatCurrency(total, currency)}</span>
           </div>
-        </div>
-      </div>
-
-      {/* Notes */}
-      <div>
-        <Label htmlFor="notes" className="text-xs font-medium text-gray-600">Notes / Payment Instructions</Label>
-        <Textarea
-          id="notes"
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-          placeholder="Payment terms, bank details, thank you message..."
-          className="mt-1 h-28 resize-none"
-        />
-      </div>
-
-      {/* Footer */}
-      <div className="flex justify-between items-center pt-2 border-t">
-        <Button variant="outline" onClick={onClose}>Cancel</Button>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={exportPdf} disabled={isLoading}>
-            <FileDown className="h-4 w-4 mr-1" /> Export PDF
-          </Button>
-          <Button onClick={saveInvoice} disabled={isLoading}>
-            <Save className="h-4 w-4 mr-1" /> Save Changes
-          </Button>
         </div>
       </div>
     </div>
