@@ -26,6 +26,64 @@ import { Settings } from "@shared/schema";
 import { generateInvoiceHTML, TEMPLATE_OPTIONS, TEMPLATE_COLOR_DEFAULTS, InvoiceTemplateData } from "@/lib/invoice-html-generator";
 import { format } from "date-fns";
 
+const CURRENCY_PRESETS = [
+  { code: "USD", symbol: "$",  label: "USD — US Dollar ($)" },
+  { code: "EUR", symbol: "€",  label: "EUR — Euro (€)" },
+  { code: "GBP", symbol: "£",  label: "GBP — British Pound (£)" },
+  { code: "JPY", symbol: "¥",  label: "JPY — Japanese Yen (¥)" },
+  { code: "CNY", symbol: "¥",  label: "CNY — Chinese Yuan (¥)" },
+];
+
+function formatPreviewQty(hours: number, timeFormat: string): string {
+  if (timeFormat === "time") {
+    const totalMinutes = Math.round(hours * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return `${h}:${m.toString().padStart(2, "0")}`;
+  }
+  return `${hours.toFixed(2)} h`;
+}
+
+function buildPaymentDetailsHtml(v: {
+  paymentMethodType?: string;
+  bankName?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankSortCode?: string;
+  iban?: string;
+  swift?: string;
+  routingNumber?: string;
+  paypalEmail?: string;
+  wiseEmail?: string;
+  otherPaymentInstructions?: string;
+}): string {
+  const type = v.paymentMethodType;
+  const lines: string[] = [];
+  if (type === "bank_transfer_eu") {
+    if (v.bankName) lines.push(`Bank: ${v.bankName}`);
+    if (v.bankAccountName) lines.push(`Account Name: ${v.bankAccountName}`);
+    if (v.iban) lines.push(`IBAN: ${v.iban}`);
+    if (v.swift) lines.push(`SWIFT/BIC: ${v.swift}`);
+  } else if (type === "bank_transfer_uk") {
+    if (v.bankName) lines.push(`Bank: ${v.bankName}`);
+    if (v.bankAccountName) lines.push(`Account Name: ${v.bankAccountName}`);
+    if (v.bankAccountNumber) lines.push(`Account No: ${v.bankAccountNumber}`);
+    if (v.bankSortCode) lines.push(`Sort Code: ${v.bankSortCode}`);
+  } else if (type === "bank_transfer_us") {
+    if (v.bankName) lines.push(`Bank: ${v.bankName}`);
+    if (v.bankAccountName) lines.push(`Account Name: ${v.bankAccountName}`);
+    if (v.bankAccountNumber) lines.push(`Account No: ${v.bankAccountNumber}`);
+    if (v.routingNumber) lines.push(`Routing No: ${v.routingNumber}`);
+  } else if (type === "paypal") {
+    if (v.paypalEmail) lines.push(`PayPal: ${v.paypalEmail}`);
+  } else if (type === "wise_payoneer") {
+    if (v.wiseEmail) lines.push(`Wise/Payoneer: ${v.wiseEmail}`);
+  } else if (type === "other") {
+    return v.otherPaymentInstructions || "";
+  }
+  return lines.join("<br>");
+}
+
 // Enhanced schema with invoice customization validation
 const settingsSchema = z.object({
   // Business Information
@@ -440,6 +498,7 @@ export default function SettingsPage() {
       showBankDetails: true,
       showFooterNotes: true,
       invoiceTemplate: "professional" as const,
+      showHourlyRate: true,
       enableWeeklyCategorization: true,
       showDateColumn: true,
     },
@@ -508,6 +567,7 @@ export default function SettingsPage() {
         showBankDetails: settings.showBankDetails ?? true,
         showFooterNotes: settings.showFooterNotes ?? true,
         invoiceTemplate: (settings.invoiceTemplate as "classic" | "professional" | "media" | "web" | "graphic" | "minimalistic" | "freelancer" | "avant" | "luxe") || "professional",
+        showHourlyRate: settings.showHourlyRate ?? true,
         enableWeeklyCategorization: settings.enableWeeklyCategorization ?? true,
         showDateColumn: settings.showDateColumn ?? true,
       };
@@ -602,6 +662,17 @@ export default function SettingsPage() {
   // Build live preview HTML for the selected template
   const settingsPreviewHtml = useMemo(() => {
     const currency = watchedValues.displayCurrency || "$";
+    const tf = watchedValues.defaultTimeFormat || "decimal";
+    const enableTax = watchedValues.enableTax ?? false;
+    const taxRate = parseFloat(watchedValues.defaultTaxRate?.toString() || "0") || 0;
+    const subtotal = 922.50;
+    const taxAmount = enableTax ? subtotal * taxRate / 100 : 0;
+    const total = subtotal + taxAmount;
+
+    const paymentHtml = watchedValues.showBankDetails
+      ? buildPaymentDetailsHtml(watchedValues)
+      : "";
+
     const data: InvoiceTemplateData = {
       template: watchedValues.invoiceTemplate || "professional",
       businessName: watchedValues.businessName || "Your Business",
@@ -611,7 +682,9 @@ export default function SettingsPage() {
       businessPhone: watchedValues.businessPhone || "",
       invoiceNumber: `INV-${watchedValues.nextInvoiceNumber || "001"}`,
       issueDate: format(new Date(), "MMMM d, yyyy"),
-      dueDate: format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), "MMMM d, yyyy"),
+      dueDate: watchedValues.showDueDate
+        ? format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")
+        : "",
       clientName: "Sample Client Co.",
       clientAddress: "123 Client Street",
       clientCity: "Client City",
@@ -619,14 +692,14 @@ export default function SettingsPage() {
       clientZip: "12345",
       clientEmail: "client@example.com",
       lineItems: [
-        { description: "Web Development", subDescription: "Project Alpha", qty: "8.5", rate: `${currency}75.00`, amount: `${currency}637.50` },
-        { description: "Design Review", subDescription: "UI/UX Pass", qty: "2.0", rate: `${currency}75.00`, amount: `${currency}150.00` },
-        { description: "Consultation", subDescription: "Strategy session", qty: "1.5", rate: `${currency}90.00`, amount: `${currency}135.00` },
+        { description: "Web Development", subDescription: "Project Alpha", qty: formatPreviewQty(8.5, tf), rate: `${currency}75.00`, amount: `${currency}637.50`, date: "Jan 15" },
+        { description: "Design Review", subDescription: "UI/UX Pass", qty: formatPreviewQty(2.0, tf), rate: `${currency}75.00`, amount: `${currency}150.00`, date: "Jan 17" },
+        { description: "Consultation", subDescription: "Strategy session", qty: formatPreviewQty(1.5, tf), rate: `${currency}90.00`, amount: `${currency}135.00`, date: "Jan 20" },
       ],
-      subtotalFormatted: "922.50",
-      taxFormatted: "0.00",
-      taxLabel: "Tax",
-      totalFormatted: "922.50",
+      subtotalFormatted: subtotal.toFixed(2),
+      taxFormatted: taxAmount.toFixed(2),
+      taxLabel: enableTax && taxRate > 0 ? `Tax (${taxRate}%)` : "Tax",
+      totalFormatted: total.toFixed(2),
       notes: "Thank you for your business. Payment due within 30 days.",
       currency,
       logoUrl: (watchedValues as any).companyLogo || undefined,
@@ -636,9 +709,28 @@ export default function SettingsPage() {
       accentColor: watchedValues.invoiceAccentColor || undefined,
       textColor: watchedValues.invoiceTextColor || undefined,
       bgColor: watchedValues.invoiceBackgroundColor || undefined,
+      showDateColumn: watchedValues.showDateColumn,
+      showHourlyRate: watchedValues.showHourlyRate,
+      paymentDetails: paymentHtml,
+      showPaymentDetails: watchedValues.showBankDetails && !!paymentHtml,
+      footerNotes: watchedValues.invoiceFooterText || "",
+      showFooterNotes: watchedValues.showFooterNotes ?? true,
     };
     return generateInvoiceHTML(data);
-  }, [watchedValues.invoiceTemplate, watchedValues.businessName, watchedValues.businessAddress, watchedValues.businessCity, watchedValues.businessState, watchedValues.businessEmail, watchedValues.businessPhone, watchedValues.displayCurrency, watchedValues.nextInvoiceNumber, (watchedValues as any).companyLogo, (watchedValues as any).showLogo, (watchedValues as any).logoSize, watchedValues.invoiceColorTheme, watchedValues.invoiceAccentColor, watchedValues.invoiceTextColor, watchedValues.invoiceBackgroundColor]);
+  }, [
+    watchedValues.invoiceTemplate, watchedValues.businessName, watchedValues.businessAddress,
+    watchedValues.businessCity, watchedValues.businessState, watchedValues.businessEmail,
+    watchedValues.businessPhone, watchedValues.displayCurrency, watchedValues.nextInvoiceNumber,
+    (watchedValues as any).companyLogo, (watchedValues as any).showLogo, (watchedValues as any).logoSize,
+    watchedValues.invoiceColorTheme, watchedValues.invoiceAccentColor, watchedValues.invoiceTextColor,
+    watchedValues.invoiceBackgroundColor, watchedValues.defaultTimeFormat, watchedValues.enableTax,
+    watchedValues.defaultTaxRate, watchedValues.showDueDate, watchedValues.showDateColumn,
+    watchedValues.showHourlyRate, watchedValues.showBankDetails, watchedValues.invoiceFooterText,
+    watchedValues.showFooterNotes, watchedValues.paymentMethodType, watchedValues.bankName,
+    watchedValues.bankAccountName, watchedValues.bankAccountNumber, watchedValues.bankSortCode,
+    watchedValues.iban, watchedValues.swift, watchedValues.routingNumber, watchedValues.paypalEmail,
+    watchedValues.wiseEmail, watchedValues.otherPaymentInstructions,
+  ]);
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({
@@ -1060,56 +1152,55 @@ export default function SettingsPage() {
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                           <div className="px-3 pb-3 space-y-2.5 border-t pt-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              <FormField
-                                control={form.control}
-                                name="nextInvoiceNumber"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-[11px] text-gray-500">Next Invoice #</FormLabel>
-                                    <FormControl>
-                                      <Input {...field} type="number" min="1" className="h-7 text-xs" />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name="displayCurrency"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-[11px] text-gray-500">Currency Symbol</FormLabel>
-                                    <FormControl>
-                                      <Input {...field} placeholder="$" className="h-7 text-xs" />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
                             <FormField
                               control={form.control}
-                              name="defaultCurrency"
+                              name="nextInvoiceNumber"
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel className="text-[11px] text-gray-500">Default Currency</FormLabel>
-                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                      <SelectTrigger className="h-7 text-xs">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                      <SelectItem value="USD">USD</SelectItem>
-                                      <SelectItem value="EUR">EUR</SelectItem>
-                                      <SelectItem value="GBP">GBP</SelectItem>
-                                      <SelectItem value="CAD">CAD</SelectItem>
-                                      <SelectItem value="AUD">AUD</SelectItem>
-                                      <SelectItem value="JPY">JPY</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                  <FormLabel className="text-[11px] text-gray-500">Next Invoice #</FormLabel>
+                                  <FormControl>
+                                    <Input {...field} type="number" min="1" className="h-7 text-xs" />
+                                  </FormControl>
                                 </FormItem>
                               )}
                             />
+                            {/* Currency — unified preset + custom picker */}
+                            <FormItem>
+                              <FormLabel className="text-[11px] text-gray-500">Currency</FormLabel>
+                              <Select
+                                value={CURRENCY_PRESETS.find(p => p.code === watchedValues.defaultCurrency) ? watchedValues.defaultCurrency : "custom"}
+                                onValueChange={(value) => {
+                                  const preset = CURRENCY_PRESETS.find(p => p.code === value);
+                                  if (preset) {
+                                    form.setValue("defaultCurrency", preset.code, { shouldDirty: true });
+                                    form.setValue("displayCurrency", preset.symbol, { shouldDirty: true });
+                                  } else {
+                                    form.setValue("defaultCurrency", "CUSTOM", { shouldDirty: true });
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="h-7 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {CURRENCY_PRESETS.map(p => (
+                                    <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>
+                                  ))}
+                                  <SelectItem value="custom">Custom</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {!CURRENCY_PRESETS.find(p => p.code === watchedValues.defaultCurrency) && (
+                                <FormField
+                                  control={form.control}
+                                  name="displayCurrency"
+                                  render={({ field }) => (
+                                    <FormControl>
+                                      <Input {...field} placeholder="e.g. kr, R, ₹" className="h-7 text-xs mt-1.5" />
+                                    </FormControl>
+                                  )}
+                                />
+                              )}
+                            </FormItem>
                             <FormField
                               control={form.control}
                               name="defaultTimeFormat"
@@ -1132,8 +1223,34 @@ export default function SettingsPage() {
                             />
                             <div className="space-y-1.5 pt-0.5">
                               <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Field Visibility</p>
+                              {/* Enable Tax — standalone so rate field appears right below it */}
+                              <FormField
+                                control={form.control}
+                                name="enableTax"
+                                render={({ field }) => (
+                                  <FormItem className="flex items-center justify-between py-0.5">
+                                    <FormLabel className="text-xs font-normal cursor-pointer">Enable Tax</FormLabel>
+                                    <FormControl>
+                                      <Switch checked={!!field.value} onCheckedChange={field.onChange} />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              {watchedValues.enableTax && (
+                                <FormField
+                                  control={form.control}
+                                  name="defaultTaxRate"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-[11px] text-gray-500">Tax Rate (%)</FormLabel>
+                                      <FormControl>
+                                        <Input {...field} type="number" step="0.01" min="0" max="100" className="h-7 text-xs" />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                              )}
                               {[
-                                { name: "enableTax" as const, label: "Enable Tax" },
                                 { name: "showDueDate" as const, label: "Show Due Date" },
                                 { name: "showHourlyRate" as const, label: "Show Hourly Rate" },
                                 { name: "enableWeeklyCategorization" as const, label: "Weekly Grouping" },
@@ -1153,20 +1270,6 @@ export default function SettingsPage() {
                                   )}
                                 />
                               ))}
-                              {watchedValues.enableTax && (
-                                <FormField
-                                  control={form.control}
-                                  name="defaultTaxRate"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel className="text-[11px] text-gray-500">Tax Rate (%)</FormLabel>
-                                      <FormControl>
-                                        <Input {...field} type="number" step="0.01" min="0" max="100" className="h-7 text-xs" />
-                                      </FormControl>
-                                    </FormItem>
-                                  )}
-                                />
-                              )}
                             </div>
                           </div>
                         </CollapsibleContent>

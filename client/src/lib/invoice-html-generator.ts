@@ -4,6 +4,7 @@ export interface InvoiceLineItem {
   qty: string;
   rate: string;
   amount: string;
+  date?: string;
 }
 
 export interface InvoiceTemplateData {
@@ -36,6 +37,12 @@ export interface InvoiceTemplateData {
   accentColor?: string;
   textColor?: string;
   bgColor?: string;
+  showDateColumn?: boolean;
+  showHourlyRate?: boolean;
+  paymentDetails?: string;
+  showPaymentDetails?: boolean;
+  footerNotes?: string;
+  showFooterNotes?: boolean;
 }
 
 export const TEMPLATE_OPTIONS = [
@@ -288,6 +295,9 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
     .map((w) => (w[0] || "").toUpperCase())
     .join("");
 
+  const showDate = data.showDateColumn === true;
+  const showRate = data.showHourlyRate !== false;
+
   const lineItemsHTML = data.lineItems
     .map(
       (item) => `
@@ -296,8 +306,9 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
         <span class="item-title">${esc(item.description)}</span>
         ${item.subDescription ? `<span class="item-sub">${esc(item.subDescription)}</span>` : ""}
       </td>
+      ${showDate ? `<td>${esc(item.date || "")}</td>` : ""}
       <td>${esc(item.qty)}</td>
-      <td>${esc(item.rate)}</td>
+      ${showRate ? `<td>${esc(item.rate)}</td>` : ""}
       <td>${esc(item.amount)}</td>
     </tr>`
     )
@@ -402,8 +413,9 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
       <thead>
         <tr>
           <th>Description</th>
+          ${showDate ? "<th>Date</th>" : ""}
           <th>Hours</th>
-          <th>Rate</th>
+          ${showRate ? "<th>Rate</th>" : ""}
           <th>Amount</th>
         </tr>
       </thead>
@@ -414,8 +426,19 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
 
     <div class="summary">
       <div class="terms">
-        <h4>Payment Terms</h4>
-        Payment is due by the stated due date. Please include the invoice number on your remittance.
+        ${(() => {
+          const parts: string[] = [];
+          if (data.showPaymentDetails !== false && data.paymentDetails) {
+            parts.push(`<h4>Payment Details</h4><p style="margin:4px 0 0;font-size:10.5px;line-height:1.75;">${data.paymentDetails}</p>`);
+          }
+          if (data.showFooterNotes !== false && data.footerNotes) {
+            parts.push(`<div style="font-size:10.5px;line-height:1.75;">${data.footerNotes}</div>`);
+          }
+          if (parts.length === 0) {
+            return `<h4>Payment Terms</h4>Payment is due by the stated due date. Please include the invoice number on your remittance.`;
+          }
+          return parts.join('<div style="margin:6px 0;border-top:1px solid var(--line);"></div>');
+        })()}
       </div>
       <div class="totals">
         <div class="total-row"><span>Subtotal</span><strong>${esc(data.currency)} ${esc(data.subtotalFormatted)}</strong></div>

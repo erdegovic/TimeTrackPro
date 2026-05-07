@@ -263,6 +263,36 @@ export default function InvoicePreview({
 
     const s = activeSettings;
     const c = activeClient;
+
+    const paymentDetails = (() => {
+      if (!(s as any)?.showBankDetails) return "";
+      const type = (s as any)?.paymentMethodType;
+      const lines: string[] = [];
+      if (type === "bank_transfer_eu") {
+        if ((s as any)?.bankName) lines.push(`Bank: ${(s as any).bankName}`);
+        if ((s as any)?.bankAccountName) lines.push(`Account Name: ${(s as any).bankAccountName}`);
+        if ((s as any)?.iban) lines.push(`IBAN: ${(s as any).iban}`);
+        if ((s as any)?.swift) lines.push(`SWIFT/BIC: ${(s as any).swift}`);
+      } else if (type === "bank_transfer_uk") {
+        if ((s as any)?.bankName) lines.push(`Bank: ${(s as any).bankName}`);
+        if ((s as any)?.bankAccountName) lines.push(`Account Name: ${(s as any).bankAccountName}`);
+        if ((s as any)?.bankAccountNumber) lines.push(`Account No: ${(s as any).bankAccountNumber}`);
+        if ((s as any)?.bankSortCode) lines.push(`Sort Code: ${(s as any).bankSortCode}`);
+      } else if (type === "bank_transfer_us") {
+        if ((s as any)?.bankName) lines.push(`Bank: ${(s as any).bankName}`);
+        if ((s as any)?.bankAccountName) lines.push(`Account Name: ${(s as any).bankAccountName}`);
+        if ((s as any)?.bankAccountNumber) lines.push(`Account No: ${(s as any).bankAccountNumber}`);
+        if ((s as any)?.routingNumber) lines.push(`Routing No: ${(s as any).routingNumber}`);
+      } else if (type === "paypal") {
+        if ((s as any)?.paypalEmail) lines.push(`PayPal: ${(s as any).paypalEmail}`);
+      } else if (type === "wise_payoneer") {
+        if ((s as any)?.wiseEmail) lines.push(`Wise/Payoneer: ${(s as any).wiseEmail}`);
+      } else if (type === "other") {
+        return (s as any)?.otherPaymentInstructions || "";
+      }
+      return lines.join("<br>");
+    })();
+
     return {
       template: s?.invoiceTemplate || "professional",
       businessName: s?.businessName || "Your Business",
@@ -293,6 +323,12 @@ export default function InvoicePreview({
       accentColor: (s as any)?.invoiceAccentColor || undefined,
       textColor: (s as any)?.invoiceTextColor || undefined,
       bgColor: (s as any)?.invoiceBackgroundColor || undefined,
+      showDateColumn: (s as any)?.showDateColumn === true,
+      showHourlyRate: (s as any)?.showHourlyRate !== false,
+      paymentDetails,
+      showPaymentDetails: !!(s as any)?.showBankDetails && !!paymentDetails,
+      footerNotes: (s as any)?.invoiceFooterText || "",
+      showFooterNotes: (s as any)?.showFooterNotes !== false,
     };
   }, [editableEntries, additionalItems, notes, activeSettings, activeClient, invoiceNumber, propInvoiceNumber, subtotal, taxRate, enableTax, issueDate, dueDate, showDueDate, reportData, getAdditionalItemsTotal]);
 
