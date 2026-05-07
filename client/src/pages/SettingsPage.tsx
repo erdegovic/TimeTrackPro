@@ -23,7 +23,7 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Settings } from "@shared/schema";
-import { generateInvoiceHTML, TEMPLATE_OPTIONS, InvoiceTemplateData } from "@/lib/invoice-html-generator";
+import { generateInvoiceHTML, TEMPLATE_OPTIONS, TEMPLATE_COLOR_DEFAULTS, InvoiceTemplateData } from "@/lib/invoice-html-generator";
 import { format } from "date-fns";
 
 // Enhanced schema with invoice customization validation
@@ -89,50 +89,6 @@ const settingsSchema = z.object({
 type SettingsFormData = z.infer<typeof settingsSchema>;
 
 // Predefined color palettes
-const colorPalettes = [
-  {
-    name: "Professional Blue",
-    primary: "#1f2937",
-    accent: "#3b82f6",
-    text: "#374151",
-    background: "#ffffff"
-  },
-  {
-    name: "Modern Green",
-    primary: "#065f46",
-    accent: "#10b981",
-    text: "#1f2937",
-    background: "#ffffff"
-  },
-  {
-    name: "Creative Purple",
-    primary: "#581c87",
-    accent: "#8b5cf6",
-    text: "#374151",
-    background: "#ffffff"
-  },
-  {
-    name: "Bold Red",
-    primary: "#991b1b",
-    accent: "#ef4444",
-    text: "#374151",
-    background: "#ffffff"
-  },
-  {
-    name: "Elegant Black",
-    primary: "#000000",
-    accent: "#6b7280",
-    text: "#1f2937",
-    background: "#ffffff"
-  },
-  {
-    name: "Warm Orange",
-    primary: "#ea580c",
-    accent: "#f97316",
-    text: "#374151",
-    background: "#ffffff"
-  }
-];
 
 
 interface CollapsibleSection {
@@ -488,8 +444,8 @@ export default function SettingsPage() {
       showLogo: true,
       logoSize: "64",
       showBusinessName: true,
-      invoiceColorTheme: "#1f2937",
-      invoiceAccentColor: "#3b82f6",
+      invoiceColorTheme: TEMPLATE_COLOR_DEFAULTS["professional"].primary,
+      invoiceAccentColor: TEMPLATE_COLOR_DEFAULTS["professional"].accent || TEMPLATE_COLOR_DEFAULTS["professional"].primary,
       invoiceTextColor: "#374151",
       invoiceBackgroundColor: "#ffffff",
       customFontSize: "12",
@@ -541,8 +497,23 @@ export default function SettingsPage() {
         showLogo: settings.showLogo ?? true,
         logoSize: settings.logoSize || "64",
         showBusinessName: settings.showBusinessName ?? true,
-        invoiceColorTheme: settings.invoiceColorTheme || "#1f2937",
-        invoiceAccentColor: settings.invoiceAccentColor || "#3b82f6",
+        invoiceColorTheme: (() => {
+          const stored = settings.invoiceColorTheme;
+          if (!stored || stored === "#1f2937" || stored === "#3b82f6") {
+            const tpl = settings.invoiceTemplate || "professional";
+            return TEMPLATE_COLOR_DEFAULTS[tpl]?.primary || "#12283d";
+          }
+          return stored;
+        })(),
+        invoiceAccentColor: (() => {
+          const stored = settings.invoiceAccentColor;
+          if (!stored || stored === "#3b82f6" || stored === "#1f2937") {
+            const tpl = settings.invoiceTemplate || "professional";
+            const def = TEMPLATE_COLOR_DEFAULTS[tpl];
+            return def?.accent || def?.primary || "#12283d";
+          }
+          return stored;
+        })(),
         invoiceTextColor: settings.invoiceTextColor || "#374151",
         invoiceBackgroundColor: settings.invoiceBackgroundColor || "#ffffff",
         customFontSize: settings.customFontSize || "12",
@@ -618,17 +589,28 @@ export default function SettingsPage() {
     }
   };
 
-  // Apply color palette
-  const applyColorPalette = (palette: typeof colorPalettes[0]) => {
-    form.setValue("invoiceColorTheme", palette.primary);
-    form.setValue("invoiceAccentColor", palette.accent);
-    form.setValue("invoiceTextColor", palette.text);
-    form.setValue("invoiceBackgroundColor", palette.background);
-    
-    toast({
-      title: "Color palette applied",
-      description: `${palette.name} theme has been applied to your invoice`,
-    });
+  // When template changes, auto-reset colors to that template's original defaults
+  const isInitialColorMount = useRef(true);
+  useEffect(() => {
+    if (isInitialColorMount.current) {
+      isInitialColorMount.current = false;
+      return;
+    }
+    const tpl = watchedValues.invoiceTemplate;
+    const def = TEMPLATE_COLOR_DEFAULTS[tpl];
+    if (def) {
+      form.setValue("invoiceColorTheme", def.primary);
+      form.setValue("invoiceAccentColor", def.accent || def.primary);
+    }
+  }, [watchedValues.invoiceTemplate]);
+
+  const resetColorsToDefault = () => {
+    const tpl = watchedValues.invoiceTemplate;
+    const def = TEMPLATE_COLOR_DEFAULTS[tpl];
+    if (def) {
+      form.setValue("invoiceColorTheme", def.primary);
+      form.setValue("invoiceAccentColor", def.accent || def.primary);
+    }
   };
 
   // Build live preview HTML for the selected template
@@ -1635,119 +1617,90 @@ export default function SettingsPage() {
 
                           {/* Color Themes */}
                           {section.id === "colors" && (
-                            <div className="space-y-3">
-                              <div>
-                                <Label className="text-xs font-medium">Quick Palettes</Label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                                  {colorPalettes.map((palette) => (
-                                    <Button
-                                      key={palette.name}
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => applyColorPalette(palette)}
-                                      className="h-auto p-2 flex flex-col gap-1"
-                                    >
-                                      <div className="flex gap-1">
-                                        <div 
-                                          className="w-3 h-3 rounded-full border" 
-                                          style={{ backgroundColor: palette.primary }} 
-                                        />
-                                        <div 
-                                          className="w-3 h-3 rounded-full border" 
-                                          style={{ backgroundColor: palette.accent }} 
-                                        />
-                                      </div>
-                                      <span className="text-xs">{palette.name}</span>
-                                    </Button>
-                                  ))}
-                                </div>
-                              </div>
-
-                              <Separator />
-
-                              <div className="space-y-3">
-                                <FormField
-                                  control={form.control}
-                                  name="invoiceColorTheme"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel className="text-xs">Primary Color</FormLabel>
-                                      <div className="flex gap-2">
-                                        <FormControl>
-                                          <Input {...field} type="color" className="w-10 h-8 p-1 cursor-pointer" />
-                                        </FormControl>
-                                        <FormControl>
-                                          <Input {...field} placeholder="#1f2937" className="flex-1 h-8 text-sm" />
-                                        </FormControl>
-                                      </div>
-                                      <FormMessage className="text-xs" />
-                                    </FormItem>
-                                  )}
-                                />
-                                
-                                <FormField
-                                  control={form.control}
-                                  name="invoiceAccentColor"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel className="text-xs">Accent Color</FormLabel>
-                                      <div className="flex gap-2">
-                                        <FormControl>
-                                          <Input {...field} type="color" className="w-10 h-8 p-1 cursor-pointer" />
-                                        </FormControl>
-                                        <FormControl>
-                                          <Input {...field} placeholder="#3b82f6" className="flex-1 h-8 text-sm" />
-                                        </FormControl>
-                                      </div>
-                                      <FormMessage className="text-xs" />
-                                    </FormItem>
-                                  )}
-                                />
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Color Themes */}
-                          {section.id === "colors" && (
-                            <div className="space-y-3">
-                              <FormField
-                                control={form.control}
-                                name="invoiceTextColor"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Text Color</FormLabel>
-                                    <div className="flex gap-2">
-                                      <FormControl>
-                                        <Input {...field} type="color" className="w-10 h-8 p-1 cursor-pointer" />
-                                      </FormControl>
-                                      <FormControl>
-                                        <Input {...field} placeholder="#374151" className="flex-1 h-8 text-sm" />
-                                      </FormControl>
+                            <div className="space-y-4">
+                              {(() => {
+                                const tpl = watchedValues.invoiceTemplate || "professional";
+                                const def = TEMPLATE_COLOR_DEFAULTS[tpl];
+                                const templateLabel = TEMPLATE_OPTIONS.find(t => t.value === tpl)?.label || tpl;
+                                const hasAccent = !!def?.accentLabel;
+                                return (
+                                  <>
+                                    <div className="flex items-center justify-between">
+                                      <p className="text-xs text-muted-foreground">
+                                        Adjust the accent colors for the <span className="font-medium text-foreground">{templateLabel}</span> template. Switching templates resets these to the original design.
+                                      </p>
                                     </div>
-                                    <FormMessage className="text-xs" />
-                                  </FormItem>
-                                )}
-                              />
-                              
-                              <FormField
-                                control={form.control}
-                                name="invoiceBackgroundColor"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Background Color</FormLabel>
-                                    <div className="flex gap-2">
-                                      <FormControl>
-                                        <Input {...field} type="color" className="w-10 h-8 p-1 cursor-pointer" />
-                                      </FormControl>
-                                      <FormControl>
-                                        <Input {...field} placeholder="#ffffff" className="flex-1 h-8 text-sm" />
-                                      </FormControl>
+
+                                    <div className={`grid gap-3 ${hasAccent ? "grid-cols-2" : "grid-cols-1"}`}>
+                                      <FormField
+                                        control={form.control}
+                                        name="invoiceColorTheme"
+                                        render={({ field }) => (
+                                          <FormItem>
+                                            <FormLabel className="text-xs">{def?.primaryLabel || "Primary Color"}</FormLabel>
+                                            <div className="flex gap-2 items-center">
+                                              <FormControl>
+                                                <Input {...field} type="color" className="w-9 h-8 p-0.5 cursor-pointer rounded" />
+                                              </FormControl>
+                                              <FormControl>
+                                                <Input {...field} placeholder={def?.primary || "#000000"} className="flex-1 h-8 text-xs font-mono" />
+                                              </FormControl>
+                                            </div>
+                                            <FormMessage className="text-xs" />
+                                          </FormItem>
+                                        )}
+                                      />
+
+                                      {hasAccent && (
+                                        <FormField
+                                          control={form.control}
+                                          name="invoiceAccentColor"
+                                          render={({ field }) => (
+                                            <FormItem>
+                                              <FormLabel className="text-xs">{def?.accentLabel}</FormLabel>
+                                              <div className="flex gap-2 items-center">
+                                                <FormControl>
+                                                  <Input {...field} type="color" className="w-9 h-8 p-0.5 cursor-pointer rounded" />
+                                                </FormControl>
+                                                <FormControl>
+                                                  <Input {...field} placeholder={def?.accent || "#000000"} className="flex-1 h-8 text-xs font-mono" />
+                                                </FormControl>
+                                              </div>
+                                              <FormMessage className="text-xs" />
+                                            </FormItem>
+                                          )}
+                                        />
+                                      )}
                                     </div>
-                                    <FormMessage className="text-xs" />
-                                  </FormItem>
-                                )}
-                              />
+
+                                    <div className="flex items-center gap-2 pt-1">
+                                      <div className="flex gap-1.5">
+                                        <div
+                                          className="w-5 h-5 rounded border border-gray-200"
+                                          style={{ background: watchedValues.invoiceColorTheme }}
+                                          title={def?.primaryLabel}
+                                        />
+                                        {hasAccent && (
+                                          <div
+                                            className="w-5 h-5 rounded border border-gray-200"
+                                            style={{ background: watchedValues.invoiceAccentColor }}
+                                            title={def?.accentLabel}
+                                          />
+                                        )}
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-xs text-muted-foreground hover:text-foreground px-2"
+                                        onClick={resetColorsToDefault}
+                                      >
+                                        Reset to original
+                                      </Button>
+                                    </div>
+                                  </>
+                                );
+                              })()}
                             </div>
                           )}
 

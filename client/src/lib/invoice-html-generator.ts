@@ -49,6 +49,24 @@ export const TEMPLATE_OPTIONS = [
   { value: "avant", label: "Playful Pop Creative" },
 ];
 
+export interface TemplateColorConfig {
+  primary: string;
+  accent?: string;
+  primaryLabel: string;
+  accentLabel?: string;
+}
+
+export const TEMPLATE_COLOR_DEFAULTS: Record<string, TemplateColorConfig> = {
+  classic:      { primary: "#7c6242", accent: "#c8a96e", primaryLabel: "Primary Tone",  accentLabel: "Border Accent" },
+  professional: { primary: "#12283d",                   primaryLabel: "Brand Color" },
+  media:        { primary: "#f04f5f", accent: "#ffd166", primaryLabel: "Header Color",  accentLabel: "Total Block" },
+  web:          { primary: "#2d6cdf",                   primaryLabel: "Accent Color" },
+  graphic:      { primary: "#101418", accent: "#ff5a40", primaryLabel: "Dark Panel",    accentLabel: "Pop Color" },
+  minimalistic: { primary: "#161616",                   primaryLabel: "Accent" },
+  freelancer:   { primary: "#24816e", accent: "#ffd166", primaryLabel: "Brand Color",   accentLabel: "Pop Accent" },
+  avant:        { primary: "#ff6b6b", accent: "#06d6a0", primaryLabel: "Color A",       accentLabel: "Color B" },
+};
+
 function esc(str: string): string {
   if (!str) return "";
   return str
@@ -414,112 +432,89 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
 }
 
 function buildColorOverrideCSS(data: InvoiceTemplateData): string {
-  const { template, primaryColor: p, accentColor: a, bgColor } = data;
+  const { template, primaryColor: p, accentColor: a } = data;
   if (!p) return "";
-
   const acc = a || p;
 
-  let css = `
-    .${template} .grand-total { background: ${p} !important; color: #fff !important; }
-    .${template} th { background: ${p} !important; color: #fff !important; }
-    .${template} .mark { background: ${p} !important; }
-    .${template} .billing-block { border-top-color: ${p} !important; }
-  `;
-
   switch (template) {
+    case "classic":
+      return `
+        .classic .mark { background: ${p} !important; }
+        .classic .invoice-number { color: ${p} !important; }
+        .classic th { color: ${p} !important; background: #efe7d9 !important; }
+        .classic .grand-total { background: ${p} !important; }
+      `;
     case "professional":
-      css += `
+      return `
         .professional .sidebar { background: ${p} !important; }
         .professional .topline { border-bottom-color: ${p} !important; }
+        .professional .mark { background: ${p} !important; }
+        .professional .invoice-title { color: ${p} !important; }
         .professional .meta-card { border-left-color: ${p} !important; }
+        .professional th { background: ${p} !important; }
+        .professional .grand-total { background: ${p} !important; }
       `;
-      break;
-    case "classic":
-      css += `
-        .classic { border-color: ${acc} !important; }
-        .classic .inner-border { border-color: ${acc}88 !important; }
-        .classic .invoice-title { color: ${p} !important; }
-        .classic .invoice-number { color: ${p} !important; }
-        .classic th { background: transparent !important; color: ${p} !important; }
-      `;
-      break;
     case "media":
-      css += `
+      return `
         .media .topline { background: ${p} !important; }
         .media .mark { color: ${p} !important; background: #fff !important; }
         .media th { background: ${p} !important; }
-        .media .label { color: ${acc} !important; }
-        .media .grand-total { background: ${acc} !important; color: #111 !important; }
         .media .billing-block { border-top-color: ${p} !important; }
+        .media .grand-total { background: ${acc} !important; color: #25222b !important; }
       `;
-      break;
     case "web":
-      css += `
+      return `
         .web .mark { background: ${p} !important; }
         .web .invoice-title { color: ${p} !important; }
-        .web .meta-card { border-color: ${acc} !important; }
-        .web .topline { border-color: ${acc} !important; }
-        .web .billing-grid { border-color: ${acc} !important; }
-        .web .summary { border-color: ${acc} !important; }
-        .web th { background: transparent !important; color: ${p} !important; border-top: none; }
+        .web .topline { border-color: ${p}44 !important; box-shadow: 0 14px 36px ${p}1f !important; }
+        .web .meta-card { border-color: ${p}44 !important; }
+        .web .billing-grid { border-color: ${p}44 !important; }
+        .web table { border-color: ${p}44 !important; }
+        .web .summary { border-color: ${p}44 !important; }
+        .web th { color: ${p} !important; background: ${p}14 !important; }
+        .web tbody tr:nth-child(even) td { background: ${p}0b !important; }
+        .web .grand-total { background: ${p} !important; }
       `;
-      break;
     case "graphic":
-      css += `
+      return `
         .graphic { background: linear-gradient(90deg,${p} 0 26mm,transparent 26mm), linear-gradient(153deg,transparent 0 58%,${acc}28 58% 77%,transparent 77%), #ffffff !important; }
-        .graphic .design-label { color: rgba(255,255,255,0.85) !important; }
-        .graphic .meta-grid { border-color: ${p} !important; }
-        .graphic .meta-card { border-color: ${p} !important; }
-        .graphic .grand-total { background: ${acc} !important; }
         .graphic .mark { background: ${acc} !important; }
-        .graphic .meta-card:last-child { background: ${acc}22 !important; }
+        .graphic .meta-grid { border-color: ${p} !important; }
+        .graphic .meta-card { border-right-color: ${p} !important; border-color: ${p} !important; }
+        .graphic .meta-card:last-child { background: ${acc}18 !important; border-right: 0 !important; }
+        .graphic th { background: ${p} !important; }
+        .graphic td { border-color: ${p} !important; }
+        .graphic .grand-total { background: ${acc} !important; }
       `;
-      break;
     case "minimalistic":
-      css += `
+      return `
         .minimalistic .mark { background: ${p} !important; }
-        .minimalistic .grand-total { background: ${p} !important; }
-        .minimalistic th { border-bottom-color: ${p} !important; background: transparent !important; color: var(--muted) !important; }
         .minimalistic .billing-block { border-top-color: ${p} !important; }
+        .minimalistic th { border-bottom-color: ${p} !important; }
+        .minimalistic .grand-total { background: ${p} !important; }
       `;
-      break;
     case "freelancer":
-      css += `
+      return `
         .freelancer .topline { border-color: ${p} !important; }
-        .freelancer .meta-card { border-color: ${p} !important; }
+        .freelancer .mark { background: ${p} !important; }
         .freelancer .invoice-title { color: ${p} !important; }
-        .freelancer .grand-total { background: ${p} !important; box-shadow: 4px 4px 0 ${acc} !important; }
-        .freelancer th { color: ${p} !important; background: transparent !important; border-bottom-color: ${p} !important; }
+        .freelancer .meta-card { border-color: ${p} !important; }
         .freelancer .billing-block { border-top-color: ${p} !important; }
+        .freelancer th { color: ${p} !important; border-bottom-color: ${p} !important; }
+        .freelancer .grand-total { background: ${p} !important; box-shadow: 4px 4px 0 ${acc} !important; }
       `;
-      break;
     case "avant":
-      css += `
-        .avant .color-bar { background: ${p} !important; }
-        .avant .topline { box-shadow: 7px 7px 0 ${acc} !important; border-color: ${p} !important; }
-        .avant .mark { background: ${p} !important; }
-        .avant th { background: ${acc} !important; border-color: ${p} !important; }
-        .avant .grand-total { background: ${acc} !important; border-color: ${p} !important; box-shadow: 5px 5px 0 ${p} !important; }
-        .avant .creative-badge { background: ${acc} !important; border-color: ${p} !important; }
+      return `
+        .avant .color-bar { background: linear-gradient(90deg,${p} 0 21%,${acc} 21% 42%,${acc}bb 42% 63%,#4361ee 63% 82%,#1b1b1f 82%) !important; }
+        .avant .topline { box-shadow: 7px 7px 0 ${acc} !important; }
+        .avant .mark { background: ${p} !important; box-shadow: 4px 4px 0 ${acc} !important; }
+        .avant th { background: ${acc} !important; }
+        .avant .creative-badge { background: ${acc} !important; }
+        .avant .grand-total { background: ${acc} !important; box-shadow: 5px 5px 0 ${p} !important; }
       `;
-      break;
-    case "luxe":
-      css += `
-        .luxe .luxe-header-bg-dark { background: linear-gradient(120deg,${p} 0 44%,transparent 44%) !important; }
-        .luxe .meta-card:nth-child(1) { border-bottom-color: ${p} !important; }
-        .luxe .meta-card:nth-child(2) { border-bottom-color: ${acc} !important; }
-        .luxe .grand-total { background: ${p} !important; }
-        .luxe .luxe-memo { background: ${acc} !important; }
-        .luxe .invoice-number { color: ${p} !important; }
-      `;
-      break;
+    default:
+      return "";
   }
-
-  if (bgColor && bgColor !== "#ffffff") {
-    css += `body, .invoice-page.${template} { background: ${bgColor} !important; }`;
-  }
-
-  return css;
 }
 
 export function generateInvoiceHTML(data: InvoiceTemplateData): string {
