@@ -98,20 +98,6 @@ interface CollapsibleSection {
   description: string;
 }
 
-const customizationSections: CollapsibleSection[] = [
-  {
-    id: "branding",
-    title: "Logo & Branding",
-    icon: <BrushIcon className="h-4 w-4" />,
-    description: "Upload logo and customize colors"
-  },
-  {
-    id: "colors",
-    title: "Color Themes",
-    icon: <Palette className="h-4 w-4" />,
-    description: "Choose invoice color palette"
-  }
-];
 
 // Enhanced Rich Text Editor Component
 const EnhancedRichTextEditor = ({ value, onChange, placeholder }: { 
@@ -402,7 +388,7 @@ export default function SettingsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("business");
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set(["branding", "footer"]));
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(["branding"]));
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch current settings
@@ -709,25 +695,14 @@ export default function SettingsPage() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
-              <TabsTrigger value="business" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-                <Building className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Business</span>
-                <span className="sm:hidden">Info</span>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="business" className="flex items-center gap-2 text-sm">
+                <Building className="h-4 w-4" />
+                Business
               </TabsTrigger>
-              <TabsTrigger value="invoice" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-                <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Invoice Settings</span>
-                <span className="sm:hidden">Invoice</span>
-              </TabsTrigger>
-              <TabsTrigger value="customization" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-                <Palette className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Invoice Customization</span>
-                <span className="sm:hidden">Custom</span>
-              </TabsTrigger>
-              <TabsTrigger value="preview" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-                <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
-                Preview
+              <TabsTrigger value="invoice" className="flex items-center gap-2 text-sm">
+                <FileText className="h-4 w-4" />
+                Invoice
               </TabsTrigger>
             </TabsList>
 
@@ -878,887 +853,534 @@ export default function SettingsPage() {
 
             </TabsContent>
 
-            {/* Invoice Settings Tab */}
-            <TabsContent value="invoice" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Invoice Configuration</CardTitle>
-                  <CardDescription>
-                    Configure default invoice settings and numbering
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="nextInvoiceNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Next Invoice Number</FormLabel>
-                          <FormControl>
-                            <Input {...field} type="number" min="1" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="defaultCurrency"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Currency</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select currency" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="USD">USD - US Dollar</SelectItem>
-                              <SelectItem value="EUR">EUR - Euro</SelectItem>
-                              <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                              <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
-                              <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
-                              <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="displayCurrency"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Currency Symbol</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="$" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+            {/* Invoice Tab - Merged split-screen */}
+            <TabsContent value="invoice" className="mt-0 p-0">
+              <div
+                className="flex flex-col lg:flex-row border rounded-lg overflow-hidden"
+                style={{ height: "calc(100vh - 230px)", minHeight: "600px" }}
+              >
+                {/* ── Left: scrollable controls ─────────────────────────── */}
+                <div className="w-full lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r bg-gray-50/80 overflow-y-auto flex flex-col">
+                  <div className="p-3 space-y-2">
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="defaultTimeFormat"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Time Format</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="decimal">Decimal (1.5 hours)</SelectItem>
-                              <SelectItem value="time">Time (1:30)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <Separator />
-
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Field Settings</h3>
-                    
-                    <FormField
-                      control={form.control}
-                      name="enableTax"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Enable Tax</FormLabel>
-                            <div className="text-sm text-gray-600">
-                              Add tax calculations to invoices
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    {watchedValues.enableTax && (
-                      <FormField
-                        control={form.control}
-                        name="defaultTaxRate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Default Tax Rate (%)</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="number" step="0.01" min="0" max="100" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="showDueDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Show Due Date</FormLabel>
-                          <div className="text-sm text-gray-600">
-                            Display due date on invoices
-                          </div>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                    <FormField
-                      control={form.control}
-                      name="enableWeeklyCategorization"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Weekly Categorization</FormLabel>
-                            <div className="text-sm text-gray-600">
-                              Group report entries by weeks within the month. When disabled, all entries are grouped together for the selected date range.
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="showDateColumn"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Show Date Column</FormLabel>
-                            <div className="text-sm text-gray-600">
-                              Display the date column in reports. When disabled, dates are hidden to save space when filtering by specific dates.
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="showHourlyRate"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Show Hourly Rate</FormLabel>
-                            <div className="text-sm text-gray-600">
-                              Display the hourly rate column in invoices. When disabled, only time and amounts are shown.
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                </CardContent>
-              </Card>
-
-
-
-              {/* Payment Details Section */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <div>
-                    <CardTitle className="text-xl font-semibold">Payment Details</CardTitle>
-                    <p className="text-sm text-gray-600">Configure payment information that appears on invoices</p>
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name="showBankDetails"
-                    render={({ field }) => (
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    )}
-                  />
-                </CardHeader>
-                <CardContent className={`space-y-6 ${!watchedValues.showBankDetails ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <div className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="paymentMethodType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Payment Method Type</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select payment method" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="bank_transfer_eu">Bank Transfer (EU) - IBAN/SWIFT</SelectItem>
-                              <SelectItem value="bank_transfer_uk">Bank Transfer (UK) - Sort Code</SelectItem>
-                              <SelectItem value="bank_transfer_us">Bank Transfer (US) - Routing Number</SelectItem>
-                              <SelectItem value="paypal">PayPal</SelectItem>
-                              <SelectItem value="wise_payoneer">Wise / Payoneer</SelectItem>
-                              <SelectItem value="other">Other (Custom Instructions)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    {/* Dynamic Fields Based on Payment Method */}
-                    {watchedValues.paymentMethodType === "bank_transfer_eu" && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="iban"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>IBAN</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="GB82 WEST 1234 5698 7654 32" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="swift"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>SWIFT/BIC</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="WESTGB2L" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="bankName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Bank Name</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Bank Name" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="bankAccountName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Account Name</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Your Business Name" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    )}
-
-                    {watchedValues.paymentMethodType === "bank_transfer_uk" && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="bankAccountNumber"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Account Number</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="12345678" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="bankSortCode"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Sort Code</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="12-34-56" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="bankName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Bank Name</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Bank Name" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="bankAccountName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Account Name</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Your Business Name" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    )}
-
-                    {watchedValues.paymentMethodType === "bank_transfer_us" && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="bankAccountNumber"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Account Number</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="123456789" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="routingNumber"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Routing Number</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="021000021" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="bankName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Bank Name</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Bank Name" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="bankAccountName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Account Name</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Your Business Name" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    )}
-
-                    {watchedValues.paymentMethodType === "paypal" && (
-                      <FormField
-                        control={form.control}
-                        name="paypalEmail"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>PayPal Email</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="email" placeholder="your@paypal.com" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-
-                    {watchedValues.paymentMethodType === "wise_payoneer" && (
-                      <FormField
-                        control={form.control}
-                        name="wiseEmail"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Wise/Payoneer Email or Profile Link</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="your@wise.com or profile link" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-
-                    {watchedValues.paymentMethodType === "other" && (
-                      <FormField
-                        control={form.control}
-                        name="otherPaymentInstructions"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Payment Instructions</FormLabel>
-                            <FormControl>
-                              <RichTextEditor
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                                placeholder="Enter your custom payment instructions..."
-                              />
-                            </FormControl>
-                            <FormMessage />
-                            <p className="text-xs text-gray-500 mt-2">
-                              Select text and use the toolbar buttons to apply bold, italic, or underline formatting
-                            </p>
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Invoice Footer Notes Section */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <div>
-                    <CardTitle className="text-xl font-semibold">Invoice Footer Notes</CardTitle>
-                    <p className="text-sm text-gray-600">Add custom content at the bottom of your invoices</p>
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name="showFooterNotes"
-                    render={({ field }) => (
-                      <FormControl>
-                        <Switch
-                          checked={field.value ?? true}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    )}
-                  />
-                </CardHeader>
-                <CardContent className={`space-y-4 ${!(watchedValues.showFooterNotes ?? true) ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <FormField
-                    control={form.control}
-                    name="invoiceFooterText"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Footer Content</FormLabel>
-                        <FormControl>
-                          <EnhancedRichTextEditor
-                            value={field.value || ""}
-                            onChange={field.onChange}
-                            placeholder="Add payment terms, thank you message, contact info, or any other footer content..."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                        <p className="text-xs text-gray-500 mt-2">
-                          Use the toolbar to format text, add lists, alignment, and dividers. This content will appear at the bottom of your invoices.
-                        </p>
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Invoice Customization Tab - Split Screen */}
-            <TabsContent value="customization" className="space-y-0">
-              <div className="min-h-[500px] flex flex-col lg:flex-row border rounded-lg overflow-hidden gap-4 lg:gap-0">
-                {/* Customization Panel */}
-                <div className="w-full lg:w-96 border-b lg:border-b-0 lg:border-r bg-gray-50 overflow-y-auto max-h-96 lg:max-h-none">
-                  <div className="p-4">
-                    <h3 className="font-semibold flex items-center gap-2 text-lg mb-6">
-                      <Zap className="h-5 w-5" />
-                      Live Customization
-                    </h3>
-                  
-                    <div className="space-y-4">
-                    {/* Template Style */}
-                    <div className="bg-white rounded-lg border-2 p-4 shadow-sm">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="text-blue-600">
-                          <Type className="h-4 w-4" />
-                        </div>
-                        <div className="text-left">
-                          <div className="font-semibold text-lg text-blue-900 bg-gradient-to-r from-blue-100 to-blue-200 px-3 py-1 rounded-md border border-blue-300">Template Style</div>
-                          <div className="text-xs text-gray-600">Choose your invoice template</div>
-                        </div>
-                      </div>
+                    {/* Template & Colors ─ always visible */}
+                    <div className="bg-white rounded-md border p-3 space-y-3">
+                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Type className="h-3 w-3" /> Template &amp; Colors
+                      </p>
                       <FormField
                         control={form.control}
                         name="invoiceTemplate"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-sm font-medium">Choose Template</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
-                                <SelectTrigger className="h-10 text-sm bg-white border-2 hover:border-blue-300 transition-colors">
+                                <SelectTrigger className="h-8 text-xs">
                                   <SelectValue />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
                                 {TEMPLATE_OPTIONS.map((opt) => (
-                                  <SelectItem key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </SelectItem>
+                                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
-
-                            <FormMessage className="text-xs" />
                           </FormItem>
                         )}
                       />
-                    </div>
-
-                    {customizationSections.map((section) => (
-                      <div key={section.id} className="bg-white rounded-lg border-2 p-4 shadow-sm">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className={`${
-                            section.id === "branding" ? "text-purple-600" : "text-green-600"
-                          }`}>
-                            {section.icon}
-                          </div>
-                          <div className="text-left">
-                            <div className={`font-semibold text-lg px-3 py-1 rounded-md border ${
-                              section.id === "branding" 
-                                ? "text-purple-900 bg-gradient-to-r from-purple-100 to-purple-200 border-purple-300" 
-                                : "text-green-900 bg-gradient-to-r from-green-100 to-green-200 border-green-300"
-                            }`}>{section.title}</div>
-                            <div className="text-xs text-gray-600">{section.description}</div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-4">
-                          {/* Logo & Branding */}
-                          {section.id === "branding" && (
-                            <div className="space-y-3">
-                              <FormField
-                                control={form.control}
-                                name="showLogo"
-                                render={({ field }) => (
-                                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                                    <div className="space-y-0.5">
-                                      <FormLabel className="text-xs font-medium">Show Logo</FormLabel>
-                                      <div className="text-xs text-gray-600">
-                                        Display logo on invoices
-                                      </div>
-                                    </div>
+                      {(() => {
+                        const tpl = watchedValues.invoiceTemplate || "professional";
+                        const def = TEMPLATE_COLOR_DEFAULTS[tpl];
+                        const hasAccent = !!def?.accentLabel;
+                        return (
+                          <div className={`grid gap-2 ${hasAccent ? "grid-cols-2" : "grid-cols-1"}`}>
+                            <FormField
+                              control={form.control}
+                              name="invoiceColorTheme"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-[11px] text-gray-500">{def?.primaryLabel || "Primary"}</FormLabel>
+                                  <div className="flex gap-1 items-center">
                                     <FormControl>
-                                      <Switch
-                                        checked={field.value}
-                                        onCheckedChange={field.onChange}
-                                      />
+                                      <Input {...field} type="color" className="w-8 h-7 p-0.5 cursor-pointer rounded shrink-0 border" />
                                     </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={form.control}
-                                name="showBusinessName"
-                                render={({ field }) => (
-                                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                                    <div className="space-y-0.5">
-                                      <FormLabel className="text-xs font-medium">Show Business Name</FormLabel>
-                                      <div className="text-xs text-gray-600">
-                                        Display business name on invoices
-                                      </div>
-                                    </div>
                                     <FormControl>
-                                      <Switch
-                                        checked={field.value}
-                                        onCheckedChange={field.onChange}
-                                      />
+                                      <Input {...field} className="flex-1 h-7 text-[11px] font-mono px-2" />
                                     </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-
-
-
-                              <div className="space-y-2">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => fileInputRef.current?.click()}
-                                  className="w-full"
-                                >
-                                  <Upload className="h-3 w-3 mr-2" />
-                                  Upload Logo
-                                </Button>
-                                <p className="text-xs text-gray-600 text-center">
-                                  PNG, JPG, GIF (max 2MB)
-                                </p>
-
-                                <input
-                                  ref={fileInputRef}
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={handleLogoUpload}
-                                  className="hidden"
-                                />
-
-                                {logoPreview && (
-                                  <div className="space-y-3">
-                                    <div className="relative">
-                                      <img
-                                        src={logoPreview}
-                                        alt="Logo Preview"
-                                        className="w-full object-contain border rounded"
-                                        style={{ maxHeight: `${watchedValues.logoSize}px` }}
-                                      />
-                                      <Button
-                                        type="button"
-                                        variant="destructive"
-                                        size="sm"
-                                        onClick={removeLogo}
-                                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0"
-                                      >
-                                        <X className="h-2 w-2" />
-                                      </Button>
-                                    </div>
-                                    
-                                    <FormField
-                                      control={form.control}
-                                      name="logoSize"
-                                      render={({ field }) => (
-                                        <FormItem>
-                                          <FormLabel className="text-xs font-medium">Logo Size</FormLabel>
-                                          <div className="space-y-2">
-                                            <FormControl>
-                                              <input
-                                                type="range"
-                                                min="32"
-                                                max="128"
-                                                step="8"
-                                                value={field.value}
-                                                onChange={(e) => field.onChange(e.target.value)}
-                                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                                              />
-                                            </FormControl>
-                                            <div className="flex justify-between text-xs text-gray-500">
-                                              <span>Small (32px)</span>
-                                              <span>{field.value}px</span>
-                                              <span>Large (128px)</span>
-                                            </div>
-                                          </div>
-                                          <FormMessage className="text-xs" />
-                                        </FormItem>
-                                      )}
-                                    />
                                   </div>
+                                </FormItem>
+                              )}
+                            />
+                            {hasAccent && (
+                              <FormField
+                                control={form.control}
+                                name="invoiceAccentColor"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-[11px] text-gray-500">{def?.accentLabel}</FormLabel>
+                                    <div className="flex gap-1 items-center">
+                                      <FormControl>
+                                        <Input {...field} type="color" className="w-8 h-7 p-0.5 cursor-pointer rounded shrink-0 border" />
+                                      </FormControl>
+                                      <FormControl>
+                                        <Input {...field} className="flex-1 h-7 text-[11px] font-mono px-2" />
+                                      </FormControl>
+                                    </div>
+                                  </FormItem>
                                 )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Color Themes */}
-                          {section.id === "colors" && (
-                            <div className="space-y-4">
-                              {(() => {
-                                const tpl = watchedValues.invoiceTemplate || "professional";
-                                const def = TEMPLATE_COLOR_DEFAULTS[tpl];
-                                const templateLabel = TEMPLATE_OPTIONS.find(t => t.value === tpl)?.label || tpl;
-                                const hasAccent = !!def?.accentLabel;
-                                return (
-                                  <>
-                                    <div className="flex items-center justify-between">
-                                      <p className="text-xs text-muted-foreground">
-                                        Adjust the accent colors for the <span className="font-medium text-foreground">{templateLabel}</span> template. Switching templates resets these to the original design.
-                                      </p>
-                                    </div>
-
-                                    <div className={`grid gap-3 ${hasAccent ? "grid-cols-2" : "grid-cols-1"}`}>
-                                      <FormField
-                                        control={form.control}
-                                        name="invoiceColorTheme"
-                                        render={({ field }) => (
-                                          <FormItem>
-                                            <FormLabel className="text-xs">{def?.primaryLabel || "Primary Color"}</FormLabel>
-                                            <div className="flex gap-2 items-center">
-                                              <FormControl>
-                                                <Input {...field} type="color" className="w-9 h-8 p-0.5 cursor-pointer rounded" />
-                                              </FormControl>
-                                              <FormControl>
-                                                <Input {...field} placeholder={def?.primary || "#000000"} className="flex-1 h-8 text-xs font-mono" />
-                                              </FormControl>
-                                            </div>
-                                            <FormMessage className="text-xs" />
-                                          </FormItem>
-                                        )}
-                                      />
-
-                                      {hasAccent && (
-                                        <FormField
-                                          control={form.control}
-                                          name="invoiceAccentColor"
-                                          render={({ field }) => (
-                                            <FormItem>
-                                              <FormLabel className="text-xs">{def?.accentLabel}</FormLabel>
-                                              <div className="flex gap-2 items-center">
-                                                <FormControl>
-                                                  <Input {...field} type="color" className="w-9 h-8 p-0.5 cursor-pointer rounded" />
-                                                </FormControl>
-                                                <FormControl>
-                                                  <Input {...field} placeholder={def?.accent || "#000000"} className="flex-1 h-8 text-xs font-mono" />
-                                                </FormControl>
-                                              </div>
-                                              <FormMessage className="text-xs" />
-                                            </FormItem>
-                                          )}
-                                        />
-                                      )}
-                                    </div>
-
-                                    <div className="flex items-center gap-2 pt-1">
-                                      <div className="flex gap-1.5">
-                                        <div
-                                          className="w-5 h-5 rounded border border-gray-200"
-                                          style={{ background: watchedValues.invoiceColorTheme }}
-                                          title={def?.primaryLabel}
-                                        />
-                                        {hasAccent && (
-                                          <div
-                                            className="w-5 h-5 rounded border border-gray-200"
-                                            style={{ background: watchedValues.invoiceAccentColor }}
-                                            title={def?.accentLabel}
-                                          />
-                                        )}
-                                      </div>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 text-xs text-muted-foreground hover:text-foreground px-2"
-                                        onClick={resetColorsToDefault}
-                                      >
-                                        Reset to original
-                                      </Button>
-                                    </div>
-                                  </>
-                                );
-                              })()}
-                            </div>
-                          )}
-
-                        </div>
-                      </div>
-                    ))}
+                              />
+                            )}
+                          </div>
+                        );
+                      })()}
+                      <button
+                        type="button"
+                        onClick={resetColorsToDefault}
+                        className="text-[11px] text-gray-400 hover:text-gray-600 underline underline-offset-2"
+                      >
+                        Reset to template defaults
+                      </button>
                     </div>
+
+                    {/* Logo & Branding ─ collapsible */}
+                    <div className="bg-white rounded-md border overflow-hidden">
+                      <Collapsible
+                        open={openSections.has("branding")}
+                        onOpenChange={(o) => { const s = new Set(openSections); o ? s.add("branding") : s.delete("branding"); setOpenSections(s); }}
+                      >
+                        <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-gray-50 transition-colors">
+                          <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <BrushIcon className="h-3 w-3" /> Logo &amp; Branding
+                          </span>
+                          <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${openSections.has("branding") ? "rotate-180" : ""}`} />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="px-3 pb-3 space-y-2 border-t pt-2">
+                            <FormField
+                              control={form.control}
+                              name="showLogo"
+                              render={({ field }) => (
+                                <FormItem className="flex items-center justify-between">
+                                  <FormLabel className="text-xs font-normal cursor-pointer">Show Logo</FormLabel>
+                                  <FormControl>
+                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="showBusinessName"
+                              render={({ field }) => (
+                                <FormItem className="flex items-center justify-between">
+                                  <FormLabel className="text-xs font-normal cursor-pointer">Show Business Name</FormLabel>
+                                  <FormControl>
+                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                            <div className="pt-1 space-y-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="w-full h-8 text-xs"
+                              >
+                                <Upload className="h-3 w-3 mr-1.5" />
+                                Upload Logo
+                              </Button>
+                              <p className="text-[11px] text-gray-400 text-center">PNG, JPG, GIF — max 2 MB</p>
+                              <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handleLogoUpload}
+                                className="hidden"
+                              />
+                              {logoPreview && (
+                                <div className="space-y-2">
+                                  <div className="relative">
+                                    <img
+                                      src={logoPreview}
+                                      alt="Logo Preview"
+                                      className="w-full object-contain border rounded"
+                                      style={{ maxHeight: `${watchedValues.logoSize}px` }}
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="destructive"
+                                      size="sm"
+                                      onClick={removeLogo}
+                                      className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0"
+                                    >
+                                      <X className="h-2 w-2" />
+                                    </Button>
+                                  </div>
+                                  <FormField
+                                    control={form.control}
+                                    name="logoSize"
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel className="text-[11px] text-gray-500">Logo Size — {field.value}px</FormLabel>
+                                        <FormControl>
+                                          <input
+                                            type="range"
+                                            min="32"
+                                            max="128"
+                                            step="8"
+                                            value={field.value}
+                                            onChange={(e) => field.onChange(e.target.value)}
+                                            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                          />
+                                        </FormControl>
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+
+                    {/* Invoice Config ─ collapsible */}
+                    <div className="bg-white rounded-md border overflow-hidden">
+                      <Collapsible
+                        open={openSections.has("config")}
+                        onOpenChange={(o) => { const s = new Set(openSections); o ? s.add("config") : s.delete("config"); setOpenSections(s); }}
+                      >
+                        <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-gray-50 transition-colors">
+                          <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <FileText className="h-3 w-3" /> Invoice Config
+                          </span>
+                          <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${openSections.has("config") ? "rotate-180" : ""}`} />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="px-3 pb-3 space-y-2.5 border-t pt-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <FormField
+                                control={form.control}
+                                name="nextInvoiceNumber"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-[11px] text-gray-500">Next Invoice #</FormLabel>
+                                    <FormControl>
+                                      <Input {...field} type="number" min="1" className="h-7 text-xs" />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="displayCurrency"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-[11px] text-gray-500">Currency Symbol</FormLabel>
+                                    <FormControl>
+                                      <Input {...field} placeholder="$" className="h-7 text-xs" />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                            <FormField
+                              control={form.control}
+                              name="defaultCurrency"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-[11px] text-gray-500">Default Currency</FormLabel>
+                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                      <SelectTrigger className="h-7 text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="USD">USD</SelectItem>
+                                      <SelectItem value="EUR">EUR</SelectItem>
+                                      <SelectItem value="GBP">GBP</SelectItem>
+                                      <SelectItem value="CAD">CAD</SelectItem>
+                                      <SelectItem value="AUD">AUD</SelectItem>
+                                      <SelectItem value="JPY">JPY</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="defaultTimeFormat"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-[11px] text-gray-500">Time Format</FormLabel>
+                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                      <SelectTrigger className="h-7 text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="decimal">Decimal (1.5 h)</SelectItem>
+                                      <SelectItem value="time">Time (1:30)</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </FormItem>
+                              )}
+                            />
+                            <div className="space-y-1.5 pt-0.5">
+                              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Field Visibility</p>
+                              {[
+                                { name: "enableTax" as const, label: "Enable Tax" },
+                                { name: "showDueDate" as const, label: "Show Due Date" },
+                                { name: "showHourlyRate" as const, label: "Show Hourly Rate" },
+                                { name: "enableWeeklyCategorization" as const, label: "Weekly Grouping" },
+                                { name: "showDateColumn" as const, label: "Show Date Column" },
+                              ].map(({ name, label }) => (
+                                <FormField
+                                  key={name}
+                                  control={form.control}
+                                  name={name}
+                                  render={({ field }) => (
+                                    <FormItem className="flex items-center justify-between py-0.5">
+                                      <FormLabel className="text-xs font-normal cursor-pointer">{label}</FormLabel>
+                                      <FormControl>
+                                        <Switch checked={!!field.value} onCheckedChange={field.onChange} />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                              ))}
+                              {watchedValues.enableTax && (
+                                <FormField
+                                  control={form.control}
+                                  name="defaultTaxRate"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-[11px] text-gray-500">Tax Rate (%)</FormLabel>
+                                      <FormControl>
+                                        <Input {...field} type="number" step="0.01" min="0" max="100" className="h-7 text-xs" />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+
+                    {/* Payment Details ─ collapsible */}
+                    <div className="bg-white rounded-md border overflow-hidden">
+                      <Collapsible
+                        open={openSections.has("payment")}
+                        onOpenChange={(o) => { const s = new Set(openSections); o ? s.add("payment") : s.delete("payment"); setOpenSections(s); }}
+                      >
+                        <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
+                          <CollapsibleTrigger className="flex-1 text-left">
+                            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <CreditCard className="h-3 w-3" /> Payment Details
+                            </span>
+                          </CollapsibleTrigger>
+                          <div className="flex items-center gap-2">
+                            <FormField
+                              control={form.control}
+                              name="showBankDetails"
+                              render={({ field }) => (
+                                <FormControl>
+                                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                </FormControl>
+                              )}
+                            />
+                            <CollapsibleTrigger>
+                              <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${openSections.has("payment") ? "rotate-180" : ""}`} />
+                            </CollapsibleTrigger>
+                          </div>
+                        </div>
+                        <CollapsibleContent>
+                          <div className={`px-3 pb-3 space-y-2.5 border-t pt-2 ${!watchedValues.showBankDetails ? "opacity-50 pointer-events-none" : ""}`}>
+                            <FormField
+                              control={form.control}
+                              name="paymentMethodType"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-[11px] text-gray-500">Method</FormLabel>
+                                  <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                      <SelectTrigger className="h-7 text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="bank_transfer_eu">Bank Transfer (EU)</SelectItem>
+                                      <SelectItem value="bank_transfer_uk">Bank Transfer (UK)</SelectItem>
+                                      <SelectItem value="bank_transfer_us">Bank Transfer (US)</SelectItem>
+                                      <SelectItem value="paypal">PayPal</SelectItem>
+                                      <SelectItem value="wise_payoneer">Wise / Payoneer</SelectItem>
+                                      <SelectItem value="other">Other</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </FormItem>
+                              )}
+                            />
+                            {watchedValues.paymentMethodType === "bank_transfer_eu" && (
+                              <div className="space-y-2">
+                                {[
+                                  { name: "iban" as const, label: "IBAN", placeholder: "GB82 WEST 1234..." },
+                                  { name: "swift" as const, label: "SWIFT/BIC", placeholder: "WESTGB2L" },
+                                  { name: "bankName" as const, label: "Bank Name", placeholder: "Bank Name" },
+                                  { name: "bankAccountName" as const, label: "Account Name", placeholder: "Your Business" },
+                                ].map(({ name, label, placeholder }) => (
+                                  <FormField key={name} control={form.control} name={name} render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-[11px] text-gray-500">{label}</FormLabel>
+                                      <FormControl><Input {...field} placeholder={placeholder} className="h-7 text-xs" /></FormControl>
+                                    </FormItem>
+                                  )} />
+                                ))}
+                              </div>
+                            )}
+                            {watchedValues.paymentMethodType === "bank_transfer_uk" && (
+                              <div className="space-y-2">
+                                {[
+                                  { name: "bankAccountNumber" as const, label: "Account Number", placeholder: "12345678" },
+                                  { name: "bankSortCode" as const, label: "Sort Code", placeholder: "12-34-56" },
+                                  { name: "bankName" as const, label: "Bank Name", placeholder: "Bank Name" },
+                                  { name: "bankAccountName" as const, label: "Account Name", placeholder: "Your Business" },
+                                ].map(({ name, label, placeholder }) => (
+                                  <FormField key={name} control={form.control} name={name} render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-[11px] text-gray-500">{label}</FormLabel>
+                                      <FormControl><Input {...field} placeholder={placeholder} className="h-7 text-xs" /></FormControl>
+                                    </FormItem>
+                                  )} />
+                                ))}
+                              </div>
+                            )}
+                            {watchedValues.paymentMethodType === "bank_transfer_us" && (
+                              <div className="space-y-2">
+                                {[
+                                  { name: "bankAccountNumber" as const, label: "Account Number", placeholder: "123456789" },
+                                  { name: "routingNumber" as const, label: "Routing Number", placeholder: "021000021" },
+                                  { name: "bankName" as const, label: "Bank Name", placeholder: "Bank Name" },
+                                  { name: "bankAccountName" as const, label: "Account Name", placeholder: "Your Business" },
+                                ].map(({ name, label, placeholder }) => (
+                                  <FormField key={name} control={form.control} name={name} render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-[11px] text-gray-500">{label}</FormLabel>
+                                      <FormControl><Input {...field} placeholder={placeholder} className="h-7 text-xs" /></FormControl>
+                                    </FormItem>
+                                  )} />
+                                ))}
+                              </div>
+                            )}
+                            {watchedValues.paymentMethodType === "paypal" && (
+                              <FormField control={form.control} name="paypalEmail" render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-[11px] text-gray-500">PayPal Email</FormLabel>
+                                  <FormControl><Input {...field} type="email" placeholder="your@paypal.com" className="h-7 text-xs" /></FormControl>
+                                </FormItem>
+                              )} />
+                            )}
+                            {watchedValues.paymentMethodType === "wise_payoneer" && (
+                              <FormField control={form.control} name="wiseEmail" render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-[11px] text-gray-500">Wise/Payoneer Email</FormLabel>
+                                  <FormControl><Input {...field} placeholder="your@wise.com" className="h-7 text-xs" /></FormControl>
+                                </FormItem>
+                              )} />
+                            )}
+                            {watchedValues.paymentMethodType === "other" && (
+                              <FormField control={form.control} name="otherPaymentInstructions" render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-[11px] text-gray-500">Payment Instructions</FormLabel>
+                                  <FormControl>
+                                    <RichTextEditor
+                                      value={field.value || ""}
+                                      onChange={field.onChange}
+                                      placeholder="Custom payment instructions..."
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )} />
+                            )}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+
+                    {/* Footer Notes ─ collapsible */}
+                    <div className="bg-white rounded-md border overflow-hidden">
+                      <Collapsible
+                        open={openSections.has("footer")}
+                        onOpenChange={(o) => { const s = new Set(openSections); o ? s.add("footer") : s.delete("footer"); setOpenSections(s); }}
+                      >
+                        <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
+                          <CollapsibleTrigger className="flex-1 text-left">
+                            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <FileText className="h-3 w-3" /> Footer Notes
+                            </span>
+                          </CollapsibleTrigger>
+                          <div className="flex items-center gap-2">
+                            <FormField
+                              control={form.control}
+                              name="showFooterNotes"
+                              render={({ field }) => (
+                                <FormControl>
+                                  <Switch checked={field.value ?? true} onCheckedChange={field.onChange} />
+                                </FormControl>
+                              )}
+                            />
+                            <CollapsibleTrigger>
+                              <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${openSections.has("footer") ? "rotate-180" : ""}`} />
+                            </CollapsibleTrigger>
+                          </div>
+                        </div>
+                        <CollapsibleContent>
+                          <div className={`px-3 pb-3 border-t pt-2 ${!(watchedValues.showFooterNotes ?? true) ? "opacity-50 pointer-events-none" : ""}`}>
+                            <FormField
+                              control={form.control}
+                              name="invoiceFooterText"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <EnhancedRichTextEditor
+                                      value={field.value || ""}
+                                      onChange={field.onChange}
+                                      placeholder="Terms, thank-you message, contact info..."
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+
                   </div>
                 </div>
 
-                {/* Live Preview */}
-                <div className="flex-1 p-6 bg-gray-100 overflow-y-auto">
-                  <div className="max-w-3xl mx-auto">
-                    <div className="mb-4 flex items-center gap-2 text-sm text-gray-600">
-                      <Zap className="h-4 w-4" />
-                      Live Preview — {TEMPLATE_OPTIONS.find(t => t.value === watchedValues.invoiceTemplate)?.label || watchedValues.invoiceTemplate} template
-                    </div>
-                    <div style={{ background: "#f1f3f5", borderRadius: "8px", padding: "16px", overflowX: "auto" }}>
-                      <div style={{ width: "794px", transformOrigin: "top left", transform: "scale(0.65)", marginBottom: "-393px" }}>
-                        <iframe
-                          srcDoc={settingsPreviewHtml}
-                          width="794"
-                          height="1123"
-                          style={{ border: "none", display: "block", width: "794px", height: "1123px" }}
-                          title="Invoice Template Live Preview"
-                        />
-                      </div>
-                    </div>
+                {/* ── Right: Live Preview ───────────────────────────────── */}
+                <div className="flex-1 overflow-y-auto bg-gray-100 p-4">
+                  <div className="text-xs text-gray-500 mb-3 flex items-center gap-1.5">
+                    <Zap className="h-3.5 w-3.5" />
+                    Live Preview — {TEMPLATE_OPTIONS.find(t => t.value === watchedValues.invoiceTemplate)?.label || watchedValues.invoiceTemplate} template
+                  </div>
+                  <div style={{ width: "794px", transformOrigin: "top left", transform: "scale(0.65)", marginBottom: "-393px" }}>
+                    <iframe
+                      srcDoc={settingsPreviewHtml}
+                      width="794"
+                      height="1123"
+                      style={{ border: "none", display: "block", width: "794px", height: "1123px" }}
+                      title="Invoice Live Preview"
+                    />
                   </div>
                 </div>
               </div>
-            </TabsContent>
-
-            {/* Preview Tab */}
-            <TabsContent value="preview" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Invoice Preview</CardTitle>
-                  <CardDescription>
-                    See how your selected template looks with your business details
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex justify-center">
-                    <div style={{ background: "#f1f3f5", borderRadius: "8px", padding: "16px", overflowX: "auto", width: "100%" }}>
-                      <div style={{ width: "794px", transformOrigin: "top left", transform: "scale(0.72)", marginBottom: "-322px", margin: "0 auto" }}>
-                        <iframe
-                          srcDoc={settingsPreviewHtml}
-                          width="794"
-                          height="1123"
-                          style={{ border: "none", display: "block", width: "794px", height: "1123px" }}
-                          title="Invoice Preview"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
             </TabsContent>
           </Tabs>
 
