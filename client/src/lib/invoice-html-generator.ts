@@ -47,7 +47,6 @@ export const TEMPLATE_OPTIONS = [
   { value: "minimalistic", label: "Minimalistic" },
   { value: "freelancer", label: "Freelancer" },
   { value: "avant", label: "Playful Pop Creative" },
-  { value: "luxe", label: "Bold Collage Creative" },
 ];
 
 function esc(str: string): string {
@@ -212,8 +211,6 @@ const INVOICE_CSS = `
 
   /* === FREELANCER === */
   .freelancer { background: linear-gradient(90deg,rgba(36,129,110,0.08) 1px,transparent 1px), #fffdf8; background-size: 9mm 9mm; }
-  .freelancer .deco-circle { position: absolute; right: 18mm; top: 24mm; width: 34mm; height: 34mm; border-radius: 50%; background: #ffd166; box-shadow: -18mm 120mm 0 -10mm rgba(36,129,110,0.24); z-index: 0; }
-  .freelancer .deco-stamp { position: absolute; right: 18mm; bottom: 19mm; padding: 7px 9px; color: #24816e; border: 2px solid #24816e; border-radius: 8px; background: #fffdf8; font-size: 9px; font-weight: 900; letter-spacing: 0.12em; transform: rotate(-5deg); z-index: 2; }
   .freelancer .topline { padding: 15px; border: 2px solid #24816e; border-radius: 8px; background: #fffdf8; }
   .freelancer .mark { background: #24816e; border-radius: 50%; }
   .freelancer .invoice-title { color: #24816e; font-size: 36px; font-weight: 850; }
@@ -328,10 +325,7 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
       ? `<div class="design-label">DESIGN</div>`
       : "";
 
-  const freelancerDecos =
-    template === "freelancer"
-      ? `<div class="deco-circle"></div><div class="deco-stamp">PAID WITH CARE</div>`
-      : "";
+  const freelancerDecos = "";
 
   const avantDecos =
     template === "avant"
@@ -494,8 +488,6 @@ function buildColorOverrideCSS(data: InvoiceTemplateData): string {
         .freelancer .topline { border-color: ${p} !important; }
         .freelancer .meta-card { border-color: ${p} !important; }
         .freelancer .invoice-title { color: ${p} !important; }
-        .freelancer .deco-circle { background: ${acc} !important; }
-        .freelancer .deco-stamp { color: ${p} !important; border-color: ${p} !important; }
         .freelancer .grand-total { background: ${p} !important; box-shadow: 4px 4px 0 ${acc} !important; }
         .freelancer th { color: ${p} !important; background: transparent !important; border-bottom-color: ${p} !important; }
         .freelancer .billing-block { border-top-color: ${p} !important; }
