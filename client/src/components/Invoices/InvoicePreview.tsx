@@ -286,6 +286,13 @@ export default function InvoicePreview({
       totalFormatted: totalAmount.toFixed(2),
       notes,
       currency,
+      logoUrl: (s as any)?.companyLogo || undefined,
+      showLogo: (s as any)?.showLogo !== false,
+      logoSize: (s as any)?.logoSize || "64",
+      primaryColor: (s as any)?.invoiceColorTheme || undefined,
+      accentColor: (s as any)?.invoiceAccentColor || undefined,
+      textColor: (s as any)?.invoiceTextColor || undefined,
+      bgColor: (s as any)?.invoiceBackgroundColor || undefined,
     };
   }, [editableEntries, additionalItems, notes, activeSettings, activeClient, invoiceNumber, propInvoiceNumber, subtotal, taxRate, enableTax, issueDate, dueDate, showDueDate, reportData, getAdditionalItemsTotal]);
 

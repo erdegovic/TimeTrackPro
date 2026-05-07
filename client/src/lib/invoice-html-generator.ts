@@ -29,6 +29,13 @@ export interface InvoiceTemplateData {
   totalFormatted: string;
   notes: string;
   currency: string;
+  logoUrl?: string;
+  showLogo?: boolean;
+  logoSize?: string;
+  primaryColor?: string;
+  accentColor?: string;
+  textColor?: string;
+  bgColor?: string;
 }
 
 export const TEMPLATE_OPTIONS = [
@@ -346,7 +353,9 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
     <header class="topline">
       <div>
         <div class="brand">
-          <div class="mark">${initials || "BN"}</div>
+          ${data.showLogo !== false && data.logoUrl
+            ? `<img src="${data.logoUrl}" alt="" style="max-height:${data.logoSize || "64"}px;max-width:120px;object-fit:contain;display:block;flex-shrink:0;" />`
+            : `<div class="mark">${initials || "BN"}</div>`}
           <div>
             <h1 class="brand-name">${esc(data.businessName) || "Your Business"}</h1>
             ${data.businessMeta ? `<div class="brand-meta">${esc(data.businessMeta)}</div>` : ""}
@@ -410,7 +419,119 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
   `;
 }
 
+function buildColorOverrideCSS(data: InvoiceTemplateData): string {
+  const { template, primaryColor: p, accentColor: a, bgColor } = data;
+  if (!p) return "";
+
+  const acc = a || p;
+
+  let css = `
+    .${template} .grand-total { background: ${p} !important; color: #fff !important; }
+    .${template} th { background: ${p} !important; color: #fff !important; }
+    .${template} .mark { background: ${p} !important; }
+    .${template} .billing-block { border-top-color: ${p} !important; }
+  `;
+
+  switch (template) {
+    case "professional":
+      css += `
+        .professional .sidebar { background: ${p} !important; }
+        .professional .topline { border-bottom-color: ${p} !important; }
+        .professional .meta-card { border-left-color: ${p} !important; }
+      `;
+      break;
+    case "classic":
+      css += `
+        .classic { border-color: ${acc} !important; }
+        .classic .inner-border { border-color: ${acc}88 !important; }
+        .classic .invoice-title { color: ${p} !important; }
+        .classic .invoice-number { color: ${p} !important; }
+        .classic th { background: transparent !important; color: ${p} !important; }
+      `;
+      break;
+    case "media":
+      css += `
+        .media .topline { background: ${p} !important; }
+        .media .mark { color: ${p} !important; background: #fff !important; }
+        .media th { background: ${p} !important; }
+        .media .label { color: ${acc} !important; }
+        .media .grand-total { background: ${acc} !important; color: #111 !important; }
+        .media .billing-block { border-top-color: ${p} !important; }
+      `;
+      break;
+    case "web":
+      css += `
+        .web .mark { background: ${p} !important; }
+        .web .invoice-title { color: ${p} !important; }
+        .web .meta-card { border-color: ${acc} !important; }
+        .web .topline { border-color: ${acc} !important; }
+        .web .billing-grid { border-color: ${acc} !important; }
+        .web .summary { border-color: ${acc} !important; }
+        .web th { background: transparent !important; color: ${p} !important; border-top: none; }
+      `;
+      break;
+    case "graphic":
+      css += `
+        .graphic { background: linear-gradient(90deg,${p} 0 26mm,transparent 26mm), linear-gradient(153deg,transparent 0 58%,${acc}28 58% 77%,transparent 77%), #ffffff !important; }
+        .graphic .design-label { color: rgba(255,255,255,0.85) !important; }
+        .graphic .meta-grid { border-color: ${p} !important; }
+        .graphic .meta-card { border-color: ${p} !important; }
+        .graphic .grand-total { background: ${acc} !important; }
+        .graphic .mark { background: ${acc} !important; }
+        .graphic .meta-card:last-child { background: ${acc}22 !important; }
+      `;
+      break;
+    case "minimalistic":
+      css += `
+        .minimalistic .mark { background: ${p} !important; }
+        .minimalistic .grand-total { background: ${p} !important; }
+        .minimalistic th { border-bottom-color: ${p} !important; background: transparent !important; color: var(--muted) !important; }
+        .minimalistic .billing-block { border-top-color: ${p} !important; }
+      `;
+      break;
+    case "freelancer":
+      css += `
+        .freelancer .topline { border-color: ${p} !important; }
+        .freelancer .meta-card { border-color: ${p} !important; }
+        .freelancer .invoice-title { color: ${p} !important; }
+        .freelancer .deco-circle { background: ${acc} !important; }
+        .freelancer .deco-stamp { color: ${p} !important; border-color: ${p} !important; }
+        .freelancer .grand-total { background: ${p} !important; box-shadow: 4px 4px 0 ${acc} !important; }
+        .freelancer th { color: ${p} !important; background: transparent !important; border-bottom-color: ${p} !important; }
+        .freelancer .billing-block { border-top-color: ${p} !important; }
+      `;
+      break;
+    case "avant":
+      css += `
+        .avant .color-bar { background: ${p} !important; }
+        .avant .topline { box-shadow: 7px 7px 0 ${acc} !important; border-color: ${p} !important; }
+        .avant .mark { background: ${p} !important; }
+        .avant th { background: ${acc} !important; border-color: ${p} !important; }
+        .avant .grand-total { background: ${acc} !important; border-color: ${p} !important; box-shadow: 5px 5px 0 ${p} !important; }
+        .avant .creative-badge { background: ${acc} !important; border-color: ${p} !important; }
+      `;
+      break;
+    case "luxe":
+      css += `
+        .luxe .luxe-header-bg-dark { background: linear-gradient(120deg,${p} 0 44%,transparent 44%) !important; }
+        .luxe .meta-card:nth-child(1) { border-bottom-color: ${p} !important; }
+        .luxe .meta-card:nth-child(2) { border-bottom-color: ${acc} !important; }
+        .luxe .grand-total { background: ${p} !important; }
+        .luxe .luxe-memo { background: ${acc} !important; }
+        .luxe .invoice-number { color: ${p} !important; }
+      `;
+      break;
+  }
+
+  if (bgColor && bgColor !== "#ffffff") {
+    css += `body, .invoice-page.${template} { background: ${bgColor} !important; }`;
+  }
+
+  return css;
+}
+
 export function generateInvoiceHTML(data: InvoiceTemplateData): string {
+  const colorOverrides = buildColorOverrideCSS(data);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -420,6 +541,7 @@ export function generateInvoiceHTML(data: InvoiceTemplateData): string {
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
     ${INVOICE_CSS}
+    ${colorOverrides}
   </style>
 </head>
 <body>

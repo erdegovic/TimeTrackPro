@@ -661,9 +661,16 @@ export default function SettingsPage() {
       totalFormatted: "922.50",
       notes: "Thank you for your business. Payment due within 30 days.",
       currency,
+      logoUrl: (watchedValues as any).companyLogo || undefined,
+      showLogo: (watchedValues as any).showLogo !== false,
+      logoSize: (watchedValues as any).logoSize || "64",
+      primaryColor: watchedValues.invoiceColorTheme || undefined,
+      accentColor: watchedValues.invoiceAccentColor || undefined,
+      textColor: watchedValues.invoiceTextColor || undefined,
+      bgColor: watchedValues.invoiceBackgroundColor || undefined,
     };
     return generateInvoiceHTML(data);
-  }, [watchedValues.invoiceTemplate, watchedValues.businessName, watchedValues.businessAddress, watchedValues.businessCity, watchedValues.businessState, watchedValues.businessEmail, watchedValues.businessPhone, watchedValues.displayCurrency, watchedValues.nextInvoiceNumber]);
+  }, [watchedValues.invoiceTemplate, watchedValues.businessName, watchedValues.businessAddress, watchedValues.businessCity, watchedValues.businessState, watchedValues.businessEmail, watchedValues.businessPhone, watchedValues.displayCurrency, watchedValues.nextInvoiceNumber, (watchedValues as any).companyLogo, (watchedValues as any).showLogo, (watchedValues as any).logoSize, watchedValues.invoiceColorTheme, watchedValues.invoiceAccentColor, watchedValues.invoiceTextColor, watchedValues.invoiceBackgroundColor]);
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({
