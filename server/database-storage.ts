@@ -15,6 +15,7 @@ import * as schema from "@shared/schema";
 import { eq, and, between, desc, sql, like } from "drizzle-orm";
 import { IStorage } from "./storage";
 import { addWeeks, format, startOfWeek, endOfWeek, getWeekOfMonth, getYear, getMonth } from "date-fns";
+import { formatInvoiceNumber, InvoiceNumberOptions } from "@shared/invoice-number";
 
 export class DatabaseStorage implements IStorage {
   // User methods
@@ -29,7 +30,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(sql`lower(${users.email}) = ${email.trim().toLowerCase()}`);
+    return user;
+  }
+
+  async getUserByGoogleSubject(subject: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.googleSubject, subject));
     return user;
   }
 
@@ -341,6 +350,7 @@ export class DatabaseStorage implements IStorage {
     const completeEntry = {
       description: entryData.description || '',
       projectId: entryData.projectId || null,
+      clientId: entryData.clientId || null,
       userId: entryData.userId || null,
       startTime: entryData.startTime || new Date(),
       endTime: entryData.endTime || null,
@@ -350,7 +360,7 @@ export class DatabaseStorage implements IStorage {
       weekLabel,
       month,
       year,
-      invoiceId: entryData.invoiceId || null
+      invoiceId: (entryData as any).invoiceId || null
     };
     
     console.log('Complete entry for database:', JSON.stringify(completeEntry, null, 2));
@@ -382,7 +392,7 @@ export class DatabaseStorage implements IStorage {
     // Handle date change if it's present
     if (entryData.date) {
       const date = entryData.date;
-      const parsedDate = new Date(date);
+      const parsedDate = new Date(`${date}T12:00:00.000Z`);
       
       // Recalculate week-related fields
       const weekStart = startOfWeek(parsedDate, { weekStartsOn: 1 });
@@ -438,14 +448,14 @@ export class DatabaseStorage implements IStorage {
   async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
     const [result] = await db.insert(invoices).values(invoice).returning();
 
-    // If time entries are associated with this invoice, update them
-    if (invoice.id && typeof invoice.id === 'number') {
+    const settingsData = await this.getSettings();
+    if (settingsData) {
       await db
-        .update(timeEntries)
-        .set({ invoiceId: result.id })
-        .where(eq(timeEntries.invoiceId, invoice.id));
+        .update(settings)
+        .set({ nextInvoiceNumber: sql`${settings.nextInvoiceNumber} + 1` })
+        .where(eq(settings.id, settingsData.id));
     }
-    
+
     return result;
   }
 
@@ -472,23 +482,22 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount > 0;
   }
 
-  async getNextInvoiceNumber(): Promise<string> {
+  async getNextInvoiceNumber(options: InvoiceNumberOptions = {}): Promise<string> {
     const settingsData = await this.getSettings();
     if (!settingsData) {
       // Create default settings if none exist
       const settings = await this.createDefaultSettings();
-      return settings.nextInvoiceNumber.toString().padStart(4, '0');
+      return formatInvoiceNumber(settings.nextInvoiceNumber, options);
     }
     
-    const nextNumber = settingsData.nextInvoiceNumber;
+    const nextNumber = settingsData.nextInvoiceNumber ?? 1001;
+    const numberingOptions = {
+      prefix: options.prefix ?? (settingsData as any).invoiceNumberPrefix ?? "INV-",
+      suffix: options.suffix ?? (settingsData as any).invoiceNumberSuffix ?? "",
+      padding: options.padding ?? (settingsData as any).invoiceNumberPadding ?? 4,
+    };
     
-    // Increment the invoice number in settings
-    await db
-      .update(settings)
-      .set({ nextInvoiceNumber: nextNumber + 1 })
-      .where(eq(settings.id, settingsData.id));
-      
-    return nextNumber.toString().padStart(4, '0');
+    return formatInvoiceNumber(nextNumber, numberingOptions);
   }
 
   // Settings methods
@@ -546,12 +555,19 @@ export class DatabaseStorage implements IStorage {
       bankAccountNumber: "1234567890",
       bankSortCode: "123456",
       nextInvoiceNumber: 1001,
+      invoiceNumberPrefix: "INV-",
+      invoiceNumberSuffix: "",
+      invoiceNumberPadding: 4,
       defaultTimeFormat: "decimal",
       defaultCurrency: "USD",
       displayCurrency: "$",
       defaultTaxRate: "0",
       enableTax: false,
       showDueDate: true,
+      invoiceNotes: "Thank you for your business. Payment due within 30 days.",
+      showInvoiceNotes: true,
+      showProjectName: true,
+      invoiceLanguage: "en",
     };
   }
 

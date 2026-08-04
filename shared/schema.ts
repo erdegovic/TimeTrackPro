@@ -18,6 +18,9 @@ export const users = pgTable("users", {
   firstName: text("first_name"),
   lastName: text("last_name"),
   profileImageUrl: text("profile_image_url"),
+  googleSubject: text("google_subject").unique(),
+  invoiceLabelOverrides: text("invoice_label_overrides"),
+  customCurrencyRates: text("custom_currency_rates"),
   role: userRoleEnum("role").notNull().default("user"),
   status: userStatusEnum("status").notNull().default("pending"),
   verificationToken: text("verification_token"),
@@ -62,6 +65,8 @@ export const clients = pgTable("clients", {
   phone: text("phone"),
   taxId: text("tax_id"),
   currency: text("currency").default("USD"),
+  invoiceLanguage: text("invoice_language").default("en"),
+  invoiceSettings: text("invoice_settings"),
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
 });
 
@@ -149,6 +154,9 @@ export const settings = pgTable("settings", {
   wiseEmail: text("wise_email"),
   otherPaymentInstructions: text("other_payment_instructions"),
   nextInvoiceNumber: integer("next_invoice_number").default(1001),
+  invoiceNumberPrefix: text("invoice_number_prefix").default("INV-"),
+  invoiceNumberSuffix: text("invoice_number_suffix").default(""),
+  invoiceNumberPadding: integer("invoice_number_padding").default(4),
   defaultTimeFormat: text("default_time_format").default("decimal"),
   defaultCurrency: text("default_currency").default("USD"),
   displayCurrency: text("display_currency").default("$"),
@@ -168,12 +176,16 @@ export const settings = pgTable("settings", {
   
   // Additional invoice customization
   customFontSize: text("custom_font_size").default("12"), // Font size in px
+  invoiceNotes: text("invoice_notes"),
   invoiceFooterText: text("invoice_footer_text"),
   showCompanyDetails: boolean("show_company_details").default(true),
+  showInvoiceNotes: boolean("show_invoice_notes").default(true),
   showHourlyRate: boolean("show_hourly_rate").default(true), // Show/hide hourly rate column
+  showProjectName: boolean("show_project_name").default(true), // Show/hide project name under invoice line item descriptions
   showBankDetails: boolean("show_bank_details").default(true),
   showFooterNotes: boolean("show_footer_notes").default(true),
   invoiceTemplate: text("invoice_template").default("professional"), // Template style
+  invoiceLanguage: text("invoice_language").default("en"),
   
   // Report settings
   enableWeeklyCategorization: boolean("enable_weekly_categorization").default(true),

@@ -15,7 +15,6 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
 import { Lock, User, Key, Upload } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -178,6 +177,8 @@ export default function AccountPage() {
                     size="icon" 
                     className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-primary text-primary-foreground" 
                     onClick={handleAvatarClick}
+                    title="Upload profile picture"
+                    aria-label="Upload profile picture"
                   >
                     <Upload className="h-4 w-4" />
                   </Button>
@@ -324,23 +325,6 @@ export default function AccountPage() {
                 </CardContent>
               </Card>
               
-              <Separator className="my-6" />
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Sessions</CardTitle>
-                  <CardDescription>
-                    Manage your active sessions and devices.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="py-4">
-                    <p className="text-sm text-gray-500">
-                      This feature is not yet implemented.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
             </TabsContent>
           </Tabs>
         </div>

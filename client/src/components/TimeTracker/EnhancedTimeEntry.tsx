@@ -30,6 +30,28 @@ interface GroupedTimeEntry {
   isExpanded?: boolean;
 }
 
+const formatClockTime = (date: Date) => format(date, 'h:mma').toLowerCase();
+
+const moveDatePreservingClockTime = (date: Date, targetDate: Date) => {
+  const updated = new Date(targetDate);
+  updated.setHours(date.getHours(), date.getMinutes(), date.getSeconds(), date.getMilliseconds());
+  return updated;
+};
+
+const getEntryIdFromBlockId = (blockId: string) => blockId.replace('block-', '');
+
+const timeEntryCalendarClassNames = {
+  day_today: "text-foreground",
+};
+
+const formatDurationFromHours = (hours: number) => {
+  const totalSeconds = Math.max(0, Math.round(hours * 3600));
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
+
 interface EnhancedTimeEntryProps {
   entry: TimeEntry & { 
     client?: Client;
@@ -161,36 +183,35 @@ export default function EnhancedTimeEntry({
   }, [entry, sessionGroup, entry.startTime, entry.endTime, entry.duration]);
 
   const formatTime = (date: Date) => {
-    return format(date, 'h:mmaa').toLowerCase();
+    return formatClockTime(date);
   };
 
   const formatDuration = (hours: number) => {
-    // Always use HH:MM:SS format for display
-    const totalSeconds = Math.round(hours * 3600);
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
-    
-    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return formatDurationFromHours(hours);
   };
 
   const parseDurationInput = (input: string): number => {
-    // Parse HH:MM:SS format
-    const parts = input.split(':').map(p => parseInt(p.trim()) || 0);
-    
+    const normalized = input.trim().toLowerCase().replace(/h$/, "");
+    if (!normalized) return 0;
+
+    if (!normalized.includes(':')) {
+      const decimalHours = Number(normalized);
+      return Number.isFinite(decimalHours) && decimalHours > 0 ? decimalHours : 0;
+    }
+
+    const parts = normalized.split(':').map(part => Number(part.trim()));
+    if (parts.some(part => !Number.isFinite(part) || part < 0)) return 0;
+
     if (parts.length === 3) {
-      // HH:MM:SS
       const [hours, minutes, seconds] = parts;
       return hours + (minutes / 60) + (seconds / 3600);
-    } else if (parts.length === 2) {
-      // MM:SS (assume no hours)
-      const [minutes, seconds] = parts;
-      return (minutes / 60) + (seconds / 3600);
-    } else if (parts.length === 1) {
-      // Just seconds
-      return parts[0] / 3600;
     }
-    
+
+    if (parts.length === 2) {
+      const [hours, minutes] = parts;
+      return hours + (minutes / 60);
+    }
+
     return 0;
   };
 
@@ -201,9 +222,9 @@ export default function EnhancedTimeEntry({
       
       if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
         // 12-hour format with AM/PM
-        parsedTime = parse(timeStr, 'h:mmaa', baseDate);
+        parsedTime = parse(timeStr, 'h:mma', baseDate);
         if (!isValid(parsedTime)) {
-          parsedTime = parse(timeStr, 'h:mma', baseDate);
+          parsedTime = parse(timeStr, 'h:mmaa', baseDate);
         }
       } else if (timeStr.includes(':')) {
         // 24-hour format or time without AM/PM
@@ -223,8 +244,8 @@ export default function EnhancedTimeEntry({
     }
   };
 
-  const updateTimeBlock = async (blockId: string, newStartTime: Date, newEndTime: Date) => {
-    if (!groupedEntry) return;
+  const updateTimeBlock = async (blockId: string, newStartTime: Date, newEndTime: Date): Promise<boolean> => {
+    if (!groupedEntry) return false;
 
     const duration = (newEndTime.getTime() - newStartTime.getTime()) / (1000 * 60 * 60);
     
@@ -234,7 +255,7 @@ export default function EnhancedTimeEntry({
         description: "End time must be after start time.",
         variant: "destructive",
       });
-      return;
+      return false;
     }
 
     try {
@@ -246,7 +267,7 @@ export default function EnhancedTimeEntry({
       };
 
       // Extract the actual entry ID from the blockId (format: "block-{entryId}")
-      const actualEntryId = blockId.replace('block-', '');
+      const actualEntryId = getEntryIdFromBlockId(blockId);
       
       console.log('Sending time update:', updateData);
       console.log('Updating block with ID:', actualEntryId);
@@ -276,12 +297,14 @@ export default function EnhancedTimeEntry({
         description: `Duration updated to ${formatDuration(duration)}.`,
       });
 
+      return true;
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to update time entry. Please try again.",
         variant: "destructive",
       });
+      return false;
     }
   };
 
@@ -349,25 +372,42 @@ export default function EnhancedTimeEntry({
 
     try {
       const newDateString = format(newDate, 'yyyy-MM-dd');
+      const movedEntryIds: number[] = [];
       
       // For grouped entries, update all blocks to the new date
       if (groupedEntry.blocks.length > 1) {
         // Update all time entries in the group
         for (const block of groupedEntry.blocks) {
-          const actualEntryId = block.id.replace('block-', '');
+          const actualEntryId = getEntryIdFromBlockId(block.id);
+          movedEntryIds.push(Number(actualEntryId));
+          const newStartTime = moveDatePreservingClockTime(block.startTime, newDate);
+          const newEndTime = moveDatePreservingClockTime(block.endTime, newDate);
           await apiRequest("PUT", `/api/time-entries/${actualEntryId}`, {
-            date: newDateString
+            date: newDateString,
+            startTime: newStartTime.toISOString(),
+            endTime: newEndTime.toISOString(),
           });
         }
       } else {
+        const block = groupedEntry.blocks[0];
+        movedEntryIds.push(entry.id);
+        const newStartTime = moveDatePreservingClockTime(block.startTime, newDate);
+        const newEndTime = moveDatePreservingClockTime(block.endTime, newDate);
         // For individual entries, update the single entry
         await apiRequest("PUT", `/api/time-entries/${entry.id}`, {
-          date: newDateString
+          date: newDateString,
+          startTime: newStartTime.toISOString(),
+          endTime: newEndTime.toISOString(),
         });
       }
 
       // Refresh the time entries list
       await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      movedEntryIds.forEach((entryId) => {
+        window.dispatchEvent(new CustomEvent('timeEntryHighlight', {
+          detail: { entryId }
+        }));
+      });
       
       toast({
         title: "Date updated",
@@ -382,9 +422,42 @@ export default function EnhancedTimeEntry({
     }
   };
 
+  const moveBlockToDate = async (block: TimeBlock, newDate: Date) => {
+    if (!groupedEntry) return;
+
+    try {
+      const actualEntryId = getEntryIdFromBlockId(block.id);
+      const newDateString = format(newDate, 'yyyy-MM-dd');
+      const newStartTime = moveDatePreservingClockTime(block.startTime, newDate);
+      const newEndTime = moveDatePreservingClockTime(block.endTime, newDate);
+
+      await apiRequest("PUT", `/api/time-entries/${actualEntryId}`, {
+        date: newDateString,
+        startTime: newStartTime.toISOString(),
+        endTime: newEndTime.toISOString(),
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ["/api/time-entries"] });
+      window.dispatchEvent(new CustomEvent('timeEntryHighlight', {
+        detail: { entryId: Number(actualEntryId) }
+      }));
+
+      toast({
+        title: "Block moved",
+        description: `Time block moved to ${format(newDate, 'MMM dd, yyyy')}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to move this time block. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleEditEntry = () => {
     setEditDescription(groupedEntry?.description || "");
-    setEditClientId(groupedEntry?.client?.id);
+    setEditClientId(groupedEntry?.client?.id || groupedEntry?.project?.clientId);
     setEditProjectId(groupedEntry?.project?.id);
     setIsEditingEntry(true);
   };
@@ -435,7 +508,7 @@ export default function EnhancedTimeEntry({
       // For grouped entries, update all blocks
       if (groupedEntry.blocks.length > 1) {
         for (const block of groupedEntry.blocks) {
-          const actualEntryId = block.id.replace('block-', '');
+          const actualEntryId = getEntryIdFromBlockId(block.id);
           await apiRequest("PUT", `/api/time-entries/${actualEntryId}`, updateData);
         }
       } else {
@@ -493,7 +566,7 @@ export default function EnhancedTimeEntry({
   const canEditDirectly = !isGrouped;
 
   return (
-    <div className={`border-b border-gray-200 transition-all duration-1000 ${isNew ? 'bg-green-50' : ''} ${isMerging ? 'bg-blue-100 border-blue-300 shadow-lg' : ''}`}>
+    <div className={`border-b border-gray-200 transition-all duration-1000 ${isNew ? 'animate-highlight' : ''} ${isMerging ? 'bg-blue-100 border-blue-300 shadow-lg' : ''}`}>
       {/* Main entry row */}
       <div className={`flex items-center px-6 py-4 hover:bg-gray-50 transition-all duration-1000 ${isMerging ? 'bg-blue-50' : ''}`}>
         {/* Expand/collapse button for grouped entries */}
@@ -724,6 +797,8 @@ export default function EnhancedTimeEntry({
                   variant="ghost"
                   size="sm"
                   className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+                  title="Move entry to another date"
+                  aria-label="Move entry to another date"
                 >
                   <Calendar className="h-4 w-4" />
                 </Button>
@@ -732,6 +807,7 @@ export default function EnhancedTimeEntry({
                 <CalendarComponent
                   mode="single"
                   selected={new Date(groupedEntry.date)}
+                  classNames={timeEntryCalendarClassNames}
                   onSelect={(date) => {
                     if (date) {
                       handleDateChange(date);
@@ -767,6 +843,8 @@ export default function EnhancedTimeEntry({
                   size="sm"
                   onClick={handleDurationSave}
                   className="h-6 w-6 p-0 text-green-600 hover:text-white hover:bg-green-600"
+                  title="Save duration"
+                  aria-label="Save duration"
                 >
                   <Check className="h-3 w-3" />
                 </Button>
@@ -775,6 +853,8 @@ export default function EnhancedTimeEntry({
                   size="sm"
                   onClick={handleDurationCancel}
                   className="h-6 w-6 p-0 text-gray-500 hover:text-white hover:bg-gray-500"
+                  title="Cancel duration edit"
+                  aria-label="Cancel duration edit"
                 >
                   <X className="h-3 w-3" />
                 </Button>
@@ -814,7 +894,7 @@ export default function EnhancedTimeEntry({
                         startTimerWithData(
                           groupedEntry.description, 
                           groupedEntry.project?.id || 0,
-                          clientId
+                          clientId || groupedEntry.client?.id
                         );
                       }
                     }}
@@ -839,6 +919,8 @@ export default function EnhancedTimeEntry({
                   size="icon"
                   className="h-8 w-8 text-destructive hover:text-white hover:bg-destructive"
                   onClick={() => onDelete(groupedEntry.id)}
+                  title="Delete entry"
+                  aria-label="Delete entry"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -858,13 +940,43 @@ export default function EnhancedTimeEntry({
               </div>
               
               <div className="flex items-center space-x-4 text-sm">
-                <EditableTimeRange
-                  startTime={block.startTime}
-                  endTime={block.endTime}
-                  onUpdate={(start, end) => updateTimeBlock(block.id, start, end)}
-                  isEditing={editingBlockId === block.id}
-                  onEditToggle={(editing) => setEditingBlockId(editing ? block.id : null)}
-                />
+                <div className="flex items-center space-x-2">
+                  <EditableTimeRange
+                    startTime={block.startTime}
+                    endTime={block.endTime}
+                    onUpdate={(start, end) => updateTimeBlock(block.id, start, end)}
+                    isEditing={editingBlockId === block.id}
+                    onEditToggle={(editing) => setEditingBlockId(editing ? block.id : null)}
+                  />
+
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+                        title="Move this block to another date"
+                        aria-label="Move this block to another date"
+                      >
+                        <Calendar className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={block.startTime}
+                        classNames={timeEntryCalendarClassNames}
+                        onSelect={(date) => {
+                          if (date) {
+                            moveBlockToDate(block, date);
+                          }
+                        }}
+                        disabled={(date) => date > new Date()}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
                 
                 <div className="font-mono text-gray-600 min-w-[80px] text-right">
                   {formatDuration(block.duration)}
@@ -888,7 +1000,7 @@ function EditableTimeRange({
 }: {
   startTime: Date;
   endTime: Date;
-  onUpdate: (start: Date, end: Date) => void;
+  onUpdate: (start: Date, end: Date) => Promise<boolean>;
   isEditing: boolean;
   onEditToggle: (editing: boolean) => void;
 }) {
@@ -897,8 +1009,8 @@ function EditableTimeRange({
 
   useEffect(() => {
     if (isEditing) {
-      setStartInput(format(startTime, 'h:mmaa').toLowerCase());
-      setEndInput(format(endTime, 'h:mmaa').toLowerCase());
+      setStartInput(formatClockTime(startTime));
+      setEndInput(formatClockTime(endTime));
     }
   }, [isEditing, startTime, endTime]);
 
@@ -906,18 +1018,20 @@ function EditableTimeRange({
   useEffect(() => {
     if (!isEditing) {
       // Force re-render of the button display when times change
-      setStartInput(format(startTime, 'h:mmaa').toLowerCase());
-      setEndInput(format(endTime, 'h:mmaa').toLowerCase());
+      setStartInput(formatClockTime(startTime));
+      setEndInput(formatClockTime(endTime));
     }
   }, [startTime, endTime, isEditing]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const baseDate = new Date(startTime);
     const newStart = parseTimeInput(startInput, baseDate);
     const newEnd = parseTimeInput(endInput, baseDate);
     
-    onUpdate(newStart, newEnd);
-    onEditToggle(false);
+    const didUpdate = await onUpdate(newStart, newEnd);
+    if (didUpdate) {
+      onEditToggle(false);
+    }
   };
 
   const handleCancel = () => {
@@ -929,9 +1043,9 @@ function EditableTimeRange({
       let parsedTime: Date;
       
       if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
-        parsedTime = parse(timeStr, 'h:mmaa', baseDate);
+        parsedTime = parse(timeStr, 'h:mma', baseDate);
         if (!isValid(parsedTime)) {
-          parsedTime = parse(timeStr, 'h:mma', baseDate);
+          parsedTime = parse(timeStr, 'h:mmaa', baseDate);
         }
       } else if (timeStr.includes(':')) {
         const parts = timeStr.split(':');
@@ -952,7 +1066,7 @@ function EditableTimeRange({
   };
 
   const formatTime = (date: Date) => {
-    return format(date, 'h:mmaa').toLowerCase();
+    return formatClockTime(date);
   };
 
   if (isEditing) {

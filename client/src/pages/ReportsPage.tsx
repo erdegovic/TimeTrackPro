@@ -44,6 +44,11 @@ export default function ReportsPage() {
     }
   };
 
+  const handleInvoicePreviewOpenChange = (open: boolean) => {
+    setShowInvoicePreview(open);
+    if (!open) setIsEditing(false);
+  };
+
   return (
     <div>
       <div className="mb-6">
@@ -61,7 +66,10 @@ export default function ReportsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ReportFilters onApplyFilters={handleApplyFilters} />
+          <ReportFilters
+            onApplyFilters={handleApplyFilters}
+            liveUpdate={!!currentFilters}
+          />
         </CardContent>
       </Card>
 
@@ -83,7 +91,7 @@ export default function ReportsPage() {
       )}
 
       {/* Invoice Preview Dialog */}
-      <Dialog open={showInvoicePreview} onOpenChange={setShowInvoicePreview}>
+      <Dialog open={showInvoicePreview} onOpenChange={handleInvoicePreviewOpenChange}>
         <DialogContent className="w-[95vw] max-w-[900px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Generate Invoice</DialogTitle>
@@ -92,7 +100,7 @@ export default function ReportsPage() {
             <InvoicePreview 
               reportData={invoiceData} 
               clientId={selectedClientId}
-              onEditInvoice={() => setIsEditing(true)}
+              onEditInvoice={() => setIsEditing((current) => !current)}
               isEditing={isEditing}
 
             />

@@ -135,6 +135,8 @@ export default function NotesSection() {
           onClick={() => setIsCreating(true)}
           size="sm"
           className="tickd-bg-primary text-white hover:scale-105 transition-transform"
+          title="Create note"
+          aria-label="Create note"
         >
           <Plus className="w-4 h-4" />
         </Button>
@@ -185,7 +187,7 @@ export default function NotesSection() {
           
           <div className="flex items-center space-x-2">
             <Select
-              value={newNote.category}
+              value={newNote.category || "ideas"}
               onValueChange={(value) => setNewNote({ ...newNote, category: value })}
             >
               <SelectTrigger className="w-32">
@@ -216,6 +218,8 @@ export default function NotesSection() {
                 setIsCreating(false);
                 setNewNote({ title: "", content: "", category: "ideas", tags: "", isPinned: false });
               }}
+              title="Cancel new note"
+              aria-label="Cancel new note"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -224,6 +228,8 @@ export default function NotesSection() {
               onClick={handleSaveNote}
               disabled={createNoteMutation.isPending}
               className="tickd-bg-primary text-white"
+              title="Save note"
+              aria-label="Save note"
             >
               <Save className="w-4 h-4" />
             </Button>
@@ -264,10 +270,10 @@ export default function NotesSection() {
                         className="min-h-[60px]"
                       />
                       <div className="flex justify-end space-x-2">
-                        <Button variant="ghost" size="sm" onClick={() => setEditingNote(null)}>
+                        <Button variant="ghost" size="sm" onClick={() => setEditingNote(null)} title="Cancel note edit" aria-label="Cancel note edit">
                           <X className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" onClick={handleUpdateNote} className="tickd-bg-primary text-white">
+                        <Button size="sm" onClick={handleUpdateNote} className="tickd-bg-primary text-white" title="Save note changes" aria-label="Save note changes">
                           <Save className="w-4 h-4" />
                         </Button>
                       </div>
@@ -293,6 +299,8 @@ export default function NotesSection() {
                             size="icon"
                             onClick={() => togglePin(note)}
                             className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title={note.isPinned ? "Unpin note" : "Pin note"}
+                            aria-label={note.isPinned ? "Unpin note" : "Pin note"}
                           >
                             <Pin className={`w-3 h-3 ${note.isPinned ? 'tickd-primary' : 'text-gray-400'}`} />
                           </Button>
@@ -301,6 +309,8 @@ export default function NotesSection() {
                             size="icon"
                             onClick={() => setEditingNote(note)}
                             className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Edit note"
+                            aria-label="Edit note"
                           >
                             <Edit className="w-3 h-3" />
                           </Button>
@@ -309,6 +319,8 @@ export default function NotesSection() {
                             size="icon"
                             onClick={() => deleteNoteMutation.mutate(note.id)}
                             className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-500"
+                            title="Delete note"
+                            aria-label="Delete note"
                           >
                             <Trash2 className="w-3 h-3" />
                           </Button>

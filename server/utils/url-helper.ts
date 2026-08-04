@@ -8,10 +8,14 @@ const PRODUCTION_DOMAIN = 'https://tickd.me';
  * Uses the production domain in production, and the request's hostname in development
  */
 export function getBaseUrl(req: Request): string {
+  const configuredUrl = process.env.APP_URL?.trim();
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/$/, '');
+  }
+
   if (process.env.NODE_ENV === 'production') {
     return PRODUCTION_DOMAIN;
   } else {
-    // For development environment, use the request's protocol and hostname
-    return `${req.protocol}://${req.hostname}`;
+    return `${req.protocol}://${req.get('host')}`;
   }
 }

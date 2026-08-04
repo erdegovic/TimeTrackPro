@@ -2,11 +2,65 @@ import { Request, Response, NextFunction, Router } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import * as oidc from 'openid-client';
 import { storage } from '../storage';
 import { verificationTypeEnum } from '@shared/schema';
+import { getBaseUrl } from '../utils/url-helper';
 
 // Create router
 const router = Router();
+let googleConfiguration: Promise<oidc.Configuration> | undefined;
+
+const isGoogleAuthConfigured = () => Boolean(
+  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+);
+
+const getGoogleConfiguration = () => {
+  if (!isGoogleAuthConfigured()) {
+    throw new Error('Google authentication is not configured');
+  }
+
+  if (!googleConfiguration) {
+    googleConfiguration = oidc.discovery(
+      new URL('https://accounts.google.com'),
+      process.env.GOOGLE_CLIENT_ID!,
+      process.env.GOOGLE_CLIENT_SECRET!,
+    );
+  }
+
+  return googleConfiguration;
+};
+
+const saveSession = (req: Request) => new Promise<void>((resolve, reject) => {
+  req.session.save((error) => error ? reject(error) : resolve());
+});
+
+const regenerateSession = (req: Request) => new Promise<void>((resolve, reject) => {
+  req.session.regenerate((error) => error ? reject(error) : resolve());
+});
+
+const safeReturnTo = (value: unknown) => {
+  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//')
+    ? value
+    : '/';
+};
+
+const serializeUser = (user: Awaited<ReturnType<typeof storage.getUser>>) => {
+  if (!user) return undefined;
+
+  return {
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    profileImageUrl: user.profileImageUrl,
+    role: user.role,
+    status: user.status,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+};
 
 // Get pending email change
 const getPendingEmailChange = async (req: Request, res: Response) => {
@@ -105,7 +159,7 @@ const updateProfile = async (req: Request, res: Response) => {
         message: 'Profile updated successfully. Email verification required.',
         emailChangeRequested: true,
         pendingEmail: email,
-        user: updatedUser
+        user: serializeUser(updatedUser)
       });
     } else {
       // Just update the profile without email verification
@@ -116,7 +170,7 @@ const updateProfile = async (req: Request, res: Response) => {
       
       return res.status(200).json({ 
         message: 'Profile updated successfully',
-        user: updatedUser
+        user: serializeUser(updatedUser)
       });
     }
   } catch (error) {
@@ -265,10 +319,7 @@ const getCurrentUser = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Return user without password
-    const { password, ...userWithoutPassword } = user;
-    
-    return res.status(200).json(userWithoutPassword);
+    return res.status(200).json(serializeUser(user));
   } catch (error) {
     console.error('Error getting current user:', error);
     return res.status(500).json({ message: 'Failed to get current user' });
@@ -335,6 +386,136 @@ const resendVerification = async (req: Request, res: Response) => {
 };
 
 // Register routes
+router.get('/google/status', (_req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ enabled: isGoogleAuthConfigured() });
+});
+
+router.get('/google', async (req: Request, res: Response) => {
+  try {
+    const configuration = await getGoogleConfiguration();
+    const codeVerifier = oidc.randomPKCECodeVerifier();
+    const codeChallenge = await oidc.calculatePKCECodeChallenge(codeVerifier);
+    const state = oidc.randomState();
+    const nonce = oidc.randomNonce();
+    const redirectUri = `${getBaseUrl(req)}/api/auth/google/callback`;
+
+    req.session.oauthCodeVerifier = codeVerifier;
+    req.session.oauthState = state;
+    req.session.oauthNonce = nonce;
+    req.session.oauthReturnTo = safeReturnTo(req.query.returnTo);
+    await saveSession(req);
+
+    const authorizationUrl = oidc.buildAuthorizationUrl(configuration, {
+      redirect_uri: redirectUri,
+      scope: 'openid email profile',
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+      state,
+      nonce,
+    });
+
+    res.redirect(authorizationUrl.href);
+  } catch (error) {
+    console.error('Unable to start Google authentication:', error);
+    res.redirect('/login?error=google-unavailable');
+  }
+});
+
+router.get('/google/callback', async (req: Request, res: Response) => {
+  const codeVerifier = req.session.oauthCodeVerifier;
+  const expectedState = req.session.oauthState;
+  const expectedNonce = req.session.oauthNonce;
+  const returnTo = safeReturnTo(req.session.oauthReturnTo);
+
+  delete req.session.oauthCodeVerifier;
+  delete req.session.oauthState;
+  delete req.session.oauthNonce;
+  delete req.session.oauthReturnTo;
+
+  if (!codeVerifier || !expectedState || !expectedNonce) {
+    return res.redirect('/login?error=google-session-expired');
+  }
+
+  try {
+    const configuration = await getGoogleConfiguration();
+    const callbackUrl = new URL(req.originalUrl, getBaseUrl(req));
+    const tokens = await oidc.authorizationCodeGrant(
+      configuration,
+      callbackUrl,
+      {
+        pkceCodeVerifier: codeVerifier,
+        expectedState,
+        expectedNonce,
+      },
+    );
+    const claims = tokens.claims();
+
+    const subject = typeof claims?.sub === 'string' ? claims.sub : null;
+    const emailClaim = typeof claims?.email === 'string' ? claims.email : null;
+    const givenName = typeof claims?.given_name === 'string' ? claims.given_name : null;
+    const familyName = typeof claims?.family_name === 'string' ? claims.family_name : null;
+    const picture = typeof claims?.picture === 'string' ? claims.picture : null;
+
+    if (!subject || !emailClaim || claims?.email_verified !== true) {
+      return res.redirect('/login?error=google-email-unverified');
+    }
+
+    const email = emailClaim.trim().toLowerCase();
+    let user = await storage.getUserByGoogleSubject(subject);
+
+    if (!user) {
+      const existingUser = await storage.getUserByEmail(email);
+
+      if (existingUser) {
+        if (existingUser.status === 'inactive') {
+          return res.redirect('/login?error=account-inactive');
+        }
+
+        user = await storage.updateUser(existingUser.id, {
+          googleSubject: subject,
+          status: 'active',
+          verificationToken: null,
+          firstName: existingUser.firstName || givenName,
+          lastName: existingUser.lastName || familyName,
+          profileImageUrl: existingUser.profileImageUrl || picture,
+        });
+      } else {
+        const generatedPassword = await bcrypt.hash(
+          crypto.randomBytes(32).toString('hex'),
+          10,
+        );
+
+        user = await storage.createUser({
+          email,
+          username: email,
+          password: generatedPassword,
+          googleSubject: subject,
+          firstName: givenName,
+          lastName: familyName,
+          profileImageUrl: picture,
+          role: 'user',
+          status: 'active',
+          verificationToken: null,
+          resetPasswordToken: null,
+        });
+      }
+    }
+
+    if (!user || user.status === 'inactive') {
+      return res.redirect('/login?error=account-inactive');
+    }
+
+    await regenerateSession(req);
+    req.session.userId = user.id;
+    await saveSession(req);
+    res.redirect(returnTo);
+  } catch (error) {
+    console.error('Google authentication callback failed:', error);
+    res.redirect('/login?error=google-sign-in-failed');
+  }
+});
+
 router.get('/pending-email-change', getPendingEmailChange);
 router.put('/profile', updateProfile);
 // Registration endpoint

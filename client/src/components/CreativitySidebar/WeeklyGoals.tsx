@@ -31,9 +31,11 @@ export default function WeeklyGoals() {
   });
 
   // Fetch goals for current week
-  const { data: goals = [], isLoading } = useQuery<WeeklyGoal[]>({
+  const { data: allGoals = [], isLoading } = useQuery<WeeklyGoal[]>({
     queryKey: ["/api/creativity/goals", currentWeekStart],
   });
+
+  const goals = allGoals.filter((goal) => String(goal.weekOf || "").slice(0, 10) === currentWeekStart);
 
   // Create goal mutation
   const createGoalMutation = useMutation({
@@ -104,7 +106,7 @@ export default function WeeklyGoals() {
     updateGoalMutation.mutate({
       ...goal,
       isCompleted: !goal.isCompleted,
-      completedAt: !goal.isCompleted ? new Date().toISOString() : null,
+      completedAt: !goal.isCompleted ? new Date() : null,
     });
   };
 
@@ -181,7 +183,7 @@ export default function WeeklyGoals() {
           />
           
           <Select
-            value={newGoal.priority}
+            value={newGoal.priority || "medium"}
             onValueChange={(value) => setNewGoal({ ...newGoal, priority: value })}
           >
             <SelectTrigger>
@@ -204,6 +206,8 @@ export default function WeeklyGoals() {
                 setIsCreating(false);
                 setNewGoal({ title: "", description: "", priority: "medium", weekOf: currentWeekStart });
               }}
+              title="Cancel new goal"
+              aria-label="Cancel new goal"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -212,6 +216,8 @@ export default function WeeklyGoals() {
               onClick={handleSaveGoal}
               disabled={createGoalMutation.isPending}
               className="tickd-bg-primary text-white"
+              title="Save goal"
+              aria-label="Save goal"
             >
               <Save className="w-4 h-4" />
             </Button>
@@ -278,10 +284,10 @@ export default function WeeklyGoals() {
                         </SelectContent>
                       </Select>
                       <div className="flex justify-end space-x-2">
-                        <Button variant="ghost" size="sm" onClick={() => setEditingGoal(null)}>
+                        <Button variant="ghost" size="sm" onClick={() => setEditingGoal(null)} title="Cancel goal edit" aria-label="Cancel goal edit">
                           <X className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" onClick={handleUpdateGoal} className="tickd-bg-primary text-white">
+                        <Button size="sm" onClick={handleUpdateGoal} className="tickd-bg-primary text-white" title="Save goal changes" aria-label="Save goal changes">
                           <Save className="w-4 h-4" />
                         </Button>
                       </div>
@@ -298,6 +304,8 @@ export default function WeeklyGoals() {
                               ? 'tickd-bg-secondary border-green-500 text-white'
                               : 'border-gray-300 hover:border-tickd-primary'
                           }`}
+                          title={goal.isCompleted ? "Mark goal incomplete" : "Mark goal complete"}
+                          aria-label={goal.isCompleted ? "Mark goal incomplete" : "Mark goal complete"}
                         >
                           {goal.isCompleted && <Check className="w-3 h-3" />}
                         </Button>
@@ -339,6 +347,8 @@ export default function WeeklyGoals() {
                                 size="icon"
                                 onClick={() => setEditingGoal(goal)}
                                 className="w-6 h-6"
+                                title="Edit goal"
+                                aria-label="Edit goal"
                               >
                                 <Edit className="w-3 h-3" />
                               </Button>
@@ -347,6 +357,8 @@ export default function WeeklyGoals() {
                                 size="icon"
                                 onClick={() => deleteGoalMutation.mutate(goal.id)}
                                 className="w-6 h-6 hover:text-red-500"
+                                title="Delete goal"
+                                aria-label="Delete goal"
                               >
                                 <Trash2 className="w-3 h-3" />
                               </Button>

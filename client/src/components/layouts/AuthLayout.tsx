@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link } from "wouter";
-import tickdLogo from "@/assets/tickd-logo.png";
+import tickdLogoFull from "@/assets/tickd-logo-full.svg";
 
 interface AuthLayoutProps {
   children: ReactNode;
@@ -12,8 +12,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
       <header className="py-4 px-6 border-b bg-white shadow-sm">
         <div className="container mx-auto">
           <Link href="/" className="flex items-center gap-3 w-fit">
-            <img src={tickdLogo} alt="Tickd" className="h-8 w-8" />
-            <span className="text-xl font-bold tickd-primary">TimeTrack Pro</span>
+            <img src={tickdLogoFull} alt="Tickd" className="h-10 w-auto max-w-[165px]" />
           </Link>
         </div>
       </header>
@@ -24,7 +23,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
 
       <footer className="py-4 border-t bg-white">
         <div className="container mx-auto text-center text-sm text-gray-400">
-          &copy; {new Date().getFullYear()} TimeTrack Pro. All rights reserved.
+          &copy; {new Date().getFullYear()} Tickd. All rights reserved.
         </div>
       </footer>
     </div>

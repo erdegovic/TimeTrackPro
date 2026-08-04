@@ -1,6 +1,13 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
+const formatLocalDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 interface TimerContextType {
   isTracking: boolean;
   startTime: number | null;
@@ -14,7 +21,7 @@ interface TimerContextType {
   setSelectedClientId: (id: number | undefined) => void;
   
   startTimer: () => void;
-  stopTimer: () => Promise<void>;
+  stopTimer: () => Promise<boolean>;
   startTimerWithData: (desc: string, projectId: number, clientId?: number) => void;
 }
 
@@ -103,8 +110,8 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const stopTimer = async (): Promise<void> => {
-    if (!isTracking || !startTime) return;
+  const stopTimer = async (): Promise<boolean> => {
+    if (!isTracking || !startTime) return false;
 
     const endTime = Date.now();
     const duration = (endTime - startTime) / 1000 / 3600; // Convert to hours
@@ -118,9 +125,11 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({
           description,
           projectId: selectedProjectId || null,
+          clientId: selectedProjectId ? null : selectedClientId || null,
           startTime: new Date(startTime).toISOString(),
           endTime: new Date(endTime).toISOString(),
           duration: duration.toString(),
+          date: formatLocalDate(new Date(startTime)),
         }),
       });
 
@@ -146,12 +155,14 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         description: "Please try again",
         variant: "destructive",
       });
+      return false;
     }
     
     // Reset timer state
     setIsTracking(false);
     setStartTime(null);
     setCurrentDuration(0);
+    return true;
   };
 
   return (

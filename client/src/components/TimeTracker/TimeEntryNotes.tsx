@@ -10,11 +10,38 @@ import { apiRequest } from '@/lib/queryClient';
 import { format } from 'date-fns';
 import type { TimeEntryNote } from '@shared/schema';
 
+type SpeechRecognitionResultEventLike = {
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
+};
+
+type SpeechRecognitionErrorEventLike = {
+  error?: string;
+};
+
+type SpeechRecognitionInstance = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionResultEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+
 // TypeScript declarations for Speech Recognition API
 declare global {
   interface Window {
-    SpeechRecognition: any;
-    webkitSpeechRecognition: any;
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
   }
 }
 
@@ -59,7 +86,7 @@ export function TimeEntryNotes({ timeEntryId, trigger }: TimeEntryNotesProps) {
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingContent, setEditingContent] = useState('');
   const [isRecording, setIsRecording] = useState(false);
-  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [recognition, setRecognition] = useState<SpeechRecognitionInstance | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -71,8 +98,9 @@ export function TimeEntryNotes({ timeEntryId, trigger }: TimeEntryNotesProps) {
   // Initialize speech recognition
   useEffect(() => {
     if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
+      const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognitionCtor) return;
+      const recognition = new SpeechRecognitionCtor();
       
       recognition.continuous = false;
       recognition.interimResults = false;
@@ -302,7 +330,7 @@ export function TimeEntryNotes({ timeEntryId, trigger }: TimeEntryNotesProps) {
               </div>
               {isRecording && (
                 <div className="text-sm text-orange-600 animate-pulse">
-                  🎤 Listening... Speak now
+                  Listening... Speak now
                 </div>
               )}
               <Button

@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useLocation } from 'wouter';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
+import GoogleSignInButton from './GoogleSignInButton';
 
 const loginSchema = z.object({
   email: z.string().email("Valid email is required"),
@@ -25,12 +26,23 @@ export default function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(location.split('?')[1]);
     if (params.get('verified') === 'true') {
       setVerificationStatus('Your email has been verified! You can now sign in.');
     }
+
+    const errorMessages: Record<string, string> = {
+      'google-unavailable': 'Google sign-in is temporarily unavailable.',
+      'google-session-expired': 'Your Google sign-in session expired. Please try again.',
+      'google-email-unverified': 'Google could not verify the email address for this account.',
+      'google-sign-in-failed': 'Google sign-in could not be completed. Please try again.',
+      'account-inactive': 'This account is inactive. Please contact support.',
+    };
+    const error = params.get('error');
+    setAuthError(error ? errorMessages[error] || null : null);
   }, [location]);
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
@@ -76,6 +88,21 @@ export default function LoginForm() {
             <AlertDescription className="text-green-700">{verificationStatus}</AlertDescription>
           </Alert>
         )}
+
+        {authError && (
+          <Alert className="mb-6 border-red-200 bg-red-50">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-700">{authError}</AlertDescription>
+          </Alert>
+        )}
+
+        <GoogleSignInButton label="Continue with Google" />
+
+        <div className="my-5 flex items-center gap-3" aria-hidden="true">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="text-xs font-medium uppercase text-gray-400">or</span>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div className="space-y-1.5">

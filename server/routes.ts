@@ -1,5 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import fs from "fs";
+import path from "path";
 import { storage } from "./storage";
 import { 
   insertClientSchema, 
@@ -11,20 +13,155 @@ import {
   timeFormatEnum,
   roundingTypeEnum,
   timeEntryUpdateSchema,
+  clients as clientsTable,
+  projects as projectsTable,
+  invoices as invoicesTable,
+  timeEntryNotes as timeEntryNotesTable,
+  creativityNotes as creativityNotesTable,
+  weeklyGoals as weeklyGoalsTable,
+  sessions as sessionsTable,
   timeEntries as timeEntriesTable,
+  users as usersTable,
 } from "@shared/schema";
 import { z } from "zod";
-import { format, addDays } from "date-fns";
+import { format, addDays, differenceInCalendarWeeks, startOfWeek } from "date-fns";
 import { db } from "./db";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import authRoutes from "./routes/auth";
 import profileRoutes from "./routes/profile";
 import verifyRoutes from "./routes/verify";
 import { authenticate, handleVerificationRedirect } from "./middleware/auth";
 import fetch from "node-fetch";
+import { getLiveExchangeRates } from "./exchange-rates";
+
+const parseInvoiceSettings = (raw?: string | null) => {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const musicPlaylists = [
+  {
+    id: "deep-work",
+    name: "Deep Work",
+    description: "Slow ambient layers for long editing, invoicing, and writing sessions.",
+    intent: "Focus",
+    accent: "blue",
+    folder: "deep-work",
+  },
+  {
+    id: "creative-flow",
+    name: "Creative Flow",
+    description: "Warm rhythmic beds for concepting, arranging, and design passes.",
+    intent: "Create",
+    accent: "emerald",
+    folder: "creative-flow",
+  },
+  {
+    id: "reset",
+    name: "Reset",
+    description: "Gentle textures for between-client breaks and end-of-day decompression.",
+    intent: "Recover",
+    accent: "violet",
+    folder: "reset",
+  },
+];
+
+const audioExtensions = new Set([".mp3", ".m4a", ".wav", ".ogg", ".flac"]);
+const imageExtensions = [".jpg", ".jpeg", ".png", ".webp"];
+
+const titleFromFilename = (filename: string) => {
+  return path
+    .basename(filename, path.extname(filename))
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
+
+const encodePublicPath = (...segments: string[]) => {
+  return `/${segments.map((segment) => encodeURIComponent(segment)).join("/")}`;
+};
+
+const getMusicRoot = () => {
+  const candidates = [
+    path.resolve(process.cwd(), "client", "public", "music"),
+    path.resolve(import.meta.dirname, "..", "client", "public", "music"),
+    path.resolve(import.meta.dirname, "public", "music"),
+    path.resolve(process.cwd(), "server", "public", "music"),
+    path.resolve(process.cwd(), "dist", "public", "music"),
+  ];
+
+  return candidates.find((candidate) => fs.existsSync(candidate)) || candidates[0];
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const parseLocalDate = (dateString: string) => {
+    const [year, month, day] = dateString.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  };
+
+  const getCalendarWeekOfMonth = (dateString: string) => {
+    const entryDate = parseLocalDate(dateString);
+    const firstOfMonth = new Date(entryDate.getFullYear(), entryDate.getMonth(), 1);
+    const weekNumber = differenceInCalendarWeeks(entryDate, firstOfMonth, { weekStartsOn: 1 }) + 1;
+    const monthName = entryDate.toLocaleString('default', { month: 'long' });
+
+    return {
+      entryDate,
+      weekNumber,
+      weekKey: `${entryDate.getFullYear()}-${entryDate.getMonth() + 1}-W${weekNumber}`,
+      weekLabel: `Week ${weekNumber} of ${monthName} ${entryDate.getFullYear()}`,
+      weekStart: startOfWeek(entryDate, { weekStartsOn: 1 }),
+    };
+  };
+
+  const getAuthenticatedUserId = (req: Request, res: Response): number | undefined => {
+    const userId = req.session?.userId || req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'User not authenticated' });
+      return undefined;
+    }
+    return userId;
+  };
+
+  const isOwnedByUser = (recordUserId: number | null | undefined, userId: number) => {
+    return recordUserId === userId;
+  };
+
+  const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.session?.userId || req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      req.user = { ...(req.user || {}), ...user };
+      next();
+    } catch (error) {
+      console.error("Admin authorization error:", error);
+      res.status(500).json({ message: "Failed to verify admin access" });
+    }
+  };
+
+  const getCountForUser = async (table: any, userId: number) => {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(table)
+      .where(eq(table.userId, userId));
+    return Number(result?.count || 0);
+  };
+
   // Register auth routes
   app.use('/api/auth', authRoutes);
   
@@ -33,6 +170,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register email verification routes (no authentication required)
   app.use('/api/auth', verifyRoutes);
+
+  app.get('/api/music-library', async (_req: Request, res: Response) => {
+    const musicRoot = getMusicRoot();
+
+    const playlists = musicPlaylists.map((playlist) => {
+      const folderPath = path.join(musicRoot, playlist.folder);
+      const files = fs.existsSync(folderPath) ? fs.readdirSync(folderPath, { withFileTypes: true }) : [];
+      const fileNames = files.filter((file) => file.isFile()).map((file) => file.name);
+
+      const tracks = fileNames
+        .filter((fileName) => audioExtensions.has(path.extname(fileName).toLowerCase()))
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+        .map((fileName) => {
+          const baseName = path.basename(fileName, path.extname(fileName));
+          const thumbnail = imageExtensions
+            .map((extension) => `${baseName}${extension}`)
+            .find((candidate) => fileNames.some((name) => name.toLowerCase() === candidate.toLowerCase()));
+
+          return {
+            id: `${playlist.id}:${fileName}`,
+            title: titleFromFilename(fileName),
+            fileName,
+            url: encodePublicPath("music", playlist.folder, fileName),
+            thumbnailUrl: thumbnail ? encodePublicPath("music", playlist.folder, thumbnail) : null,
+          };
+        });
+
+      return {
+        ...playlist,
+        tracks,
+      };
+    });
+
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ playlists });
+  });
   
   // Add direct resend verification endpoint
   app.post('/api/auth/resend-verification', async (req: Request, res: Response) => {
@@ -235,10 +408,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.userId = foundUser.id;
       console.log(`Login successful - session created for user ${foundUser.id}`);
       
-      const { password: _, ...userData } = foundUser;
       return res.status(200).json({
         message: "Login successful",
-        user: userData
+        user: {
+          id: foundUser.id,
+          email: foundUser.email,
+          username: foundUser.username,
+          firstName: foundUser.firstName,
+          lastName: foundUser.lastName,
+          profileImageUrl: foundUser.profileImageUrl,
+          role: foundUser.role,
+          status: foundUser.status,
+          createdAt: foundUser.createdAt,
+          updatedAt: foundUser.updatedAt,
+        }
       });
     } catch (error) {
       console.error('Login error:', error);
@@ -258,6 +441,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // All API routes use /api prefix
+
+  // Admin recovery API - metadata only, no private project/note/invoice content
+  app.get("/api/admin/summary", authenticate, requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const [usersCount] = await db.select({ count: sql<number>`count(*)::int` }).from(usersTable);
+      const [activeUsersCount] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(usersTable)
+        .where(eq(usersTable.status, "active"));
+      const [adminUsersCount] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(usersTable)
+        .where(eq(usersTable.role, "admin"));
+
+      res.json({
+        totalUsers: Number(usersCount?.count || 0),
+        activeUsers: Number(activeUsersCount?.count || 0),
+        adminUsers: Number(adminUsersCount?.count || 0),
+        backupStatus: "not_configured",
+        restoreStatus: "pending_backup_system",
+      });
+    } catch (error) {
+      console.error("Error getting admin summary:", error);
+      res.status(500).json({ message: "Failed to fetch admin summary" });
+    }
+  });
+
+  app.get("/api/admin/users", authenticate, requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const allUsers = await db
+        .select({
+          id: usersTable.id,
+          email: usersTable.email,
+          username: usersTable.username,
+          firstName: usersTable.firstName,
+          lastName: usersTable.lastName,
+          role: usersTable.role,
+          status: usersTable.status,
+          createdAt: usersTable.createdAt,
+          updatedAt: usersTable.updatedAt,
+        })
+        .from(usersTable)
+        .orderBy(usersTable.id);
+
+      const usersWithRecoveryMetadata = await Promise.all(
+        allUsers.map(async (user) => ({
+          ...user,
+          counts: {
+            clients: await getCountForUser(clientsTable, user.id),
+            projects: await getCountForUser(projectsTable, user.id),
+            timeEntries: await getCountForUser(timeEntriesTable, user.id),
+            invoices: await getCountForUser(invoicesTable, user.id),
+            timeEntryNotes: await getCountForUser(timeEntryNotesTable, user.id),
+            creativityNotes: await getCountForUser(creativityNotesTable, user.id),
+            weeklyGoals: await getCountForUser(weeklyGoalsTable, user.id),
+          },
+          backup: {
+            latestSnapshotAt: null,
+            status: "not_configured",
+            restoreAvailable: false,
+          },
+        })),
+      );
+
+      res.json(usersWithRecoveryMetadata);
+    } catch (error) {
+      console.error("Error getting admin users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.post("/api/admin/admin-users", authenticate, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { email } = z.object({ email: z.string().email() }).parse(req.body);
+      const user = await storage.getUserByEmail(email.toLowerCase().trim());
+      if (!user) {
+        return res.status(404).json({ message: "No user exists with that email yet" });
+      }
+
+      const [updatedUser] = await db
+        .update(usersTable)
+        .set({ role: "admin", updatedAt: new Date() })
+        .where(eq(usersTable.id, user.id))
+        .returning({
+          id: usersTable.id,
+          email: usersTable.email,
+          username: usersTable.username,
+          role: usersTable.role,
+          status: usersTable.status,
+        });
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error adding admin user:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Valid email is required" });
+      }
+      res.status(500).json({ message: "Failed to add admin role" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/status", authenticate, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const userId = Number(req.params.id);
+      const { status } = z.object({ status: z.enum(["active", "inactive"]) }).parse(req.body);
+      if (!Number.isFinite(userId)) {
+        return res.status(400).json({ message: "Invalid user id" });
+      }
+
+      const [updatedUser] = await db
+        .update(usersTable)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(usersTable.id, userId))
+        .returning({
+          id: usersTable.id,
+          email: usersTable.email,
+          username: usersTable.username,
+          role: usersTable.role,
+          status: usersTable.status,
+        });
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user status:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Valid status is required" });
+      }
+      res.status(500).json({ message: "Failed to update user status" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/force-logout", authenticate, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const userId = Number(req.params.id);
+      if (!Number.isFinite(userId)) {
+        return res.status(400).json({ message: "Invalid user id" });
+      }
+
+      await db.delete(sessionsTable).where(eq(sessionsTable.userId, userId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error forcing logout:", error);
+      res.status(500).json({ message: "Failed to force logout" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/restore", authenticate, requireAdmin, async (_req: Request, res: Response) => {
+    res.status(501).json({
+      message: "Restore requires encrypted snapshot backups to be configured first.",
+      status: "pending_backup_system",
+    });
+  });
   
   // Clients API
   app.get("/api/clients", authenticate, async (req: Request, res: Response) => {
@@ -277,12 +616,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/clients/:id", async (req: Request, res: Response) => {
+  app.get("/api/clients/:id", authenticate, async (req: Request, res: Response) => {
     try {
+      const userId = getAuthenticatedUserId(req, res);
+      if (!userId) return;
+
       const id = parseInt(req.params.id);
       const client = await storage.getClient(id);
       if (!client) {
         return res.status(404).json({ message: 'Client not found' });
+      }
+      if (!isOwnedByUser(client.userId, userId)) {
+        return res.status(403).json({ message: 'You are not authorized to view this client' });
       }
       res.json(client);
     } catch (error) {
@@ -314,11 +659,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/clients/:id", async (req: Request, res: Response) => {
+  app.put("/api/clients/:id", authenticate, async (req: Request, res: Response) => {
     try {
+      const userId = getAuthenticatedUserId(req, res);
+      if (!userId) return;
+
       const id = parseInt(req.params.id);
+      const existingClient = await storage.getClient(id);
+      if (!existingClient) {
+        return res.status(404).json({ message: 'Client not found' });
+      }
+      if (!isOwnedByUser(existingClient.userId, userId)) {
+        return res.status(403).json({ message: 'You are not authorized to update this client' });
+      }
+
       const data = insertClientSchema.parse(req.body);
-      const client = await storage.updateClient(id, data);
+      const client = await storage.updateClient(id, { ...data, userId });
       if (!client) {
         return res.status(404).json({ message: 'Client not found' });
       }
@@ -335,9 +691,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.delete("/api/clients/:id", async (req: Request, res: Response) => {
+  app.delete("/api/clients/:id", authenticate, async (req: Request, res: Response) => {
     try {
+      const userId = getAuthenticatedUserId(req, res);
+      if (!userId) return;
+
       const id = parseInt(req.params.id);
+      const existingClient = await storage.getClient(id);
+      if (!existingClient) {
+        return res.status(404).json({ message: 'Client not found' });
+      }
+      if (!isOwnedByUser(existingClient.userId, userId)) {
+        return res.status(403).json({ message: 'You are not authorized to delete this client' });
+      }
+
       const deleted = await storage.deleteClient(id);
       if (!deleted) {
         return res.status(404).json({ message: 'Client not found' });
@@ -367,12 +734,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/projects/:id", async (req: Request, res: Response) => {
+  app.get("/api/projects/:id", authenticate, async (req: Request, res: Response) => {
     try {
+      const userId = getAuthenticatedUserId(req, res);
+      if (!userId) return;
+
       const id = parseInt(req.params.id);
       const project = await storage.getProject(id);
       if (!project) {
         return res.status(404).json({ message: 'Project not found' });
+      }
+      if (!isOwnedByUser(project.userId, userId)) {
+        return res.status(403).json({ message: 'You are not authorized to view this project' });
       }
       res.json(project);
     } catch (error) {
@@ -404,11 +777,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/projects/:id", async (req: Request, res: Response) => {
+  app.put("/api/projects/:id", authenticate, async (req: Request, res: Response) => {
     try {
+      const userId = getAuthenticatedUserId(req, res);
+      if (!userId) return;
+
       const id = parseInt(req.params.id);
+      const existingProject = await storage.getProject(id);
+      if (!existingProject) {
+        return res.status(404).json({ message: 'Project not found' });
+      }
+      if (!isOwnedByUser(existingProject.userId, userId)) {
+        return res.status(403).json({ message: 'You are not authorized to update this project' });
+      }
+
       const data = insertProjectSchema.parse(req.body);
-      const project = await storage.updateProject(id, data);
+      const project = await storage.updateProject(id, { ...data, userId });
       if (!project) {
         return res.status(404).json({ message: 'Project not found' });
       }
@@ -425,9 +809,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.delete("/api/projects/:id", async (req: Request, res: Response) => {
+  app.delete("/api/projects/:id", authenticate, async (req: Request, res: Response) => {
     try {
+      const userId = getAuthenticatedUserId(req, res);
+      if (!userId) return;
+
       const id = parseInt(req.params.id);
+      const existingProject = await storage.getProject(id);
+      if (!existingProject) {
+        return res.status(404).json({ message: 'Project not found' });
+      }
+      if (!isOwnedByUser(existingProject.userId, userId)) {
+        return res.status(403).json({ message: 'You are not authorized to delete this project' });
+      }
+
       const deleted = await storage.deleteProject(id);
       if (!deleted) {
         return res.status(404).json({ message: 'Project not found' });
@@ -558,7 +953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: userId,
         startTime: startTime,
         endTime: req.body.endTime ? new Date(req.body.endTime) : undefined,
-        date: startTime.toISOString().split('T')[0], // Add date field in YYYY-MM-DD format
+        date: req.body.date || startTime.toISOString().split('T')[0],
       };
       
       console.log('Tracker time entry data being sent to database:', data);
@@ -593,7 +988,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Parse and update the entry
       const data = timeEntryUpdateSchema.parse(req.body);
       console.log('Updating time entry with data:', JSON.stringify(data, null, 2));
-      const timeEntry = await storage.updateTimeEntry(id, data);
+      const timeEntry = await storage.updateTimeEntry(id, data as any);
       console.log('Updated time entry result:', JSON.stringify(timeEntry, null, 2));
       
       res.json(timeEntry);
@@ -699,8 +1094,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const hourlyRateValue = parseFloat(project?.hourlyRate || "0");
         const amount = durationHours * hourlyRateValue;
         
-        // Use client currency since projects don't have currency field
-        const projectCurrency = client?.currency || 'USD';
+        // Use client currency since projects don't have a currency field.
+        const projectCurrency = client?.currency || settings?.defaultCurrency || 'USD';
         
         console.log(`Entry ${entry.id}: ${durationHours}h × ${hourlyRateValue} ${projectCurrency} = ${amount} ${projectCurrency}`);
         
@@ -711,6 +1106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...entry,
           client,
           project,
+          currency: projectCurrency,
           hourlyRate: project?.hourlyRate || "0",
           amount: convertedAmount.toFixed(2),
           duration: durationHours.toFixed(2),
@@ -724,21 +1120,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (settings?.enableWeeklyCategorization) {
         // Group by weeks within month and merge same project/client/description
         groupedData = enrichedEntries.reduce((acc: any, entry) => {
-          const entryDate = new Date(entry.date);
-          const year = entryDate.getFullYear();
-          const month = entryDate.getMonth();
-          const startOfMonth = new Date(year, month, 1);
-          const dayOfMonth = entryDate.getDate();
-          const weekOfMonth = Math.ceil(dayOfMonth / 7);
-          
-          const weekKey = `${year}-${month + 1}-W${weekOfMonth}`;
-          const monthName = entryDate.toLocaleString('default', { month: 'long' });
-          const weekLabel = `Week ${weekOfMonth} of ${monthName} ${year}`;
+          const { entryDate, weekNumber, weekKey, weekLabel, weekStart } = getCalendarWeekOfMonth(entry.date);
           
           if (!acc[weekKey]) {
             acc[weekKey] = {
-              weekNumber: weekOfMonth,
+              weekNumber,
               weekLabel,
+              weekStart,
               totalHours: 0,
               totalAmount: 0,
               entries: [],
@@ -851,21 +1239,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const weeklyData = Object.values(groupedData).sort((a: any, b: any) => {
-        // Sort by week number in ascending order (earlier weeks first)
-        return a.weekNumber - b.weekNumber;
+        const aTime = a.weekStart ? new Date(a.weekStart).getTime() : a.weekNumber;
+        const bTime = b.weekStart ? new Date(b.weekStart).getTime() : b.weekNumber;
+        return aTime - bTime;
       });
       
       // Calculate totals from the grouped data
       const totalHours = weeklyData.reduce((sum: number, week: any) => sum + week.totalHours, 0);
       const totalAmount = weeklyData.reduce((sum: number, week: any) => sum + week.totalAmount, 0);
+      const reportCurrencies = Array.from(new Set(enrichedEntries.map((entry: any) => entry.currency).filter(Boolean)));
+      const reportCurrency = reportCurrencies.length === 1 ? reportCurrencies[0] : settings?.defaultCurrency || 'USD';
       
-      console.log(`[Reports] Returning report data with ${enrichedEntries.length} entries, ${weeklyData.length} groups, total: $${totalAmount.toFixed(2)}`);
+      console.log(`[Reports] Returning report data with ${enrichedEntries.length} entries, ${weeklyData.length} groups, total: ${reportCurrency} ${totalAmount.toFixed(2)}`);
       
       return res.json({
         timeEntries: enrichedEntries,
         weeklyData,
         totalHours,
         totalAmount,
+        currency: reportCurrency,
         timeFormat: filters.timeFormat,
         roundingType: filters.roundingType
       });
@@ -1036,10 +1428,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Invoice not found' });
       }
       
-      // Check if invoice belongs to current user (skip this check in development)
-      if (invoice.userId && 
-          invoice.userId !== req.user?.id && 
-          process.env.NODE_ENV !== 'development') {
+      if (!isOwnedByUser(invoice.userId, req.user!.id)) {
         return res.status(403).json({ message: 'You are not authorized to view this invoice' });
       }
       
@@ -1059,9 +1448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Invoice not found' });
       }
       
-      // In development mode, allow access to all invoices
-      // In production, check if the invoice belongs to the current user
-      if (process.env.NODE_ENV !== 'development' && invoice.userId && invoice.userId !== req.user?.id) {
+      if (!isOwnedByUser(invoice.userId, req.user!.id)) {
         return res.status(403).json({ message: 'You are not authorized to view this invoice' });
       }
       
@@ -1121,7 +1508,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const userId = req.session?.userId;
-      if (existingInvoice.userId && existingInvoice.userId !== userId) {
+      if (!userId || !isOwnedByUser(existingInvoice.userId, userId)) {
         return res.status(403).json({ message: 'Not authorized' });
       }
       
@@ -1145,7 +1532,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if invoice belongs to current user
       const userId = req.session?.userId;
-      if (existingInvoice.userId && existingInvoice.userId !== userId) {
+      if (!userId || !isOwnedByUser(existingInvoice.userId, userId)) {
         return res.status(403).json({ message: 'You are not authorized to update this invoice' });
       }
       
@@ -1180,10 +1567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Invoice not found' });
       }
       
-      // Check if invoice belongs to current user (unless in development)
-      if (existingInvoice.userId && 
-          existingInvoice.userId !== req.user?.id && 
-          process.env.NODE_ENV !== 'development') {
+      if (!isOwnedByUser(existingInvoice.userId, req.user!.id)) {
         return res.status(403).json({ message: 'You are not authorized to delete this invoice' });
       }
       
@@ -1200,18 +1584,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/next-invoice-number", async (req: Request, res: Response) => {
+  app.get("/api/next-invoice-number", authenticate, async (req: Request, res: Response) => {
     try {
-      const invoiceNumber = await storage.getNextInvoiceNumber();
+      const settings = await storage.getSettings();
+      const clientId = req.query.clientId ? Number(req.query.clientId) : null;
+      let clientOptions: Record<string, any> = {};
+
+      if (clientId) {
+        const client = await storage.getClient(clientId);
+        if (client && isOwnedByUser(client.userId, req.user!.id)) {
+          const invoiceSettings = parseInvoiceSettings((client as any).invoiceSettings);
+          if (invoiceSettings.enabled) {
+            clientOptions = invoiceSettings;
+          }
+        }
+      }
+
+      const invoiceNumber = await storage.getNextInvoiceNumber({
+        prefix: clientOptions.invoiceNumberPrefix ?? (settings as any)?.invoiceNumberPrefix ?? "INV-",
+        suffix: clientOptions.invoiceNumberSuffix ?? (settings as any)?.invoiceNumberSuffix ?? "",
+        padding: clientOptions.invoiceNumberPadding ?? (settings as any)?.invoiceNumberPadding ?? 4,
+      });
       res.json({ invoiceNumber });
     } catch (error) {
       console.error('Error getting next invoice number:', error);
       res.status(500).json({ message: 'Failed to get next invoice number' });
     }
   });
+
+  app.get("/api/exchange-rates", authenticate, async (req: Request, res: Response) => {
+    try {
+      const base = typeof req.query.base === "string" ? req.query.base : "USD";
+      const symbols = typeof req.query.symbols === "string"
+        ? req.query.symbols.split(",")
+        : [];
+      const rates = await getLiveExchangeRates(base, symbols);
+      res.json(rates);
+    } catch (error) {
+      console.error("Error getting live exchange rates:", error);
+      res.status(502).json({ message: "Failed to fetch live exchange rates" });
+    }
+  });
   
   // Settings API
-  app.get("/api/settings", async (req: Request, res: Response) => {
+  app.get("/api/settings", authenticate, async (req: Request, res: Response) => {
     try {
       const settings = await storage.getSettings();
       res.json(settings);
@@ -1221,7 +1637,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/settings", async (req: Request, res: Response) => {
+  app.put("/api/settings", authenticate, async (req: Request, res: Response) => {
     try {
       console.log('[Settings] PUT request received with body:', JSON.stringify(req.body, null, 2));
       
@@ -1245,10 +1661,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/invoice-label-overrides", authenticate, async (req: Request, res: Response) => {
+    try {
+      const userId = getAuthenticatedUserId(req, res);
+      if (!userId) return;
+
+      const user = await storage.getUser(userId);
+      const rawLabels = (user as any)?.invoiceLabelOverrides;
+      let labels = {};
+
+      if (rawLabels) {
+        try {
+          labels = JSON.parse(rawLabels);
+        } catch {
+          labels = {};
+        }
+      }
+
+      res.json({ labels });
+    } catch (error) {
+      console.error("Error getting invoice label overrides:", error);
+      res.status(500).json({ message: "Failed to fetch invoice label overrides" });
+    }
+  });
+
+  app.put("/api/invoice-label-overrides", authenticate, async (req: Request, res: Response) => {
+    try {
+      const userId = getAuthenticatedUserId(req, res);
+      if (!userId) return;
+
+      const schema = z.object({
+        labels: z.record(z.string().max(500)),
+      });
+      const { labels } = schema.parse(req.body);
+
+      const [updatedUser] = await db
+        .update(usersTable)
+        .set({ invoiceLabelOverrides: JSON.stringify(labels), updatedAt: new Date() })
+        .where(eq(usersTable.id, userId))
+        .returning();
+
+      res.json({ labels: JSON.parse((updatedUser as any).invoiceLabelOverrides || "{}") });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid invoice label overrides", errors: error.errors });
+      }
+      console.error("Error updating invoice label overrides:", error);
+      res.status(500).json({ message: "Failed to update invoice label overrides" });
+    }
+  });
+
+  app.get("/api/custom-currency-rates", authenticate, async (req: Request, res: Response) => {
+    try {
+      const userId = getAuthenticatedUserId(req, res);
+      if (!userId) return;
+
+      const user = await storage.getUser(userId);
+      const rawRates = (user as any)?.customCurrencyRates;
+      let currencies = {};
+
+      if (rawRates) {
+        try {
+          currencies = JSON.parse(rawRates);
+        } catch {
+          currencies = {};
+        }
+      }
+
+      res.json({ currencies });
+    } catch (error) {
+      console.error("Error getting custom currency rates:", error);
+      res.status(500).json({ message: "Failed to fetch custom currency rates" });
+    }
+  });
+
+  app.put("/api/custom-currency-rates", authenticate, async (req: Request, res: Response) => {
+    try {
+      const userId = getAuthenticatedUserId(req, res);
+      if (!userId) return;
+
+      const schema = z.object({
+        currencies: z.record(z.object({
+          code: z.string().min(2).max(12),
+          name: z.string().max(80).optional().default(""),
+          rate: z.coerce.number().positive(),
+        })),
+      });
+      const { currencies } = schema.parse(req.body);
+
+      const normalized = Object.values(currencies).reduce<Record<string, { code: string; name: string; rate: number }>>((acc, item) => {
+        const code = item.code.trim().toUpperCase();
+        acc[code] = { code, name: item.name || code, rate: item.rate };
+        return acc;
+      }, {});
+
+      const [updatedUser] = await db
+        .update(usersTable)
+        .set({ customCurrencyRates: JSON.stringify(normalized), updatedAt: new Date() })
+        .where(eq(usersTable.id, userId))
+        .returning();
+
+      res.json({ currencies: JSON.parse((updatedUser as any).customCurrencyRates || "{}") });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid custom currency rates", errors: error.errors });
+      }
+      console.error("Error updating custom currency rates:", error);
+      res.status(500).json({ message: "Failed to update custom currency rates" });
+    }
+  });
+
   // Creativity Notes Routes
   app.get("/api/creativity/notes", authenticate, async (req: Request, res: Response) => {
     try {
-      const userId = req.session?.userId || req.user?.id || 1;
+      const userId = req.user!.id;
       const notes = await storage.getCreativityNotes(userId);
       res.json(notes);
     } catch (error) {
@@ -1259,7 +1785,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/creativity/notes", authenticate, async (req: Request, res: Response) => {
     try {
-      const userId = req.session?.userId || req.user?.id || 1;
+      const userId = req.user!.id;
       const noteData = { ...req.body, userId };
       const note = await storage.createCreativityNote(noteData);
       res.json(note);
@@ -1272,6 +1798,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/creativity/notes/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const noteId = parseInt(req.params.id);
+      const [existingNote] = await db
+        .select({ userId: creativityNotesTable.userId })
+        .from(creativityNotesTable)
+        .where(eq(creativityNotesTable.id, noteId));
+      if (!existingNote) return res.status(404).json({ message: "Note not found" });
+      if (!isOwnedByUser(existingNote.userId, req.user!.id)) {
+        return res.status(403).json({ message: "You are not authorized to update this note" });
+      }
       const note = await storage.updateCreativityNote(noteId, req.body);
       res.json(note);
     } catch (error) {
@@ -1283,6 +1817,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/creativity/notes/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const noteId = parseInt(req.params.id);
+      const [existingNote] = await db
+        .select({ userId: creativityNotesTable.userId })
+        .from(creativityNotesTable)
+        .where(eq(creativityNotesTable.id, noteId));
+      if (!existingNote) return res.status(404).json({ message: "Note not found" });
+      if (!isOwnedByUser(existingNote.userId, req.user!.id)) {
+        return res.status(403).json({ message: "You are not authorized to delete this note" });
+      }
       await storage.deleteCreativityNote(noteId);
       res.json({ message: "Note deleted successfully" });
     } catch (error) {
@@ -1294,7 +1836,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Weekly Goals Routes
   app.get("/api/creativity/goals", authenticate, async (req: Request, res: Response) => {
     try {
-      const userId = req.session?.userId || req.user?.id || 1;
+      const userId = req.user!.id;
       const goals = await storage.getWeeklyGoals(userId);
       res.json(goals);
     } catch (error) {
@@ -1305,7 +1847,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/creativity/goals", authenticate, async (req: Request, res: Response) => {
     try {
-      const userId = req.session?.userId || req.user?.id || 1;
+      const userId = req.user!.id;
       const goalData = { ...req.body, userId };
       const goal = await storage.createWeeklyGoal(goalData);
       res.json(goal);
@@ -1318,6 +1860,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/creativity/goals/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const goalId = parseInt(req.params.id);
+      const [existingGoal] = await db
+        .select({ userId: weeklyGoalsTable.userId })
+        .from(weeklyGoalsTable)
+        .where(eq(weeklyGoalsTable.id, goalId));
+      if (!existingGoal) return res.status(404).json({ message: "Goal not found" });
+      if (!isOwnedByUser(existingGoal.userId, req.user!.id)) {
+        return res.status(403).json({ message: "You are not authorized to update this goal" });
+      }
       const goal = await storage.updateWeeklyGoal(goalId, req.body);
       res.json(goal);
     } catch (error) {
@@ -1329,6 +1879,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/creativity/goals/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const goalId = parseInt(req.params.id);
+      const [existingGoal] = await db
+        .select({ userId: weeklyGoalsTable.userId })
+        .from(weeklyGoalsTable)
+        .where(eq(weeklyGoalsTable.id, goalId));
+      if (!existingGoal) return res.status(404).json({ message: "Goal not found" });
+      if (!isOwnedByUser(existingGoal.userId, req.user!.id)) {
+        return res.status(403).json({ message: "You are not authorized to delete this goal" });
+      }
       await storage.deleteWeeklyGoal(goalId);
       res.json({ message: "Goal deleted successfully" });
     } catch (error) {

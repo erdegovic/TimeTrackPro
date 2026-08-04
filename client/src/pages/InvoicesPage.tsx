@@ -15,6 +15,7 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { generatePdf } from "@/lib/enhanced-pdf-generator";
+import { formatCurrency } from "@/lib/utils/timeUtils";
 import { Invoice, Client, Settings } from "@shared/schema";
 import InvoiceEditor from "../components/Invoices/InvoiceEditor";
 
@@ -68,6 +69,18 @@ export default function InvoicesPage() {
     }
 
     try {
+      let effectiveSettings: Settings & Record<string, any> = settings as Settings & Record<string, any>;
+      if ((client as any).invoiceSettings) {
+        try {
+          const clientInvoiceSettings = JSON.parse((client as any).invoiceSettings);
+          if (clientInvoiceSettings?.enabled) {
+            effectiveSettings = { ...effectiveSettings, ...clientInvoiceSettings };
+          }
+        } catch {
+          // Ignore malformed legacy profile data and use the global settings.
+        }
+      }
+
       const [invoiceRes, entriesRes] = await Promise.all([
         fetch(`/api/invoices/${invoice.id}`),
         fetch("/api/time-entries"),
@@ -92,6 +105,10 @@ export default function InvoicesPage() {
               entry.editedDuration = stored.hours;
               entry.editedAmount = stored.amount;
               entry.amount = String(stored.amount ?? entry.amount);
+              entry.weekLabel = stored.weekLabel || entry.weekLabel;
+              if (stored.projectName && !entry.project?.name) {
+                entry.project = { ...(entry.project || {}), name: stored.projectName };
+              }
             }
           });
         } catch {}
@@ -104,14 +121,19 @@ export default function InvoicesPage() {
         cleanNotes = cleanNotes.split("EDITED_ENTRIES:")[0].split("ADDITIONAL_ITEMS:")[0].trim();
       }
 
-      const currency = client.currency || settings.defaultCurrency || "USD";
+      const currency = client.currency || effectiveSettings.defaultCurrency || "USD";
+      const weeklyData = effectiveSettings.enableWeeklyCategorization
+        ? buildWeeklyDataFromEntries(invoiceEntries)
+        : [];
       const reportData = {
         timeEntries: invoiceEntries,
+        weeklyData,
+        groups: weeklyData,
         additionalItems,
         clientCurrency: currency,
         totalHours: invoiceEntries.reduce((s: number, e: any) => s + parseFloat(e.duration || "0"), 0),
         totalAmount: Number(invoiceData.total),
-        timeFormat: settings.defaultTimeFormat || "decimal",
+        timeFormat: effectiveSettings.defaultTimeFormat || "decimal",
       };
 
       await generatePdf({
@@ -120,7 +142,7 @@ export default function InvoicesPage() {
         invoice: { ...invoiceData, notes: cleanNotes } as Invoice,
         reportData,
         client,
-        settings,
+        settings: effectiveSettings,
         invoiceNumber: invoiceData.invoiceNumber,
         issueDate: invoiceData.issueDate,
         dueDate: invoiceData.dueDate,
@@ -145,9 +167,31 @@ export default function InvoicesPage() {
     }
   };
 
+  const summarizeByCurrency = (matchingInvoices: Invoice[]) => {
+    const totals = new Map<string, number>();
+    matchingInvoices.forEach((invoice) => {
+      const client = clients.find((item) => item.id === invoice.clientId);
+      const currency = client?.currency || settings?.defaultCurrency || "USD";
+      totals.set(currency, (totals.get(currency) || 0) + Number(invoice.total));
+    });
+    return Array.from(totals.entries()).sort(([a], [b]) => a.localeCompare(b));
+  };
+
+  const renderCurrencyTotals = (totals: [string, number][]) => {
+    if (totals.length === 0) {
+      return formatCurrency(0, settings?.defaultCurrency || "USD");
+    }
+
+    return totals.map(([currency, amount]) => (
+      <span key={currency} className="block">
+        {formatCurrency(amount, currency)}
+      </span>
+    ));
+  };
+
   // Stats
-  const totalRevenue = invoices.filter(i => i.status === "paid").reduce((s, i) => s + Number(i.total), 0);
-  const outstanding = invoices.filter(i => i.status !== "paid").reduce((s, i) => s + Number(i.total), 0);
+  const paidTotals = summarizeByCurrency(invoices.filter(i => i.status === "paid"));
+  const outstandingTotals = summarizeByCurrency(invoices.filter(i => i.status !== "paid"));
   const unpaidCount = invoices.filter(i => i.status !== "paid").length;
 
   const sortedInvoices = [...invoices].sort((a, b) =>
@@ -190,7 +234,7 @@ export default function InvoicesPage() {
               </div>
               <div>
                 <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Paid</p>
-                <p className="text-xl font-bold text-gray-900">${totalRevenue.toFixed(2)}</p>
+                <p className="text-xl font-bold text-gray-900">{renderCurrencyTotals(paidTotals)}</p>
               </div>
             </div>
           </CardContent>
@@ -203,7 +247,7 @@ export default function InvoicesPage() {
               </div>
               <div>
                 <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Outstanding</p>
-                <p className="text-xl font-bold text-gray-900">${outstanding.toFixed(2)}</p>
+                <p className="text-xl font-bold text-gray-900">{renderCurrencyTotals(outstandingTotals)}</p>
               </div>
             </div>
           </CardContent>
@@ -384,4 +428,28 @@ export default function InvoicesPage() {
       </Dialog>
     </div>
   );
+}
+
+function buildWeeklyDataFromEntries(entries: any[]) {
+  const groups = new Map<string, any>();
+
+  entries.forEach((entry) => {
+    const weekLabel = entry.weekLabel || "Time Entries";
+    if (!groups.has(weekLabel)) {
+      groups.set(weekLabel, {
+        weekNumber: entry.weekNumber || groups.size + 1,
+        weekLabel,
+        entries: [],
+        totalHours: 0,
+        totalAmount: 0,
+      });
+    }
+
+    const group = groups.get(weekLabel);
+    group.entries.push(entry);
+    group.totalHours += parseFloat(entry.duration || entry.editedDuration || "0") || 0;
+    group.totalAmount += parseFloat(entry.amount || entry.editedAmount || "0") || 0;
+  });
+
+  return Array.from(groups.values());
 }

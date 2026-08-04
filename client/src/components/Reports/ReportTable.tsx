@@ -1,13 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { format } from "date-fns";
-import { Download, File } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Check, Download, Edit3, File, X } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { generatePdf } from "@/lib/pdf-generator-fixed-new";
-import { formatTime, formatTimeFromDecimal, adjustTime, roundTime, formatCurrency } from "@/lib/utils/timeUtils";
-import { ReportFilters, Client, TimeEntry, Project, TimeFormat, RoundingType } from "@shared/schema";
+import { adjustTime, roundTime, formatCurrency } from "@/lib/utils/timeUtils";
+import { ReportFilters, Client, TimeEntry, Project, TimeFormat, RoundingType, Settings } from "@shared/schema";
+import { useEffect, useMemo, useState } from "react";
 
 interface ReportTableProps {
   filters: ReportFilters;
@@ -45,16 +53,32 @@ interface ReportData {
 
 export default function ReportTable({ filters, onGenerateInvoice }: ReportTableProps) {
   const { toast } = useToast();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableReportData, setEditableReportData] = useState<ReportData | null>(null);
 
   // Fetch settings to check if weekly categorization is enabled
-  const { data: settings } = useQuery({
+  const { data: settings } = useQuery<Settings>({
     queryKey: ["/api/settings"],
   });
 
   const isWeeklyCategorization = settings?.enableWeeklyCategorization ?? true;
 
-  // Use the display currency symbol from settings for consistent formatting
-  const currencySymbol: string = (settings as any)?.displayCurrency || '$';
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+  });
+
+  const { data: clients = [] } = useQuery<Client[]>({
+    queryKey: ["/api/clients"],
+  });
+
+  const getEntryCurrency = (entry: any): string => {
+    return entry.currency || entry.client?.currency || (settings as any)?.defaultCurrency || "USD";
+  };
+
+  const getGroupCurrency = (entries: any[]): string => {
+    const currencies = Array.from(new Set(entries.map(getEntryCurrency).filter(Boolean)));
+    return currencies.length === 1 ? currencies[0] : (displayedReportData as any)?.currency || (settings as any)?.defaultCurrency || "USD";
+  };
 
   // Helper function to format decimal hours to HH:MM:SS
   const formatDecimalHours = (decimalHours: number): string => {
@@ -108,7 +132,11 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
       }
       
       // Apply time adjustments and rounding if needed
-      if (filters.timeAdjustment?.increaseByPercentage || filters.roundingType !== "none") {
+      if (
+        filters.timeAdjustment?.increaseByPercentage ||
+        filters.timeAdjustment?.roundToNearestTenth ||
+        filters.roundingType !== "none"
+      ) {
         return processReportData(structuredData, filters);
       }
       
@@ -116,16 +144,83 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
     }
   });
 
+  useEffect(() => {
+    setEditableReportData(null);
+    setIsEditing(false);
+  }, [reportData]);
+
+  const displayedReportData = editableReportData || reportData;
+
+  const projectById = useMemo(() => {
+    return new Map(projects.map((project) => [project.id, project]));
+  }, [projects]);
+
+  const clientById = useMemo(() => {
+    return new Map(clients.map((client) => [client.id, client]));
+  }, [clients]);
+
+  const startEditing = () => {
+    if (!displayedReportData) return;
+    setEditableReportData(cloneReportData(displayedReportData));
+    setIsEditing(true);
+  };
+
+  const discardEdits = () => {
+    setEditableReportData(null);
+    setIsEditing(false);
+  };
+
+  const finishEditing = () => {
+    setIsEditing(false);
+  };
+
+  const updateEditedEntry = (
+    entryId: number,
+    updater: (entry: ReportData["timeEntries"][number]) => ReportData["timeEntries"][number]
+  ) => {
+    setEditableReportData((current) => {
+      if (!current) return current;
+      return updateReportEntries(current, entryId, updater);
+    });
+  };
+
+  const updateEntryField = (
+    entry: ReportData["timeEntries"][number],
+    updates: Partial<ReportData["timeEntries"][number]>
+  ) => {
+    updateEditedEntry(entry.id, (currentEntry) => {
+      const nextEntry = {
+        ...currentEntry,
+        ...updates,
+      };
+      return recalculateEntryAmount(nextEntry);
+    });
+  };
+
+  const updateEntryProject = (entry: ReportData["timeEntries"][number], projectId: number) => {
+    const project = projectById.get(projectId);
+    if (!project) return;
+
+    const client = clientById.get(project.clientId);
+    updateEntryField(entry, {
+      projectId: project.id,
+      project,
+      client: client || entry.client,
+      clientId: project.clientId,
+      hourlyRate: project.hourlyRate || entry.hourlyRate,
+      currency: (client as any)?.currency || (entry as any).currency,
+    } as Partial<ReportData["timeEntries"][number]>);
+  };
 
   
   const exportReport = () => {
-    if (!reportData) return;
+    if (!displayedReportData) return;
 
-    const filename = `timetrackpro-report-${format(new Date(), "yyyy-MM-dd")}.pdf`;
+    const filename = `tickd-report-${format(new Date(), "yyyy-MM-dd")}.pdf`;
     
     generatePdf({
       filename,
-      reportData,
+      reportData: displayedReportData,
       filters,
       type: "report"
     });
@@ -144,7 +239,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
     );
   }
 
-  if (!reportData || !reportData.timeEntries || reportData.timeEntries.length === 0) {
+  if (!displayedReportData || !displayedReportData.timeEntries || displayedReportData.timeEntries.length === 0) {
     return (
       <div className="border border-gray-200 rounded-md p-8 text-center">
         <p className="text-gray-500">No data found for the selected filters.</p>
@@ -153,13 +248,13 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
   }
 
   // Calculate column visibility based on data
-  const uniqueClients = new Set(reportData.timeEntries.map(entry => entry.client?.id).filter(Boolean));
-  const uniqueProjects = new Set(reportData.timeEntries.map(entry => entry.project?.id).filter(Boolean));
-  const uniqueRates = new Set(reportData.timeEntries.map(entry => entry.hourlyRate).filter(rate => rate && rate !== "0"));
+  const uniqueClients = new Set(displayedReportData.timeEntries.map(entry => entry.client?.id).filter(Boolean));
+  const uniqueProjects = new Set(displayedReportData.timeEntries.map(entry => entry.project?.id).filter(Boolean));
+  const uniqueRates = new Set(displayedReportData.timeEntries.map(entry => entry.hourlyRate).filter(rate => rate && rate !== "0"));
   
   const showClientColumn = uniqueClients.size > 1;
-  const showProjectColumn = uniqueProjects.size > 1;
-  const showRateColumn = uniqueRates.size > 1;
+  const showProjectColumn = isEditing || uniqueProjects.size > 1;
+  const showRateColumn = isEditing || uniqueRates.size > 1;
   const showDateColumn = settings?.showDateColumn ?? true; // Default to true if not set
   
   // Get the single rate if all rates are the same
@@ -179,8 +274,32 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
   return (
     <>
       <div className="border border-gray-200 rounded-md overflow-hidden mb-6">
-        <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-200">
-          Report Preview
+        <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-200 flex items-center justify-between gap-3">
+          <div>
+            <span>Report Preview</span>
+            {editableReportData && !isEditing && (
+              <span className="ml-2 text-xs font-normal text-gray-500">Edited</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {isEditing ? (
+              <>
+                <Button variant="outline" size="sm" onClick={discardEdits}>
+                  <X className="mr-2 h-4 w-4" />
+                  Discard
+                </Button>
+                <Button size="sm" onClick={finishEditing}>
+                  <Check className="mr-2 h-4 w-4" />
+                  Done
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" size="sm" onClick={startEditing}>
+                <Edit3 className="mr-2 h-4 w-4" />
+                Edit Report
+              </Button>
+            )}
+          </div>
         </div>
         
         <div className="overflow-x-auto">
@@ -207,7 +326,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
             <tbody className="bg-white divide-y divide-gray-200">
               {isWeeklyCategorization ? (
                 // Show weekly grouped view
-                reportData.weeklyData.flatMap((weekData) => {
+                displayedReportData.weeklyData.flatMap((weekData) => {
                   const weekRows = [];
                   
                   // Week header row
@@ -217,7 +336,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                         {weekData.weekLabel}
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {formatCurrency(weekData.totalAmount, currencySymbol)}
+                        {formatCurrency(weekData.totalAmount, getGroupCurrency(weekData.entries))}
                       </td>
                     </tr>
                   );
@@ -230,8 +349,6 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                         ? entry.duration 
                         : parseFloat(String(entry.duration) || '0');
                     
-                    console.log(`[ReportTable] Entry ${entry.id}: duration=${entry.duration}, adjustedDuration=${entry.adjustedDuration}, calculated=${duration}`);
-                    
                     weekRows.push(
                       <tr key={`entry-${entry.id}-${weekData.weekNumber}-${index}`}>
                         {showDateColumn && (
@@ -240,7 +357,15 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                           </td>
                         )}
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {entry.description}
+                          {isEditing ? (
+                            <Input
+                              value={entry.description}
+                              onChange={(event) => updateEntryField(entry, { description: event.target.value })}
+                              className="h-8 min-w-48"
+                            />
+                          ) : (
+                            entry.description
+                          )}
                         </td>
                         {showClientColumn && (
                           <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
@@ -249,24 +374,66 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                         )}
                         {showProjectColumn && (
                           <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                            <span style={{ color: (entry.project as any)?.color || "#6B7280" }}>
-                              {entry.project?.name || "—"}
-                            </span>
+                            {isEditing ? (
+                              <Select
+                                value={entry.projectId?.toString() || ""}
+                                onValueChange={(value) => updateEntryProject(entry, Number(value))}
+                              >
+                                <SelectTrigger className="h-8 min-w-40">
+                                  <SelectValue placeholder="Project" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {projects.map((project) => (
+                                    <SelectItem key={project.id} value={project.id.toString()}>
+                                      {project.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <span style={{ color: (entry.project as any)?.color || "#6B7280" }}>
+                                {entry.project?.name || "—"}
+                              </span>
+                            )}
                           </td>
                         )}
                         <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
-                          {filters.timeFormat === 'decimal' 
-                            ? `${duration.toFixed(2)}h`
-                            : formatDecimalHours(duration)
-                          }
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={duration}
+                              onChange={(event) => updateEntryField(entry, {
+                                duration: event.target.value,
+                                adjustedDuration: Number(event.target.value) || 0,
+                              } as Partial<ReportData["timeEntries"][number]>)}
+                              className="h-8 w-24 font-mono"
+                            />
+                          ) : (
+                            filters.timeFormat === 'decimal'
+                              ? `${duration.toFixed(2)}h`
+                              : formatDecimalHours(duration)
+                          )}
                         </td>
                         {showRateColumn && (
                           <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                            {formatCurrency(parseFloat(String(entry.hourlyRate) || '0'), currencySymbol)}
+                            {isEditing ? (
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={entry.hourlyRate}
+                                onChange={(event) => updateEntryField(entry, { hourlyRate: event.target.value })}
+                                className="h-8 w-28"
+                              />
+                            ) : (
+                              formatCurrency(parseFloat(String(entry.hourlyRate) || '0'), getEntryCurrency(entry))
+                            )}
                           </td>
                         )}
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {formatCurrency(parseFloat(String(entry.amount) || '0'), currencySymbol)}
+                          {formatCurrency(parseFloat(String(entry.amount) || '0'), getEntryCurrency(entry))}
                         </td>
                       </tr>
                     );
@@ -276,15 +443,12 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                 })
               ) : (
                 // Show flat list without weekly grouping - use grouped entries from weeklyData
-                reportData.weeklyData.flatMap(weekData => weekData.entries).map((entry, index) => {
+                displayedReportData.weeklyData.flatMap(weekData => weekData.entries).map((entry, index) => {
                   const duration = typeof entry.adjustedDuration === 'number' 
                     ? entry.adjustedDuration 
                     : typeof entry.duration === 'number' 
                       ? entry.duration 
                       : parseFloat(String(entry.duration) || '0');
-                  
-                  console.log(`[ReportTable] Entry ${entry.id}: duration=${entry.duration}, adjustedDuration=${entry.adjustedDuration}, calculated=${duration}`);
-                  
                   return (
                     <tr key={`entry-${entry.id}-${index}`}>
                       {showDateColumn && (
@@ -293,7 +457,15 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                         </td>
                       )}
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {entry.description}
+                        {isEditing ? (
+                          <Input
+                            value={entry.description}
+                            onChange={(event) => updateEntryField(entry, { description: event.target.value })}
+                            className="h-8 min-w-48"
+                          />
+                        ) : (
+                          entry.description
+                        )}
                       </td>
                       {showClientColumn && (
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
@@ -302,24 +474,66 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                       )}
                       {showProjectColumn && (
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                          <span style={{ color: (entry.project as any)?.color || "#6B7280" }}>
-                            {entry.project?.name || "—"}
-                          </span>
+                          {isEditing ? (
+                            <Select
+                              value={entry.projectId?.toString() || ""}
+                              onValueChange={(value) => updateEntryProject(entry, Number(value))}
+                            >
+                              <SelectTrigger className="h-8 min-w-40">
+                                <SelectValue placeholder="Project" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {projects.map((project) => (
+                                  <SelectItem key={project.id} value={project.id.toString()}>
+                                    {project.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <span style={{ color: (entry.project as any)?.color || "#6B7280" }}>
+                              {entry.project?.name || "—"}
+                            </span>
+                          )}
                         </td>
                       )}
                       <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
-                        {filters.timeFormat === 'decimal' 
-                          ? `${duration.toFixed(2)}h`
-                          : formatDecimalHours(duration)
-                        }
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={duration}
+                            onChange={(event) => updateEntryField(entry, {
+                              duration: event.target.value,
+                              adjustedDuration: Number(event.target.value) || 0,
+                            } as Partial<ReportData["timeEntries"][number]>)}
+                            className="h-8 w-24 font-mono"
+                          />
+                        ) : (
+                          filters.timeFormat === 'decimal'
+                            ? `${duration.toFixed(2)}h`
+                            : formatDecimalHours(duration)
+                        )}
                       </td>
                       {showRateColumn && (
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                          {formatCurrency(parseFloat(String(entry.hourlyRate) || '0'), currencySymbol)}
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={entry.hourlyRate}
+                              onChange={(event) => updateEntryField(entry, { hourlyRate: event.target.value })}
+                              className="h-8 w-28"
+                            />
+                          ) : (
+                            formatCurrency(parseFloat(String(entry.hourlyRate) || '0'), getEntryCurrency(entry))
+                          )}
                         </td>
                       )}
                       <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {formatCurrency(parseFloat(String(entry.amount) || '0'), currencySymbol)}
+                        {formatCurrency(parseFloat(String(entry.amount) || '0'), getEntryCurrency(entry))}
                       </td>
                     </tr>
                   );
@@ -332,9 +546,9 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                     <span>Total</span>
                     <span className="font-mono">
                       {(() => {
-                        const totalHours = typeof reportData.totalHours === 'number' 
-                          ? reportData.totalHours 
-                          : parseFloat(String(reportData.totalHours) || '0');
+                        const totalHours = typeof displayedReportData.totalHours === 'number'
+                          ? displayedReportData.totalHours
+                          : parseFloat(String(displayedReportData.totalHours) || '0');
                         
                         return filters.timeFormat === 'decimal' 
                           ? `${totalHours.toFixed(2)}h`
@@ -344,7 +558,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                   </div>
                 </td>
                 <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                  {formatCurrency(reportData.totalAmount, currencySymbol)}
+                  {formatCurrency(displayedReportData.totalAmount, (displayedReportData as any).currency || getGroupCurrency(displayedReportData.timeEntries))}
                 </td>
               </tr>
             </tbody>
@@ -354,7 +568,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
         {/* Display single rate when all rates are the same */}
         {!showRateColumn && singleRate && parseFloat(singleRate) > 0 && (
           <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">
-            <strong>Hourly Rate:</strong> {formatCurrency(parseFloat(singleRate), currencySymbol)} per hour
+            <strong>Hourly Rate:</strong> {formatCurrency(parseFloat(singleRate), (displayedReportData as any).currency || getGroupCurrency(displayedReportData.timeEntries))} per hour
           </div>
         )}
       </div>
@@ -371,7 +585,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
         <div>
           <Button onClick={() => {
             // Pass report data to invoice generator
-            onGenerateInvoice(reportData);
+            onGenerateInvoice(displayedReportData);
           }}>
             <File className="mr-2 h-4 w-4" />
             Generate Invoice
@@ -382,12 +596,85 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
   );
 }
 
+function cloneReportData(data: ReportData): ReportData {
+  return {
+    ...data,
+    timeEntries: data.timeEntries.map((entry) => ({ ...entry })),
+    weeklyData: data.weeklyData.map((weekData) => ({
+      ...weekData,
+      entries: weekData.entries.map((entry) => ({ ...entry })),
+    })),
+  };
+}
+
+function getEntryDuration(entry: ReportData["timeEntries"][number]): number {
+  if (typeof entry.adjustedDuration === "number") return entry.adjustedDuration;
+  if (typeof entry.duration === "number") return entry.duration;
+  return parseFloat(String(entry.duration) || "0") || 0;
+}
+
+function recalculateEntryAmount(
+  entry: ReportData["timeEntries"][number]
+): ReportData["timeEntries"][number] {
+  const duration = getEntryDuration(entry);
+  const hourlyRate = parseFloat(String(entry.hourlyRate) || "0") || 0;
+
+  return {
+    ...entry,
+    adjustedDuration: duration,
+    amount: (duration * hourlyRate).toFixed(2),
+  };
+}
+
+function updateReportEntries(
+  data: ReportData,
+  entryId: number,
+  updater: (entry: ReportData["timeEntries"][number]) => ReportData["timeEntries"][number]
+): ReportData {
+  const weeklyData = data.weeklyData.map((weekData) => {
+    const entries = weekData.entries.map((entry) =>
+      entry.id === entryId ? updater(entry) : entry
+    );
+
+    return recalculateWeekData({
+      ...weekData,
+      entries,
+    });
+  });
+
+  const timeEntries = weeklyData.flatMap((weekData) => weekData.entries);
+
+  return {
+    ...data,
+    weeklyData,
+    timeEntries,
+    totalHours: weeklyData.reduce((sum, weekData) => sum + weekData.totalHours, 0),
+    totalAmount: weeklyData.reduce((sum, weekData) => sum + weekData.totalAmount, 0),
+  };
+}
+
+function recalculateWeekData(weekData: WeeklyData): WeeklyData {
+  const totalHours = weekData.entries.reduce(
+    (sum, entry) => sum + getEntryDuration(entry),
+    0
+  );
+  const totalAmount = weekData.entries.reduce(
+    (sum, entry) => sum + (parseFloat(String(entry.amount) || "0") || 0),
+    0
+  );
+
+  return {
+    ...weekData,
+    totalHours,
+    totalAmount,
+  };
+}
+
 // Process report data with time adjustments and rounding
 function processReportData(data: ReportData, filters: ReportFilters): ReportData {
   const { timeAdjustment, roundingType } = filters;
-  
-  // Process time entries
-  const processedEntries = data.timeEntries.map(entry => {
+
+  const adjustEntry = (entry: ReportData["timeEntries"][number]) => {
     let duration = Number(entry.duration);
     
     // Apply percentage increase if needed
@@ -412,13 +699,11 @@ function processReportData(data: ReportData, filters: ReportFilters): ReportData
       adjustedDuration: duration,
       amount
     };
-  });
+  };
   
   // Recalculate weekly data
   const weeklyData = data.weeklyData.map(weekData => {
-    const entries = processedEntries.filter(
-      entry => entry.weekNumber === weekData.weekNumber
-    );
+    const entries = weekData.entries.map(adjustEntry);
     
     const totalHours = entries.reduce(
       (sum, entry) => sum + (entry.adjustedDuration || Number(entry.duration)), 
@@ -437,17 +722,13 @@ function processReportData(data: ReportData, filters: ReportFilters): ReportData
       totalAmount
     };
   });
+
+  const processedEntries = weeklyData.flatMap(weekData => weekData.entries);
   
   // Recalculate totals
-  const totalHours = processedEntries.reduce(
-    (sum, entry) => sum + (entry.adjustedDuration || Number(entry.duration)), 
-    0
-  );
+  const totalHours = weeklyData.reduce((sum, weekData) => sum + weekData.totalHours, 0);
   
-  const totalAmount = processedEntries.reduce(
-    (sum, entry) => sum + parseFloat(entry.amount), 
-    0
-  );
+  const totalAmount = weeklyData.reduce((sum, weekData) => sum + weekData.totalAmount, 0);
   
   return {
     ...data,

@@ -95,28 +95,31 @@ export default function TimeTrackerPage() {
 
       {/* New Client Dialog */}
       <Dialog open={showNewClientDialog} onOpenChange={setShowNewClientDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
+        <DialogContent className="max-h-[90vh] overflow-hidden p-0 sm:max-w-[640px]">
+          <DialogHeader className="border-b px-6 py-4">
             <DialogTitle>Add New Client</DialogTitle>
           </DialogHeader>
 
-          <ClientForm
-            onSuccess={(createdClient) => {
-              if (!createdClient) return;
-              setShowNewClientDialog(false);
-              if (createdClient.id) {
-                setSelectedClientId(createdClient.id);
-                toast({
-                  title: "Client auto-selected",
-                  description: `"${createdClient.name}" is now selected in the time tracker.`,
-                  duration: 3000,
-                });
-              }
-            }}
-            onCancel={() => {
-              setShowNewClientDialog(false);
-            }}
-          />
+          <div className="max-h-[calc(90vh-5rem)] overflow-y-auto px-6 py-4">
+            <ClientForm
+              mode="quick"
+              onSuccess={(createdClient) => {
+                if (!createdClient) return;
+                setShowNewClientDialog(false);
+                if (createdClient.id) {
+                  setSelectedClientId(createdClient.id);
+                  toast({
+                    title: "Client auto-selected",
+                    description: `"${createdClient.name}" is now selected in the time tracker.`,
+                    duration: 3000,
+                  });
+                }
+              }}
+              onCancel={() => {
+                setShowNewClientDialog(false);
+              }}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 

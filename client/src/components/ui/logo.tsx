@@ -1,17 +1,14 @@
 import { Link } from "wouter";
-import tickdLogo from "@/assets/tickd-logo.png";
+import tickdLogoFull from "@/assets/tickd-logo-full.svg";
 
 export function Logo() {
   return (
     <Link href="/" className="flex items-center group">
-      <img 
-        src={tickdLogo} 
-        alt="Tickd Logo" 
-        className="h-8 w-8 mr-3 transition-transform group-hover:scale-105" 
+      <img
+        src={tickdLogoFull}
+        alt="Tickd"
+        className="h-9 w-auto max-w-[150px] transition-transform group-hover:scale-105"
       />
-      <span className="text-xl font-bold tickd-primary">
-        Tickd
-      </span>
     </Link>
   );
 }

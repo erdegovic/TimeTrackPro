@@ -40,7 +40,8 @@ export default function SimpleTimer({
     const duration = diffMs / (1000 * 60 * 60); // Convert to hours
     
     // Use the context's stop timer function
-    await stopTimer();
+    const saved = await stopTimer();
+    if (!saved) return;
     
     // Call the parent's onStop callback with the session data
     onStop({

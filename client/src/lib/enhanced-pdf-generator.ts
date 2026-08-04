@@ -1,5 +1,5 @@
 import { TimeEntry, Client, Settings, Invoice } from "@shared/schema";
-import { formatTime, formatCurrency, convertCurrency } from "@/lib/utils/timeUtils";
+import { formatTimeFromDecimal, formatCurrency, convertCurrency } from "@/lib/utils/timeUtils";
 import { format } from "date-fns";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -60,6 +60,10 @@ const invoiceTemplates = {
     colors: { primary: "#991b1b", accent: "#ef4444" }
   }
 };
+
+function formatInvoiceHours(hours: number, timeFormat: 'decimal' | 'time' = 'decimal'): string {
+  return timeFormat === 'decimal' ? `${hours.toFixed(2)}h` : formatTimeFromDecimal(hours);
+}
 
 /**
  * Enhanced PDF generator with proper template support and duration parsing
@@ -528,7 +532,7 @@ function generateTimeEntriesTable({
   let totalHours = 0;
   
   // Use client's currency first, then fall back to report data currency, then settings
-  const clientCurrency = client?.currency || reportData?.clientCurrency || settings.displayCurrency || 'USD';
+  const clientCurrency = client?.currency || reportData?.clientCurrency || settings.defaultCurrency || 'USD';
   
   if (reportData?.timeEntries) {
     // Group entries by week if grouped data is available (prioritize grouped data over settings)
@@ -611,14 +615,14 @@ function generateTimeEntriesTable({
           if (settings.showHourlyRate !== false) {
             tableContent.push([
               descriptionText,
-              formatTime(duration, reportData.timeFormat || 'decimal'),
+              formatInvoiceHours(duration, reportData.timeFormat || 'decimal'),
               formatCurrency(hourlyRate, clientCurrency),
               formatCurrency(amount, clientCurrency)
             ]);
           } else {
             tableContent.push([
               descriptionText,
-              formatTime(duration, reportData.timeFormat || 'decimal'),
+              formatInvoiceHours(duration, reportData.timeFormat || 'decimal'),
               formatCurrency(amount, clientCurrency)
             ]);
           }
@@ -687,14 +691,14 @@ function generateTimeEntriesTable({
         if (settings.showHourlyRate !== false) {
           tableContent.push([
             descriptionText,
-            formatTime(duration, reportData.timeFormat || 'decimal'),
+            formatInvoiceHours(duration, reportData.timeFormat || 'decimal'),
             formatCurrency(hourlyRate, clientCurrency),
             formatCurrency(amount, clientCurrency)
           ]);
         } else {
           tableContent.push([
             descriptionText,
-            formatTime(duration, reportData.timeFormat || 'decimal'),
+            formatInvoiceHours(duration, reportData.timeFormat || 'decimal'),
             formatCurrency(amount, clientCurrency)
           ]);
         }
@@ -749,7 +753,7 @@ function generateTimeEntriesTable({
   
   const rightAlign = doc.internal.pageSize.width - 20;
   
-  doc.text(`Total Hours: ${formatTime(totalHours, reportData?.timeFormat || 'decimal')}`, rightAlign, finalY, { align: 'right' });
+  doc.text(`Total Hours: ${formatInvoiceHours(totalHours, reportData?.timeFormat || 'decimal')}`, rightAlign, finalY, { align: 'right' });
   doc.text(`Subtotal: ${formatCurrency(subtotal, clientCurrency)}`, rightAlign, finalY + 8, { align: 'right' });
   
   // Tax calculation if enabled
@@ -766,6 +770,60 @@ function generateTimeEntriesTable({
     doc.setFont("helvetica", "bold");
     doc.text(`Total: ${formatCurrency(subtotal, clientCurrency)}`, rightAlign, finalY + 16, { align: 'right' });
   }
+
+  const paymentDetails = buildPaymentDetailLines(settings);
+  if (settings.showBankDetails !== false && paymentDetails.length > 0) {
+    const blockY = finalY - 5;
+    const blockHeight = 17 + paymentDetails.length * 5;
+
+    doc.setFillColor(246, 248, 250);
+    doc.roundedRect(20, blockY, 92, blockHeight, 2, 2, 'F');
+    doc.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.setLineWidth(1.5);
+    doc.line(20, blockY, 20, blockY + blockHeight);
+
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.setFontSize(fontSize);
+    doc.setFont("helvetica", "bold");
+    doc.text("Payment Details", 26, blockY + 8);
+
+    doc.setTextColor(textColor.r, textColor.g, textColor.b);
+    doc.setFontSize(fontSize - 1);
+    doc.setFont("helvetica", "normal");
+    paymentDetails.forEach((line, index) => {
+      doc.text(line, 26, blockY + 15 + index * 5);
+    });
+  }
+}
+
+function buildPaymentDetailLines(settings: any): string[] {
+  const lines: string[] = [];
+  const type = settings.paymentMethodType;
+
+  if (type === 'bank_transfer_eu') {
+    if (settings.bankName) lines.push(`Bank: ${settings.bankName}`);
+    if (settings.bankAccountName) lines.push(`Account Name: ${settings.bankAccountName}`);
+    if (settings.iban) lines.push(`IBAN: ${settings.iban}`);
+    if (settings.swift) lines.push(`SWIFT/BIC: ${settings.swift}`);
+  } else if (type === 'bank_transfer_uk') {
+    if (settings.bankName) lines.push(`Bank: ${settings.bankName}`);
+    if (settings.bankAccountName) lines.push(`Account Name: ${settings.bankAccountName}`);
+    if (settings.bankAccountNumber) lines.push(`Account No: ${settings.bankAccountNumber}`);
+    if (settings.bankSortCode) lines.push(`Sort Code: ${settings.bankSortCode}`);
+  } else if (type === 'bank_transfer_us') {
+    if (settings.bankName) lines.push(`Bank: ${settings.bankName}`);
+    if (settings.bankAccountName) lines.push(`Account Name: ${settings.bankAccountName}`);
+    if (settings.bankAccountNumber) lines.push(`Account No: ${settings.bankAccountNumber}`);
+    if (settings.routingNumber) lines.push(`Routing No: ${settings.routingNumber}`);
+  } else if (type === 'paypal' && settings.paypalEmail) {
+    lines.push(`PayPal: ${settings.paypalEmail}`);
+  } else if (type === 'wise_payoneer' && settings.wiseEmail) {
+    lines.push(`Wise/Payoneer: ${settings.wiseEmail}`);
+  } else if (type === 'other' && settings.otherPaymentInstructions) {
+    lines.push(...String(settings.otherPaymentInstructions).split(/\r?\n/).filter(Boolean));
+  }
+
+  return lines;
 }
 
 /**
@@ -814,7 +872,7 @@ function generateReportPdf({
   // Add report content here
   const tableContent = reportData.timeEntries.map((entry: any) => [
     entry.description,
-    formatTime(parseFloat(String(entry.duration || 0)), filters.timeFormat || 'decimal'),
+    formatInvoiceHours(parseFloat(String(entry.duration || 0)), filters.timeFormat || 'decimal'),
     entry.project?.name || "No project",
     entry.client?.name || "No client"
   ]);

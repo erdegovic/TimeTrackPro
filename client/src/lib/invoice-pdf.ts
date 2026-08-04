@@ -43,7 +43,7 @@ export async function exportInvoicePdf(
     scale: 2,
     useCORS: true,
     allowTaint: true,
-    backgroundColor: null,
+    backgroundColor: "#ffffff",
     width: 794,
     height: 1123,
     windowWidth: 794,
@@ -54,7 +54,7 @@ export async function exportInvoicePdf(
 
   document.body.removeChild(container);
 
-  const imgData = canvas.toDataURL("image/png");
+  const imgData = canvas.toDataURL("image/jpeg", 0.92);
   const pdf = new jsPDF({
     orientation: "portrait",
     unit: "mm",
@@ -63,6 +63,6 @@ export async function exportInvoicePdf(
 
   const pdfWidth = pdf.internal.pageSize.getWidth();
   const pdfHeight = pdf.internal.pageSize.getHeight();
-  pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+  pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight, undefined, "FAST");
   pdf.save(filename);
 }

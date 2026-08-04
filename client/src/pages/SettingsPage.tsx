@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
-  Loader2, Save, Upload, X, Palette, Eye, FileText, Building,
+  Download, Loader2, Save, Upload, X, Palette, Eye, FileText, Building,
   ChevronRight, ChevronDown, Zap, BrushIcon, Type, CreditCard,
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
   List, ListOrdered, Minus, Link
@@ -23,8 +23,20 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Settings } from "@shared/schema";
-import { generateInvoiceHTML, TEMPLATE_OPTIONS, TEMPLATE_COLOR_DEFAULTS, InvoiceTemplateData } from "@/lib/invoice-html-generator";
+import {
+  generateInvoiceHTML,
+  INVOICE_LABEL_FIELDS,
+  INVOICE_LABELS,
+  InvoiceLabels,
+  TEMPLATE_OPTIONS,
+  TEMPLATE_COLOR_DEFAULTS,
+  InvoiceLineItem,
+  InvoiceTemplateData,
+} from "@/lib/invoice-html-generator";
+import { exportInvoicePdf } from "@/lib/invoice-pdf";
 import { format } from "date-fns";
+import { useLocation } from "wouter";
+import { formatInvoiceNumber } from "@shared/invoice-number";
 
 const CURRENCY_PRESETS = [
   { code: "USD", symbol: "$",  label: "USD — US Dollar ($)" },
@@ -33,6 +45,10 @@ const CURRENCY_PRESETS = [
   { code: "JPY", symbol: "¥",  label: "JPY — Japanese Yen (¥)" },
   { code: "CNY", symbol: "¥",  label: "CNY — Chinese Yuan (¥)" },
 ];
+
+function resolveDisplayCurrency(currencyCode?: string | null, displayCurrency?: string | null): string {
+  return CURRENCY_PRESETS.find((preset) => preset.code === currencyCode)?.symbol || displayCurrency || "$";
+}
 
 function formatPreviewQty(hours: number, timeFormat: string): string {
   if (timeFormat === "time") {
@@ -112,6 +128,9 @@ const settingsSchema = z.object({
   
   // Invoice Settings
   nextInvoiceNumber: z.coerce.number().int().positive("Must be a positive number"),
+  invoiceNumberPrefix: z.string().max(20, "Keep the prefix under 20 characters").optional(),
+  invoiceNumberSuffix: z.string().max(20, "Keep the suffix under 20 characters").optional(),
+  invoiceNumberPadding: z.coerce.number().int().min(0).max(12),
   defaultTimeFormat: z.enum(["decimal", "time"]),
   defaultCurrency: z.string().min(1, "Currency is required"),
   displayCurrency: z.string().min(1, "Display currency is required"),
@@ -132,12 +151,16 @@ const settingsSchema = z.object({
   invoiceTextColor: z.string().regex(/^#[0-9A-F]{6}$/i, "Invalid hex color"),
   invoiceBackgroundColor: z.string().regex(/^#[0-9A-F]{6}$/i, "Invalid hex color"),
   customFontSize: z.string().regex(/^\d+$/, "Must be a number"),
+  invoiceNotes: z.string().optional(),
   invoiceFooterText: z.string().optional(),
   showCompanyDetails: z.boolean().default(true),
   showBankDetails: z.boolean().default(true),
+  showInvoiceNotes: z.boolean().default(true),
   showFooterNotes: z.boolean().default(true),
   showHourlyRate: z.boolean().default(true),
+  showProjectName: z.boolean().default(true),
   invoiceTemplate: z.enum(["classic", "professional", "media", "web", "graphic", "minimalistic", "freelancer", "avant", "luxe"]),
+  invoiceLanguage: z.enum(["en", "sr", "de", "fr", "es", "custom"]).default("en"),
   
   // Report Settings
   enableWeeklyCategorization: z.boolean().default(true),
@@ -443,16 +466,30 @@ const RichTextEditor = ({ value, onChange, placeholder }: {
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const [location] = useLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("business");
+  const [generatedPreview, setGeneratedPreview] = useState<InvoiceTemplateData | null>(null);
+  const [isExportingPreview, setIsExportingPreview] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(["branding"]));
+  const [customInvoiceLabels, setCustomInvoiceLabels] = useState<InvoiceLabels>(INVOICE_LABELS.en);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch current settings
   const { data: settings, isLoading } = useQuery<Settings>({
     queryKey: ["/api/settings"],
   });
+
+  const { data: invoiceLabelData } = useQuery<{ labels: Partial<InvoiceLabels> }>({
+    queryKey: ["/api/invoice-label-overrides"],
+  });
+
+  useEffect(() => {
+    if (invoiceLabelData?.labels) {
+      setCustomInvoiceLabels({ ...INVOICE_LABELS.en, ...invoiceLabelData.labels });
+    }
+  }, [invoiceLabelData]);
 
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
@@ -478,9 +515,12 @@ export default function SettingsPage() {
       wiseEmail: "",
       otherPaymentInstructions: "",
       nextInvoiceNumber: 1001,
+      invoiceNumberPrefix: "INV-",
+      invoiceNumberSuffix: "",
+      invoiceNumberPadding: 4,
       defaultTimeFormat: "decimal",
       defaultCurrency: "USD",
-      displayCurrency: "USD",
+      displayCurrency: "$",
       enableTax: false,
       defaultTaxRate: "0",
       showDueDate: true,
@@ -493,12 +533,16 @@ export default function SettingsPage() {
       invoiceTextColor: "#374151",
       invoiceBackgroundColor: "#ffffff",
       customFontSize: "12",
+      invoiceNotes: "Thank you for your business. Payment due within 30 days.",
       invoiceFooterText: "",
       showCompanyDetails: true,
       showBankDetails: true,
+      showInvoiceNotes: true,
       showFooterNotes: true,
       invoiceTemplate: "professional" as const,
+      invoiceLanguage: "en",
       showHourlyRate: true,
+      showProjectName: true,
       enableWeeklyCategorization: true,
       showDateColumn: true,
     },
@@ -532,9 +576,12 @@ export default function SettingsPage() {
         wiseEmail: settings.wiseEmail || "",
         otherPaymentInstructions: settings.otherPaymentInstructions || "",
         nextInvoiceNumber: settings.nextInvoiceNumber || 1001,
+        invoiceNumberPrefix: (settings as any).invoiceNumberPrefix ?? "INV-",
+        invoiceNumberSuffix: (settings as any).invoiceNumberSuffix ?? "",
+        invoiceNumberPadding: (settings as any).invoiceNumberPadding ?? 4,
         defaultTimeFormat: (settings.defaultTimeFormat as "decimal" | "time") || "decimal",
         defaultCurrency: settings.defaultCurrency || "USD",
-        displayCurrency: settings.displayCurrency || "USD",
+        displayCurrency: resolveDisplayCurrency(settings.defaultCurrency, settings.displayCurrency),
         enableTax: settings.enableTax ?? false,
         defaultTaxRate: settings.defaultTaxRate?.toString() || "0",
         showDueDate: settings.showDueDate ?? true,
@@ -562,12 +609,16 @@ export default function SettingsPage() {
         invoiceTextColor: settings.invoiceTextColor || "#374151",
         invoiceBackgroundColor: settings.invoiceBackgroundColor || "#ffffff",
         customFontSize: settings.customFontSize || "12",
+        invoiceNotes: (settings as any).invoiceNotes || "Thank you for your business. Payment due within 30 days.",
         invoiceFooterText: settings.invoiceFooterText || "",
         showCompanyDetails: settings.showCompanyDetails ?? true,
         showBankDetails: settings.showBankDetails ?? true,
+        showInvoiceNotes: (settings as any).showInvoiceNotes ?? true,
         showFooterNotes: settings.showFooterNotes ?? true,
         invoiceTemplate: (settings.invoiceTemplate as "classic" | "professional" | "media" | "web" | "graphic" | "minimalistic" | "freelancer" | "avant" | "luxe") || "professional",
+        invoiceLanguage: ((settings as any).invoiceLanguage as "en" | "sr" | "de" | "fr" | "es" | "custom") || "en",
         showHourlyRate: settings.showHourlyRate ?? true,
+        showProjectName: (settings as any).showProjectName ?? true,
         enableWeeklyCategorization: settings.enableWeeklyCategorization ?? true,
         showDateColumn: settings.showDateColumn ?? true,
       };
@@ -580,6 +631,25 @@ export default function SettingsPage() {
       }
     }
   }, [settings, form]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === "invoice") {
+      setActiveTab("invoice");
+      setOpenSections(new Set(["config", "branding", "payment"]));
+    }
+
+    if (params.get("preview") === "generated") {
+      const storedPreview = sessionStorage.getItem("tickd.invoiceSettingsPreview");
+      if (storedPreview) {
+        try {
+          setGeneratedPreview(JSON.parse(storedPreview));
+        } catch {
+          setGeneratedPreview(null);
+        }
+      }
+    }
+  }, [location]);
 
   // Toggle section visibility
   const toggleSection = (sectionId: string) => {
@@ -659,13 +729,14 @@ export default function SettingsPage() {
     }
   };
 
-  // Build live preview HTML for the selected template
-  const settingsPreviewHtml = useMemo(() => {
-    const currency = watchedValues.displayCurrency || "$";
+  // Build live preview data for the selected template
+  const settingsPreviewData = useMemo((): InvoiceTemplateData => {
+    const previewOverride = generatedPreview;
+    const currency = previewOverride?.currency || resolveDisplayCurrency(watchedValues.defaultCurrency, watchedValues.displayCurrency);
     const tf = watchedValues.defaultTimeFormat || "decimal";
     const enableTax = watchedValues.enableTax ?? false;
     const taxRate = parseFloat(watchedValues.defaultTaxRate?.toString() || "0") || 0;
-    const subtotal = 922.50;
+    const subtotal = parseFloat(previewOverride?.subtotalFormatted || "922.50") || 922.50;
     const taxAmount = enableTax ? subtotal * taxRate / 100 : 0;
     const total = subtotal + taxAmount;
 
@@ -673,34 +744,52 @@ export default function SettingsPage() {
       ? buildPaymentDetailsHtml(watchedValues)
       : "";
 
+    const sampleLineItems: InvoiceLineItem[] = watchedValues.enableWeeklyCategorization
+      ? [
+          { description: "Week 1 of January 2026", subDescription: "", qty: "", rate: "", amount: `${currency}787.50`, isGroupHeader: true },
+          { description: "Web Development", subDescription: "Project Alpha", qty: formatPreviewQty(8.5, tf), rate: `${currency}75.00`, amount: `${currency}637.50`, date: "Jan 15" },
+          { description: "Design Review", subDescription: "UI/UX Pass", qty: formatPreviewQty(2.0, tf), rate: `${currency}75.00`, amount: `${currency}150.00`, date: "Jan 17" },
+          { description: "Week 2 of January 2026", subDescription: "", qty: "", rate: "", amount: `${currency}135.00`, isGroupHeader: true },
+          { description: "Consultation", subDescription: "Strategy session", qty: formatPreviewQty(1.5, tf), rate: `${currency}90.00`, amount: `${currency}135.00`, date: "Jan 20" },
+        ]
+      : [
+          { description: "Web Development", subDescription: "Project Alpha", qty: formatPreviewQty(8.5, tf), rate: `${currency}75.00`, amount: `${currency}637.50`, date: "Jan 15" },
+          { description: "Design Review", subDescription: "UI/UX Pass", qty: formatPreviewQty(2.0, tf), rate: `${currency}75.00`, amount: `${currency}150.00`, date: "Jan 17" },
+          { description: "Consultation", subDescription: "Strategy session", qty: formatPreviewQty(1.5, tf), rate: `${currency}90.00`, amount: `${currency}135.00`, date: "Jan 20" },
+        ];
+
     const data: InvoiceTemplateData = {
+      ...(previewOverride || {}),
       template: watchedValues.invoiceTemplate || "professional",
+      language: watchedValues.invoiceLanguage || "en",
+      customLabels: watchedValues.invoiceLanguage === "custom" ? customInvoiceLabels : undefined,
       businessName: watchedValues.businessName || "Your Business",
       businessMeta: "Professional services",
       businessAddress: [watchedValues.businessAddress, watchedValues.businessCity, watchedValues.businessState].filter(Boolean).join(", "),
       businessEmail: watchedValues.businessEmail || "you@example.com",
       businessPhone: watchedValues.businessPhone || "",
-      invoiceNumber: `INV-${watchedValues.nextInvoiceNumber || "001"}`,
-      issueDate: format(new Date(), "MMMM d, yyyy"),
+      invoiceNumber: previewOverride?.invoiceNumber || formatInvoiceNumber(watchedValues.nextInvoiceNumber, {
+        prefix: watchedValues.invoiceNumberPrefix,
+        suffix: watchedValues.invoiceNumberSuffix,
+        padding: watchedValues.invoiceNumberPadding,
+      }),
+      issueDate: previewOverride?.issueDate || format(new Date(), "MMMM d, yyyy"),
       dueDate: watchedValues.showDueDate
-        ? format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")
+        ? previewOverride?.dueDate || format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")
         : "",
-      clientName: "Sample Client Co.",
-      clientAddress: "123 Client Street",
-      clientCity: "Client City",
-      clientState: "ST",
-      clientZip: "12345",
-      clientEmail: "client@example.com",
-      lineItems: [
-        { description: "Web Development", subDescription: "Project Alpha", qty: formatPreviewQty(8.5, tf), rate: `${currency}75.00`, amount: `${currency}637.50`, date: "Jan 15" },
-        { description: "Design Review", subDescription: "UI/UX Pass", qty: formatPreviewQty(2.0, tf), rate: `${currency}75.00`, amount: `${currency}150.00`, date: "Jan 17" },
-        { description: "Consultation", subDescription: "Strategy session", qty: formatPreviewQty(1.5, tf), rate: `${currency}90.00`, amount: `${currency}135.00`, date: "Jan 20" },
-      ],
+      clientName: previewOverride?.clientName || "Sample Client Co.",
+      clientAddress: previewOverride?.clientAddress || "123 Client Street",
+      clientCity: previewOverride?.clientCity || "Client City",
+      clientState: previewOverride?.clientState || "ST",
+      clientZip: previewOverride?.clientZip || "12345",
+      clientEmail: previewOverride?.clientEmail || "client@example.com",
+      lineItems: previewOverride?.lineItems || sampleLineItems,
       subtotalFormatted: subtotal.toFixed(2),
       taxFormatted: taxAmount.toFixed(2),
       taxLabel: enableTax && taxRate > 0 ? `Tax (${taxRate}%)` : "Tax",
       totalFormatted: total.toFixed(2),
-      notes: "Thank you for your business. Payment due within 30 days.",
+      notes: previewOverride?.notes || watchedValues.invoiceNotes || "Thank you for your business. Payment due within 30 days.",
+      showNotes: watchedValues.showInvoiceNotes,
       currency,
       logoUrl: (watchedValues as any).companyLogo || undefined,
       showLogo: (watchedValues as any).showLogo !== false,
@@ -711,12 +800,13 @@ export default function SettingsPage() {
       bgColor: watchedValues.invoiceBackgroundColor || undefined,
       showDateColumn: watchedValues.showDateColumn,
       showHourlyRate: watchedValues.showHourlyRate,
+      showProjectName: watchedValues.showProjectName,
       paymentDetails: paymentHtml,
       showPaymentDetails: watchedValues.showBankDetails && !!paymentHtml,
       footerNotes: watchedValues.invoiceFooterText || "",
       showFooterNotes: watchedValues.showFooterNotes ?? true,
     };
-    return generateInvoiceHTML(data);
+    return data;
   }, [
     watchedValues.invoiceTemplate, watchedValues.businessName, watchedValues.businessAddress,
     watchedValues.businessCity, watchedValues.businessState, watchedValues.businessEmail,
@@ -724,13 +814,35 @@ export default function SettingsPage() {
     (watchedValues as any).companyLogo, (watchedValues as any).showLogo, (watchedValues as any).logoSize,
     watchedValues.invoiceColorTheme, watchedValues.invoiceAccentColor, watchedValues.invoiceTextColor,
     watchedValues.invoiceBackgroundColor, watchedValues.defaultTimeFormat, watchedValues.enableTax,
-    watchedValues.defaultTaxRate, watchedValues.showDueDate, watchedValues.showDateColumn,
-    watchedValues.showHourlyRate, watchedValues.showBankDetails, watchedValues.invoiceFooterText,
-    watchedValues.showFooterNotes, watchedValues.paymentMethodType, watchedValues.bankName,
+    watchedValues.defaultTaxRate, watchedValues.showDueDate, watchedValues.showInvoiceNotes, watchedValues.invoiceNotes, watchedValues.showDateColumn,
+    watchedValues.showHourlyRate, watchedValues.showProjectName, watchedValues.enableWeeklyCategorization, watchedValues.showBankDetails, watchedValues.invoiceFooterText,
+    watchedValues.showFooterNotes, watchedValues.invoiceLanguage, watchedValues.paymentMethodType, watchedValues.bankName,
     watchedValues.bankAccountName, watchedValues.bankAccountNumber, watchedValues.bankSortCode,
     watchedValues.iban, watchedValues.swift, watchedValues.routingNumber, watchedValues.paypalEmail,
-    watchedValues.wiseEmail, watchedValues.otherPaymentInstructions,
+    watchedValues.wiseEmail, watchedValues.otherPaymentInstructions, generatedPreview, customInvoiceLabels,
   ]);
+
+  const settingsPreviewHtml = useMemo(() => generateInvoiceHTML(settingsPreviewData), [settingsPreviewData]);
+
+  const handleExportPreviewPdf = async () => {
+    setIsExportingPreview(true);
+    try {
+      const invoiceNumber = settingsPreviewData.invoiceNumber.replace(/[^a-z0-9-]+/gi, "-").replace(/^-|-$/g, "") || "invoice";
+      await exportInvoicePdf(settingsPreviewData, `${invoiceNumber}-preview.pdf`);
+      toast({
+        title: "Invoice exported",
+        description: "The current invoice preview has been exported as a PDF.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: error instanceof Error ? error.message : "Could not export this invoice preview.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExportingPreview(false);
+    }
+  };
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({
@@ -760,10 +872,33 @@ export default function SettingsPage() {
     },
   });
 
+  const saveInvoiceLabels = useMutation({
+    mutationFn: async (labels: InvoiceLabels) => {
+      return apiRequest("PUT", "/api/invoice-label-overrides", { labels });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoice-label-overrides"] });
+      toast({
+        title: "Custom language saved",
+        description: "Your invoice wording has been saved to your user profile.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to save custom invoice language. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = async (data: SettingsFormData) => {
     console.log("[Settings Frontend] Form submitted with data:", data);
     console.log("[Settings Frontend] Form errors:", form.formState.errors);
     setIsSubmitting(true);
+    if (data.invoiceLanguage === "custom") {
+      saveInvoiceLabels.mutate(customInvoiceLabels);
+    }
     updateSettingsMutation.mutate(data);
   };
 
@@ -980,6 +1115,30 @@ export default function SettingsPage() {
                           </FormItem>
                         )}
                       />
+                      <FormField
+                        control={form.control}
+                        name="invoiceLanguage"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[11px] text-gray-500">Invoice Language</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="en">English</SelectItem>
+                                <SelectItem value="sr">Serbian</SelectItem>
+                                <SelectItem value="de">German</SelectItem>
+                                <SelectItem value="fr">French</SelectItem>
+                                <SelectItem value="es">Spanish</SelectItem>
+                                <SelectItem value="custom">Custom</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
                       {(() => {
                         const tpl = watchedValues.invoiceTemplate || "professional";
                         const def = TEMPLATE_COLOR_DEFAULTS[tpl];
@@ -1032,6 +1191,47 @@ export default function SettingsPage() {
                       >
                         Reset to template defaults
                       </button>
+                      {watchedValues.invoiceLanguage === "custom" && (
+                        <div className="pt-2 border-t space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-[11px] font-semibold text-gray-500">Custom language</p>
+                              <p className="text-[11px] text-gray-400">Saved only to your user profile.</p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-[11px]"
+                              onClick={() => saveInvoiceLabels.mutate(customInvoiceLabels)}
+                              disabled={saveInvoiceLabels.isPending}
+                            >
+                              {saveInvoiceLabels.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                              Save
+                            </Button>
+                          </div>
+                          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                            {INVOICE_LABEL_FIELDS.map((item) => (
+                              <div key={item.key}>
+                                <Label className="text-[11px] text-gray-500">{item.label}</Label>
+                                {["defaultTerms", "defaultNotes"].includes(item.key) ? (
+                                  <Textarea
+                                    value={customInvoiceLabels[item.key]}
+                                    onChange={(event) => setCustomInvoiceLabels((labels) => ({ ...labels, [item.key]: event.target.value }))}
+                                    className="mt-1 min-h-[64px] text-xs"
+                                  />
+                                ) : (
+                                  <Input
+                                    value={customInvoiceLabels[item.key]}
+                                    onChange={(event) => setCustomInvoiceLabels((labels) => ({ ...labels, [item.key]: event.target.value }))}
+                                    className="mt-1 h-7 text-xs"
+                                  />
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Logo & Branding ─ collapsible */}
@@ -1157,13 +1357,60 @@ export default function SettingsPage() {
                               name="nextInvoiceNumber"
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel className="text-[11px] text-gray-500">Next Invoice #</FormLabel>
+                                  <FormLabel className="text-[11px] text-gray-500">Next Number</FormLabel>
                                   <FormControl>
                                     <Input {...field} type="number" min="1" className="h-7 text-xs" />
                                   </FormControl>
                                 </FormItem>
                               )}
                             />
+                            <div className="grid grid-cols-3 gap-2">
+                              <FormField
+                                control={form.control}
+                                name="invoiceNumberPrefix"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-[11px] text-gray-500">Prefix</FormLabel>
+                                    <FormControl>
+                                      <Input {...field} placeholder="INV-" className="h-7 text-xs" />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="invoiceNumberPadding"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-[11px] text-gray-500">Digits</FormLabel>
+                                    <FormControl>
+                                      <Input {...field} type="number" min="0" max="12" className="h-7 text-xs" />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="invoiceNumberSuffix"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-[11px] text-gray-500">Suffix</FormLabel>
+                                    <FormControl>
+                                      <Input {...field} placeholder="-UK" className="h-7 text-xs" />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                            <div className="rounded-md border bg-gray-50 px-2.5 py-2 text-xs text-gray-600">
+                              Preview: <span className="font-semibold text-gray-900">
+                                {formatInvoiceNumber(watchedValues.nextInvoiceNumber, {
+                                  prefix: watchedValues.invoiceNumberPrefix,
+                                  suffix: watchedValues.invoiceNumberSuffix,
+                                  padding: watchedValues.invoiceNumberPadding,
+                                })}
+                              </span>
+                            </div>
                             {/* Currency — unified preset + custom picker */}
                             <FormItem>
                               <FormLabel className="text-[11px] text-gray-500">Currency</FormLabel>
@@ -1253,6 +1500,7 @@ export default function SettingsPage() {
                               {[
                                 { name: "showDueDate" as const, label: "Show Due Date" },
                                 { name: "showHourlyRate" as const, label: "Show Hourly Rate" },
+                                { name: "showProjectName" as const, label: "Show Project Name" },
                                 { name: "enableWeeklyCategorization" as const, label: "Weekly Grouping" },
                                 { name: "showDateColumn" as const, label: "Show Date Column" },
                               ].map(({ name, label }) => (
@@ -1415,6 +1663,56 @@ export default function SettingsPage() {
                       </Collapsible>
                     </div>
 
+                    {/* Invoice Notes ─ collapsible */}
+                    <div className="bg-white rounded-md border overflow-hidden">
+                      <Collapsible
+                        open={openSections.has("notes")}
+                        onOpenChange={(o) => { const s = new Set(openSections); o ? s.add("notes") : s.delete("notes"); setOpenSections(s); }}
+                      >
+                        <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
+                          <CollapsibleTrigger className="flex-1 text-left">
+                            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <FileText className="h-3 w-3" /> Invoice Notes
+                            </span>
+                          </CollapsibleTrigger>
+                          <div className="flex items-center gap-2">
+                            <FormField
+                              control={form.control}
+                              name="showInvoiceNotes"
+                              render={({ field }) => (
+                                <FormControl>
+                                  <Switch checked={field.value ?? true} onCheckedChange={field.onChange} />
+                                </FormControl>
+                              )}
+                            />
+                            <CollapsibleTrigger>
+                              <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${openSections.has("notes") ? "rotate-180" : ""}`} />
+                            </CollapsibleTrigger>
+                          </div>
+                        </div>
+                        <CollapsibleContent>
+                          <div className={`px-3 pb-3 border-t pt-2 ${!(watchedValues.showInvoiceNotes ?? true) ? "opacity-50 pointer-events-none" : ""}`}>
+                            <FormField
+                              control={form.control}
+                              name="invoiceNotes"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <Textarea
+                                      value={field.value || ""}
+                                      onChange={field.onChange}
+                                      className="min-h-20 text-xs"
+                                      placeholder="Thank-you message, invoice terms, or client-facing note..."
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+
                     {/* Footer Notes ─ collapsible */}
                     <div className="bg-white rounded-md border overflow-hidden">
                       <Collapsible
@@ -1469,9 +1767,26 @@ export default function SettingsPage() {
 
                 {/* ── Right: Live Preview ───────────────────────────────── */}
                 <div className="flex-1 overflow-y-auto bg-gray-100 p-4">
-                  <div className="text-xs text-gray-500 mb-3 flex items-center gap-1.5">
-                    <Zap className="h-3.5 w-3.5" />
-                    Live Preview — {TEMPLATE_OPTIONS.find(t => t.value === watchedValues.invoiceTemplate)?.label || watchedValues.invoiceTemplate} template
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="text-xs text-gray-500 flex items-center gap-1.5">
+                      <Zap className="h-3.5 w-3.5" />
+                      Live Preview — {TEMPLATE_OPTIONS.find(t => t.value === watchedValues.invoiceTemplate)?.label || watchedValues.invoiceTemplate} template
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportPreviewPdf}
+                      disabled={isExportingPreview}
+                      className="h-8 text-xs bg-white"
+                    >
+                      {isExportingPreview ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5 mr-1.5" />
+                      )}
+                      Export PDF
+                    </Button>
                   </div>
                   <div style={{ width: "794px", transformOrigin: "top left", transform: "scale(0.65)", marginBottom: "-393px" }}>
                     <iframe

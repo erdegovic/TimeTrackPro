@@ -16,7 +16,8 @@ import {
   Timer,
   LogOut,
   User,
-  MessageSquare
+  MessageSquare,
+  ShieldCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -263,6 +264,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <NavItem href="/settings" icon={<Settings className="w-5 h-5" />} isActive={location === '/settings'}>
                 Settings
               </NavItem>
+              {user?.role === "admin" && (
+                <NavItem href="/admin" icon={<ShieldCheck className="w-5 h-5" />} isActive={location === '/admin'}>
+                  Admin
+                </NavItem>
+              )}
             </nav>
           </div>
           

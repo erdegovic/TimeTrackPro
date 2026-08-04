@@ -287,11 +287,11 @@ export default function TimeEntryRow({
           {formatDuration(entry.duration || 0)}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 space-x-2">
-          {onPlay && (
+          {onPlay && entry.projectId && (
             <Button 
               variant="ghost" 
               size="icon" 
-              onClick={() => onPlay(entry.description || "", entry.projectId)} 
+              onClick={() => onPlay(entry.description || "", entry.projectId!)}
               className="text-green-600 hover:text-white hover:bg-green-600"
               title="Continue tracking this task"
             >

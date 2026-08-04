@@ -9,6 +9,7 @@ import {
   Verification, verifications,
   ReportFilters, TimeFormat, RoundingType, TimeAdjustment
 } from "@shared/schema";
+import { formatInvoiceNumber, InvoiceNumberOptions } from "@shared/invoice-number";
 import { addWeeks, format, getWeekOfMonth, startOfWeek, endOfWeek, getYear, getMonth } from "date-fns";
 
 export interface IStorage {
@@ -16,6 +17,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByGoogleSubject(subject: string): Promise<User | undefined>;
   getUserByResetToken(token: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
@@ -62,7 +64,7 @@ export interface IStorage {
   createInvoice(invoice: InsertInvoice): Promise<Invoice>;
   updateInvoice(id: number, invoice: Partial<InsertInvoice>): Promise<Invoice | undefined>;
   deleteInvoice(id: number): Promise<boolean>;
-  getNextInvoiceNumber(): Promise<string>;
+  getNextInvoiceNumber(options?: InvoiceNumberOptions): Promise<string>;
 
   // Settings
   getSettings(): Promise<Settings | undefined>;
@@ -104,6 +106,12 @@ export class MemStorage implements Partial<IStorage> {
       (user) => user.email.toLowerCase() === email.toLowerCase()
     );
   }
+
+  async getUserByGoogleSubject(subject: string): Promise<User | undefined> {
+    return Array.from(this.usersData.values()).find(
+      (user) => user.googleSubject === subject
+    );
+  }
   
   async getUserByResetToken(token: string): Promise<User | undefined> {
     return Array.from(this.usersData.values()).find(
@@ -121,6 +129,9 @@ export class MemStorage implements Partial<IStorage> {
       firstName: userData.firstName || null,
       lastName: userData.lastName || null,
       profileImageUrl: userData.profileImageUrl || null,
+      googleSubject: userData.googleSubject || null,
+      invoiceLabelOverrides: userData.invoiceLabelOverrides || null,
+      customCurrencyRates: userData.customCurrencyRates || null,
       role: userData.role || "user",
       status: userData.status || "pending",
       verificationToken: userData.verificationToken || null,
@@ -217,13 +228,16 @@ export class MemStorage implements Partial<IStorage> {
       defaultTimeFormat: "decimal",
       defaultCurrency: "USD",
       // Add all missing required fields with null defaults
-      invoiceNotes: null,
+      invoiceNotes: "Thank you for your business. Payment due within 30 days.",
+      invoiceLanguage: "en",
       templateType: null,
       showBusinessLogo: null,
       showClientLogo: null,
       showBankDetails: null,
       showPaymentMethods: null,
       showProjectColumn: null,
+      showProjectName: true,
+      showInvoiceNotes: true,
       showRateColumn: null,
       showQuantityColumn: null,
       showAmountColumn: null,
@@ -268,6 +282,9 @@ export class MemStorage implements Partial<IStorage> {
       firstName: "Test",
       lastName: "User",
       profileImageUrl: null,
+      googleSubject: null,
+      invoiceLabelOverrides: null,
+      customCurrencyRates: null,
       role: "admin",
       status: "active",
       verificationToken: null,
@@ -291,6 +308,8 @@ export class MemStorage implements Partial<IStorage> {
       phone: "+1 (987) 654-3210",
       taxId: "98-7654321",
       currency: "USD",
+      invoiceLanguage: "en",
+      invoiceSettings: null,
       userId: 1
     };
     
@@ -306,6 +325,8 @@ export class MemStorage implements Partial<IStorage> {
       phone: "+1 (123) 987-6543",
       taxId: "45-6789012",
       currency: "USD",
+      invoiceLanguage: "en",
+      invoiceSettings: null,
       userId: 1
     };
     
@@ -321,6 +342,8 @@ export class MemStorage implements Partial<IStorage> {
       phone: "+1 (456) 789-0123",
       taxId: "78-9012345",
       currency: "USD",
+      invoiceLanguage: "en",
+      invoiceSettings: null,
       userId: 1
     };
     
@@ -390,6 +413,8 @@ export class MemStorage implements Partial<IStorage> {
       phone: client.phone || null,
       taxId: client.taxId || null,
       currency: client.currency || null,
+      invoiceLanguage: client.invoiceLanguage || "en",
+      invoiceSettings: client.invoiceSettings || null,
       userId: client.userId || null
     };
     this.clientsData.set(id, newClient);
@@ -412,6 +437,8 @@ export class MemStorage implements Partial<IStorage> {
       phone: client.phone ?? existingClient.phone,
       taxId: client.taxId ?? existingClient.taxId,
       currency: client.currency ?? existingClient.currency,
+      invoiceLanguage: client.invoiceLanguage ?? existingClient.invoiceLanguage,
+      invoiceSettings: client.invoiceSettings ?? existingClient.invoiceSettings,
       userId: client.userId ?? existingClient.userId
     };
     this.clientsData.set(id, updatedClient);
@@ -645,13 +672,17 @@ export class MemStorage implements Partial<IStorage> {
     return this.invoicesData.delete(id);
   }
 
-  async getNextInvoiceNumber(): Promise<string> {
+  async getNextInvoiceNumber(options: InvoiceNumberOptions = {}): Promise<string> {
     if (!this.settingsData) {
-      return "INV-1001";
+      return formatInvoiceNumber(1001, options);
     }
     
     const nextNumber = this.settingsData.nextInvoiceNumber;
-    return `INV-${nextNumber}`;
+    return formatInvoiceNumber(nextNumber, {
+      prefix: options.prefix ?? (this.settingsData as any).invoiceNumberPrefix ?? "INV-",
+      suffix: options.suffix ?? (this.settingsData as any).invoiceNumberSuffix ?? "",
+      padding: options.padding ?? (this.settingsData as any).invoiceNumberPadding ?? 4,
+    });
   }
 
   // Settings

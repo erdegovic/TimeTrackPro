@@ -156,34 +156,54 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
   
   // Table content
   const tableContent: any[] = [];
+  const formatReportHours = (hours: number, timeFormat: 'decimal' | 'time' = 'time') => {
+    const safeHours = Number.isFinite(hours) ? hours : 0;
+    if (timeFormat === 'decimal') return `${safeHours.toFixed(2)}h`;
+
+    const totalSeconds = Math.max(0, Math.round(safeHours * 3600));
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
   
   // Add weekly data
   reportData.weeklyData.forEach((weekData: any) => {
+    const weekCurrency = weekData.entries[0]?.currency ||
+      weekData.entries[0]?.client?.currency ||
+      reportData.currency ||
+      'USD';
+
     // Add week header
     tableContent.push([
       {
         content: weekData.weekLabel,
-        colSpan: 5,
+        colSpan: 4,
         styles: { fillColor: [240, 240, 240], fontStyle: 'bold' }
       },
       {
-        content: formatTime(weekData.totalHours || 0, filters.timeFormat),
+        content: formatReportHours(weekData.totalHours || 0, filters.timeFormat),
+        styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
+      },
+      {
+        content: formatCurrency(weekData.totalAmount || 0, weekCurrency),
         styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
       }
     ]);
     
     // Add time entries for this week
     weekData.entries.forEach((entry: any) => {
-      // Get the client currency or use USD as fallback
-      const clientCurrency = entry.client?.currency || 'USD';
+      // Use the same currency the report preview used for this entry.
+      const clientCurrency = entry.currency || entry.client?.currency || reportData.currency || 'USD';
       
       tableContent.push([
         format(new Date(entry.date), 'MMM d, yyyy'),
         entry.description,
         entry.client?.name || '—',
         entry.project?.name || '—',
-        formatTime(
+        formatReportHours(
           entry.adjustedDuration || 
+          entry.originalDuration ||
           parseFloat(entry.duration) || 
           0, 
           filters.timeFormat
@@ -201,7 +221,7 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
       styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
     },
     {
-      content: formatTime(
+      content: formatReportHours(
         typeof reportData.totalHours === 'number' 
           ? reportData.totalHours 
           : parseFloat(reportData.totalHours || '0'),
@@ -213,7 +233,7 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
       // Use the client's currency if filtering by client
       content: formatCurrency(
         reportData.totalAmount, 
-        filters.clientId && reportData.timeEntries[0]?.client?.currency || 'USD'
+        reportData.currency || reportData.timeEntries[0]?.currency || reportData.timeEntries[0]?.client?.currency || 'USD'
       ),
       styles: { fontStyle: 'bold', fillColor: [240, 240, 240] }
     }
@@ -225,13 +245,23 @@ function generateReportPdf(doc: any, autoTable: any, reportData: any, filters: a
     head: [['Date', 'Description', 'Client', 'Project', 'Hours', 'Amount']],
     body: tableContent,
     theme: 'grid',
+    styles: {
+      fontSize: 8,
+      cellPadding: 2,
+      overflow: 'linebreak'
+    },
     headStyles: {
       fillColor: [0, 165, 228],
       textColor: [255, 255, 255],
       fontStyle: 'bold'
     },
     columnStyles: {
-      5: { halign: 'right' }
+      0: { cellWidth: 20 },
+      1: { cellWidth: 34 },
+      2: { cellWidth: 38 },
+      3: { cellWidth: 38 },
+      4: { cellWidth: 18, halign: 'right' },
+      5: { cellWidth: 28, halign: 'right' }
     }
   });
   

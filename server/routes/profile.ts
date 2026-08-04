@@ -10,6 +10,23 @@ import { storage } from '../storage';
 
 const router = express.Router();
 
+const serializeUser = (user: Awaited<ReturnType<typeof storage.getUser>>) => {
+  if (!user) return undefined;
+
+  return {
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    profileImageUrl: user.profileImageUrl,
+    role: user.role,
+    status: user.status,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+};
+
 // Routes that don't require authentication
 router.get('/verify-email-change', verifyEmailChange);
 
@@ -67,13 +84,11 @@ router.put('/profile', async (req, res) => {
       const updatedUser = await storage.updateUser(userId, otherProfileData);
       
       if (updatedUser) {
-        const { password, ...userData } = updatedUser;
-        
         return res.status(200).json({
           message: 'Profile updated. Please check your new email address to verify the change.',
           emailChangeRequested: true,
           pendingEmail: email,
-          user: userData
+          user: serializeUser(updatedUser)
         });
       } else {
         return res.status(500).json({ message: 'Failed to update profile' });
@@ -83,10 +98,9 @@ router.put('/profile', async (req, res) => {
       const updatedUser = await storage.updateUser(userId, req.body);
       
       if (updatedUser) {
-        const { password, ...userData } = updatedUser;
         return res.status(200).json({
           message: 'Profile updated successfully',
-          user: userData
+          user: serializeUser(updatedUser)
         });
       } else {
         return res.status(500).json({ message: 'Failed to update profile' });
@@ -116,8 +130,7 @@ router.get('/pending-email-change', async (req, res) => {
     if (pendingEmailChange) {
       return res.json({ 
         pendingEmail: pendingEmailChange.newEmail,
-        expiresAt: pendingEmailChange.expiresAt,
-        token: pendingEmailChange.token
+        expiresAt: pendingEmailChange.expiresAt
       });
     }
     

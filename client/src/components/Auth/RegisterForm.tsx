@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { useLocation } from 'wouter';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import GoogleSignInButton from './GoogleSignInButton';
 
 const registerSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -71,6 +72,14 @@ export default function RegisterForm() {
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Create an account</h1>
           <p className="text-gray-500 mt-1.5 text-sm">Start tracking your time and projects</p>
+        </div>
+
+        <GoogleSignInButton label="Sign up with Google" />
+
+        <div className="my-5 flex items-center gap-3" aria-hidden="true">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="text-xs font-medium uppercase text-gray-400">or</span>
+          <div className="h-px flex-1 bg-gray-200" />
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

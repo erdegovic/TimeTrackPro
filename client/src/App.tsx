@@ -15,6 +15,7 @@ import ProjectsPage from "./pages/ProjectsPage";
 import SettingsPage from "./pages/SettingsPage";
 import AccountPage from "./pages/AccountPage";
 import NotesPage from "./pages/Notes";
+import AdminPage from "./pages/AdminPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
@@ -75,6 +76,7 @@ function Router() {
             <Route path="/notes" component={NotesPage} />
             <Route path="/settings" component={SettingsPage} />
             <Route path="/account" component={AccountPage} />
+            <Route path="/admin" component={AdminPage} />
             <Route component={NotFound} />
           </Switch>
         </AppLayout>

@@ -1,15 +1,58 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { Clock, Users, Calendar, TrendingUp } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  differenceInCalendarDays,
+  eachDayOfInterval,
+  endOfWeek,
+  format,
+  startOfWeek,
+  subDays,
+  subYears,
+} from "date-fns";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { BarChart3, CalendarDays, Clock, FolderOpen, TrendingUp, Users } from "lucide-react";
 import { TimeEntry, Client, Project, Settings } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { CurrencySelector } from "@/components/ui/CurrencySelector";
 import { formatCurrency } from "@/lib/utils/timeUtils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import {
+  CustomCurrencyMap,
+  convertCurrency,
+  fetchCustomCurrencyRates,
+  fetchExchangeRates,
+  getExchangeRateSymbols,
+  saveCustomCurrencyRates,
+} from "@/lib/currency-rates";
+
+type RangePreset = "week" | "last7" | "last30" | "last90" | "year" | "custom";
+type DashboardRange = { start: Date; end: Date };
+type TimeEntryWithRelations = TimeEntry & { client?: Client; project?: Project };
+type GroupRow = {
+  id: number;
+  name: string;
+  subtitle?: string;
+  hours: number;
+  amount: number;
+  entries: number;
+  color: string;
+};
 
 function formatTimeFromDecimal(decimalHours: number): string {
   const hours = Math.floor(decimalHours);
@@ -18,29 +61,64 @@ function formatTimeFromDecimal(decimalHours: number): string {
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
+function parseEntryDate(date: string) {
+  return new Date(`${date}T12:00:00`);
+}
+
+function toDateKey(date: Date) {
+  return format(date, "yyyy-MM-dd");
+}
+
+function getPresetRange(preset: RangePreset, today = new Date()): DashboardRange {
+  if (preset === "week") {
+    return { start: startOfWeek(today, { weekStartsOn: 0 }), end: endOfWeek(today, { weekStartsOn: 0 }) };
+  }
+  if (preset === "last7") return { start: subDays(today, 6), end: today };
+  if (preset === "last30") return { start: subDays(today, 29), end: today };
+  if (preset === "last90") return { start: subDays(today, 89), end: today };
+  if (preset === "year") return { start: subYears(today, 1), end: today };
+  return { start: startOfWeek(today, { weekStartsOn: 0 }), end: endOfWeek(today, { weekStartsOn: 0 }) };
+}
+
+function getRangeLabel(range: DashboardRange) {
+  const sameYear = format(range.start, "yyyy") === format(range.end, "yyyy");
+  const start = format(range.start, sameYear ? "MMM d" : "MMM d, yyyy");
+  const end = format(range.end, "MMM d, yyyy");
+  return `${start} - ${end}`;
+}
+
 export default function Dashboard() {
   const { toast } = useToast();
   const [timeFormat, setTimeFormat] = useState<"decimal" | "time">("decimal");
   const [displayCurrency, setDisplayCurrency] = useState<string>("USD");
-  const today = new Date();
-  const weekStart = format(startOfWeek(today), "yyyy-MM-dd");
-  const weekEnd = format(endOfWeek(today), "yyyy-MM-dd");
-  const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
-  const monthEnd = format(endOfMonth(today), "yyyy-MM-dd");
+  const [rangePreset, setRangePreset] = useState<RangePreset>("week");
+  const [range, setRange] = useState<DashboardRange>(() => getPresetRange("week"));
 
-  const { data: allEntries = [] } = useQuery<TimeEntry[]>({ queryKey: ["/api/time-entries"] });
+  const { data: allEntries = [] } = useQuery<TimeEntryWithRelations[]>({ queryKey: ["/api/time-entries"] });
   const { data: clients = [] } = useQuery<Client[]>({ queryKey: ["/api/clients"] });
   const { data: projects = [] } = useQuery<Project[]>({ queryKey: ["/api/projects"] });
   const { data: settings } = useQuery<Settings>({ queryKey: ["/api/settings"] });
+  const { data: customCurrencyData } = useQuery({
+    queryKey: ["/api/custom-currency-rates"],
+    queryFn: fetchCustomCurrencyRates,
+  });
+  const customCurrencies = customCurrencyData?.currencies || {};
 
   const updateCurrencyMutation = useMutation({
-    mutationFn: (newCurrency: string) =>
-      apiRequest("PUT", "/api/settings", { defaultCurrency: newCurrency }),
+    mutationFn: (newCurrency: string) => apiRequest("PUT", "/api/settings", { defaultCurrency: newCurrency }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       toast({ title: "Currency updated" });
     },
     onError: () => toast({ title: "Error", description: "Failed to update currency.", variant: "destructive" }),
+  });
+  const saveCustomCurrenciesMutation = useMutation({
+    mutationFn: (currencies: CustomCurrencyMap) => saveCustomCurrencyRates(currencies),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/custom-currency-rates"] });
+      toast({ title: "Currency rate saved" });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to save currency rate.", variant: "destructive" }),
   });
 
   useEffect(() => {
@@ -52,228 +130,353 @@ export default function Dashboard() {
 
   const currentCurrency = (settings as any)?.defaultCurrency || displayCurrency;
 
-  const weekEntries = allEntries.filter(e => e.date >= weekStart && e.date <= weekEnd);
-  const monthEntries = allEntries.filter(e => e.date >= monthStart && e.date <= monthEnd);
+  const fmtHours = (hours: number) => (timeFormat === "decimal" ? `${hours.toFixed(1)}h` : formatTimeFromDecimal(hours));
 
-  const weeklyHours = weekEntries.reduce((t, e) => t + Number(e.duration || 0), 0);
-  const monthlyHours = monthEntries.reduce((t, e) => t + Number(e.duration || 0), 0);
+  const enrichedEntries = useMemo(() => {
+    return allEntries.map((entry) => {
+      const project = entry.project || projects.find((item) => item.id === entry.projectId);
+      const client = entry.client || clients.find((item) => item.id === (project?.clientId || entry.clientId));
+      return { ...entry, project, client };
+    });
+  }, [allEntries, clients, projects]);
 
-  const conversionRates: Record<string, number> = {
-    USD: 1.0, EUR: 0.92, GBP: 0.753, CAD: 1.35, RSD: 103.5,
+  const exchangeRateSymbols = useMemo(() => {
+    return getExchangeRateSymbols([
+      currentCurrency,
+      ...enrichedEntries.map((entry) => entry.client?.currency),
+    ]);
+  }, [currentCurrency, enrichedEntries]);
+
+  const { data: exchangeRatesData } = useQuery({
+    queryKey: ["/api/exchange-rates", "USD", exchangeRateSymbols.join(",")],
+    queryFn: () => fetchExchangeRates(exchangeRateSymbols, "USD"),
+    enabled: exchangeRateSymbols.length > 0,
+    staleTime: 60 * 60 * 1000,
+  });
+  const manualRateCurrencyCodes = exchangeRatesData
+    ? exchangeRateSymbols.filter((currency) => !exchangeRatesData.rates[currency] && !customCurrencies[currency])
+    : [];
+
+  const filteredEntries = useMemo(() => {
+    const startKey = toDateKey(range.start);
+    const endKey = toDateKey(range.end);
+    return enrichedEntries.filter((entry) => entry.date >= startKey && entry.date <= endKey);
+  }, [enrichedEntries, range]);
+
+  const dailyHoursData = useMemo(() => {
+    const dayMap = new Map<string, { date: string; label: string; fullLabel: string; hours: number; amount: number; entries: number }>();
+    eachDayOfInterval({ start: range.start, end: range.end }).forEach((date) => {
+      const key = toDateKey(date);
+      dayMap.set(key, {
+        date: key,
+        label: rangePreset === "week" ? format(date, "EEE") : format(date, "MMM d"),
+        fullLabel: format(date, "EEEE, MMMM d, yyyy"),
+        hours: 0,
+        amount: 0,
+        entries: 0,
+      });
+    });
+
+    filteredEntries.forEach((entry) => {
+      const day = dayMap.get(entry.date);
+      if (!day) return;
+      const hours = Number(entry.duration || 0);
+      const rate = Number(entry.project?.hourlyRate || 0);
+      const currency = entry.client?.currency || currentCurrency;
+      day.hours += hours;
+      day.amount += convertCurrency(hours * rate, currency, currentCurrency, exchangeRatesData?.rates, customCurrencies);
+      day.entries += 1;
+    });
+
+    return Array.from(dayMap.values());
+  }, [currentCurrency, customCurrencies, exchangeRatesData?.rates, filteredEntries, range, rangePreset]);
+
+  const rangeHours = filteredEntries.reduce((total, entry) => total + Number(entry.duration || 0), 0);
+  const activeDays = dailyHoursData.filter((day) => day.hours > 0).length;
+  const averagePerActiveDay = activeDays > 0 ? rangeHours / activeDays : 0;
+  const averagePerCalendarDay = dailyHoursData.length > 0 ? rangeHours / dailyHoursData.length : 0;
+  const billableAmount = dailyHoursData.reduce((total, day) => total + day.amount, 0);
+
+  const buildGroupedData = (mode: "client" | "project"): GroupRow[] => {
+    const rows = new Map<number, GroupRow>();
+
+    filteredEntries.forEach((entry) => {
+      const project = entry.project;
+      const client = entry.client;
+      const isProject = mode === "project";
+      const id = isProject ? project?.id ?? -1 : client?.id ?? -1;
+      const name = isProject ? project?.name || "Unassigned Project" : client?.name || "Unassigned Client";
+      const subtitle = isProject ? client?.name || "No client" : `${project?.name || "No project"} activity`;
+      const color = project?.color || (isProject ? "#6366f1" : "#0f766e");
+      const hours = Number(entry.duration || 0);
+      const rate = Number(project?.hourlyRate || 0);
+      const currency = client?.currency || currentCurrency;
+      const amount = convertCurrency(hours * rate, currency, currentCurrency, exchangeRatesData?.rates, customCurrencies);
+      const existing = rows.get(id);
+
+      if (existing) {
+        existing.hours += hours;
+        existing.amount += amount;
+        existing.entries += 1;
+      } else {
+        rows.set(id, { id, name, subtitle, hours, amount, entries: 1, color });
+      }
+    });
+
+    return Array.from(rows.values()).sort((a, b) => b.hours - a.hours);
   };
 
-  const monthlyBillableAmount = monthEntries.reduce((total, entry) => {
-    const project = projects.find(p => p.id === entry.projectId);
-    if (project && entry.billable) {
-      const client = clients.find(c => c.id === project.clientId);
-      const projectCurrency = client?.currency || "USD";
-      const amount = Number(entry.duration || 0) * Number(project.hourlyRate || 0);
-      if (projectCurrency === currentCurrency) return total + amount;
-      const inUSD = projectCurrency === "USD" ? amount : amount / (conversionRates[projectCurrency] || 1);
-      const inDisplay = currentCurrency === "USD" ? inUSD : inUSD * (conversionRates[currentCurrency] || 1);
-      return total + inDisplay;
-    }
-    return total;
-  }, 0);
+  const projectData = buildGroupedData("project");
+  const clientData = buildGroupedData("client");
+  const topProject = projectData[0];
+  const topClient = clientData[0];
 
-  const buildGroupedData = (entries: typeof allEntries, keyFn: (e: typeof allEntries[0]) => { id: number; name: string; color: string } | null) => {
-    const acc: { id: number; name: string; hours: number; color: string }[] = [];
-    entries.forEach(entry => {
-      const key = keyFn(entry);
-      if (!key) return;
-      const existing = acc.find(i => i.id === key.id);
-      if (existing) existing.hours += Number(entry.duration || 0);
-      else acc.push({ ...key, hours: Number(entry.duration || 0) });
-    });
-    return acc.sort((a, b) => b.hours - a.hours);
+  const chartWidth =
+    dailyHoursData.length <= 7
+      ? "100%"
+      : Math.max(
+          760,
+          dailyHoursData.length *
+            (dailyHoursData.length > 180 ? 9 : dailyHoursData.length > 90 ? 12 : dailyHoursData.length > 45 ? 16 : 28)
+        );
+  const xAxisInterval =
+    dailyHoursData.length > 180 ? 29 : dailyHoursData.length > 95 ? 13 : dailyHoursData.length > 45 ? 6 : dailyHoursData.length > 20 ? 2 : 0;
+  const barCategoryGap =
+    dailyHoursData.length <= 7 ? "18%" : dailyHoursData.length > 90 ? "6%" : dailyHoursData.length > 45 ? "10%" : "14%";
+  const maxBarSize =
+    dailyHoursData.length <= 7 ? 86 : dailyHoursData.length > 180 ? 8 : dailyHoursData.length > 90 ? 10 : dailyHoursData.length > 45 ? 14 : 24;
+  const daysInRange = differenceInCalendarDays(range.end, range.start) + 1;
+
+  const handlePresetChange = (preset: RangePreset) => {
+    setRangePreset(preset);
+    if (preset !== "custom") setRange(getPresetRange(preset));
   };
 
-  const projectData = buildGroupedData(monthEntries, entry => {
-    const p = projects.find(pr => pr.id === entry.projectId);
-    if (!p) return { id: -1, name: "Unassigned", color: "#9CA3AF" };
-    return { id: p.id, name: p.name, color: p.color || "#8884d8" };
-  });
+  const handleCurrencyChange = (currency: string) => {
+    updateCurrencyMutation.mutate(currency);
+  };
 
-  const clientData = buildGroupedData(monthEntries, entry => {
-    const p = projects.find(pr => pr.id === entry.projectId);
-    if (!p) return { id: -1, name: "Unassigned", color: "#9CA3AF" };
-    const c = clients.find(cl => cl.id === p.clientId);
-    return { id: c?.id || -2, name: c?.name || "Unknown", color: p.color || "#8884d8" };
-  });
+  const handleSaveCustomCurrencies = async (currencies: CustomCurrencyMap) => {
+    await saveCustomCurrenciesMutation.mutateAsync(currencies);
+  };
 
-  const dailyHoursData = (() => {
-    const acc: { day: string; hours: number }[] = [];
-    weekEntries.forEach(entry => {
-      const day = format(new Date(entry.date), "EEE");
-      const existing = acc.find(i => i.day === day);
-      if (existing) existing.hours += Number(entry.duration || 0);
-      else acc.push({ day, hours: Number(entry.duration || 0) });
-    });
-    const order = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    return acc.sort((a, b) => order.indexOf(a.day) - order.indexOf(b.day));
-  })();
+  const setCustomStart = (date?: Date) => {
+    if (!date) return;
+    setRangePreset("custom");
+    setRange((current) => ({ start: date, end: date > current.end ? date : current.end }));
+  };
 
-  const fmtHours = (h: number) =>
-    timeFormat === "decimal" ? `${h.toFixed(1)}h` : formatTimeFromDecimal(h);
-
-  const StatCard = ({
-    title, value, sub, icon: Icon, accent,
-  }: {
-    title: string; value: string; sub: string; icon: any; accent: string;
-  }) => (
-    <Card className="overflow-hidden">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between mb-3">
-          <div className={`p-2 rounded-lg ${accent}`}>
-            <Icon className="h-5 w-5" />
-          </div>
-        </div>
-        <div className="text-2xl font-bold text-gray-900 mb-1">{value}</div>
-        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5">{title}</div>
-        <div className="text-xs text-gray-400">{sub}</div>
-      </CardContent>
-    </Card>
-  );
+  const setCustomEnd = (date?: Date) => {
+    if (!date) return;
+    setRangePreset("custom");
+    setRange((current) => ({ start: date < current.start ? date : current.start, end: date }));
+  };
 
   return (
-    <div className="space-y-6 pb-8">
-
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-5 pb-8">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{format(today, "EEEE, MMMM d, yyyy")}</p>
+          <p className="text-sm text-gray-500 mt-1">{getRangeLabel(range)} · {daysInRange} day{daysInRange === 1 ? "" : "s"}</p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500 hidden sm:block">Format:</span>
-          <Select value={timeFormat} onValueChange={(v: "decimal" | "time") => setTimeFormat(v)}>
-            <SelectTrigger className="w-36">
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Select value={rangePreset} onValueChange={(value: RangePreset) => handlePresetChange(value)}>
+            <SelectTrigger className="w-full sm:w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="decimal">Decimal (1.5h)</SelectItem>
-              <SelectItem value="time">Time (1:30:00)</SelectItem>
+              <SelectItem value="week">This week</SelectItem>
+              <SelectItem value="last7">Last 7 days</SelectItem>
+              <SelectItem value="last30">Last 30 days</SelectItem>
+              <SelectItem value="last90">Last 90 days</SelectItem>
+              <SelectItem value="year">Last 1 year</SelectItem>
+              <SelectItem value="custom">Custom range</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {rangePreset === "custom" && (
+            <DateRangeControls range={range} onStartChange={setCustomStart} onEndChange={setCustomEnd} />
+          )}
+
+          <Select value={timeFormat} onValueChange={(value: "decimal" | "time") => setTimeFormat(value)}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="decimal">Decimal time</SelectItem>
+              <SelectItem value="time">Clock time</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      {/* Stat Cards — 2 cols on mobile, 4 on desktop */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard
-          title="Hours This Week"
-          value={fmtHours(weeklyHours)}
-          sub={`${format(new Date(weekStart), "MMM d")} – ${format(new Date(weekEnd), "MMM d")}`}
-          icon={Clock}
-          accent="bg-blue-50 text-blue-600"
-        />
-        <StatCard
-          title="Hours This Month"
-          value={fmtHours(monthlyHours)}
-          sub={format(new Date(monthStart), "MMMM yyyy")}
-          icon={Calendar}
-          accent="bg-violet-50 text-violet-600"
-        />
-        <Card className="overflow-hidden">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <StatCard title="Tracked Hours" value={fmtHours(rangeHours)} sub={getRangeLabel(range)} icon={Clock} accent="bg-blue-50 text-blue-600" />
+        <StatCard title="Active Days" value={`${activeDays}/${dailyHoursData.length}`} sub={`${fmtHours(averagePerCalendarDay)} daily average`} icon={CalendarDays} accent="bg-violet-50 text-violet-600" />
+        <StatCard title="Best Project" value={topProject?.name || "None"} sub={topProject ? fmtHours(topProject.hours) : "No tracked work"} icon={FolderOpen} accent="bg-amber-50 text-amber-600" />
+        <StatCard title="Best Client" value={topClient?.name || "None"} sub={topClient ? fmtHours(topClient.hours) : "No client activity"} icon={Users} accent="bg-teal-50 text-teal-600" />
+        <Card className="relative z-20 col-span-2 overflow-visible lg:col-span-1">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-2 mb-3">
               <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
                 <TrendingUp className="h-5 w-5" />
               </div>
               <CurrencySelector
                 selectedCurrency={currentCurrency}
-                onCurrencyChange={c => updateCurrencyMutation.mutate(c)}
+                onCurrencyChange={handleCurrencyChange}
+                customCurrencies={customCurrencies}
+                manualRateCurrencyCodes={manualRateCurrencyCodes}
+                onSaveCustomCurrencies={handleSaveCustomCurrencies}
                 className="text-xs"
                 compact
               />
             </div>
-            <div className="text-2xl font-bold text-gray-900 mb-1">
-              {formatCurrency(monthlyBillableAmount, currentCurrency)}
-            </div>
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5">Billable Amount</div>
-            <div className="text-xs text-gray-400">{format(new Date(monthStart), "MMMM yyyy")}</div>
+            <div className="text-2xl font-bold text-gray-900 mb-1">{formatCurrency(billableAmount, currentCurrency)}</div>
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5">Estimated Value</div>
+            <div className="text-xs text-gray-400">{fmtHours(averagePerActiveDay)} per active day</div>
           </CardContent>
         </Card>
-        <StatCard
-          title="Active Clients"
-          value={String(clients.length)}
-          sub={`${projects.length} project${projects.length === 1 ? "" : "s"}`}
-          icon={Users}
-          accent="bg-amber-50 text-amber-600"
-        />
       </div>
 
-      {/* Weekly Bar Chart — full width */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Weekly Activity</CardTitle>
-          <p className="text-sm text-gray-500">Hours tracked per day this week</p>
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-base">Daily Work Pattern</CardTitle>
+              <p className="text-sm text-gray-500">Every day in the selected range is shown, including days with zero hours.</p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <BarChart3 className="h-4 w-4" />
+              {dailyHoursData.length} columns
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={dailyHoursData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-              <XAxis dataKey="day" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={v => `${v}h`}
-                width={36}
-              />
-              <Tooltip
-                formatter={(value) => [fmtHours(Number(value)), "Hours"]}
-                cursor={{ fill: "rgba(0,0,0,0.04)" }}
-              />
-              <Bar dataKey="hours" fill="#6366f1" radius={[5, 5, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="overflow-x-auto pb-2">
+            <div style={{ width: chartWidth, height: 340 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dailyHoursData} margin={{ top: 12, right: 20, bottom: 8, left: 0 }} barCategoryGap={barCategoryGap}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#edf2f7" />
+                  <XAxis
+                    dataKey="label"
+                    interval={xAxisInterval}
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis fontSize={11} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}h`} width={36} />
+                  <Tooltip content={<DailyTooltip fmtHours={fmtHours} currency={currentCurrency} />} cursor={{ fill: "rgba(15, 23, 42, 0.05)" }} />
+                  <Bar dataKey="hours" radius={[4, 4, 0, 0]} maxBarSize={maxBarSize}>
+                    {dailyHoursData.map((day) => (
+                      <Cell key={day.date} fill={day.hours > 0 ? "#2563eb" : "#dbeafe"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Pie Charts — side by side */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <PieCard
-          title="Time by Project"
-          sub={`This month · ${format(new Date(monthStart), "MMMM yyyy")}`}
-          data={projectData}
-          fmtHours={fmtHours}
-        />
-        <PieCard
-          title="Time by Client"
-          sub={`This month · ${format(new Date(monthStart), "MMMM yyyy")}`}
-          data={clientData}
-          fmtHours={fmtHours}
-        />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <PieCard title="Time by Client" sub={getRangeLabel(range)} data={clientData} fmtHours={fmtHours} />
+        <PieCard title="Time by Project" sub={getRangeLabel(range)} data={projectData} fmtHours={fmtHours} />
       </div>
 
-      {/* Progress Breakdowns — side by side */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <BreakdownCard
-          title="Project Breakdown"
-          sub="Hours by project this month"
-          data={projectData}
-          total={monthlyHours}
-          fmtHours={fmtHours}
-        />
-        <BreakdownCard
-          title="Client Breakdown"
-          sub="Hours by client this month"
-          data={clientData}
-          total={monthlyHours}
-          fmtHours={fmtHours}
-        />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <BreakdownCard title="Client Overview" sub="Hours, estimated value, and entry count" data={clientData} total={rangeHours} fmtHours={fmtHours} currency={currentCurrency} />
+        <BreakdownCard title="Project Overview" sub="Detailed split by project and client" data={projectData} total={rangeHours} fmtHours={fmtHours} currency={currentCurrency} />
       </div>
     </div>
   );
 }
 
-function PieCard({
-  title, sub, data, fmtHours,
+function DateRangeControls({
+  range,
+  onStartChange,
+  onEndChange,
 }: {
-  title: string; sub: string;
-  data: { id: number; name: string; hours: number; color: string }[];
-  fmtHours: (h: number) => string;
+  range: DashboardRange;
+  onStartChange: (date?: Date) => void;
+  onEndChange: (date?: Date) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:w-[280px]">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="justify-start px-3 text-left font-normal">
+            {format(range.start, "MMM d, yyyy")}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="end">
+          <CalendarComponent mode="single" selected={range.start} onSelect={onStartChange} initialFocus />
+        </PopoverContent>
+      </Popover>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="justify-start px-3 text-left font-normal">
+            {format(range.end, "MMM d, yyyy")}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="end">
+          <CalendarComponent mode="single" selected={range.end} onSelect={onEndChange} initialFocus />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+function DailyTooltip({ active, payload, fmtHours, currency }: any) {
+  if (!active || !payload?.length) return null;
+  const day = payload[0].payload;
+  return (
+    <div className="rounded-md border bg-white p-3 shadow-sm">
+      <div className="text-sm font-semibold text-gray-900">{day.fullLabel}</div>
+      <div className="mt-1 text-xs text-gray-500">{day.entries} entr{day.entries === 1 ? "y" : "ies"}</div>
+      <div className="mt-2 text-sm text-gray-700">{fmtHours(Number(day.hours || 0))}</div>
+      <div className="text-sm text-gray-700">{formatCurrency(Number(day.amount || 0), currency)}</div>
+    </div>
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  sub,
+  icon: Icon,
+  accent,
+}: {
+  title: string;
+  value: string;
+  sub: string;
+  icon: any;
+  accent: string;
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="p-4">
+        <div className={`mb-3 inline-flex rounded-lg p-2 ${accent}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="truncate text-2xl font-bold text-gray-900" title={value}>{value}</div>
+        <div className="mt-1 text-xs font-medium uppercase tracking-wide text-gray-500">{title}</div>
+        <div className="mt-0.5 truncate text-xs text-gray-400" title={sub}>{sub}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PieCard({
+  title,
+  sub,
+  data,
+  fmtHours,
+}: {
+  title: string;
+  sub: string;
+  data: GroupRow[];
+  fmtHours: (hours: number) => string;
 }) {
   return (
     <Card>
@@ -283,41 +486,31 @@ function PieCard({
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
-          <div className="h-44 flex items-center justify-center text-sm text-gray-400">No data for this month</div>
+          <div className="flex h-44 items-center justify-center text-sm text-gray-400">No tracked work in this range</div>
         ) : (
-          <div className="flex items-center gap-4">
-            <div className="flex-shrink-0 w-36 h-36">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="h-40 w-full flex-shrink-0 sm:w-40">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={data}
-                    cx="50%" cy="50%"
-                    innerRadius={32} outerRadius={62}
-                    paddingAngle={2}
-                    dataKey="hours"
-                    strokeWidth={0}
-                  >
-                    {data.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
+                  <Pie data={data} cx="50%" cy="50%" innerRadius={38} outerRadius={70} paddingAngle={2} dataKey="hours" strokeWidth={0}>
+                    {data.map((entry) => (
+                      <Cell key={entry.id} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v) => [fmtHours(Number(v)), "Hours"]} />
+                  <Tooltip formatter={(value) => [fmtHours(Number(value)), "Hours"]} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="flex-1 min-w-0 space-y-2">
-              {data.slice(0, 6).map(item => (
+            <div className="min-w-0 flex-1 space-y-2">
+              {data.slice(0, 7).map((item) => (
                 <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
                     <span className="truncate text-gray-700">{item.name}</span>
                   </div>
-                  <span className="text-gray-500 font-medium flex-shrink-0">{fmtHours(item.hours)}</span>
+                  <span className="flex-shrink-0 font-medium text-gray-500">{fmtHours(item.hours)}</span>
                 </div>
               ))}
-              {data.length > 6 && (
-                <p className="text-xs text-gray-400">+{data.length - 6} more</p>
-              )}
             </div>
           </div>
         )}
@@ -327,12 +520,19 @@ function PieCard({
 }
 
 function BreakdownCard({
-  title, sub, data, total, fmtHours,
+  title,
+  sub,
+  data,
+  total,
+  fmtHours,
+  currency,
 }: {
-  title: string; sub: string;
-  data: { id: number; name: string; hours: number; color: string }[];
+  title: string;
+  sub: string;
+  data: GroupRow[];
   total: number;
-  fmtHours: (h: number) => string;
+  fmtHours: (hours: number) => string;
+  currency: string;
 }) {
   return (
     <Card>
@@ -342,28 +542,32 @@ function BreakdownCard({
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
-          <div className="h-32 flex items-center justify-center text-sm text-gray-400">No data for this month</div>
+          <div className="flex h-40 items-center justify-center text-sm text-gray-400">No tracked work in this range</div>
         ) : (
           <div className="space-y-4">
-            {data.map(item => {
+            {data.map((item) => {
               const pct = total > 0 ? (item.hours / total) * 100 : 0;
               return (
-                <div key={item.id}>
-                  <div className="flex items-center justify-between text-sm mb-1.5 gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-                      <span className="font-medium text-gray-800 truncate">{item.name}</span>
+                <div key={item.id} className="rounded-md border border-gray-100 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <div className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
+                        <div className="truncate font-medium text-gray-900">{item.name}</div>
+                      </div>
+                      <div className="mt-1 truncate text-xs text-gray-500">{item.subtitle}</div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 text-gray-500">
-                      <span>{fmtHours(item.hours)}</span>
-                      <span className="text-xs text-gray-400">{pct.toFixed(0)}%</span>
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-gray-900">{fmtHours(item.hours)}</div>
+                      <div className="text-xs text-gray-500">{formatCurrency(item.amount, currency)}</div>
                     </div>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1.5">
-                    <div
-                      className="h-1.5 rounded-full transition-all duration-500"
-                      style={{ width: `${pct}%`, backgroundColor: item.color }}
-                    />
+                  <div className="mt-3 h-1.5 w-full rounded-full bg-gray-100">
+                    <div className="h-1.5 rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: item.color }} />
+                  </div>
+                  <div className="mt-2 flex justify-between text-xs text-gray-400">
+                    <span>{item.entries} entr{item.entries === 1 ? "y" : "ies"}</span>
+                    <span>{pct.toFixed(0)}%</span>
                   </div>
                 </div>
               );

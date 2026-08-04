@@ -10,9 +10,10 @@ import { ReportFilters, Client, Project, TimeFormat, RoundingType } from "@share
 
 interface ReportFiltersProps {
   onApplyFilters: (filters: ReportFilters) => void;
+  liveUpdate?: boolean;
 }
 
-export default function ReportFiltersComponent({ onApplyFilters }: ReportFiltersProps) {
+export default function ReportFiltersComponent({ onApplyFilters, liveUpdate = false }: ReportFiltersProps) {
   const [filters, setFilters] = useState<ReportFilters>({
     clientId: undefined,
     projectId: undefined,
@@ -49,8 +50,15 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
     ? projects.filter(project => project.clientId === filters.clientId)
     : [];
 
+  const updateFilters = (nextFilters: ReportFilters, shouldLiveUpdate = false) => {
+    setFilters(nextFilters);
+    if (liveUpdate && shouldLiveUpdate) {
+      onApplyFilters(nextFilters);
+    }
+  };
+
   const handleReset = () => {
-    setFilters({
+    const resetFilters: ReportFilters = {
       clientId: undefined,
       projectId: undefined,
       startDate: format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd"),
@@ -62,7 +70,8 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
         percentage: 10,
         roundToNearestTenth: false
       }
-    });
+    };
+    updateFilters(resetFilters, true);
   };
 
   const handleApplyFilters = () => {
@@ -78,7 +87,7 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
             value={filters.clientId?.toString()} 
             onValueChange={(val) => {
               const clientId = val === "all" ? undefined : Number(val);
-              setFilters({
+              updateFilters({
                 ...filters,
                 clientId,
                 projectId: undefined // Reset project when client changes
@@ -105,7 +114,7 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
             value={filters.projectId?.toString()} 
             onValueChange={(val) => {
               const projectId = val === "all" ? undefined : Number(val);
-              setFilters({
+              updateFilters({
                 ...filters,
                 projectId
               });
@@ -132,14 +141,14 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
             <Input
               type="date"
               value={filters.startDate}
-              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+              onChange={(e) => updateFilters({ ...filters, startDate: e.target.value })}
               className="min-w-0 w-full"
             />
             <span className="text-gray-400 text-sm px-1">→</span>
             <Input
               type="date"
               value={filters.endDate}
-              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+              onChange={(e) => updateFilters({ ...filters, endDate: e.target.value })}
               className="min-w-0 w-full"
             />
           </div>
@@ -161,7 +170,7 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
         <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
           <Select 
             value={filters.timeFormat} 
-            onValueChange={(val: TimeFormat) => setFilters({ ...filters, timeFormat: val })}
+            onValueChange={(val: TimeFormat) => updateFilters({ ...filters, timeFormat: val }, true)}
           >
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Time format" />
@@ -174,14 +183,14 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
           
           <Select 
             value={filters.roundingType} 
-            onValueChange={(val: RoundingType) => setFilters({ ...filters, roundingType: val })}
+            onValueChange={(val: RoundingType) => updateFilters({ ...filters, roundingType: val }, true)}
           >
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Rounding" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">No rounding</SelectItem>
-              <SelectItem value="nearest_tenth">Round to nearest 0.1</SelectItem>
+              <SelectItem value="nearest_tenth">Round up to next 0.1</SelectItem>
               <SelectItem value="nearest_quarter">Round to nearest 0.25</SelectItem>
               <SelectItem value="nearest_half">Round to nearest 0.5</SelectItem>
             </SelectContent>
@@ -198,13 +207,13 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
               id="adjustment-percentage" 
               checked={filters.timeAdjustment?.increaseByPercentage}
               onCheckedChange={(checked) => 
-                setFilters({
+                updateFilters({
                   ...filters,
                   timeAdjustment: {
                     ...filters.timeAdjustment!,
                     increaseByPercentage: !!checked
                   }
-                })
+                }, true)
               }
             />
             <label htmlFor="adjustment-percentage" className="text-sm text-gray-700">Increase by percentage</label>
@@ -217,13 +226,13 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
               min="0"
               max="100"
               onChange={(e) => 
-                setFilters({
+                updateFilters({
                   ...filters,
                   timeAdjustment: {
                     ...filters.timeAdjustment!,
                     percentage: parseInt(e.target.value) || 0
                   }
-                })
+                }, true)
               }
               className="pr-6"
             />
@@ -237,27 +246,23 @@ export default function ReportFiltersComponent({ onApplyFilters }: ReportFilters
               id="round-tenths" 
               checked={filters.timeAdjustment?.roundToNearestTenth}
               onCheckedChange={(checked) => 
-                setFilters({
+                updateFilters({
                   ...filters,
                   timeAdjustment: {
                     ...filters.timeAdjustment!,
                     roundToNearestTenth: !!checked
                   }
-                })
+                }, true)
               }
             />
-            <label htmlFor="round-tenths" className="text-sm text-gray-700">Round to nearest tenth</label>
+            <label htmlFor="round-tenths" className="text-sm text-gray-700">Round up to next tenth</label>
           </div>
-          
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleApplyFilters}
-            disabled={!filters.timeAdjustment?.increaseByPercentage && !filters.timeAdjustment?.roundToNearestTenth}
-            className="w-full sm:w-auto mt-2 lg:mt-0"
-          >
-            Apply
-          </Button>
+
+          {liveUpdate && (
+            <p className="text-xs text-gray-500 mt-2 lg:mt-0">
+              Preview updates automatically.
+            </p>
+          )}
         </div>
       </div>
     </>

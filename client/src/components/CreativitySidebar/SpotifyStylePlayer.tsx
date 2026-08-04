@@ -1,645 +1,316 @@
-import { useState, useRef, useEffect } from "react";
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Disc3,
+  Folder,
+  Headphones,
+  ImageIcon,
+  ListMusic,
+  Pause,
+  Play,
+  RefreshCw,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface Track {
   id: string;
   title: string;
-  artist: string;
-  duration: string;
-  audioUrl: string;
-  albumArt: string;
-  environment?: string;
-  intensity?: "low" | "medium" | "high";
+  fileName: string;
+  url: string;
+  thumbnailUrl: string | null;
 }
 
 interface Playlist {
   id: string;
   name: string;
   description: string;
+  intent: string;
+  accent: "blue" | "emerald" | "violet";
+  folder: string;
   tracks: Track[];
-  coverArt?: string;
-  colorScheme?: string;
 }
 
-const playlists: Playlist[] = [
+const fallbackPlaylists: Playlist[] = [
   {
-    id: "deep-focus",
-    name: "Deep Focus",
-    description: "Minimal ambient textures for uninterrupted concentration",
-    coverArt: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&h=600&fit=crop",
-    colorScheme: "from-blue-100/80 to-blue-50/80",
-    tracks: [
-      {
-        id: "df1",
-        title: "Luminous Space",
-        artist: "Ambient Collective",
-        duration: "32:00",
-        audioUrl: "/audio/focus/space.mp3",
-        albumArt: "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=300&h=300&fit=crop",
-        environment: "Cosmic",
-        intensity: "low"
-      },
-      {
-        id: "df2",
-        title: "Crystal Clear",
-        artist: "Mindful Tones",
-        duration: "45:00",
-        audioUrl: "/audio/focus/crystal.mp3",
-        albumArt: "https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?w=300&h=300&fit=crop",
-        environment: "Mineral",
-        intensity: "medium"
-      },
-      {
-        id: "df3",
-        title: "Digital Rain",
-        artist: "Focus Waves",
-        duration: "28:30",
-        audioUrl: "/audio/focus/rain.mp3",
-        albumArt: "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=300&h=300&fit=crop",
-        environment: "Cyber",
-        intensity: "high"
-      },
-      {
-        id: "df4",
-        title: "Boreal Forest",
-        artist: "Nature Soundscapes",
-        duration: "38:15",
-        audioUrl: "/audio/focus/forest.mp3",
-        albumArt: "https://images.unsplash.com/photo-1448375240586-882707db888b?w=300&h=300&fit=crop",
-        environment: "Woodland",
-        intensity: "medium"
-      },
-      {
-        id: "df5",
-        title: "Ocean Memory",
-        artist: "Aquatic Harmonics",
-        duration: "41:20",
-        audioUrl: "/audio/focus/ocean.mp3",
-        albumArt: "https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=300&h=300&fit=crop",
-        environment: "Aquatic",
-        intensity: "low"
-      },
-      {
-        id: "df6",
-        title: "Zen Garden",
-        artist: "Meditation Studio",
-        duration: "35:45",
-        audioUrl: "/audio/focus/zen.mp3",
-        albumArt: "https://images.unsplash.com/photo-1526397751294-331021109fbd?w=300&h=300&fit=crop",
-        environment: "Japanese Garden",
-        intensity: "low"
-      }
-    ]
+    id: "deep-work",
+    name: "Deep Work",
+    description: "Slow ambient layers for long editing, invoicing, and writing sessions.",
+    intent: "Focus",
+    accent: "blue",
+    folder: "deep-work",
+    tracks: [],
   },
   {
     id: "creative-flow",
     name: "Creative Flow",
-    description: "Subtle rhythms to stimulate creative thinking",
-    coverArt: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=600&h=600&fit=crop",
-    colorScheme: "from-purple-100/80 to-purple-50/80",
-    tracks: [
-      {
-        id: "cf1",
-        title: "Neural Pathways",
-        artist: "Brainwave Studio",
-        duration: "52:00",
-        audioUrl: "/audio/creative/neural.mp3",
-        albumArt: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=300&h=300&fit=crop",
-        environment: "Abstract",
-        intensity: "medium"
-      },
-      {
-        id: "cf2",
-        title: "Liquid Thoughts",
-        artist: "Fluid Mind",
-        duration: "48:30",
-        audioUrl: "/audio/creative/liquid.mp3",
-        albumArt: "https://images.unsplash.com/photo-1533134242443-d4fd215305ad?w=300&h=300&fit=crop",
-        environment: "Watercolor",
-        intensity: "low"
-      },
-      {
-        id: "cf3",
-        title: "Quantum Drift",
-        artist: "Science Sounds",
-        duration: "45:15",
-        audioUrl: "/audio/creative/quantum.mp3",
-        albumArt: "https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=300&h=300&fit=crop",
-        environment: "Particle",
-        intensity: "high"
-      }
-    ]
+    description: "Warm rhythmic beds for concepting, arranging, and design passes.",
+    intent: "Create",
+    accent: "emerald",
+    folder: "creative-flow",
+    tracks: [],
   },
   {
-    id: "mindful-meditation",
-    name: "Mindful Meditation",
-    description: "Soothing atmospheres for relaxation and clarity",
-    coverArt: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600&h=600&fit=crop",
-    colorScheme: "from-green-100/80 to-green-50/80",
-    tracks: [
-      {
-        id: "mm1",
-        title: "Tibetan Resonance",
-        artist: "Ancient Echoes",
-        duration: "60:00",
-        audioUrl: "/audio/meditation/tibetan.mp3",
-        albumArt: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=300&fit=crop",
-        environment: "Himalayan",
-        intensity: "low"
-      },
-      {
-        id: "mm2",
-        title: "Breathing Space",
-        artist: "Mindful Moments",
-        duration: "45:00",
-        audioUrl: "/audio/meditation/breath.mp3",
-        albumArt: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=300&h=300&fit=crop",
-        environment: "Cloud",
-        intensity: "medium"
-      },
-      {
-        id: "mm3",
-        title: "Golden Light",
-        artist: "Inner Peace",
-        duration: "55:30",
-        audioUrl: "/audio/meditation/light.mp3",
-        albumArt: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=300&h=300&fit=crop",
-        environment: "Sunrise",
-        intensity: "low"
-      },
-      {
-        id: "mm4",
-        title: "Forest Bathing",
-        artist: "Nature Therapy",
-        duration: "50:15",
-        audioUrl: "/audio/meditation/forest.mp3",
-        albumArt: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=300&h=300&fit=crop",
-        environment: "Bamboo Forest",
-        intensity: "medium"
-      }
-    ]
-  }
+    id: "reset",
+    name: "Reset",
+    description: "Gentle textures for between-client breaks and end-of-day decompression.",
+    intent: "Recover",
+    accent: "violet",
+    folder: "reset",
+    tracks: [],
+  },
 ];
 
-const musicList: Track[] = playlists.flatMap(playlist => playlist.tracks);
+const accentClasses = {
+  blue: {
+    bar: "bg-blue-500",
+    selected: "border-blue-500 bg-blue-50 text-blue-950",
+    icon: "bg-blue-100 text-blue-700",
+  },
+  emerald: {
+    bar: "bg-emerald-500",
+    selected: "border-emerald-500 bg-emerald-50 text-emerald-950",
+    icon: "bg-emerald-100 text-emerald-700",
+  },
+  violet: {
+    bar: "bg-violet-500",
+    selected: "border-violet-500 bg-violet-50 text-violet-950",
+    icon: "bg-violet-100 text-violet-700",
+  },
+};
 
 export default function CreativityPanelPlayer() {
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState("0:00");
-  const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
-  const [volume, setVolume] = useState(0.7);
-  const [isMuted, setIsMuted] = useState(false);
-  const [showVolumeControl, setShowVolumeControl] = useState(false);
-
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const timelineRef = useRef<HTMLDivElement | null>(null);
-  const playheadRef = useRef<HTMLDivElement | null>(null);
-  const hoverPlayheadRef = useRef<HTMLDivElement | null>(null);
-  const playlistContainerRef = useRef<HTMLDivElement | null>(null);
+  const [playlists, setPlaylists] = useState<Playlist[]>(fallbackPlaylists);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState(fallbackPlaylists[0].id);
+  const [currentTrackId, setCurrentTrackId] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const currentTrack = musicList[currentTrackIndex];
+  const selectedPlaylist = useMemo(
+    () => playlists.find((playlist) => playlist.id === selectedPlaylistId) || playlists[0],
+    [playlists, selectedPlaylistId],
+  );
 
-  // Initialize audio element and event listeners
-  useEffect(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio();
-      audioRef.current.src = currentTrack.audioUrl;
-      audioRef.current.volume = isMuted ? 0 : volume;
+  const currentTrack = useMemo(
+    () => playlists.flatMap((playlist) => playlist.tracks).find((track) => track.id === currentTrackId) || null,
+    [playlists, currentTrackId],
+  );
+
+  const loadLibrary = async (showRefreshing = false) => {
+    if (showRefreshing) setIsRefreshing(true);
+
+    try {
+      const response = await fetch("/api/music-library", { cache: "no-store" });
+      if (!response.ok) throw new Error("Could not load music library");
+
+      const data = await response.json();
+      const nextPlaylists = Array.isArray(data.playlists) ? data.playlists : fallbackPlaylists;
+      setPlaylists(nextPlaylists);
+
+      if (!nextPlaylists.some((playlist: Playlist) => playlist.id === selectedPlaylistId)) {
+        setSelectedPlaylistId(nextPlaylists[0]?.id || fallbackPlaylists[0].id);
+      }
+    } catch (error) {
+      console.error("Music library load error:", error);
+      setPlaylists(fallbackPlaylists);
+    } finally {
+      if (showRefreshing) setIsRefreshing(false);
     }
+  };
 
+  useEffect(() => {
+    loadLibrary();
+    const interval = window.setInterval(() => loadLibrary(), 30000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!currentTrack || !audioRef.current) return;
+
+    audioRef.current.src = currentTrack.url;
+    if (isPlaying) {
+      audioRef.current.play().catch(() => setIsPlaying(false));
+    }
+  }, [currentTrack?.id]);
+
+  const playTrack = (track: Track) => {
+    setCurrentTrackId(track.id);
+    setIsPlaying(true);
+
+    window.setTimeout(() => {
+      audioRef.current?.play().catch(() => setIsPlaying(false));
+    }, 0);
+  };
+
+  const toggleCurrentTrack = () => {
     const audio = audioRef.current;
-    const timeline = timelineRef.current;
-    const playhead = playheadRef.current;
-    const hoverPlayhead = hoverPlayheadRef.current;
+    const trackToPlay = currentTrack || selectedPlaylist.tracks[0];
+    if (!audio || !trackToPlay) return;
 
-    const timeUpdate = () => {
-      const duration = audio.duration || 0;
-      const playPercent = 100 * (audio.currentTime / duration);
-      if (playhead) {
-        playhead.style.width = playPercent + "%";
-      }
-      const currentTimeFormatted = formatTime(parseInt(audio.currentTime.toString()));
-      setCurrentTime(currentTimeFormatted);
-    };
-
-    const nextSong = () => {
-      const nextIndex = (currentTrackIndex + 1) % musicList.length;
-      setCurrentTrackIndex(nextIndex);
-      updatePlayer(nextIndex);
-      if (isPlaying) {
-        audio.play();
-      }
-    };
-
-    const changeCurrentTime = (e: MouseEvent) => {
-      if (!timeline || !audio) return;
-      const duration = audio.duration;
-      const playheadWidth = timeline.offsetWidth;
-      const offsetWidth = timeline.getBoundingClientRect().left;
-      const userClickWidth = e.clientX - offsetWidth;
-      const userClickWidthInPercent = (userClickWidth * 100) / playheadWidth;
-      
-      if (playhead) {
-        playhead.style.width = userClickWidthInPercent + "%";
-      }
-      audio.currentTime = (duration * userClickWidthInPercent) / 100;
-    };
-
-    const hoverTimeLine = (e: MouseEvent) => {
-      if (!timeline || !audio || !hoverPlayhead) return;
-      const duration = audio.duration;
-      const playheadWidth = timeline.offsetWidth;
-      const offsetWidth = timeline.getBoundingClientRect().left;
-      const userClickWidth = e.clientX - offsetWidth;
-      const userClickWidthInPercent = (userClickWidth * 100) / playheadWidth;
-
-      if (userClickWidthInPercent <= 100) {
-        hoverPlayhead.style.width = userClickWidthInPercent + "%";
-      }
-
-      const time = (duration * userClickWidthInPercent) / 100;
-      if (time >= 0 && time <= duration) {
-        hoverPlayhead.setAttribute('data-content', formatTime(time));
-      }
-    };
-
-    const resetTimeLine = () => {
-      if (hoverPlayhead) {
-        hoverPlayhead.style.width = "0";
-      }
-    };
-
-    audio.addEventListener("timeupdate", timeUpdate);
-    audio.addEventListener("ended", nextSong);
-    
-    if (timeline) {
-      timeline.addEventListener("click", changeCurrentTime);
-      timeline.addEventListener("mousemove", hoverTimeLine);
-      timeline.addEventListener("mouseout", resetTimeLine);
+    if (!currentTrack) {
+      playTrack(trackToPlay);
+      return;
     }
 
-    return () => {
-      audio.removeEventListener("timeupdate", timeUpdate);
-      audio.removeEventListener("ended", nextSong);
-      if (timeline) {
-        timeline.removeEventListener("click", changeCurrentTime);
-        timeline.removeEventListener("mousemove", hoverTimeLine);
-        timeline.removeEventListener("mouseout", resetTimeLine);
-      }
-    };
-  }, [currentTrackIndex, isPlaying]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = isMuted ? 0 : volume;
+    if (isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+      return;
     }
-  }, [volume, isMuted]);
 
-  const formatTime = (currentTime: number) => {
-    const minutes = Math.floor(currentTime / 60);
-    let seconds: string | number = Math.floor(currentTime % 60);
-    seconds = seconds >= 10 ? seconds : "0" + seconds;
-    return minutes + ":" + seconds;
+    audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
   };
-
-  const updatePlayer = (index?: number) => {
-    if (audioRef.current) {
-      const trackIndex = index !== undefined ? index : currentTrackIndex;
-      audioRef.current.src = musicList[trackIndex].audioUrl;
-      audioRef.current.load();
-      
-      // Scroll to the selected track in the playlist
-      if (playlistContainerRef.current && index !== undefined) {
-        const trackElement = playlistContainerRef.current.children[index] as HTMLElement;
-        if (trackElement) {
-          trackElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
-    }
-  };
-
-  const nextSong = () => {
-    const nextIndex = (currentTrackIndex + 1) % musicList.length;
-    setCurrentTrackIndex(nextIndex);
-    updatePlayer(nextIndex);
-    if (isPlaying && audioRef.current) {
-      audioRef.current.play();
-    }
-  };
-
-  const prevSong = () => {
-    const prevIndex = (currentTrackIndex + musicList.length - 1) % musicList.length;
-    setCurrentTrackIndex(prevIndex);
-    updatePlayer(prevIndex);
-    if (isPlaying && audioRef.current) {
-      audioRef.current.play();
-    }
-  };
-
-  const playOrPause = () => {
-    if (!audioRef.current) return;
-    
-    if (!isPlaying) {
-      audioRef.current.play();
-    } else {
-      audioRef.current.pause();
-    }
-    setIsPlaying(!isPlaying);
-  };
-
-  const clickAudio = (index: number) => {
-    setCurrentTrackIndex(index);
-    updatePlayer(index);
-    if (isPlaying && audioRef.current) {
-      audioRef.current.play();
-    }
-  };
-
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-  };
-
-  const handleVolumeChange = (e: React.MouseEvent<HTMLDivElement>) => {
-    const volumeSlider = e.currentTarget;
-    const rect = volumeSlider.getBoundingClientRect();
-    const clickPosition = e.clientX - rect.left;
-    const newVolume = Math.min(1, Math.max(0, clickPosition / rect.width));
-    
-    setVolume(newVolume);
-    if (newVolume > 0) {
-      setIsMuted(false);
-    } else {
-      setIsMuted(true);
-    }
-  };
-
-  // Show playlist selection first
-  if (!selectedPlaylist) {
-    return (
-      <div className="w-full h-full p-4">
-        <motion.h3 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="text-xl font-bold text-gray-800 mb-6"
-        >
-          Soundscapes for Creativity
-        </motion.h3>
-        
-        <div className="grid grid-cols-1 gap-4">
-          {playlists.map((playlist, index) => (
-            <motion.div
-              key={playlist.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: index * 0.1 }}
-              onClick={() => setSelectedPlaylist(playlist.id)}
-              className="group cursor-pointer rounded-xl overflow-hidden shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl"
-            >
-              <div 
-                className={`relative bg-gradient-to-br ${playlist.colorScheme || 'from-gray-100 to-gray-200'} p-6 h-32`}
-                style={{
-                  backgroundImage: `url(${playlist.coverArt})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-black/40 to-black/60" />
-                <div className="relative z-10 text-white">
-                  <h4 className="font-bold text-lg mb-1">{playlist.name}</h4>
-                  <p className="text-white/90 text-sm mb-2 line-clamp-2">{playlist.description}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-white/80 text-xs">{playlist.tracks.length} tracks</span>
-                    <motion.div
-                      whileHover={{ scale: 1.1 }}
-                      className="bg-white/20 backdrop-blur-sm rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                    >
-                      <Play className="h-4 w-4 text-white" />
-                    </motion.div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  const currentPlaylist = playlists.find(p => p.id === selectedPlaylist);
-  const playlistTracks = currentPlaylist?.tracks || [];
-  const currentPlaylistTrack = playlistTracks[currentTrackIndex] || currentTrack;
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="w-full h-full flex flex-col bg-gradient-to-b from-gray-50 to-gray-100 rounded-2xl overflow-hidden shadow-lg border border-gray-200"
-    >
-      {/* Current Song Section */}
-      <div className="relative rounded-2xl m-3 p-4 shadow-sm border border-gray-100 overflow-hidden">
-        {/* Blurred background */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center opacity-20 blur-md scale-110"
-          style={{
-            backgroundImage: `url(${currentPlaylistTrack.albumArt})`,
-          }}
-        />
-        <div className="absolute inset-0 bg-white/80" />
-        
-        {/* Content */}
-        <div className="relative z-10">
-          <audio ref={audioRef}>
-            <source src={currentPlaylistTrack.audioUrl} type="audio/mpeg" />
-            Your browser does not support the audio element.
-          </audio>
-          
-          {/* Back button and playlist info */}
-          <div className="flex items-center justify-between mb-3">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setSelectedPlaylist(null)}
-              className="text-gray-600 hover:text-tickd-primary transition-colors text-sm"
-            >
-              ← Back
-            </motion.button>
-            <span className="text-xs text-gray-500 font-medium">{currentPlaylist?.name}</span>
-          </div>
-          
-          {/* Album Art */}
-          <motion.div 
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.4 }}
-            className="relative mx-auto w-32 h-24 mb-4 rounded-lg overflow-hidden shadow-md"
-          >
-            <img 
-              src={currentPlaylistTrack.albumArt} 
-              alt={currentPlaylistTrack.title}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='96' viewBox='0 0 128 96'%3E%3Crect fill='%23f3f4f6'/%3E%3Ctext y='50%25' x='50%25' dy='0.35em' text-anchor='middle' fill='%236b7280' font-size='24'%3E🎵%3C/text%3E%3C/svg%3E";
-              }}
-            />
-          </motion.div>
+    <div className="space-y-4">
+      <audio ref={audioRef} onEnded={() => setIsPlaying(false)} />
 
-          {/* Song Info */}
-          <div className="text-center mb-4">
-            <motion.h3 
-              key={currentPlaylistTrack.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-base font-semibold mb-1 text-gray-900 truncate"
-            >
-              {currentPlaylistTrack.title}
-            </motion.h3>
-            <p className="text-tickd-primary font-medium text-sm truncate">{currentPlaylistTrack.artist}</p>
-          </div>
-
-          {/* Time Display */}
-          <div className="flex justify-between text-xs text-gray-500 mb-2">
-            <span>{currentTime}</span>
-            <span>{currentPlaylistTrack.duration}</span>
-          </div>
-
-          {/* Timeline */}
-          <div 
-            ref={timelineRef}
-            className="relative mx-auto w-full h-1 bg-tickd-primary/30 rounded-full cursor-pointer mb-4 hover:h-1.5 transition-all"
-          >
-            <div 
-              ref={playheadRef}
-              className="relative z-10 w-0 h-full rounded-full bg-tickd-primary"
-            />
-            <div 
-              ref={hoverPlayheadRef}
-              className="absolute z-0 top-0 w-0 h-full opacity-0 rounded-full bg-tickd-primary/60 transition-opacity hover:opacity-100"
-              data-content="0:00"
-            />
-          </div>
-
-          {/* Controls */}
-          <div className="flex items-center justify-center gap-4 mb-3">
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={prevSong}
-              className="text-gray-700 hover:text-tickd-primary transition-all"
-            >
-              <SkipBack className="w-5 h-5" />
-            </motion.button>
-            
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={playOrPause}
-              className="w-12 h-12 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all"
-            >
-              <AnimatePresence mode="wait">
-                {!isPlaying ? (
-                  <motion.div
-                    key="play"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                  >
-                    <Play className="w-5 h-5 ml-0.5" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="pause"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                  >
-                    <Pause className="w-5 h-5" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.button>
-            
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={nextSong}
-              className="text-gray-700 hover:text-tickd-primary transition-all"
-            >
-              <SkipForward className="w-5 h-5" />
-            </motion.button>
-          </div>
-
-          {/* Volume Control */}
-          <div className="flex items-center justify-center gap-3">
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={toggleMute}
-              className="text-gray-600 hover:text-tickd-primary transition-colors"
-            >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </motion.button>
-            
-            <div 
-              onClick={handleVolumeChange}
-              className="w-16 h-1 bg-gray-300 rounded-full cursor-pointer hover:bg-gray-400 transition-colors"
-            >
-              <div 
-                className="h-full bg-tickd-primary rounded-full transition-all"
-                style={{ width: `${isMuted ? 0 : volume * 100}%` }}
-              />
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <Headphones className="h-4 w-4 text-slate-700" />
+              Soundtracks
             </div>
+            <h3 className="text-lg font-semibold text-slate-950">Session music</h3>
+            <p className="mt-1 text-sm leading-5 text-slate-600">
+              Choose a soundtrack that matches the pace of your current session.
+            </p>
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-md"
+            onClick={() => loadLibrary(true)}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={`mr-2 h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
         </div>
-      </div>
 
-      {/* Playlist */}
-      <div className="flex-1 p-3 overflow-y-auto">
-        <h4 className="font-medium text-gray-700 text-sm mb-2">{currentPlaylist?.name}</h4>
-        <div ref={playlistContainerRef} className="space-y-1">
-          {playlistTracks.map((track, index) => (
-            <motion.div
-              key={track.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.05 }}
-              onClick={() => clickAudio(index)}
-              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-white/60 ${
-                currentTrackIndex === index && !isPlaying 
-                  ? 'bg-white/40 border-l-2 border-tickd-primary' 
-                  : currentTrackIndex === index && isPlaying 
-                  ? 'bg-white/80 border-l-2 border-tickd-primary shadow-sm' 
-                  : ''
-              }`}
-            >
-              <img
-                src={track.albumArt}
-                alt={track.title}
-                className="w-10 h-10 rounded-lg object-cover"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect fill='%23f3f4f6'/%3E%3Ctext y='50%25' x='50%25' dy='0.35em' text-anchor='middle' fill='%236b7280' font-size='16'%3E🎵%3C/text%3E%3C/svg%3E";
-                }}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-gray-800 font-medium text-sm truncate">
-                  {track.title}
-                </p>
-                <p className="text-gray-500 text-xs truncate">
-                  {track.artist}
-                </p>
-              </div>
-              <span className="text-gray-400 text-xs font-medium">
-                {currentTrackIndex === index ? currentTime : track.duration}
-              </span>
-            </motion.div>
-          ))}
+        <div className="grid gap-2">
+          {playlists.map((playlist) => {
+            const isSelected = selectedPlaylist.id === playlist.id;
+            const classes = accentClasses[playlist.accent] || accentClasses.blue;
+
+            return (
+              <button
+                key={playlist.id}
+                onClick={() => setSelectedPlaylistId(playlist.id)}
+                className={`rounded-lg border p-3 text-left transition ${
+                  isSelected
+                    ? classes.selected
+                    : "border-slate-200 bg-slate-50 text-slate-800 hover:border-slate-300 hover:bg-white"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className={`h-8 w-1.5 rounded-full ${classes.bar}`} />
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold">{playlist.name}</div>
+                      <div className="truncate text-xs text-slate-500">
+                        {playlist.intent} / {playlist.tracks.length} tracks
+                      </div>
+                    </div>
+                  </div>
+                  <ListMusic className="h-4 w-4 shrink-0 text-slate-400" />
+                </div>
+              </button>
+            );
+          })}
         </div>
-      </div>
-    </motion.div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-4 flex items-center gap-3">
+          <div className={`flex h-11 w-11 items-center justify-center rounded-lg ${accentClasses[selectedPlaylist.accent].icon}`}>
+            <Disc3 className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h4 className="truncate text-base font-semibold text-slate-950">{selectedPlaylist.name}</h4>
+            <p className="truncate text-xs text-slate-500">{selectedPlaylist.intent} soundtrack</p>
+          </div>
+          <Badge variant="secondary" className="rounded-md bg-slate-100 text-slate-700">
+            {selectedPlaylist.tracks.length}
+          </Badge>
+        </div>
+
+        <p className="mb-4 text-sm leading-5 text-slate-600">{selectedPlaylist.description}</p>
+
+        {currentTrack && (
+          <div className="mb-4 rounded-lg border border-slate-200 bg-slate-950 p-3 text-white">
+            <div className="mb-3 flex items-center gap-3">
+              {currentTrack.thumbnailUrl ? (
+                <img
+                  src={currentTrack.thumbnailUrl}
+                  alt=""
+                  className="h-12 w-12 rounded-md object-cover"
+                />
+              ) : (
+                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-white/10">
+                  <ImageIcon className="h-5 w-5 text-slate-300" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold">{currentTrack.title}</div>
+                <div className="truncate text-xs text-slate-300">{currentTrack.fileName}</div>
+              </div>
+            </div>
+            <Button type="button" className="h-9 w-full rounded-md bg-white text-slate-950 hover:bg-slate-100" onClick={toggleCurrentTrack}>
+              {isPlaying ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+              {isPlaying ? "Pause" : "Play"}
+            </Button>
+          </div>
+        )}
+
+        {selectedPlaylist.tracks.length > 0 ? (
+          <div className="space-y-2">
+            {selectedPlaylist.tracks.map((track) => {
+              const isCurrent = currentTrackId === track.id;
+
+              return (
+                <button
+                  key={track.id}
+                  type="button"
+                  onClick={() => playTrack(track)}
+                  className={`flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition ${
+                    isCurrent
+                      ? "border-slate-950 bg-slate-950 text-white"
+                      : "border-slate-200 bg-white text-slate-900 hover:border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  {track.thumbnailUrl ? (
+                    <img src={track.thumbnailUrl} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover" />
+                  ) : (
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${isCurrent ? "bg-white/10" : "bg-slate-100"}`}>
+                      <Play className={`h-4 w-4 ${isCurrent ? "text-white" : "text-slate-500"}`} />
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{track.title}</span>
+                    <span className={`block truncate text-xs ${isCurrent ? "text-slate-300" : "text-slate-500"}`}>
+                      {track.fileName}
+                    </span>
+                  </span>
+                  {isCurrent && isPlaying ? <Pause className="h-4 w-4 shrink-0" /> : <Play className="h-4 w-4 shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
+              <Folder className="h-4 w-4" />
+              Soundtracks coming soon
+            </div>
+            <p className="text-xs leading-5 text-slate-500">
+              This playlist is ready and will appear here once tracks are available.
+            </p>
+          </div>
+        )}
+      </section>
+    </div>
   );
 }

@@ -2,26 +2,56 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import publicVerifyRoutes from "./routes/public-verify";
+import { pool } from "./db";
 
 const app = express();
+const isProduction = process.env.NODE_ENV === "production";
+const sessionSecret = process.env.SESSION_SECRET;
+
+if (isProduction && !sessionSecret) {
+  throw new Error("SESSION_SECRET must be set in production");
+}
+
+if (isProduction) {
+  app.set("trust proxy", 1);
+}
 // Increase payload limit to handle image uploads (10MB)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+app.get('/api/health', async (_req, res) => {
+  try {
+    await pool.query('select 1');
+    res.json({ status: 'ok' });
+  } catch (error) {
+    console.error('Health check failed:', error);
+    res.status(503).json({ status: 'unavailable' });
+  }
+});
 
 // Register public verification routes before authentication middleware
 app.use('/api/auth', publicVerifyRoutes);
 
 // Configure session middleware
+const PgSessionStore = connectPgSimple(session);
+
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'timetracker-secret-key',
+  name: "tickd.sid",
+  store: new PgSessionStore({
+    pool,
+    tableName: "express_sessions",
+    createTableIfMissing: true,
+  }),
+  secret: sessionSecret || 'tickd-local-development-secret',
   resave: false,
   saveUninitialized: false,
   cookie: {
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     httpOnly: true,
-    secure: false, // Set to false for Replit deployment
-    sameSite: 'lax' // Add sameSite for better compatibility
+    secure: isProduction,
+    sameSite: 'lax'
   }
 }));
 
@@ -62,8 +92,8 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    console.error(err);
     res.status(status).json({ message });
-    throw err;
   });
 
   // importantly only setup vite in development and after
@@ -75,14 +105,13 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
+  // Serve both the API and client from one port. Replit defaults to 5000,
+  // but local development can override it when another service owns that port.
+  const port = parseInt(process.env.PORT || "5000", 10);
+  const host = process.env.HOST || "0.0.0.0";
   server.listen({
     port,
-    host: "0.0.0.0",
-    reusePort: true,
+    host,
   }, () => {
     log(`serving on port ${port}`);
   });

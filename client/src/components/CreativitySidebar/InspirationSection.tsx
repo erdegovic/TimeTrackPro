@@ -117,6 +117,8 @@ export default function InspirationSection() {
             size="icon"
             onClick={getNewQuote}
             className="w-6 h-6 hover:tickd-primary"
+            title="Show another quote"
+            aria-label="Show another quote"
           >
             <RefreshCw className="w-4 h-4" />
           </Button>
@@ -146,6 +148,8 @@ export default function InspirationSection() {
             size="icon"
             onClick={getNewPrompt}
             className="w-6 h-6 hover:tickd-primary"
+            title="Show another prompt"
+            aria-label="Show another prompt"
           >
             <RefreshCw className="w-4 h-4" />
           </Button>
@@ -172,6 +176,8 @@ export default function InspirationSection() {
             size="icon"
             onClick={getNewPalette}
             className="w-6 h-6 hover:tickd-primary"
+            title="Show another color palette"
+            aria-label="Show another color palette"
           >
             <RefreshCw className="w-4 h-4" />
           </Button>
@@ -181,11 +187,13 @@ export default function InspirationSection() {
           <h5 className="font-medium text-sm mb-2">{currentPalette.name}</h5>
           <div className="flex space-x-1 mb-2">
             {currentPalette.colors.map((color, index) => (
-              <div
+              <button
+                type="button"
                 key={index}
                 className="w-8 h-8 rounded-lg shadow-sm cursor-pointer hover:scale-110 transition-transform"
                 style={{ backgroundColor: color }}
-                title={color}
+                title={`Copy ${color}`}
+                aria-label={`Copy color ${color}`}
                 onClick={() => navigator.clipboard.writeText(color)}
               />
             ))}
