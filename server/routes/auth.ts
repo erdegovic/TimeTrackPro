@@ -11,6 +11,19 @@ import { getBaseUrl } from '../utils/url-helper';
 const router = Router();
 let googleConfiguration: Promise<oidc.Configuration> | undefined;
 
+const forgotPasswordRequestSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+});
+
+const resetPasswordRequestSchema = z.object({
+  token: z.string().min(32),
+  password: z.string().min(8),
+});
+
+const passwordResetResponse = {
+  message: 'If that email is registered, you will receive password reset instructions.',
+};
+
 const isGoogleAuthConfigured = () => Boolean(
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
 );
@@ -389,6 +402,112 @@ const resendVerification = async (req: Request, res: Response) => {
 router.get('/google/status', (_req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
   res.json({ enabled: isGoogleAuthConfigured() });
+});
+
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  const validation = forgotPasswordRequestSchema.safeParse(req.body);
+  if (!validation.success) {
+    return res.status(400).json({ message: 'Please enter a valid email address.' });
+  }
+
+  if (!process.env.BREVO_API_KEY) {
+    console.error('Password reset requested while transactional email is not configured');
+    return res.status(503).json({
+      message: 'Password reset email is temporarily unavailable. Please try again later.',
+    });
+  }
+
+  try {
+    const user = await storage.getUserByEmail(validation.data.email);
+    if (!user || user.status === 'inactive') {
+      return res.status(200).json(passwordResetResponse);
+    }
+
+    const existingVerifications = await storage.getVerificationsByUser(user.id);
+    const recentReset = existingVerifications.find((verification) => (
+      verification.type === 'password_reset'
+      && verification.createdAt
+      && verification.createdAt.getTime() > Date.now() - 60_000
+    ));
+
+    if (recentReset) {
+      return res.status(200).json(passwordResetResponse);
+    }
+
+    await Promise.all(
+      existingVerifications
+        .filter((verification) => verification.type === 'password_reset')
+        .map((verification) => storage.deleteVerification(verification.token)),
+    );
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    await storage.createVerification({
+      userId: user.id,
+      token,
+      type: 'password_reset',
+      newEmail: null,
+      expiresAt,
+      createdAt: new Date(),
+    });
+    await storage.updateUser(user.id, { resetPasswordToken: token });
+
+    const { getPasswordResetEmailContent, sendEmail } = await import('../utils/email-service');
+    const sent = await sendEmail({
+      to: user.email,
+      subject: 'Reset your Tickd password',
+      htmlContent: getPasswordResetEmailContent(token, getBaseUrl(req)),
+    });
+
+    if (!sent) {
+      await storage.deleteVerification(token);
+      await storage.updateUser(user.id, { resetPasswordToken: null });
+      console.error('Password reset email delivery failed');
+    }
+
+    return res.status(200).json(passwordResetResponse);
+  } catch (error) {
+    console.error('Forgot password request failed:', error);
+    return res.status(500).json({ message: 'Unable to process the request. Please try again.' });
+  }
+});
+
+router.post('/reset-password', async (req: Request, res: Response) => {
+  const validation = resetPasswordRequestSchema.safeParse(req.body);
+  if (!validation.success) {
+    return res.status(400).json({ message: 'Invalid password reset request.' });
+  }
+
+  try {
+    const verification = await storage.getVerificationByToken(validation.data.token);
+    if (!verification || verification.type !== 'password_reset') {
+      return res.status(400).json({ message: 'This password reset link is invalid or has expired.' });
+    }
+
+    if (verification.expiresAt.getTime() <= Date.now()) {
+      await storage.deleteVerification(verification.token);
+      return res.status(400).json({ message: 'This password reset link is invalid or has expired.' });
+    }
+
+    const user = await storage.getUser(verification.userId);
+    if (!user || user.status === 'inactive') {
+      await storage.deleteVerification(verification.token);
+      return res.status(400).json({ message: 'This password reset link is invalid or has expired.' });
+    }
+
+    const password = await bcrypt.hash(validation.data.password, 12);
+    await storage.updateUser(user.id, {
+      password,
+      resetPasswordToken: null,
+    });
+    await storage.deleteVerification(verification.token);
+
+    return res.status(200).json({ message: 'Your password has been reset successfully.' });
+  } catch (error) {
+    console.error('Password reset failed:', error);
+    return res.status(500).json({ message: 'Unable to reset the password. Please try again.' });
+  }
 });
 
 router.get('/google', async (req: Request, res: Response) => {

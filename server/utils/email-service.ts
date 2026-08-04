@@ -12,18 +12,14 @@ interface EmailParams {
  */
 export async function sendEmail(params: EmailParams): Promise<boolean> {
   try {
-    // Log email details for debugging
-    console.log(`Preparing to send email to ${params.to} with subject "${params.subject}"`);
-    console.log('============== EMAIL DETAILS ==============');
-    console.log(`To: ${params.to}`);
-    console.log(`Subject: ${params.subject}`);
-    
-    // Extract verification URL for easier testing
-    const urlMatch = params.htmlContent.match(/href="(http[^"]+)"/);
-    if (urlMatch && urlMatch[1]) {
-      console.log(`Verification URL: ${urlMatch[1]}`);
+    console.log(`Preparing transactional email: ${params.subject}`);
+
+    if (process.env.NODE_ENV === 'development') {
+      const urlMatch = params.htmlContent.match(/href="(http[^"]+)"/);
+      if (urlMatch?.[1]) {
+        console.log(`Development email link: ${urlMatch[1]}`);
+      }
     }
-    console.log('==========================================');
     
     // Use API key if available, otherwise simulate success for development
     if (process.env.BREVO_API_KEY) {
@@ -70,6 +66,37 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
     console.log('Development mode: Email would be sent in production');
     return process.env.NODE_ENV === 'development';
   }
+}
+
+export function getPasswordResetEmailContent(token: string, baseUrl: string): string {
+  const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Reset your Tickd password</title>
+    </head>
+    <body style="margin:0;background:#f5f7fb;color:#172033;font-family:Arial,sans-serif;">
+      <div style="max-width:560px;margin:0 auto;padding:40px 20px;">
+        <div style="background:#ffffff;border:1px solid #e4e8f0;border-radius:8px;padding:32px;">
+          <h1 style="font-size:24px;margin:0 0 16px;">Reset your password</h1>
+          <p style="font-size:15px;line-height:1.6;margin:0 0 24px;">
+            We received a request to reset the password for your Tickd account.
+          </p>
+          <a href="${resetUrl}" style="display:inline-block;background:#3177ed;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 18px;border-radius:6px;">
+            Reset password
+          </a>
+          <p style="font-size:13px;line-height:1.6;color:#667085;margin:24px 0 0;">
+            This link expires in one hour. If you did not request a password reset, you can ignore this email.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
 }
 
 /**
