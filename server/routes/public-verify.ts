@@ -1,6 +1,7 @@
 import { Request, Response, Router } from 'express';
 import crypto from 'crypto';
 import { storage } from '../storage';
+import { getBaseUrl } from '../utils/url-helper';
 
 const router = Router();
 
@@ -10,7 +11,9 @@ const router = Router();
  */
 router.post('/resend-verification', async (req: Request, res: Response) => {
   try {
-    const { email } = req.body;
+    const email = typeof req.body.email === 'string'
+      ? req.body.email.trim().toLowerCase()
+      : '';
     
     if (!email || typeof email !== 'string') {
       return res.status(400).json({ message: 'Email is required' });
@@ -38,6 +41,13 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
     }
 
     console.log(`Generating verification token for user: ${user.id}`);
+
+    const existingVerifications = await storage.getVerificationsByUser(user.id);
+    await Promise.all(
+      existingVerifications
+        .filter((verification) => verification.type === 'email')
+        .map((verification) => storage.deleteVerification(verification.token)),
+    );
     
     // Generate a new verification token
     const token = crypto.randomBytes(32).toString('hex');
@@ -60,9 +70,7 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
     });
     
     // Get base URL for verification link
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://tickd.me' 
-      : `${req.protocol}://${req.get('host')}`;
+    const baseUrl = getBaseUrl(req);
     
     // Import email utilities
     const emailModule = await import('../utils/email-service');
@@ -71,7 +79,7 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
     const emailContent = emailModule.getRegistrationEmailContent(token, baseUrl);
     const emailSent = await emailModule.sendEmail({
       to: email,
-      subject: 'Please Verify Your Email - Tickd',
+      subject: 'Confirm your Tickd email address',
       htmlContent: emailContent
     });
     

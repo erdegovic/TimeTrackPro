@@ -20,6 +20,14 @@ const resetPasswordRequestSchema = z.object({
   password: z.string().min(8),
 });
 
+const registrationRequestSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  password: z.string().min(8).max(128),
+  firstName: z.string().trim().max(100).nullish(),
+  lastName: z.string().trim().max(100).nullish(),
+  captchaToken: z.string().nullish(),
+});
+
 const passwordResetResponse = {
   message: 'If that email is registered, you will receive password reset instructions.',
 };
@@ -111,6 +119,9 @@ const updateProfile = async (req: Request, res: Response) => {
     }
 
     const { firstName, lastName, email } = req.body;
+    const normalizedEmail = typeof email === 'string'
+      ? email.trim().toLowerCase()
+      : undefined;
 
     // Fetch the current user
     const user = await storage.getUser(userId);
@@ -121,7 +132,23 @@ const updateProfile = async (req: Request, res: Response) => {
     console.log('Profile update request for user', userId, ':', req.body);
 
     // Check if email is being changed
-    if (email && email !== user.email) {
+    if (normalizedEmail && normalizedEmail !== user.email) {
+      if (!z.string().email().safeParse(normalizedEmail).success) {
+        return res.status(400).json({ message: 'Please enter a valid email address' });
+      }
+
+      const existingUser = await storage.getUserByEmail(normalizedEmail);
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(409).json({ message: 'That email address is already in use' });
+      }
+
+      const existingVerifications = await storage.getVerificationsByUser(userId);
+      await Promise.all(
+        existingVerifications
+          .filter((verification) => verification.type === 'email_change')
+          .map((verification) => storage.deleteVerification(verification.token)),
+      );
+
       // Create verification token
       const token = crypto.randomBytes(32).toString('hex');
       const expiration = new Date();
@@ -131,7 +158,7 @@ const updateProfile = async (req: Request, res: Response) => {
       await storage.createVerification({
         userId: userId,
         token,
-        newEmail: email,
+        newEmail: normalizedEmail,
         type: 'email_change',
         expiresAt: expiration,
         createdAt: new Date()
@@ -139,27 +166,32 @@ const updateProfile = async (req: Request, res: Response) => {
       
       // Send verification email
       try {
-        const { sendEmail, getEmailVerificationContent } = await import('../utils/brevo');
-        const baseUrl = `${req.protocol}://${req.hostname}`;
-        const htmlContent = getEmailVerificationContent(token, baseUrl, email);
+        const { sendEmail, getEmailVerificationContent } = await import('../utils/email-service');
+        const baseUrl = getBaseUrl(req);
+        const htmlContent = getEmailVerificationContent(token, baseUrl, normalizedEmail);
         
         const emailSent = await sendEmail({
-          to: email,
-          subject: 'Verify your email address change',
+          to: normalizedEmail,
+          subject: 'Confirm your new Tickd email address',
           htmlContent
         });
         
-        // Log the result
-        if (emailSent) {
-          console.log(`Verification email sent successfully to ${email}`);
-        } else {
-          console.error(`Failed to send verification email to ${email}`);
+        if (!emailSent) {
+          await storage.deleteVerification(token);
+          return res.status(503).json({
+            message: 'We could not send the confirmation email. Your email address has not changed.',
+          });
         }
-        
-        // Always log the link for testing purposes
-        console.log(`[DEV MODE] Email verification link: ${baseUrl}/verify-email-change?token=${token}`);
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[DEV MODE] Email verification link: ${baseUrl}/verify-email-change?token=${token}`);
+        }
       } catch (error) {
         console.error('Failed to send verification email:', error);
+        await storage.deleteVerification(token);
+        return res.status(503).json({
+          message: 'We could not send the confirmation email. Your email address has not changed.',
+        });
       }
       
       // Update first/last name only, not email yet
@@ -171,7 +203,7 @@ const updateProfile = async (req: Request, res: Response) => {
       return res.status(200).json({ 
         message: 'Profile updated successfully. Email verification required.',
         emailChangeRequested: true,
-        pendingEmail: email,
+        pendingEmail: normalizedEmail,
         user: serializeUser(updatedUser)
       });
     } else {
@@ -239,6 +271,12 @@ const verifyEmailChange = async (req: Request, res: Response) => {
     // Check if verification is for email change
     if (verification.type !== 'email_change' || !verification.newEmail) {
       return res.status(400).json({ message: 'Invalid verification type' });
+    }
+
+    const existingUser = await storage.getUserByEmail(verification.newEmail);
+    if (existingUser && existingUser.id !== verification.userId) {
+      await storage.deleteVerification(token);
+      return res.status(409).json({ message: 'That email address is already in use' });
     }
 
     // Update user's email
@@ -378,7 +416,7 @@ const resendVerification = async (req: Request, res: Response) => {
     
     const emailSent = await sendEmail({
       to: pendingEmailChange.newEmail,
-      subject: 'Verify your email address change',
+      subject: 'Confirm your new Tickd email address',
       htmlContent
     });
     
@@ -386,10 +424,13 @@ const resendVerification = async (req: Request, res: Response) => {
       console.log(`Verification email resent successfully to ${pendingEmailChange.newEmail}`);
     } else {
       console.error(`Failed to resend verification email to ${pendingEmailChange.newEmail}`);
+      return res.status(503).json({ message: 'We could not send the confirmation email. Please try again.' });
     }
     
     // Log the link in development mode for testing
-    console.log(`[DEV MODE] Resent verification email. Link: ${verificationUrl}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[DEV MODE] Resent verification email. Link: ${verificationUrl}`);
+    }
     
     return res.status(200).json({ message: 'Verification email resent' });
   } catch (error) {
@@ -640,13 +681,14 @@ router.put('/profile', updateProfile);
 // Registration endpoint
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    // Extract registration data
-    const { email, password, firstName, lastName, captchaToken } = req.body;
-    
-    // Validate required fields
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+    const validation = registrationRequestSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        message: 'Enter a valid email address and a password of at least 8 characters.',
+      });
     }
+
+    const { email, password, firstName, lastName, captchaToken } = validation.data;
     
     // Verify captcha (simplified here, would verify with service in production)
     if (!captchaToken && process.env.NODE_ENV === 'production') {
@@ -660,7 +702,7 @@ router.post('/register', async (req: Request, res: Response) => {
     }
     
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
     
     // Create verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -692,26 +734,23 @@ router.post('/register', async (req: Request, res: Response) => {
     });
     
     // Generate verification URL
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://tickd.me'
-      : `${req.protocol}://${req.hostname}`;
+    const baseUrl = getBaseUrl(req);
     
     // Import email utilities and send email
-    const { sendEmail, getEmailVerificationContent } = await import('../utils/email-service');
-    
-    // Import proper email functions with destructuring
     const emailModule = await import('../utils/email-service');
     
     // Send welcome email with verification link - using the proper function
     const emailSent = await emailModule.sendEmail({
       to: email,
-      subject: 'Welcome to Tickd - Verify your email address',
+      subject: 'Confirm your Tickd email address',
       htmlContent: emailModule.getRegistrationEmailContent(verificationToken, baseUrl)
     });
     
     if (emailSent) {
       console.log(`Verification email sent to ${email}`);
-      console.log(`[DEV MODE] Email verification link: ${baseUrl}/verify-email?token=${verificationToken}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[DEV MODE] Email verification link: ${baseUrl}/verify-email?token=${verificationToken}`);
+      }
       
       // Return success with development testing info if in dev mode
       if (process.env.NODE_ENV !== 'production') {
