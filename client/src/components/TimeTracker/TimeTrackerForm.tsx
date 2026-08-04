@@ -48,32 +48,6 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
     startTimerWithData,
   } = useTimerContext();
   
-  // On component mount, check if there's an active timer and initialize form state
-  useEffect(() => {
-    try {
-      const storedTimer = localStorage.getItem("timeTracker");
-      if (storedTimer) {
-        const parsedTimer = JSON.parse(storedTimer);
-        const { description: storedDesc, projectId, clientId } = parsedTimer;
-        
-        // Populate the form with the stored values
-        if (storedDesc) setDescription(storedDesc);
-        if (projectId) setSelectedProjectId(projectId);
-        if (clientId) setSelectedClientId(clientId);
-        
-        // Timer state is managed by context, no need for local state
-        
-        // Make the clientId available for the timer
-        if (typeof window !== 'undefined') {
-          // @ts-ignore - add selectedClientId to window for SimpleTimer to use
-          window.selectedClientId = clientId;
-        }
-      }
-    } catch (error) {
-      console.error("Error restoring timer state:", error);
-    }
-  }, []);
-
   // Fetch clients
   const { data: clients = [] } = useQuery({
     queryKey: ["/api/clients"],
@@ -180,7 +154,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
       const { description: entryDescription, projectId, clientId } = event.detail;
       
       // Use the proper timer hook function for consistency
-      startTimerWithData(entryDescription, projectId);
+      startTimerWithData(entryDescription, projectId, clientId);
       
       // Update client selection if provided
       if (clientId) {

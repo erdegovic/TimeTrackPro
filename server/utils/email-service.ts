@@ -42,6 +42,7 @@ const renderTickdEmail = ({
   securityNote,
 }: TickdEmailLayoutParams) => {
   const safeActionUrl = escapeHtml(actionUrl);
+  const logoUrl = escapeHtml(new URL("/tickd-logo-email.png", actionUrl).toString());
 
   return `<!doctype html>
 <html lang="en">
@@ -60,8 +61,8 @@ const renderTickdEmail = ({
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;">
             <tr>
               <td style="padding:0 4px 18px;">
-                <a href="https://tickd.me" style="display:inline-block;color:#071127;text-decoration:none;font-size:26px;line-height:32px;font-weight:700;">
-                  <span style="color:#2474f5;">&#10003;</span>&nbsp;Tickd
+                <a href="https://tickd.me" style="display:inline-block;text-decoration:none;">
+                  <img src="${logoUrl}" width="150" alt="Tickd" style="display:block;width:150px;max-width:100%;height:auto;border:0;outline:none;">
                 </a>
               </td>
             </tr>

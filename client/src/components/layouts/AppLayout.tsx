@@ -23,8 +23,11 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Separator } from "@/components/ui/separator";
-import { useAuth, UserProfile } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { queryClient } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
+import { Client, Project } from "@shared/schema";
+import { useTimerContext } from "@/context/TimerContext";
 
 // Context for creativity sidebar state
 const CreativitySidebarContext = createContext<{
@@ -60,16 +63,34 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [creativitySidebarCollapsed, setCreativitySidebarCollapsed] = useState(false);
-  const [hasActiveTimer, setHasActiveTimer] = useState(false);
-  const [timerInfo, setTimerInfo] = useState<{
-    description: string;
-    elapsedTime: number;
-    projectName?: string;
-    clientName?: string;
-  } | null>(null);
   
   // Get user profile data from authentication
-  const { user, isLoading } = useAuth();
+  const { user } = useAuth();
+  const {
+    isTracking: hasActiveTimer,
+    description: timerDescription,
+    selectedProjectId: timerProjectId,
+    selectedClientId: timerClientId,
+    currentDuration: timerElapsedTime,
+  } = useTimerContext();
+  const { data: timerProjects = [] } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+    enabled: Boolean(user && hasActiveTimer),
+  });
+  const { data: timerClients = [] } = useQuery<Client[]>({
+    queryKey: ["/api/clients"],
+    enabled: Boolean(user && hasActiveTimer),
+  });
+  const timerProject = timerProjects.find((project) => project.id === timerProjectId);
+  const timerClient = timerClients.find((client) => (
+    client.id === (timerClientId || timerProject?.clientId)
+  ));
+  const timerInfo = hasActiveTimer ? {
+    description: timerDescription || "Time tracking",
+    elapsedTime: Math.floor(timerElapsedTime),
+    projectName: timerProject?.name,
+    clientName: timerClient?.name,
+  } : null;
   
   // User profile state (with fallbacks while loading)
   const [userName, setUserName] = useState('Loading...');
@@ -106,72 +127,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const closeSidebar = () => setSidebarOpen(false);
   
-  // Check for active timer
-  useEffect(() => {
-    // Function to check if timer is active and update state
-    const checkTimer = () => {
-      try {
-        const timerData = localStorage.getItem('timeTracker');
-        if (timerData) {
-          const data = JSON.parse(timerData);
-          if (data.startTime) {
-            setHasActiveTimer(true);
-            
-            // Calculate elapsed time
-            const elapsed = Math.floor((Date.now() - data.startTime) / 1000);
-            
-            // Get project and client info if available
-            let projectName;
-            let clientName;
-            
-            try {
-              const projectsData = localStorage.getItem('cachedProjects');
-              const clientsData = localStorage.getItem('cachedClients');
-              
-              if (projectsData && data.projectId) {
-                const projects = JSON.parse(projectsData);
-                const project = projects.find((p: any) => p.id === data.projectId);
-                projectName = project?.name;
-              }
-              
-              if (clientsData && data.clientId) {
-                const clients = JSON.parse(clientsData);
-                const client = clients.find((c: any) => c.id === data.clientId);
-                clientName = client?.name;
-              }
-            } catch (e) {
-              console.error('Error getting project/client data:', e);
-            }
-            
-            setTimerInfo({
-              description: data.description || 'Time tracking',
-              elapsedTime: elapsed,
-              projectName,
-              clientName
-            });
-          } else {
-            setHasActiveTimer(false);
-            setTimerInfo(null);
-          }
-        } else {
-          setHasActiveTimer(false);
-          setTimerInfo(null);
-        }
-      } catch (error) {
-        console.error('Error checking timer:', error);
-        setHasActiveTimer(false);
-        setTimerInfo(null);
-      }
-    };
-    
-    // Check immediately and then every second
-    checkTimer();
-    const interval = setInterval(checkTimer, 1000);
-    
-    // Clean up interval
-    return () => clearInterval(interval);
-  }, []);
-
   return (
     <CreativitySidebarContext.Provider value={{
       isCollapsed: creativitySidebarCollapsed,

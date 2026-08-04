@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Edit, Copy, Trash2, Play, Calendar, MessageSquare } from "lucide-react";
 import { TimeEntry, Client, Project } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useTimeTracker } from "@/hooks/useTimeTracker";
+import { useTimerContext } from "@/context/TimerContext";
 import { useToast } from "@/hooks/use-toast";
 import { CurrencySelector } from "@/components/ui/CurrencySelector";
 import {
@@ -62,7 +62,7 @@ export default function TimeEntryList() {
     setSelectedProjectId,
     isTracking,
     stopTimer 
-  } = useTimeTracker();
+  } = useTimerContext();
   const [timeFormat, setTimeFormat] = useState<"decimal" | "time">("time");
   const [groupBy, setGroupBy] = useState<"date" | "project" | "client">("date");
   const [startDate, setStartDate] = useState("");

@@ -134,6 +134,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return recordUserId === userId;
   };
 
+  const validateTimeEntryRelations = async (
+    userId: number,
+    data: { projectId?: unknown; clientId?: unknown },
+  ): Promise<string | null> => {
+    const parseRelationId = (value: unknown) => {
+      if (value === null || value === undefined || value === "") return undefined;
+      const id = Number(value);
+      return Number.isInteger(id) && id > 0 ? id : NaN;
+    };
+
+    const projectId = parseRelationId(data.projectId);
+    const clientId = parseRelationId(data.clientId);
+
+    if (Number.isNaN(projectId) || Number.isNaN(clientId)) {
+      return "Invalid project or client";
+    }
+
+    const [project, client] = await Promise.all([
+      projectId ? storage.getProject(projectId) : Promise.resolve(undefined),
+      clientId ? storage.getClient(clientId) : Promise.resolve(undefined),
+    ]);
+
+    if (projectId && (!project || !isOwnedByUser(project.userId, userId))) {
+      return "The selected project is not available to this account";
+    }
+
+    if (clientId && (!client || !isOwnedByUser(client.userId, userId))) {
+      return "The selected client is not available to this account";
+    }
+
+    if (project && clientId && project.clientId !== clientId) {
+      return "The selected project does not belong to the selected client";
+    }
+
+    return null;
+  };
+
   const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.session?.userId || req.user?.id;
@@ -762,6 +799,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const data = insertProjectSchema.parse(req.body);
+      const projectClient = await storage.getClient(data.clientId);
+      if (!projectClient || !isOwnedByUser(projectClient.userId, userId)) {
+        return res.status(403).json({ message: 'The selected client is not available to this account' });
+      }
       const projectWithUser = { ...data, userId };
       const project = await storage.createProject(projectWithUser);
       res.status(201).json(project);
@@ -792,6 +833,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const data = insertProjectSchema.parse(req.body);
+      const projectClient = await storage.getClient(data.clientId);
+      if (!projectClient || !isOwnedByUser(projectClient.userId, userId)) {
+        return res.status(403).json({ message: 'The selected client is not available to this account' });
+      }
       const project = await storage.updateProject(id, { ...data, userId });
       if (!project) {
         return res.status(404).json({ message: 'Project not found' });
@@ -913,6 +958,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Parse and validate the data
       const data = insertTimeEntrySchema.parse(req.body);
+
+      const relationError = await validateTimeEntryRelations(userId, data);
+      if (relationError) {
+        return res.status(403).json({ message: relationError });
+      }
       
       // Add the current user's ID to the time entry
       const timeEntryWithUser = {
@@ -945,6 +995,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Convert timestamp strings to Date objects and ensure date field is set
       const startTime = req.body.startTime ? new Date(req.body.startTime) : new Date();
+
+      const relationError = await validateTimeEntryRelations(userId, req.body);
+      if (relationError) {
+        return res.status(403).json({ message: relationError });
+      }
       
       // Allow projectId to be null for entries without projects
       
@@ -987,6 +1042,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Parse and update the entry
       const data = timeEntryUpdateSchema.parse(req.body);
+      const relationError = await validateTimeEntryRelations(userId, {
+        projectId: data.projectId === undefined ? existingEntry.projectId : data.projectId,
+        clientId: data.clientId === undefined ? existingEntry.clientId : data.clientId,
+      });
+      if (relationError) {
+        return res.status(403).json({ message: relationError });
+      }
       console.log('Updating time entry with data:', JSON.stringify(data, null, 2));
       const timeEntry = await storage.updateTimeEntry(id, data as any);
       console.log('Updated time entry result:', JSON.stringify(timeEntry, null, 2));

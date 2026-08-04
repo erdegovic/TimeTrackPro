@@ -11,6 +11,7 @@ import { useLocation } from 'wouter';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import GoogleSignInButton from './GoogleSignInButton';
+import { queryClient } from '@/lib/queryClient';
 
 const loginSchema = z.object({
   email: z.string().email("Valid email is required"),
@@ -61,6 +62,7 @@ export default function LoginForm() {
       const result = await response.json();
 
       if (response.ok) {
+        queryClient.setQueryData(["/api/auth/user"], result.user);
         navigate("/");
       } else if (response.status === 403 && result.message?.includes("verify")) {
         navigate(`/unverified-email?email=${encodeURIComponent(data.email)}`);
