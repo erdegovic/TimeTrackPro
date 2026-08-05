@@ -446,7 +446,7 @@ export default function ClientForm({ onSuccess, onCancel, initialData, isEditing
   
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="min-w-0 max-w-full space-y-4 overflow-x-hidden">
         <FormField
           control={form.control}
           name="name"
@@ -635,7 +635,7 @@ export default function ClientForm({ onSuccess, onCancel, initialData, isEditing
         )}
 
         {!isQuickMode && (
-          <div className="rounded-lg border border-gray-200 p-4 space-y-4 bg-gray-50/50">
+          <div className="min-w-0 max-w-full rounded-lg border border-gray-200 p-4 space-y-4 bg-gray-50/50">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-sm font-semibold text-gray-900">Client Invoice Profile</h3>
@@ -971,7 +971,7 @@ export default function ClientForm({ onSuccess, onCancel, initialData, isEditing
             )}
           </div>
 
-          <div className="rounded-md border bg-white p-3">
+          <div className="min-w-0 max-w-full rounded-md border bg-white p-3">
             <div className="flex items-center justify-between gap-3 mb-3">
               <div>
                 <h4 className="text-sm font-semibold text-gray-900">Live Invoice Preview</h4>
