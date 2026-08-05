@@ -395,6 +395,9 @@ export async function updateAvatar(req: Request, res: Response) {
         status: updatedUser.status,
         createdAt: updatedUser.createdAt,
         updatedAt: updatedUser.updatedAt,
+        subscriptionPlan: updatedUser.subscriptionPlan,
+        subscriptionStatus: updatedUser.subscriptionStatus,
+        subscriptionChangedAt: updatedUser.subscriptionChangedAt,
       }
     });
     

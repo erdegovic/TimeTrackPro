@@ -6,6 +6,7 @@ import * as oidc from 'openid-client';
 import { storage } from '../storage';
 import { verificationTypeEnum } from '@shared/schema';
 import { getBaseUrl } from '../utils/url-helper';
+import { isRegistrationPlan, isSubscriptionPlan, subscriptionPlanRank } from '@shared/subscriptions';
 
 // Create router
 const router = Router();
@@ -26,6 +27,7 @@ const registrationRequestSchema = z.object({
   firstName: z.string().trim().max(100).nullish(),
   lastName: z.string().trim().max(100).nullish(),
   captchaToken: z.string().nullish(),
+  plan: z.enum(['free', 'pro']),
 });
 
 const passwordResetResponse = {
@@ -80,6 +82,9 @@ const serializeUser = (user: Awaited<ReturnType<typeof storage.getUser>>) => {
     status: user.status,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
+    subscriptionPlan: isSubscriptionPlan(user.subscriptionPlan) ? user.subscriptionPlan : 'free',
+    subscriptionStatus: user.subscriptionStatus || 'active',
+    subscriptionChangedAt: user.subscriptionChangedAt,
   };
 };
 
@@ -564,6 +569,9 @@ router.get('/google', async (req: Request, res: Response) => {
     req.session.oauthState = state;
     req.session.oauthNonce = nonce;
     req.session.oauthReturnTo = safeReturnTo(req.query.returnTo);
+    req.session.oauthRegistrationPlan = isRegistrationPlan(req.query.plan)
+      ? req.query.plan
+      : undefined;
     await saveSession(req);
 
     const authorizationUrl = oidc.buildAuthorizationUrl(configuration, {
@@ -587,11 +595,13 @@ router.get('/google/callback', async (req: Request, res: Response) => {
   const expectedState = req.session.oauthState;
   const expectedNonce = req.session.oauthNonce;
   const returnTo = safeReturnTo(req.session.oauthReturnTo);
+  const registrationPlan = req.session.oauthRegistrationPlan;
 
   delete req.session.oauthCodeVerifier;
   delete req.session.oauthState;
   delete req.session.oauthNonce;
   delete req.session.oauthReturnTo;
+  delete req.session.oauthRegistrationPlan;
 
   if (!codeVerifier || !expectedState || !expectedNonce) {
     return res.redirect('/login?error=google-session-expired');
@@ -641,6 +651,10 @@ router.get('/google/callback', async (req: Request, res: Response) => {
           profileImageUrl: existingUser.profileImageUrl || picture,
         });
       } else {
+        if (!registrationPlan) {
+          return res.redirect('/register?error=choose-plan');
+        }
+
         const generatedPassword = await bcrypt.hash(
           crypto.randomBytes(32).toString('hex'),
           10,
@@ -658,6 +672,9 @@ router.get('/google/callback', async (req: Request, res: Response) => {
           status: 'active',
           verificationToken: null,
           resetPasswordToken: null,
+          subscriptionPlan: registrationPlan,
+          subscriptionStatus: 'active',
+          subscriptionChangedAt: new Date(),
         });
       }
     }
@@ -688,7 +705,7 @@ router.post('/register', async (req: Request, res: Response) => {
       });
     }
 
-    const { email, password, firstName, lastName, captchaToken } = validation.data;
+    const { email, password, firstName, lastName, captchaToken, plan } = validation.data;
     
     // Verify captcha (simplified here, would verify with service in production)
     if (!captchaToken && process.env.NODE_ENV === 'production') {
@@ -720,7 +737,10 @@ router.post('/register', async (req: Request, res: Response) => {
       status: 'pending', // Require email verification
       verificationToken: verificationToken,
       resetPasswordToken: null,
-      profileImageUrl: null
+      profileImageUrl: null,
+      subscriptionPlan: plan,
+      subscriptionStatus: 'active',
+      subscriptionChangedAt: new Date(),
     });
     
     // Create verification record with createdAt date - explicitly mark as a registration
@@ -815,7 +835,7 @@ router.get('/verify-email', async (req: Request, res: Response) => {
     await storage.deleteVerification(token);
     
     // Redirect to frontend with success message
-    res.redirect(`/?verified=true`);
+    res.redirect(`/login?verified=true`);
   } catch (error) {
     console.error('Email verification error:', error);
     res.status(500).json({ message: 'An error occurred during email verification' });
@@ -827,6 +847,34 @@ router.get('/verify-email-change', verifyEmailChange);
 router.put('/password', updatePassword);
 router.post('/avatar', updateAvatar);
 router.get('/user', getCurrentUser);
+router.patch('/subscription', async (req: Request, res: Response) => {
+  const userId = req.session?.userId;
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+  const requestedPlan = req.body?.plan;
+  if (!isSubscriptionPlan(requestedPlan)) {
+    return res.status(400).json({ message: 'Choose a valid Tickd plan.' });
+  }
+
+  const user = await storage.getUser(userId);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+
+  const currentPlan = isSubscriptionPlan(user.subscriptionPlan) ? user.subscriptionPlan : 'free';
+  if (subscriptionPlanRank[requestedPlan] >= subscriptionPlanRank[currentPlan]) {
+    return res.status(400).json({ message: 'Paid upgrades will be available when billing is connected.' });
+  }
+
+  const updatedUser = await storage.updateUser(userId, {
+    subscriptionPlan: requestedPlan,
+    subscriptionStatus: 'active',
+    subscriptionChangedAt: new Date(),
+  });
+
+  return res.status(200).json({
+    message: `Your account is now on the ${requestedPlan === 'free' ? 'Free' : 'Pro'} plan.`,
+    user: serializeUser(updatedUser),
+  });
+});
 router.post('/resend-verification', resendVerification);
 
 export default router;

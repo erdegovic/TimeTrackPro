@@ -7,6 +7,7 @@ declare module 'express-session' {
     oauthNonce?: string;
     oauthCodeVerifier?: string;
     oauthReturnTo?: string;
+    oauthRegistrationPlan?: "free" | "pro";
   }
 }
 

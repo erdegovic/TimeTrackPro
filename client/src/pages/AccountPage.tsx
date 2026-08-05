@@ -16,10 +16,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
-import { Lock, User, Key, Upload, Loader2 } from 'lucide-react';
+import { Lock, User, Key, Upload, Loader2, CreditCard, Check } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { queryClient } from '@/lib/queryClient';
 import ProfileForm from '@/components/Auth/ProfileForm';
+import { Link } from 'wouter';
+import { getPlanDetails, planDetails } from '@/lib/plans';
+import type { SubscriptionPlan } from '@shared/subscriptions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 // Password form schema
 const passwordSchema = z.object({
@@ -39,6 +53,30 @@ export default function AccountPage() {
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
+  const [isChangingPlan, setIsChangingPlan] = useState(false);
+  const selectedTab = new URLSearchParams(window.location.search).get('tab') === 'subscription' ? 'subscription' : 'profile';
+  const currentPlan = (user?.subscriptionPlan || 'free') as SubscriptionPlan;
+  const currentPlanDetails = getPlanDetails(currentPlan);
+
+  const downgradePlan = async (plan: SubscriptionPlan) => {
+    setIsChangingPlan(true);
+    try {
+      const response = await fetch('/api/auth/subscription', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Plan could not be updated.');
+      queryClient.setQueryData(['/api/auth/user'], result.user);
+      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      toast({ title: 'Plan updated', description: result.message });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Plan update failed', description: error instanceof Error ? error.message : 'Please try again.' });
+    } finally {
+      setIsChangingPlan(false);
+    }
+  };
 
   // Password form
   const passwordForm = useForm<PasswordFormValues>({
@@ -230,8 +268,8 @@ export default function AccountPage() {
         
         {/* Main content */}
         <div className="space-y-4 sm:space-y-6">
-          <Tabs defaultValue="profile">
-            <TabsList className="mb-4 w-full grid grid-cols-2">
+          <Tabs defaultValue={selectedTab}>
+            <TabsList className="mb-4 w-full grid grid-cols-3">
               <TabsTrigger value="profile" className="flex items-center text-xs sm:text-sm">
                 <User className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden sm:inline">Profile</span>
@@ -240,6 +278,10 @@ export default function AccountPage() {
               <TabsTrigger value="security" className="flex items-center text-xs sm:text-sm">
                 <Lock className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                 Security
+              </TabsTrigger>
+              <TabsTrigger value="subscription" className="flex items-center text-xs sm:text-sm">
+                <CreditCard className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                Plan
               </TabsTrigger>
             </TabsList>
             
@@ -354,6 +396,55 @@ export default function AccountPage() {
                 </CardContent>
               </Card>
               
+            </TabsContent>
+
+            <TabsContent value="subscription">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Subscription</CardTitle>
+                  <CardDescription>Review your current plan or move to a lower tier.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col gap-5 rounded-lg border border-gray-200 bg-gray-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2"><h3 className="text-xl font-bold">{currentPlanDetails.name}</h3>{currentPlan !== 'free' && <span className="rounded bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white">{currentPlan.toUpperCase()}</span>}</div>
+                      <p className="mt-1 text-sm text-gray-600">{currentPlanDetails.price} per month</p>
+                    </div>
+                    {currentPlan !== 'ultimate' && <Button asChild><Link href="/plans">{currentPlan === 'free' ? 'View upgrade options' : 'Compare plans'}</Link></Button>}
+                  </div>
+
+                  <div className="mt-6 grid gap-5 md:grid-cols-2">
+                    <div>
+                      <h3 className="text-sm font-semibold">Included in your plan</h3>
+                      <ul className="mt-3 space-y-2">{currentPlanDetails.features.map((feature) => <li key={feature} className="flex gap-2 text-sm text-gray-600"><Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />{feature}</li>)}</ul>
+                    </div>
+                    <div className="border-t border-gray-200 pt-5 md:border-l md:border-t-0 md:pl-6 md:pt-0">
+                      <h3 className="text-sm font-semibold">Change plan</h3>
+                      {currentPlan === 'free' ? (
+                        <p className="mt-3 text-sm leading-6 text-gray-600">Free is the lowest Tickd tier. Paid upgrades will become available when secure billing is connected.</p>
+                      ) : (
+                        <div className="mt-3 space-y-3">
+                          {planDetails.filter((plan) => plan.id !== currentPlan && (plan.id === 'free' || (currentPlan === 'ultimate' && plan.id === 'pro'))).map((plan) => (
+                            <AlertDialog key={plan.id}>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" className="w-full justify-between" disabled={isChangingPlan}>Downgrade to {plan.name}<span className="text-xs text-gray-500">{plan.price}/mo</span></Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Downgrade to {plan.name}?</AlertDialogTitle>
+                                  <AlertDialogDescription>Your account tier changes immediately. Tracked time and account data will remain in Tickd.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter><AlertDialogCancel>Keep current plan</AlertDialogCancel><AlertDialogAction onClick={() => downgradePlan(plan.id)}>Confirm downgrade</AlertDialogAction></AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          ))}
+                          <p className="text-xs leading-5 text-gray-500">Downgrading changes the account tier immediately. Your tracked data remains in your account.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>

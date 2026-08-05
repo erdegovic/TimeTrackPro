@@ -24,6 +24,9 @@ const serializeUser = (user: Awaited<ReturnType<typeof storage.getUser>>) => {
     status: user.status,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
+    subscriptionPlan: user.subscriptionPlan,
+    subscriptionStatus: user.subscriptionStatus,
+    subscriptionChangedAt: user.subscriptionChangedAt,
   };
 };
 

@@ -24,20 +24,37 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import RegistrationSuccessPage from "./pages/RegistrationSuccessPage";
 import UnverifiedEmailPage from "./pages/UnverifiedEmailPage";
+import LandingPage from "./pages/LandingPage";
+import PricingPage from "./pages/PricingPage";
+import HowItWorksPage from "./pages/HowItWorksPage";
+import FaqPage from "./pages/FaqPage";
+import HelpPage from "./pages/HelpPage";
+import ContactPage from "./pages/ContactPage";
+import PlansPage from "./pages/PlansPage";
+import { useAuth } from "./hooks/useAuth";
+import { Logo } from "@/components/ui/logo";
+
+function RootRoute() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="flex min-h-screen items-center justify-center bg-white"><div className="animate-pulse"><Logo /></div></div>;
+  }
+
+  if (!user) return <LandingPage />;
+
+  return <AppLayout><TimeTrackerPage /></AppLayout>;
+}
 
 function Router() {
-  // Public routes (no layout)
-  const isAuthRoute = (path: string) => {
-    return path === '/login' || 
-           path === '/register' || 
-           path.startsWith('/verify-email') || 
-           path.startsWith('/verify-email-change') ||
-           path === '/forgot-password' || 
-           path.startsWith('/reset-password');
-  };
-  
   return (
     <Switch>
+      <Route path="/" component={RootRoute} />
+      <Route path="/pricing" component={PricingPage} />
+      <Route path="/how-it-works" component={HowItWorksPage} />
+      <Route path="/faq" component={FaqPage} />
+      <Route path="/help" component={HelpPage} />
+      <Route path="/contact" component={ContactPage} />
       <Route path="/login">
         <LoginPage />
       </Route>
@@ -67,7 +84,7 @@ function Router() {
       <Route>
         <AppLayout>
           <Switch>
-            <Route path="/" component={TimeTrackerPage} />
+            <Route path="/tracker" component={TimeTrackerPage} />
             <Route path="/dashboard" component={Dashboard} />
             <Route path="/reports" component={ReportsPage} />
             <Route path="/invoices" component={InvoicesPage} />
@@ -76,6 +93,7 @@ function Router() {
             <Route path="/notes" component={NotesPage} />
             <Route path="/settings" component={SettingsPage} />
             <Route path="/account" component={AccountPage} />
+            <Route path="/plans" component={PlansPage} />
             <Route path="/admin" component={AdminPage} />
             <Route component={NotFound} />
           </Switch>

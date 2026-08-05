@@ -18,6 +18,11 @@ import {
   User,
   MessageSquare,
   ShieldCheck
+  ,HelpCircle
+  ,BookOpen
+  ,CircleHelp
+  ,Mail
+  ,Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,6 +33,14 @@ import { queryClient } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { Client, Project } from "@shared/schema";
 import { useTimerContext } from "@/context/TimerContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Context for creativity sidebar state
 const CreativitySidebarContext = createContext<{
@@ -91,6 +104,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     projectName: timerProject?.name,
     clientName: timerClient?.name,
   } : null;
+  const subscriptionPlan = user?.subscriptionPlan || "free";
   
   // User profile state (with fallbacks while loading)
   const [userName, setUserName] = useState('Loading...');
@@ -189,9 +203,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
             
             <nav className="mt-2 flex-1 px-2 space-y-1">
               <NavItem 
-                href="/" 
+                href="/tracker"
                 icon={<Clock className="w-5 h-5" />} 
-                isActive={location === '/'}
+                isActive={location === '/' || location === '/tracker'}
               >
                 Time Tracker
                 {hasActiveTimer && 
@@ -228,12 +242,39 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
           
           <div className="flex-shrink-0 border-t border-gray-200 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              {subscriptionPlan !== "ultimate" && (
+                <Button size="sm" className="min-w-0 flex-1 justify-start" variant={subscriptionPlan === "free" ? "default" : "outline"} asChild>
+                  <Link href="/plans"><Sparkles className="mr-2 h-4 w-4" />{subscriptionPlan === "free" ? "Upgrade" : "View plans"}</Link>
+                </Button>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" aria-label="Help and resources"><HelpCircle className="h-4 w-4" /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" align="end" className="w-52">
+                  <DropdownMenuLabel>Help and resources</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild><Link href="/how-it-works"><BookOpen className="h-4 w-4" />How it works</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href="/help"><HelpCircle className="h-4 w-4" />Help center</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href="/faq"><CircleHelp className="h-4 w-4" />FAQ</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href="/contact"><Mail className="h-4 w-4" />Contact support</Link></DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <Link href="/account" className="flex-shrink-0 w-full group block">
               <div className="flex items-center">
-                <Avatar className="h-9 w-9 rounded-full overflow-hidden">
-                  <AvatarImage src={userAvatar} alt="User" className="object-cover w-full h-full" />
-                  <AvatarFallback>{userName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                </Avatar>
+                <div className="relative shrink-0">
+                  <Avatar className="h-9 w-9 rounded-full overflow-hidden">
+                    <AvatarImage src={userAvatar} alt="User" className="object-cover w-full h-full" />
+                    <AvatarFallback>{userName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                  </Avatar>
+                  {subscriptionPlan !== "free" && (
+                    <span className={`absolute -bottom-1 -right-2 rounded px-1 py-0.5 text-[8px] font-bold leading-none text-white shadow-sm ${subscriptionPlan === "pro" ? "bg-blue-600" : "bg-[#071127]"}`}>
+                      {subscriptionPlan === "pro" ? "PRO" : "ULTIMATE"}
+                    </span>
+                  )}
+                </div>
                 <div className="ml-3">
                   <p className="user-profile-name text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">{userName}</p>
                   <p className="text-xs font-medium text-gray-500">{user?.email || ""}</p>

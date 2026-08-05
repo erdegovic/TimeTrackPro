@@ -42,6 +42,7 @@ import {
   restoreAccountSnapshot,
   runAccountBackupCycle,
 } from "./backups/account-snapshots";
+import { sendContactMessage } from "./utils/email-service";
 
 const parseInvoiceSettings = (raw?: string | null) => {
   if (!raw) return {};
@@ -109,6 +110,28 @@ const getMusicRoot = () => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const contactRequestSchema = z.object({
+    name: z.string().trim().min(2).max(100),
+    email: z.string().trim().toLowerCase().email().max(255),
+    subject: z.string().trim().min(3).max(140),
+    message: z.string().trim().min(10).max(5000),
+    website: z.string().max(0).optional(),
+  });
+
+  app.post('/api/contact', async (req: Request, res: Response) => {
+    const validation = contactRequestSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ message: 'Complete every field with a valid email and message.' });
+    }
+
+    const sent = await sendContactMessage(validation.data);
+    if (!sent) {
+      return res.status(503).json({ message: 'Your message could not be sent right now. Please try again shortly.' });
+    }
+
+    return res.status(200).json({ message: 'Thanks. Your message is on its way to Tickd support.' });
+  });
+
   const parseLocalDate = (dateString: string) => {
     const [year, month, day] = dateString.split("-").map(Number);
     return new Date(year, month - 1, day);
@@ -466,6 +489,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: foundUser.status,
           createdAt: foundUser.createdAt,
           updatedAt: foundUser.updatedAt,
+          subscriptionPlan: foundUser.subscriptionPlan,
+          subscriptionStatus: foundUser.subscriptionStatus,
+          subscriptionChangedAt: foundUser.subscriptionChangedAt,
         }
       });
     } catch (error) {

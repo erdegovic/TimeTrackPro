@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { useLocation } from 'wouter';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Check, Eye, EyeOff, Loader2 } from 'lucide-react';
 import GoogleSignInButton from './GoogleSignInButton';
+import { planDetails } from '@/lib/plans';
 
 const registerSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -26,7 +27,11 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function RegisterForm() {
   const { toast } = useToast();
-  const [_, navigate] = useLocation();
+  const [, navigate] = useLocation();
+  const registrationParams = new URLSearchParams(window.location.search);
+  const initialPlan = registrationParams.get('plan');
+  const needsPlanForGoogle = registrationParams.get('error') === 'choose-plan';
+  const [selectedPlan, setSelectedPlan] = useState<'free' | 'pro' | null>(initialPlan === 'free' || initialPlan === 'pro' ? initialPlan : null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -38,6 +43,10 @@ export default function RegisterForm() {
   });
 
   const onSubmit = async (data: RegisterFormValues) => {
+    if (!selectedPlan) {
+      toast({ title: "Choose a plan", description: "Select Free or Pro before creating your account.", variant: "destructive" });
+      return;
+    }
     if (!captchaToken) {
       toast({ title: "CAPTCHA required", description: "Please complete the CAPTCHA verification.", variant: "destructive" });
       return;
@@ -48,7 +57,7 @@ export default function RegisterForm() {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, captchaToken }),
+        body: JSON.stringify({ ...data, captchaToken, plan: selectedPlan }),
       });
       const result = await response.json();
 
@@ -67,14 +76,44 @@ export default function RegisterForm() {
   };
 
   return (
-    <div className="w-full max-w-md">
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+    <div className="w-full max-w-2xl">
+      <div className="bg-white rounded-lg shadow-lg border border-gray-100 p-6 sm:p-8">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Create an account</h1>
-          <p className="text-gray-500 mt-1.5 text-sm">Start tracking your time and projects</p>
+          <p className="text-gray-500 mt-1.5 text-sm">Choose your plan, then create your Tickd account</p>
         </div>
 
-        <GoogleSignInButton label="Sign up with Google" />
+        {needsPlanForGoogle && <div className="mb-5 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">Choose a plan before creating a new account with Google.</div>}
+
+        <fieldset className="mb-7">
+          <legend className="mb-3 text-sm font-semibold text-gray-900">1. Choose a plan</legend>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {planDetails.map((plan) => {
+              const selected = selectedPlan === plan.id;
+              const available = plan.id !== 'ultimate';
+              return (
+                <button
+                  key={plan.id}
+                  type="button"
+                  disabled={!available}
+                  onClick={() => available && setSelectedPlan(plan.id as 'free' | 'pro')}
+                  className={`relative min-h-28 rounded-md border p-4 text-left transition ${selected ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : available ? 'border-gray-200 hover:border-blue-300' : 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-70'}`}
+                  aria-pressed={selected}
+                >
+                  {selected && <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-white"><Check className="h-3 w-3" /></span>}
+                  <span className="block text-sm font-bold text-gray-900">{plan.name}</span>
+                  <span className="mt-2 block text-xl font-bold text-gray-900">{plan.price}<span className="text-xs font-medium text-gray-500">/mo</span></span>
+                  {!available && <span className="mt-2 block text-xs font-semibold text-gray-500">Coming soon</span>}
+                </button>
+              );
+            })}
+          </div>
+          {!selectedPlan && <p className="mt-2 text-xs font-medium text-blue-700">Select Free or Pro to continue.</p>}
+        </fieldset>
+
+        <div className={!selectedPlan ? 'pointer-events-none opacity-45' : ''} aria-disabled={!selectedPlan}>
+        <p className="mb-3 text-sm font-semibold text-gray-900">2. Create your account</p>
+        {selectedPlan && <GoogleSignInButton label="Sign up with Google" plan={selectedPlan} />}
 
         <div className="my-5 flex items-center gap-3" aria-hidden="true">
           <div className="h-px flex-1 bg-gray-200" />
@@ -149,12 +188,13 @@ export default function RegisterForm() {
             />
           </div>
 
-          <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={isSubmitting}>
+          <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={isSubmitting || !selectedPlan}>
             {isSubmitting ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating account...</>
             ) : "Create account"}
           </Button>
         </form>
+        </div>
 
         <p className="text-center text-sm text-gray-500 mt-6">
           Already have an account?{" "}

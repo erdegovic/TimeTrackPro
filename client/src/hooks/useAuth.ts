@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
+import type { SubscriptionPlan } from "@shared/subscriptions";
 
 // Define user type for TypeScript
 export interface UserProfile {
@@ -13,6 +14,8 @@ export interface UserProfile {
   profileImageUrl?: string | null;
   status?: string;
   role?: string;
+  subscriptionPlan?: SubscriptionPlan;
+  subscriptionStatus?: string;
 }
 
 export function useAuth() {
@@ -21,10 +24,18 @@ export function useAuth() {
   const { 
     data: user, 
     isLoading, 
-    error, 
     isError 
-  } = useQuery<UserProfile>({
+  } = useQuery<UserProfile | null>({
     queryKey: ["/api/auth/user"],
+    queryFn: async () => {
+      const response = await fetch("/api/auth/user", { credentials: "include" });
+      if (response.status === 401) throw new Error("Unauthorized");
+      if (!response.ok) throw new Error(`Authentication request failed (${response.status})`);
+
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) return null;
+      return response.json();
+    },
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: true
@@ -39,10 +50,18 @@ export function useAuth() {
         "/register", 
         "/verify-email", 
         "/forgot-password", 
-        "/reset-password"
+        "/reset-password",
+        "/registration-success",
+        "/unverified-email",
+        "/pricing",
+        "/how-it-works",
+        "/faq",
+        "/help",
+        "/contact",
       ];
-      
-      if (!publicPaths.some(path => location.startsWith(path))) {
+
+      const isPublicPath = location === "/" || publicPaths.some(path => location.startsWith(path));
+      if (!isPublicPath) {
         navigate("/login");
       }
     }

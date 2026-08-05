@@ -4,6 +4,7 @@ interface EmailParams {
   to: string;
   subject: string;
   htmlContent: string;
+  replyTo?: string;
 }
 
 interface TickdEmailLayoutParams {
@@ -134,6 +135,7 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
         to: [{ email: params.to }],
         subject: params.subject,
         htmlContent: params.htmlContent,
+        ...(params.replyTo ? { replyTo: { email: params.replyTo } } : {}),
       }),
     });
 
@@ -149,6 +151,36 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
     console.error("Transactional email request failed:", error);
     return false;
   }
+}
+
+export async function sendContactMessage(params: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}): Promise<boolean> {
+  const recipient = process.env.CONTACT_EMAIL || senderEmail();
+  const safeMessage = escapeHtml(params.message).replace(/\n/g, "<br>");
+
+  return sendEmail({
+    to: recipient,
+    replyTo: params.email,
+    subject: `Tickd contact: ${params.subject}`,
+    htmlContent: `<!doctype html>
+<html lang="en"><body style="margin:0;padding:32px;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#101828;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#fff;border:1px solid #dfe6f0;border-radius:8px;">
+      <tr><td style="padding:36px;">
+        <div style="width:44px;height:4px;background:#2474f5;border-radius:2px;margin-bottom:22px;"></div>
+        <h1 style="margin:0 0 20px;font-size:24px;line-height:32px;">New Tickd contact message</h1>
+        <p style="margin:0 0 8px;"><strong>From:</strong> ${escapeHtml(params.name)} &lt;${escapeHtml(params.email)}&gt;</p>
+        <p style="margin:0 0 24px;"><strong>Subject:</strong> ${escapeHtml(params.subject)}</p>
+        <div style="padding:20px;background:#f8fafc;border:1px solid #e4e9f1;border-radius:6px;font-size:15px;line-height:24px;">${safeMessage}</div>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`,
+  });
 }
 
 export function getPasswordResetEmailContent(token: string, baseUrl: string): string {
