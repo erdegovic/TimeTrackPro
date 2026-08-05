@@ -36,15 +36,18 @@ function runPgDump(destination: string, databaseUrl: string) {
 async function main() {
   const config = requireBackupConfig();
   const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) throw new Error("DATABASE_URL is required");
+  const suppliedSourceFile = process.env.BACKUP_DATABASE_SOURCE_FILE;
+  if (!suppliedSourceFile && !databaseUrl) throw new Error("DATABASE_URL is required");
 
   const id = randomUUID();
   const now = new Date();
-  const temporaryFile = path.join(tmpdir(), `tickd-${id}.dump`);
+  const temporaryFile = suppliedSourceFile
+    ? path.resolve(suppliedSourceFile)
+    : path.join(tmpdir(), `tickd-${id}.dump`);
   const objectKey = `database-backups/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${now.toISOString().replaceAll(":", "-")}-${id}.dump.tickd`;
 
   try {
-    await runPgDump(temporaryFile, databaseUrl);
+    if (!suppliedSourceFile) await runPgDump(temporaryFile, databaseUrl!);
     const dump = await readFile(temporaryFile);
     const encrypted = encryptBackup(dump, config.encryptionKey);
     await uploadBackupObject(objectKey, encrypted);
@@ -63,7 +66,7 @@ async function main() {
       createdAt: now.toISOString(),
     }));
   } finally {
-    await rm(temporaryFile, { force: true });
+    if (!suppliedSourceFile) await rm(temporaryFile, { force: true });
   }
 }
 

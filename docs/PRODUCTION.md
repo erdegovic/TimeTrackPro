@@ -117,13 +117,17 @@ Both layers use this retention policy:
 
 ### Whole-database schedule
 
-Install the PostgreSQL client tools on the Hostinger VPS and verify `pg_dump --version`. Schedule this command every 12 hours from the deployed application directory:
+`.github/workflows/database-backup.yml` creates an encrypted PostgreSQL dump every day at 01:17 UTC and supports manual runs from GitHub Actions. Configure these repository Actions secrets:
 
-```bash
-npm run backup:database
+```text
+BACKUP_DATABASE_URL
+BACKUP_S3_ENDPOINT
+BACKUP_S3_ACCESS_KEY_ID
+BACKUP_S3_SECRET_ACCESS_KEY
+ACCOUNT_BACKUP_ENCRYPTION_KEY
 ```
 
-The command reads the same Hostinger environment variables as the application. It does not expose `DATABASE_URL` in the process command line. Send non-zero exit output to an operator-controlled email or monitoring service.
+The workflow uses PostgreSQL 17 client tools in an isolated container, then passes the dump to `npm run backup:database` for encryption, R2 upload, and retention. GitHub receives only encrypted-backup credentials limited to the private `tickd-backups` bucket. A failed run appears in GitHub Actions and should be investigated before the next production schema change.
 
 ### Recovery checks
 
