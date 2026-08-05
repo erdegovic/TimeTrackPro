@@ -224,7 +224,7 @@ export default function ClientsPage() {
 
       {/* New Client Dialog */}
       <Dialog open={showNewClientDialog} onOpenChange={setShowNewClientDialog}>
-        <DialogContent className="!w-[calc(100vw-1rem)] !max-w-[calc(100vw-1rem)] sm:!max-w-[980px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="!w-[95%] !max-w-[980px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Client</DialogTitle>
             <DialogDescription>Add contact, billing currency, colour, and optional invoice preferences.</DialogDescription>
@@ -238,7 +238,7 @@ export default function ClientsPage() {
 
       {/* Edit Client Dialog */}
       <Dialog open={editingClient !== null} onOpenChange={(open) => !open && setEditingClient(null)}>
-        <DialogContent className="!w-[calc(100vw-1rem)] !max-w-[calc(100vw-1rem)] sm:!max-w-[980px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="!w-[95%] !max-w-[980px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Client</DialogTitle>
             <DialogDescription>Update this client's contact, billing, and invoice preferences.</DialogDescription>
