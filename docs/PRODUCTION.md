@@ -36,6 +36,12 @@ PADDLE_WEBHOOK_SECRET=...
 PADDLE_PRO_PRICE_ID=...
 ```
 
+While Paddle is reviewing the live account, live credentials may be stored under
+`PADDLE_LIVE_API_KEY`, `PADDLE_LIVE_CLIENT_TOKEN`, `PADDLE_LIVE_WEBHOOK_SECRET`,
+and `PADDLE_LIVE_PRO_PRICE_ID`. These are staging slots only. The application
+continues using the unprefixed `PADDLE_*` variables until the live account and
+checkout domain are approved and the values are deliberately promoted.
+
 Optional services:
 
 ```text
