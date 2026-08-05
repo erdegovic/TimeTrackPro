@@ -1,15 +1,67 @@
-import { Check } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { planDetails } from "@/lib/plans";
 import type { SubscriptionPlan } from "@shared/subscriptions";
+import { openProCheckout } from "@/lib/paddle";
+import { queryClient } from "@/lib/queryClient";
+import { toast } from "@/hooks/use-toast";
 
 type PricingSectionProps = {
   currentPlan?: SubscriptionPlan;
   compact?: boolean;
+  autoCheckout?: boolean;
 };
 
-export default function PricingSection({ currentPlan, compact = false }: PricingSectionProps) {
+export default function PricingSection({ currentPlan, compact = false, autoCheckout = false }: PricingSectionProps) {
+  const [isOpeningCheckout, setIsOpeningCheckout] = useState(false);
+  const autoCheckoutStarted = useRef(false);
+
+  const refreshSubscription = async () => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 400 : 1200));
+      const response = await fetch("/api/auth/user", { credentials: "include" });
+      if (!response.ok) continue;
+      const user = await response.json();
+      queryClient.setQueryData(["/api/auth/user"], user);
+      if (user.subscriptionPlan === "pro" && ["active", "trialing", "past_due"].includes(user.subscriptionStatus)) {
+        toast({ title: "Welcome to Tickd Pro", description: "Invoice exports and Pro billing tools are now unlocked." });
+        setIsOpeningCheckout(false);
+        return;
+      }
+    }
+    setIsOpeningCheckout(false);
+    toast({ title: "Payment received", description: "Paddle is still confirming your subscription. Refresh this page in a moment." });
+  };
+
+  const startProCheckout = async () => {
+    if (isOpeningCheckout) return;
+    setIsOpeningCheckout(true);
+    let removeListener: () => void = () => {};
+    try {
+      removeListener = await openProCheckout(() => {
+        removeListener();
+        void refreshSubscription();
+      });
+      setIsOpeningCheckout(false);
+    } catch (error) {
+      setIsOpeningCheckout(false);
+      toast({
+        variant: "destructive",
+        title: "Checkout unavailable",
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (autoCheckout && currentPlan === "free" && !autoCheckoutStarted.current) {
+      autoCheckoutStarted.current = true;
+      void startProCheckout();
+    }
+  }, [autoCheckout, currentPlan]);
+
   return (
     <section className={compact ? "py-4" : "bg-[#f8fafc] py-20 sm:py-28"} id="pricing">
       <div className={compact ? "" : "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"}>
@@ -41,7 +93,7 @@ export default function PricingSection({ currentPlan, compact = false }: Pricing
                 {isCurrent ? (
                   <Button className="mt-7" variant="outline" disabled>Current plan</Button>
                 ) : currentPlan ? (
-                  plan.id === "free" ? <Button className="mt-7" variant="outline" asChild><Link href="/account?tab=subscription">Downgrade to Free</Link></Button> : <Button className="mt-7" disabled>{plan.available ? "Billing coming next" : "Coming soon"}</Button>
+                  plan.id === "free" ? <Button className="mt-7" variant="outline" asChild><Link href="/account?tab=subscription">Manage current plan</Link></Button> : plan.id === "pro" ? <Button className="mt-7" onClick={startProCheckout} disabled={isOpeningCheckout}>{isOpeningCheckout ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Opening checkout</> : "Upgrade to Pro"}</Button> : <Button className="mt-7" disabled>Coming soon</Button>
                 ) : (
                   plan.available ? <Button className={`mt-7 rounded-md ${isHighlighted ? "bg-white text-[#071127] hover:bg-[#edf4ff]" : ""}`} variant={plan.id === "pro" ? "default" : "outline"} asChild><Link href={`/register?plan=${plan.id}`}>{plan.id === "free" ? "Start free" : "Choose Pro"}</Link></Button> : <Button className="mt-7 rounded-md" variant="outline" disabled>Coming soon</Button>
                 )}

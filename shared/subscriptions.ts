@@ -27,7 +27,7 @@ export type InvoiceCapabilities = {
   watermarkPreview: boolean;
 };
 
-const inactiveSubscriptionStatuses = new Set(["canceled", "expired", "unpaid"]);
+const paidSubscriptionStatuses = new Set(["active", "trialing", "past_due", "complimentary"]);
 
 export const getInvoiceCapabilities = (
   plan: unknown,
@@ -37,7 +37,7 @@ export const getInvoiceCapabilities = (
   const normalizedStatus = typeof status === "string" ? status.toLowerCase() : "active";
   const hasPaidAccess =
     subscriptionPlanRank[normalizedPlan] >= subscriptionPlanRank.pro &&
-    !inactiveSubscriptionStatuses.has(normalizedStatus);
+    paidSubscriptionStatuses.has(normalizedStatus);
 
   return {
     canPreview: true,

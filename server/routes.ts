@@ -44,6 +44,7 @@ import {
 } from "./backups/account-snapshots";
 import { sendContactMessage } from "./utils/email-service";
 import { getAdminGrantedSubscriptionStatus, getInvoiceCapabilities } from "@shared/subscriptions";
+import paddleBillingRoutes from "./billing/paddle";
 
 const parseInvoiceSettings = (raw?: string | null) => {
   if (!raw) return {};
@@ -263,6 +264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register email verification routes (no authentication required)
   app.use('/api/auth', verifyRoutes);
+  app.use('/api/billing', paddleBillingRoutes);
 
   app.get('/api/music-library', async (_req: Request, res: Response) => {
     const musicRoot = getMusicRoot();
@@ -517,6 +519,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           subscriptionPlan: foundUser.subscriptionPlan,
           subscriptionStatus: foundUser.subscriptionStatus,
           subscriptionChangedAt: foundUser.subscriptionChangedAt,
+          subscriptionRequestedPlan: foundUser.subscriptionRequestedPlan,
+          subscriptionCurrentPeriodEnd: foundUser.subscriptionCurrentPeriodEnd,
+          subscriptionCancelAtPeriodEnd: foundUser.subscriptionCancelAtPeriodEnd,
+          paddleCustomerId: foundUser.paddleCustomerId,
         }
       });
     } catch (error) {

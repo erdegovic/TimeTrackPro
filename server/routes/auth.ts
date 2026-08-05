@@ -6,7 +6,7 @@ import * as oidc from 'openid-client';
 import { storage } from '../storage';
 import { verificationTypeEnum } from '@shared/schema';
 import { getBaseUrl } from '../utils/url-helper';
-import { isRegistrationPlan, isSubscriptionPlan, subscriptionPlanRank } from '@shared/subscriptions';
+import { isRegistrationPlan, isSubscriptionPlan } from '@shared/subscriptions';
 import {
   CURRENT_PRIVACY_VERSION,
   CURRENT_TERMS_VERSION,
@@ -105,6 +105,12 @@ const serializeUser = (user: Awaited<ReturnType<typeof storage.getUser>>) => {
     subscriptionPlan: isSubscriptionPlan(user.subscriptionPlan) ? user.subscriptionPlan : 'free',
     subscriptionStatus: user.subscriptionStatus || 'active',
     subscriptionChangedAt: user.subscriptionChangedAt,
+    subscriptionRequestedPlan: isRegistrationPlan(user.subscriptionRequestedPlan)
+      ? user.subscriptionRequestedPlan
+      : null,
+    subscriptionCurrentPeriodEnd: user.subscriptionCurrentPeriodEnd,
+    subscriptionCancelAtPeriodEnd: user.subscriptionCancelAtPeriodEnd,
+    paddleCustomerId: user.paddleCustomerId,
   };
 };
 
@@ -714,8 +720,9 @@ router.get('/google/callback', async (req: Request, res: Response) => {
           status: 'active',
           verificationToken: null,
           resetPasswordToken: null,
-          subscriptionPlan: registrationPlan,
+          subscriptionPlan: 'free',
           subscriptionStatus: 'active',
+          subscriptionRequestedPlan: registrationPlan === 'pro' ? 'pro' : null,
           subscriptionChangedAt: new Date(),
           termsAcceptedAt: new Date(),
           termsVersion,
@@ -731,7 +738,7 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     await regenerateSession(req);
     req.session.userId = user.id;
     await saveSession(req);
-    res.redirect(returnTo);
+    res.redirect(user.subscriptionRequestedPlan === 'pro' ? '/plans?checkout=pro' : returnTo);
   } catch (error) {
     console.error('Google authentication callback failed:', error);
     res.redirect('/login?error=google-sign-in-failed');
@@ -787,8 +794,9 @@ router.post('/register', async (req: Request, res: Response) => {
       verificationToken: verificationToken,
       resetPasswordToken: null,
       profileImageUrl: null,
-      subscriptionPlan: plan,
+      subscriptionPlan: 'free',
       subscriptionStatus: 'active',
+      subscriptionRequestedPlan: plan === 'pro' ? 'pro' : null,
       subscriptionChangedAt: new Date(),
       termsAcceptedAt: new Date(),
       termsVersion,
@@ -893,14 +901,17 @@ router.post('/verify-email-code', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'That code is not correct. Check the email and try again.' });
     }
 
-    await storage.updateUser(user.id, { status: 'active', verificationToken: null });
+    const updatedUser = await storage.updateUser(user.id, { status: 'active', verificationToken: null });
     await Promise.all(
       verifications
         .filter((verification) => verification.type === 'email')
         .map((verification) => storage.deleteVerification(verification.token)),
     );
     verificationAttempts.delete(attemptKey);
-    return res.status(200).json({ message: 'Email verified successfully.' });
+    return res.status(200).json({
+      message: 'Email verified successfully.',
+      next: updatedUser?.subscriptionRequestedPlan === 'pro' ? '/login?verified=true&plan=pro' : '/login?verified=true',
+    });
   } catch (error) {
     console.error('Email code verification error:', error);
     return res.status(500).json({ message: 'We could not verify the code. Please try again.' });
@@ -973,20 +984,10 @@ router.patch('/subscription', async (req: Request, res: Response) => {
   const user = await storage.getUser(userId);
   if (!user) return res.status(404).json({ message: 'User not found' });
 
-  const currentPlan = isSubscriptionPlan(user.subscriptionPlan) ? user.subscriptionPlan : 'free';
-  if (subscriptionPlanRank[requestedPlan] >= subscriptionPlanRank[currentPlan]) {
-    return res.status(400).json({ message: 'Paid upgrades will be available when billing is connected.' });
-  }
-
-  const updatedUser = await storage.updateUser(userId, {
-    subscriptionPlan: requestedPlan,
-    subscriptionStatus: 'active',
-    subscriptionChangedAt: new Date(),
-  });
-
-  return res.status(200).json({
-    message: `Your account is now on the ${requestedPlan === 'free' ? 'Free' : 'Pro'} plan.`,
-    user: serializeUser(updatedUser),
+  return res.status(400).json({
+    message: requestedPlan === 'free'
+      ? 'Open billing management to cancel your paid subscription at the end of its billing period.'
+      : 'Use the secure Paddle checkout to upgrade your plan.',
   });
 });
 router.post('/resend-verification', resendVerification);

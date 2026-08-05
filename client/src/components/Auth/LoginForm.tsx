@@ -63,7 +63,7 @@ export default function LoginForm() {
 
       if (response.ok) {
         queryClient.setQueryData(["/api/auth/user"], result.user);
-        navigate("/");
+        navigate(result.user?.subscriptionRequestedPlan === "pro" ? "/plans?checkout=pro" : "/");
       } else if (response.status === 403 && result.message?.includes("verify")) {
         navigate(`/unverified-email?email=${encodeURIComponent(data.email)}`);
       } else {

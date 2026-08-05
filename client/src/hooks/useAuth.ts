@@ -17,6 +17,10 @@ export interface UserProfile {
   role?: string;
   subscriptionPlan?: SubscriptionPlan;
   subscriptionStatus?: string;
+  subscriptionRequestedPlan?: "free" | "pro" | null;
+  subscriptionCurrentPeriodEnd?: string | null;
+  subscriptionCancelAtPeriodEnd?: boolean;
+  paddleCustomerId?: string | null;
 }
 
 export function useAuth() {

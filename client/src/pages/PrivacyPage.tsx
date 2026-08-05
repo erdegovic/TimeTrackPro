@@ -5,7 +5,7 @@ import { CURRENT_PRIVACY_VERSION } from "@shared/legal";
 const sections = [
   {
     title: "Who handles your data",
-    content: <p>Tickd's operator is the controller of personal information collected through the service. Privacy questions and rights requests can be submitted through the <Link href="/contact" className="font-semibold text-[#096cfb] hover:underline">Tickd contact form</Link>.</p>,
+    content: <p>Tickd is operated by ATILA ERDEG PR POSTPRODUKCIONO UREĐIVANJE PIXELLAB NOVI SAD ("Pixellab"), which is the controller of personal information collected through the service. Privacy questions and rights requests can be submitted through the <Link href="/contact" className="font-semibold text-[#096cfb] hover:underline">Tickd contact form</Link>.</p>,
   },
   {
     title: "Information we collect",
@@ -21,7 +21,7 @@ const sections = [
   },
   {
     title: "Service providers and transfers",
-    content: <><p>We use carefully selected providers to run Tickd. These may include Hostinger for application infrastructure, Supabase for the production database, Brevo for transactional email, Google for optional sign-in, and Cloudflare R2 for encrypted backups.</p><p>Providers may process information in different countries. Where required, transfers are protected through recognised legal safeguards and provider contractual terms.</p></>,
+    content: <><p>We use carefully selected providers to run Tickd. These may include Hostinger for application infrastructure, Supabase for the production database, Brevo for transactional email, Google for optional sign-in, Paddle for subscription payments and tax handling, and Cloudflare R2 for encrypted backups.</p><p>Providers may process information in different countries. Where required, transfers are protected through recognised legal safeguards and provider contractual terms.</p></>,
   },
   {
     title: "Cookies and sessions",
@@ -56,4 +56,3 @@ export default function PrivacyPage() {
     />
   );
 }
-

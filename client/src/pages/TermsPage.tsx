@@ -5,7 +5,7 @@ import { CURRENT_TERMS_VERSION } from "@shared/legal";
 const sections = [
   {
     title: "Your agreement with Tickd",
-    content: <p>These Terms govern your use of the Tickd website and application. By creating an account or using Tickd, you agree to these Terms. If you use Tickd for a business, you confirm that you are authorised to accept them for that business.</p>,
+    content: <p>These Terms govern your use of the Tickd website and application. Tickd is a product operated by ATILA ERDEG PR POSTPRODUKCIONO UREĐIVANJE PIXELLAB NOVI SAD ("Pixellab"), the legal service provider. By creating an account or using Tickd, you agree to these Terms. If you use Tickd for a business, you confirm that you are authorised to accept them for that business.</p>,
   },
   {
     title: "Accounts and eligibility",
@@ -21,7 +21,7 @@ const sections = [
   },
   {
     title: "Plans, billing, and changes",
-    content: <><p>Features may vary by plan. Prices, billing intervals, trial terms, and renewal information will be shown before a paid purchase. Where permitted by law, changes to paid plans will apply from the next billing period after reasonable notice.</p><p>Features marked as coming soon are plans, not promises of a particular release date.</p></>,
+    content: <><p>Features may vary by plan. Prices, billing intervals, trial terms, and renewal information will be shown before a paid purchase. Paid subscriptions are sold by Pixellab through Paddle, our merchant-of-record payment provider, which processes payments, applicable taxes, receipts, and subscription billing.</p><p>Subscriptions renew automatically until canceled. Cancellation takes effect at the end of the current paid billing period unless checkout or the billing portal states otherwise. Features marked as coming soon are plans, not promises of a particular release date.</p></>,
   },
   {
     title: "Availability and exports",
@@ -56,4 +56,3 @@ export default function TermsPage() {
     />
   );
 }
-

@@ -15,10 +15,35 @@ export async function ensureCurrentSchema() {
         ADD COLUMN IF NOT EXISTS subscription_plan text NOT NULL DEFAULT 'free',
         ADD COLUMN IF NOT EXISTS subscription_status text NOT NULL DEFAULT 'active',
         ADD COLUMN IF NOT EXISTS subscription_changed_at timestamp DEFAULT now(),
+        ADD COLUMN IF NOT EXISTS subscription_requested_plan text,
+        ADD COLUMN IF NOT EXISTS subscription_current_period_end timestamp,
+        ADD COLUMN IF NOT EXISTS subscription_cancel_at_period_end boolean NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS paddle_customer_id text,
+        ADD COLUMN IF NOT EXISTS paddle_subscription_id text,
         ADD COLUMN IF NOT EXISTS terms_accepted_at timestamp,
         ADD COLUMN IF NOT EXISTS terms_version text,
         ADD COLUMN IF NOT EXISTS privacy_version text
     `);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_paddle_customer_id_unique ON users (paddle_customer_id) WHERE paddle_customer_id IS NOT NULL`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_paddle_subscription_id_unique ON users (paddle_subscription_id) WHERE paddle_subscription_id IS NOT NULL`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS paddle_webhook_events (
+        id text PRIMARY KEY,
+        event_type text NOT NULL,
+        occurred_at timestamp NOT NULL,
+        processed_at timestamp DEFAULT now()
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS paddle_checkout_sessions (
+        token text PRIMARY KEY,
+        user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at timestamp NOT NULL,
+        created_at timestamp DEFAULT now()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS paddle_checkout_sessions_user_idx ON paddle_checkout_sessions (user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS paddle_checkout_sessions_expires_idx ON paddle_checkout_sessions (expires_at)`);
     await client.query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS color text DEFAULT '#2563eb'`);
     await client.query(`
       ALTER TABLE settings

@@ -17,6 +17,7 @@ export default function RegistrationSuccessPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const [nextUrl, setNextUrl] = useState("/login?verified=true");
   const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export default function RegistrationSuccessPage() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || "The code could not be verified.");
+      setNextUrl(result.next || "/login?verified=true");
       setIsVerified(true);
     } catch (error) {
       setCode("");
@@ -93,7 +95,7 @@ export default function RegistrationSuccessPage() {
               </div>
               <h1 className="mt-6 text-2xl font-bold text-[#071127]">Email verified</h1>
               <p className="mt-3 text-sm leading-6 text-[#667085]">Your Tickd account is active. You can now sign in and start tracking.</p>
-              <Button className="mt-7 h-11 w-full" asChild><Link href="/login?verified=true">Continue to login</Link></Button>
+              <Button className="mt-7 h-11 w-full" asChild><Link href={nextUrl}>Continue to login</Link></Button>
             </div>
           ) : (
             <>

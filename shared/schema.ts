@@ -24,6 +24,11 @@ export const users = pgTable("users", {
   subscriptionPlan: text("subscription_plan").notNull().default("free"),
   subscriptionStatus: text("subscription_status").notNull().default("active"),
   subscriptionChangedAt: timestamp("subscription_changed_at").defaultNow(),
+  subscriptionRequestedPlan: text("subscription_requested_plan"),
+  subscriptionCurrentPeriodEnd: timestamp("subscription_current_period_end"),
+  subscriptionCancelAtPeriodEnd: boolean("subscription_cancel_at_period_end").notNull().default(false),
+  paddleCustomerId: text("paddle_customer_id").unique(),
+  paddleSubscriptionId: text("paddle_subscription_id").unique(),
   termsAcceptedAt: timestamp("terms_accepted_at"),
   termsVersion: text("terms_version"),
   privacyVersion: text("privacy_version"),
@@ -34,6 +39,23 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+export const paddleWebhookEvents = pgTable("paddle_webhook_events", {
+  id: text("id").primaryKey(),
+  eventType: text("event_type").notNull(),
+  occurredAt: timestamp("occurred_at").notNull(),
+  processedAt: timestamp("processed_at").defaultNow(),
+});
+
+export const paddleCheckoutSessions = pgTable("paddle_checkout_sessions", {
+  token: text("token").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdx: index("paddle_checkout_sessions_user_idx").on(table.userId),
+  expiresIdx: index("paddle_checkout_sessions_expires_idx").on(table.expiresAt),
+}));
 
 // Email verifications table
 export const verifications = pgTable("verifications", {

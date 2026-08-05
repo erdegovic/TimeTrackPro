@@ -33,6 +33,12 @@ test("inactive paid subscriptions fall back to Free invoice access", () => {
   assert.equal(getInvoiceCapabilities("pro", "canceled").canExport, false);
   assert.equal(getInvoiceCapabilities("pro", "expired").watermarkPreview, true);
   assert.equal(getInvoiceCapabilities("ultimate", "unpaid").canSave, false);
+  assert.equal(getInvoiceCapabilities("pro", "pending").canSave, false);
+  assert.equal(getInvoiceCapabilities("pro", "paused").canSave, false);
+});
+
+test("past-due subscriptions retain access while Paddle retries payment", () => {
+  assert.equal(getInvoiceCapabilities("pro", "past_due").canExport, true);
 });
 
 test("subscription plans preserve a stable downgrade order", () => {

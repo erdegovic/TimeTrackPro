@@ -7,6 +7,7 @@ import publicVerifyRoutes from "./routes/public-verify";
 import { pool } from "./db";
 import { ensureCurrentSchema } from "./schema-bootstrap";
 import { startBackupScheduler } from "./backups/scheduler";
+import { registerPaddleWebhook } from "./billing/paddle";
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -19,6 +20,8 @@ if (isProduction && !sessionSecret) {
 if (isProduction) {
   app.set("trust proxy", 1);
 }
+// Paddle signature verification requires the untouched request body.
+registerPaddleWebhook(app);
 // Increase payload limit to handle image uploads (10MB)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));

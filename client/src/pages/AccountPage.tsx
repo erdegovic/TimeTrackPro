@@ -16,24 +16,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
-import { Lock, User, Key, Upload, Loader2, CreditCard, Check } from 'lucide-react';
+import { Lock, User, Key, Upload, Loader2, CreditCard, Check, ExternalLink } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { queryClient } from '@/lib/queryClient';
 import ProfileForm from '@/components/Auth/ProfileForm';
 import { Link } from 'wouter';
-import { getPlanDetails, planDetails } from '@/lib/plans';
+import { getPlanDetails } from '@/lib/plans';
 import type { SubscriptionPlan } from '@shared/subscriptions';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { openBillingPortal } from '@/lib/paddle';
 
 // Password form schema
 const passwordSchema = z.object({
@@ -58,21 +48,12 @@ export default function AccountPage() {
   const currentPlan = (user?.subscriptionPlan || 'free') as SubscriptionPlan;
   const currentPlanDetails = getPlanDetails(currentPlan);
 
-  const downgradePlan = async (plan: SubscriptionPlan) => {
+  const manageBilling = async () => {
     setIsChangingPlan(true);
     try {
-      const response = await fetch('/api/auth/subscription', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message || 'Plan could not be updated.');
-      queryClient.setQueryData(['/api/auth/user'], result.user);
-      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
-      toast({ title: 'Plan updated', description: result.message });
+      await openBillingPortal();
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Plan update failed', description: error instanceof Error ? error.message : 'Please try again.' });
+      toast({ variant: 'destructive', title: 'Billing unavailable', description: error instanceof Error ? error.message : 'Please try again.' });
     } finally {
       setIsChangingPlan(false);
     }
@@ -402,7 +383,7 @@ export default function AccountPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Subscription</CardTitle>
-                  <CardDescription>Review your current plan or move to a lower tier.</CardDescription>
+                  <CardDescription>Review your plan, renewal, and billing details.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-col gap-5 rounded-lg border border-gray-200 bg-gray-50 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -413,6 +394,12 @@ export default function AccountPage() {
                     {currentPlan !== 'ultimate' && <Button asChild><Link href="/plans">{currentPlan === 'free' ? 'View upgrade options' : 'Compare plans'}</Link></Button>}
                   </div>
 
+                  {user?.subscriptionCancelAtPeriodEnd && user.subscriptionCurrentPeriodEnd && (
+                    <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      Pro remains active until {new Date(user.subscriptionCurrentPeriodEnd).toLocaleDateString()} and will then move to Free.
+                    </div>
+                  )}
+
                   <div className="mt-6 grid gap-5 md:grid-cols-2">
                     <div>
                       <h3 className="text-sm font-semibold">Included in your plan</h3>
@@ -421,25 +408,13 @@ export default function AccountPage() {
                     <div className="border-t border-gray-200 pt-5 md:border-l md:border-t-0 md:pl-6 md:pt-0">
                       <h3 className="text-sm font-semibold">Change plan</h3>
                       {currentPlan === 'free' ? (
-                        <p className="mt-3 text-sm leading-6 text-gray-600">Free is the lowest Tickd tier. Paid upgrades will become available when secure billing is connected.</p>
+                        <div className="mt-3 space-y-3"><p className="text-sm leading-6 text-gray-600">Free is the permanent no-cost tier. Upgrade to Pro whenever you need invoice exports and client billing tools.</p><Button asChild><Link href="/plans">Upgrade securely</Link></Button></div>
+                      ) : user?.subscriptionStatus === 'complimentary' ? (
+                        <p className="mt-3 text-sm leading-6 text-gray-600">This plan was granted by Tickd and has no payment method or recurring charge.</p>
+                      ) : user?.paddleCustomerId ? (
+                        <div className="mt-3 space-y-3"><p className="text-sm leading-6 text-gray-600">Paddle securely manages receipts, payment methods, invoices, and cancellation.</p><Button variant="outline" onClick={manageBilling} disabled={isChangingPlan}>{isChangingPlan ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}Manage billing</Button></div>
                       ) : (
-                        <div className="mt-3 space-y-3">
-                          {planDetails.filter((plan) => plan.id !== currentPlan && (plan.id === 'free' || (currentPlan === 'ultimate' && plan.id === 'pro'))).map((plan) => (
-                            <AlertDialog key={plan.id}>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="outline" className="w-full justify-between" disabled={isChangingPlan}>Downgrade to {plan.name}<span className="text-xs text-gray-500">{plan.price}/mo</span></Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Downgrade to {plan.name}?</AlertDialogTitle>
-                                  <AlertDialogDescription>Your account tier changes immediately. Tracked time and account data will remain in Tickd.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter><AlertDialogCancel>Keep current plan</AlertDialogCancel><AlertDialogAction onClick={() => downgradePlan(plan.id)}>Confirm downgrade</AlertDialogAction></AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          ))}
-                          <p className="text-xs leading-5 text-gray-500">Downgrading changes the account tier immediately. Your tracked data remains in your account.</p>
-                        </div>
+                        <p className="mt-3 text-sm leading-6 text-gray-600">No external billing account is attached to this plan. Contact Tickd support if this looks incorrect.</p>
                       )}
                     </div>
                   </div>
