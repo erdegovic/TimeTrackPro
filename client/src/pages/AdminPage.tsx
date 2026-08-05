@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Lock, RotateCcw, ShieldCheck, UserPlus } from "lucide-react";
+import { AlertTriangle, Database, Lock, RefreshCw, RotateCcw, ShieldCheck, UserPlus } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +24,8 @@ type AdminSummary = {
   adminUsers: number;
   backupStatus: string;
   restoreStatus: string;
+  latestSnapshotAt: string | null;
+  protectedUsers: number;
 };
 
 type AdminUser = {
@@ -39,6 +51,9 @@ type AdminUser = {
     latestSnapshotAt: string | null;
     status: string;
     restoreAvailable: boolean;
+    snapshotId: string | null;
+    byteSize: number | null;
+    recordCounts: Record<string, number>;
   };
 };
 
@@ -50,6 +65,8 @@ const formatDate = (value?: string | null) => {
 export default function AdminPage() {
   const { toast } = useToast();
   const [adminEmail, setAdminEmail] = useState("");
+  const [restoreTarget, setRestoreTarget] = useState<AdminUser | null>(null);
+  const [confirmationEmail, setConfirmationEmail] = useState("");
 
   const { data: summary } = useQuery<AdminSummary>({
     queryKey: ["/api/admin/summary"],
@@ -106,13 +123,61 @@ export default function AdminPage() {
     },
   });
 
-  const restoreUser = useMutation({
+  const runBackups = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/admin/backups/run");
+      return response.json() as Promise<{ successful: number; failed: number }>;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/summary"] });
+      toast({
+        title: "Backup cycle complete",
+        description: `${result.successful} protected, ${result.failed} failed.`,
+      });
+    },
+    onError: (error: Error) => toast({
+      title: "Backup could not run",
+      description: error.message,
+      variant: "destructive",
+    }),
+  });
+
+  const backupUser = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("POST", `/api/admin/users/${id}/restore`);
+      const response = await apiRequest("POST", `/api/admin/users/${id}/backup`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/summary"] });
+      toast({ title: "Account backup complete" });
+    },
+    onError: (error: Error) => toast({
+      title: "Account backup failed",
+      description: error.message,
+      variant: "destructive",
+    }),
+  });
+
+  const restoreUser = useMutation({
+    mutationFn: async ({ id, email }: { id: number; email: string }) => {
+      const response = await apiRequest("POST", `/api/admin/users/${id}/restore`, { confirmationEmail: email });
+      return response.json();
+    },
+    onSuccess: () => {
+      setRestoreTarget(null);
+      setConfirmationEmail("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/summary"] });
+      toast({
+        title: "Account restored",
+        description: "The previous state was saved as a safety snapshot and the user has been signed out.",
+      });
     },
     onError: (error: Error) => {
       toast({
-        title: "Restore is not configured yet",
+        title: "Restore failed",
         description: error.message,
         variant: "destructive",
       });
@@ -132,6 +197,14 @@ export default function AdminPage() {
             Operational account controls and recovery metadata only. Private project, note, invoice, and time-entry contents are not shown here.
           </p>
         </div>
+        <Button
+          variant="outline"
+          onClick={() => runBackups.mutate()}
+          disabled={runBackups.isPending || summary?.backupStatus === "not_configured"}
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${runBackups.isPending ? "animate-spin" : ""}`} />
+          Run all backups
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -156,7 +229,18 @@ export default function AdminPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Backups</CardDescription>
-            <CardTitle className="text-base">Not configured</CardTitle>
+            <CardTitle className="text-base">
+              {summary?.backupStatus === "healthy"
+                ? `${summary.protectedUsers} protected`
+                : summary?.backupStatus === "degraded"
+                  ? "Backup failure detected"
+                  : summary?.backupStatus === "stale"
+                    ? "Backups are overdue"
+                : summary?.backupStatus === "waiting_for_first_backup"
+                  ? "Waiting for first run"
+                  : "Not configured"}
+            </CardTitle>
+            <p className="text-xs text-gray-500">Latest: {formatDate(summary?.latestSnapshotAt)}</p>
           </CardHeader>
         </Card>
       </div>
@@ -205,7 +289,7 @@ export default function AdminPage() {
             <div className="py-8 text-center text-sm text-gray-500">Loading users...</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px] text-left text-sm">
+              <table className="w-full min-w-[1120px] text-left text-sm">
                 <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
                   <tr>
                     <th className="px-3 py-3">User</th>
@@ -243,14 +327,33 @@ export default function AdminPage() {
                         <div>Notes/goals: {user.counts.timeEntryNotes + user.counts.creativityNotes + user.counts.weeklyGoals}</div>
                       </td>
                       <td className="px-3 py-3">
-                        <div className="flex items-center gap-2 text-xs text-amber-700">
-                          <AlertTriangle className="h-4 w-4" />
-                          Backups not configured
+                        <div className={`flex items-center gap-2 text-xs ${user.backup.status === "protected" ? "text-emerald-700" : "text-amber-700"}`}>
+                          {user.backup.status === "protected" ? <ShieldCheck className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                          {user.backup.status === "protected"
+                            ? "Protected"
+                            : user.backup.status === "failed"
+                              ? "Latest backup failed"
+                              : user.backup.status === "stale"
+                                ? "Backup overdue"
+                                : "No completed snapshot"}
                         </div>
                         <div className="mt-1 text-xs text-gray-500">Latest: {formatDate(user.backup.latestSnapshotAt)}</div>
+                        {user.backup.byteSize ? (
+                          <div className="text-xs text-gray-500">Encrypted: {Math.max(1, Math.round(user.backup.byteSize / 1024))} KB</div>
+                        ) : null}
                       </td>
                       <td className="px-3 py-3">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => backupUser.mutate(user.id)}
+                            disabled={backupUser.isPending || summary?.backupStatus === "not_configured"}
+                            title="Create an encrypted snapshot now"
+                          >
+                            <Database className="mr-2 h-4 w-4" />
+                            Back up
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -271,9 +374,12 @@ export default function AdminPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => restoreUser.mutate(user.id)}
-                            disabled
-                            title="Restore will be enabled after an encrypted snapshot destination is configured."
+                            onClick={() => {
+                              setRestoreTarget(user);
+                              setConfirmationEmail("");
+                            }}
+                            disabled={!user.backup.restoreAvailable || restoreUser.isPending}
+                            title={user.backup.restoreAvailable ? "Restore the latest completed snapshot" : "No completed snapshot is available"}
                           >
                             <RotateCcw className="mr-2 h-4 w-4" />
                             Restore
@@ -288,6 +394,51 @@ export default function AdminPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={Boolean(restoreTarget)}
+        onOpenChange={(open) => {
+          if (!open && !restoreUser.isPending) {
+            setRestoreTarget(null);
+            setConfirmationEmail("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore this account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tickd will first save the account's current state, then replace its private workspace with the latest completed snapshot. Active sessions will be cleared.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <label htmlFor="restore-confirmation" className="text-sm font-medium text-gray-900">
+              Type {restoreTarget?.email} to confirm
+            </label>
+            <Input
+              id="restore-confirmation"
+              type="email"
+              autoComplete="off"
+              value={confirmationEmail}
+              onChange={(event) => setConfirmationEmail(event.target.value)}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={restoreUser.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={restoreUser.isPending || confirmationEmail.trim().toLowerCase() !== restoreTarget?.email.toLowerCase()}
+              onClick={(event) => {
+                event.preventDefault();
+                if (restoreTarget) restoreUser.mutate({ id: restoreTarget.id, email: confirmationEmail });
+              }}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              {restoreUser.isPending ? "Restoring..." : "Restore latest snapshot"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import connectPgSimple from "connect-pg-simple";
 import publicVerifyRoutes from "./routes/public-verify";
 import { pool } from "./db";
 import { ensureCurrentSchema } from "./schema-bootstrap";
+import { startBackupScheduler } from "./backups/scheduler";
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -117,5 +118,6 @@ app.use((req, res, next) => {
     host,
   }, () => {
     log(`serving on port ${port}`);
+    startBackupScheduler();
   });
 })();

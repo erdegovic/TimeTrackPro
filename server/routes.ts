@@ -34,6 +34,14 @@ import verifyRoutes from "./routes/verify";
 import { authenticate, handleVerificationRedirect } from "./middleware/auth";
 import fetch from "node-fetch";
 import { getLiveExchangeRates } from "./exchange-rates";
+import {
+  createAccountSnapshot,
+  getAccountBackupState,
+  getBackupSystemSummary,
+  getLatestAccountSnapshot,
+  restoreAccountSnapshot,
+  runAccountBackupCycle,
+} from "./backups/account-snapshots";
 
 const parseInvoiceSettings = (raw?: string | null) => {
   if (!raw) return {};
@@ -491,13 +499,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .select({ count: sql<number>`count(*)::int` })
         .from(usersTable)
         .where(eq(usersTable.role, "admin"));
+      const backupSummary = await getBackupSystemSummary();
 
       res.json({
         totalUsers: Number(usersCount?.count || 0),
         activeUsers: Number(activeUsersCount?.count || 0),
         adminUsers: Number(adminUsersCount?.count || 0),
-        backupStatus: "not_configured",
-        restoreStatus: "pending_backup_system",
+        backupStatus: backupSummary.status,
+        restoreStatus: backupSummary.restoreStatus,
+        latestSnapshotAt: backupSummary.latestSnapshotAt,
+        protectedUsers: backupSummary.protectedUsers,
       });
     } catch (error) {
       console.error("Error getting admin summary:", error);
@@ -523,23 +534,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .orderBy(usersTable.id);
 
       const usersWithRecoveryMetadata = await Promise.all(
-        allUsers.map(async (user) => ({
-          ...user,
-          counts: {
-            clients: await getCountForUser(clientsTable, user.id),
-            projects: await getCountForUser(projectsTable, user.id),
-            timeEntries: await getCountForUser(timeEntriesTable, user.id),
-            invoices: await getCountForUser(invoicesTable, user.id),
-            timeEntryNotes: await getCountForUser(timeEntryNotesTable, user.id),
-            creativityNotes: await getCountForUser(creativityNotesTable, user.id),
-            weeklyGoals: await getCountForUser(weeklyGoalsTable, user.id),
-          },
-          backup: {
-            latestSnapshotAt: null,
-            status: "not_configured",
-            restoreAvailable: false,
-          },
-        })),
+        allUsers.map(async (user) => {
+          const backupState = await getAccountBackupState(user.id);
+          const latestSnapshot = backupState.latestSnapshot;
+          return {
+            ...user,
+            counts: {
+              clients: await getCountForUser(clientsTable, user.id),
+              projects: await getCountForUser(projectsTable, user.id),
+              timeEntries: await getCountForUser(timeEntriesTable, user.id),
+              invoices: await getCountForUser(invoicesTable, user.id),
+              timeEntryNotes: await getCountForUser(timeEntryNotesTable, user.id),
+              creativityNotes: await getCountForUser(creativityNotesTable, user.id),
+              weeklyGoals: await getCountForUser(weeklyGoalsTable, user.id),
+            },
+            backup: {
+              latestSnapshotAt: latestSnapshot?.completedAt || null,
+              status: backupState.status,
+              restoreAvailable: backupState.restoreAvailable,
+              snapshotId: latestSnapshot?.id || null,
+              byteSize: latestSnapshot?.byteSize || null,
+              recordCounts: latestSnapshot?.recordCounts || {},
+            },
+          };
+        }),
       );
 
       res.json(usersWithRecoveryMetadata);
@@ -628,11 +646,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/users/:id/restore", authenticate, requireAdmin, async (_req: Request, res: Response) => {
-    res.status(501).json({
-      message: "Restore requires encrypted snapshot backups to be configured first.",
-      status: "pending_backup_system",
-    });
+  app.post("/api/admin/backups/run", authenticate, requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const result = await runAccountBackupCycle("manual");
+      if (result.status === "not_configured") {
+        return res.status(503).json({ message: "Backup storage is not configured yet" });
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Manual backup cycle failed:", error);
+      res.status(500).json({ message: "Manual backup cycle failed" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/backup", authenticate, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const userId = Number(req.params.id);
+      if (!Number.isInteger(userId) || userId <= 0) return res.status(400).json({ message: "Invalid user id" });
+      const snapshot = await createAccountSnapshot(userId, "manual");
+      res.json({ id: snapshot.id, completedAt: snapshot.completedAt, byteSize: snapshot.byteSize });
+    } catch (error) {
+      console.error("Manual account backup failed:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Account backup failed" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/restore", authenticate, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const targetUserId = Number(req.params.id);
+      const { confirmationEmail } = z.object({ confirmationEmail: z.string().email() }).parse(req.body);
+      if (!Number.isInteger(targetUserId) || targetUserId <= 0) return res.status(400).json({ message: "Invalid user id" });
+
+      const targetUser = await storage.getUser(targetUserId);
+      if (!targetUser) return res.status(404).json({ message: "User not found" });
+      if (targetUser.email.toLowerCase() !== confirmationEmail.trim().toLowerCase()) {
+        return res.status(400).json({ message: "Type the account email exactly to confirm the restore" });
+      }
+      const latestSnapshot = await getLatestAccountSnapshot(targetUserId);
+      if (!latestSnapshot) return res.status(409).json({ message: "This account has no completed snapshot" });
+
+      const adminUserId = req.session?.userId;
+      if (!adminUserId) return res.status(401).json({ message: "User not authenticated" });
+      const result = await restoreAccountSnapshot({
+        adminUserId,
+        targetUserId,
+        snapshotId: latestSnapshot.id,
+      });
+      res.json({
+        success: true,
+        restoredSnapshotAt: result.restoredSnapshot.completedAt,
+        safetySnapshotId: result.safetySnapshot.id,
+      });
+    } catch (error) {
+      console.error("Account restore failed:", error);
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "A valid confirmation email is required" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Account restore failed" });
+    }
   });
   
   // Clients API

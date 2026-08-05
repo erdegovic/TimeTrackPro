@@ -242,6 +242,39 @@ export const focusSessions = pgTable("focus_sessions", {
   completedAt: timestamp("completed_at").defaultNow(),
 });
 
+// Encrypted account snapshot metadata. Snapshot contents live in private object
+// storage; this table intentionally contains recovery metadata only.
+export const accountSnapshots = pgTable("account_snapshots", {
+  id: text("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  objectKey: text("object_key").notNull().unique(),
+  reason: text("reason").notNull().default("scheduled"),
+  status: text("status").notNull().default("pending"),
+  schemaVersion: integer("schema_version").notNull().default(1),
+  byteSize: integer("byte_size"),
+  checksum: text("checksum"),
+  recordCounts: text("record_counts"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => ({
+  userCreatedIdx: index("account_snapshots_user_created_idx").on(table.userId, table.createdAt),
+  statusCreatedIdx: index("account_snapshots_status_created_idx").on(table.status, table.createdAt),
+}));
+
+export const backupAuditEvents = pgTable("backup_audit_events", {
+  id: serial("id").primaryKey(),
+  adminUserId: integer("admin_user_id").references(() => users.id, { onDelete: "set null" }),
+  targetUserId: integer("target_user_id").notNull(),
+  snapshotId: text("snapshot_id"),
+  action: text("action").notNull(),
+  status: text("status").notNull(),
+  details: text("details"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  targetCreatedIdx: index("backup_audit_events_target_created_idx").on(table.targetUserId, table.createdAt),
+}));
+
 // Create Insert Schemas
 export const insertClientSchema = createInsertSchema(clients).omit({ id: true });
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true });
