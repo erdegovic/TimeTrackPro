@@ -5,6 +5,7 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import publicVerifyRoutes from "./routes/public-verify";
 import { pool } from "./db";
+import { ensureCurrentSchema } from "./schema-bootstrap";
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -86,6 +87,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await ensureCurrentSchema();
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

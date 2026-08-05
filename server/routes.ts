@@ -1132,12 +1132,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all projects and clients for enrichment
       const projects = await storage.getProjectsByUser(userId);
       const clients = await storage.getClientsByUser(userId);
-      const settings = await storage.getSettings();
+      const settings = await storage.getSettings(userId);
       
       // Enrich entries with client and project data, including rate calculations
       const enrichedEntries = await Promise.all(entries.map(async (entry) => {
         const project = projects.find(p => p.id === entry.projectId);
-        const client = clients.find(c => c.id === project?.clientId);
+        const client = clients.find(c => c.id === (project?.clientId ?? entry.clientId));
         
         // Use stored duration value (which may have been manually edited)
         let durationHours = 0;
@@ -1648,7 +1648,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/next-invoice-number", authenticate, async (req: Request, res: Response) => {
     try {
-      const settings = await storage.getSettings();
+      const userId = req.user!.id;
+      const settings = await storage.getSettings(userId);
       const clientId = req.query.clientId ? Number(req.query.clientId) : null;
       let clientOptions: Record<string, any> = {};
 
@@ -1662,7 +1663,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const invoiceNumber = await storage.getNextInvoiceNumber({
+      const invoiceNumber = await storage.getNextInvoiceNumber(userId, {
         prefix: clientOptions.invoiceNumberPrefix ?? (settings as any)?.invoiceNumberPrefix ?? "INV-",
         suffix: clientOptions.invoiceNumberSuffix ?? (settings as any)?.invoiceNumberSuffix ?? "",
         padding: clientOptions.invoiceNumberPadding ?? (settings as any)?.invoiceNumberPadding ?? 4,
@@ -1691,7 +1692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Settings API
   app.get("/api/settings", authenticate, async (req: Request, res: Response) => {
     try {
-      const settings = await storage.getSettings();
+      const settings = await storage.getSettings(req.user!.id);
       res.json(settings);
     } catch (error) {
       console.error('Error getting settings:', error);
@@ -1703,10 +1704,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('[Settings] PUT request received with body:', JSON.stringify(req.body, null, 2));
       
-      const data = insertSettingsSchema.parse(req.body);
+      const data = insertSettingsSchema.partial().parse(req.body);
+      if (data.defaultCurrency) {
+        data.defaultCurrency = data.defaultCurrency.trim().toUpperCase();
+      }
       console.log('[Settings] Schema validation passed, parsed data:', JSON.stringify(data, null, 2));
       
-      const settings = await storage.updateSettings(data);
+      const settings = await storage.updateSettings(req.user!.id, data);
       console.log('[Settings] Settings updated successfully:', JSON.stringify(settings, null, 2));
       
       res.json(settings);

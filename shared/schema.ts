@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, numeric, boolean, timestamp, pgEnum, varchar, index, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, numeric, boolean, timestamp, pgEnum, varchar, index, uniqueIndex, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -65,6 +65,7 @@ export const clients = pgTable("clients", {
   phone: text("phone"),
   taxId: text("tax_id"),
   currency: text("currency").default("USD"),
+  color: text("color").default("#2563eb"),
   invoiceLanguage: text("invoice_language").default("en"),
   invoiceSettings: text("invoice_settings"),
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
@@ -73,7 +74,7 @@ export const clients = pgTable("clients", {
 // Invoices table
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
-  invoiceNumber: text("invoice_number").notNull().unique(),
+  invoiceNumber: text("invoice_number").notNull(),
   clientId: integer("client_id").notNull().references(() => clients.id),
   issueDate: text("issue_date").notNull(), // Store as YYYY-MM-DD
   dueDate: text("due_date").notNull(), // Store as YYYY-MM-DD
@@ -85,7 +86,9 @@ export const invoices = pgTable("invoices", {
   notes: text("notes"),
   lineItems: text("line_items"), // JSON string of custom/additional line items
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
-});
+}, (table) => ({
+  userInvoiceNumberIdx: uniqueIndex("invoices_user_invoice_number_unique").on(table.userId, table.invoiceNumber),
+}));
 
 // Projects table
 export const projects = pgTable("projects", {
@@ -131,6 +134,7 @@ export const timeEntryNotes = pgTable("time_entry_notes", {
 // Settings table
 export const settings = pgTable("settings", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
   businessName: text("business_name"),
   businessAddress: text("business_address"),
   businessCity: text("business_city"),
@@ -163,6 +167,10 @@ export const settings = pgTable("settings", {
   defaultTaxRate: numeric("default_tax_rate", { precision: 5, scale: 2 }).default("0"),
   enableTax: boolean("enable_tax").default(false),
   showDueDate: boolean("show_due_date").default(true),
+  defaultDueDateMode: text("default_due_date_mode").default("calendar_month"),
+  defaultDueDays: integer("default_due_days").default(30),
+  showPaymentTerms: boolean("show_payment_terms").default(false),
+  paymentTerms: text("payment_terms"),
   
   // Invoice customization fields
   companyLogo: text("company_logo"), // Base64 encoded image
@@ -260,7 +268,7 @@ export const timeEntryUpdateSchema = z.object({
   billable: z.boolean().optional(),
 });
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true });
-export const insertSettingsSchema = createInsertSchema(settings).omit({ id: true });
+export const insertSettingsSchema = createInsertSchema(settings).omit({ id: true, userId: true });
 
 // Creativity Features Insert Schemas
 export const insertCreativityNoteSchema = createInsertSchema(creativityNotes).omit({ id: true });

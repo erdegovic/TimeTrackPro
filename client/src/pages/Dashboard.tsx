@@ -106,11 +106,13 @@ export default function Dashboard() {
 
   const updateCurrencyMutation = useMutation({
     mutationFn: (newCurrency: string) => apiRequest("PUT", "/api/settings", { defaultCurrency: newCurrency }),
-    onSuccess: () => {
+    onSuccess: async (response) => {
+      const updatedSettings = await response.json();
+      queryClient.setQueryData(["/api/settings"], updatedSettings);
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       toast({ title: "Currency updated" });
     },
-    onError: () => toast({ title: "Error", description: "Failed to update currency.", variant: "destructive" }),
+    onError: (error) => toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to update currency.", variant: "destructive" }),
   });
   const saveCustomCurrenciesMutation = useMutation({
     mutationFn: (currencies: CustomCurrencyMap) => saveCustomCurrencyRates(currencies),
@@ -207,7 +209,7 @@ export default function Dashboard() {
       const id = isProject ? project?.id ?? -1 : client?.id ?? -1;
       const name = isProject ? project?.name || "Unassigned Project" : client?.name || "Unassigned Client";
       const subtitle = isProject ? client?.name || "No client" : `${project?.name || "No project"} activity`;
-      const color = project?.color || (isProject ? "#6366f1" : "#0f766e");
+      const color = isProject ? project?.color || "#6366f1" : client?.color || "#2563eb";
       const hours = Number(entry.duration || 0);
       const rate = Number(project?.hourlyRate || 0);
       const currency = client?.currency || currentCurrency;

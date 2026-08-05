@@ -772,6 +772,7 @@ function generateTimeEntriesTable({
   }
 
   const paymentDetails = buildPaymentDetailLines(settings);
+  let nextInfoBlockY = finalY - 5;
   if (settings.showBankDetails !== false && paymentDetails.length > 0) {
     const blockY = finalY - 5;
     const blockHeight = 17 + paymentDetails.length * 5;
@@ -793,6 +794,22 @@ function generateTimeEntriesTable({
     paymentDetails.forEach((line, index) => {
       doc.text(line, 26, blockY + 15 + index * 5);
     });
+    nextInfoBlockY = blockY + blockHeight + 4;
+  }
+
+  if (settings.showPaymentTerms === true && settings.paymentTerms) {
+    const termLines = doc.splitTextToSize(String(settings.paymentTerms).replace(/<[^>]*>/g, ''), 80);
+    const blockHeight = 17 + termLines.length * 5;
+    doc.setFillColor(250, 250, 250);
+    doc.roundedRect(20, nextInfoBlockY, 92, blockHeight, 2, 2, 'F');
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.setFontSize(fontSize);
+    doc.setFont("helvetica", "bold");
+    doc.text("Payment Terms", 26, nextInfoBlockY + 8);
+    doc.setTextColor(textColor.r, textColor.g, textColor.b);
+    doc.setFontSize(fontSize - 1);
+    doc.setFont("helvetica", "normal");
+    termLines.forEach((line: string, index: number) => doc.text(line, 26, nextInfoBlockY + 15 + index * 5));
   }
 }
 

@@ -64,11 +64,11 @@ export interface IStorage {
   createInvoice(invoice: InsertInvoice): Promise<Invoice>;
   updateInvoice(id: number, invoice: Partial<InsertInvoice>): Promise<Invoice | undefined>;
   deleteInvoice(id: number): Promise<boolean>;
-  getNextInvoiceNumber(options?: InvoiceNumberOptions): Promise<string>;
+  getNextInvoiceNumber(userId: number, options?: InvoiceNumberOptions): Promise<string>;
 
   // Settings
-  getSettings(): Promise<Settings | undefined>;
-  updateSettings(settings: Partial<InsertSettings>): Promise<Settings>;
+  getSettings(userId: number): Promise<Settings | undefined>;
+  updateSettings(userId: number, settings: Partial<InsertSettings>): Promise<Settings>;
 
   // Time Entry Notes
   getTimeEntryNotes(timeEntryId: number): Promise<TimeEntryNote[]>;
@@ -413,6 +413,7 @@ export class MemStorage implements Partial<IStorage> {
       phone: client.phone || null,
       taxId: client.taxId || null,
       currency: client.currency || null,
+      color: client.color || "#2563eb",
       invoiceLanguage: client.invoiceLanguage || "en",
       invoiceSettings: client.invoiceSettings || null,
       userId: client.userId || null
@@ -672,7 +673,7 @@ export class MemStorage implements Partial<IStorage> {
     return this.invoicesData.delete(id);
   }
 
-  async getNextInvoiceNumber(options: InvoiceNumberOptions = {}): Promise<string> {
+  async getNextInvoiceNumber(_userId: number, options: InvoiceNumberOptions = {}): Promise<string> {
     if (!this.settingsData) {
       return formatInvoiceNumber(1001, options);
     }
@@ -686,11 +687,11 @@ export class MemStorage implements Partial<IStorage> {
   }
 
   // Settings
-  async getSettings(): Promise<Settings | undefined> {
+  async getSettings(_userId: number): Promise<Settings | undefined> {
     return this.settingsData;
   }
 
-  async updateSettings(newSettings: Partial<InsertSettings>): Promise<Settings> {
+  async updateSettings(_userId: number, newSettings: Partial<InsertSettings>): Promise<Settings> {
     this.settingsData = {
       ...this.settingsData!,
       ...newSettings

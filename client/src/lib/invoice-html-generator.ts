@@ -46,6 +46,8 @@ export interface InvoiceTemplateData {
   showProjectName?: boolean;
   paymentDetails?: string;
   showPaymentDetails?: boolean;
+  paymentTerms?: string;
+  showPaymentTerms?: boolean;
   footerNotes?: string;
   showFooterNotes?: boolean;
 }
@@ -294,6 +296,7 @@ const INVOICE_CSS = `
   .terms { padding-top: 0; }
   .info-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 12px; align-items: stretch; }
   .info-grid.single { grid-template-columns: 1fr; }
+  .info-grid.stacked { grid-template-columns: 1fr; }
   .info-card { padding: 13px 14px; border: 1px solid var(--line); border-radius: 6px; background: #fff; box-shadow: 0 8px 24px rgba(26,32,44,0.06); }
   .info-card h4 { margin: 0 0 7px; color: var(--ink); font-size: 10.5px; font-weight: 850; letter-spacing: 0.12em; text-transform: uppercase; }
   .info-card p { margin: 0; color: var(--muted); font-size: 10.5px; line-height: 1.7; }
@@ -627,13 +630,16 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
           if (data.showPaymentDetails !== false && data.paymentDetails) {
             parts.push(`<div class="info-card payment-card"><h4>${esc(labels.paymentDetails)}</h4><p>${data.paymentDetails}</p></div>`);
           }
+          if (data.showPaymentTerms !== false && data.paymentTerms) {
+            parts.push(`<div class="info-card terms-card"><h4>${esc(labels.paymentTerms)}</h4><p>${esc(data.paymentTerms).replace(/\n/g, "<br>")}</p></div>`);
+          }
           if (data.showNotes !== false) {
             parts.push(`<div class="info-card notes-card"><h4>${esc(labels.notes)}</h4><p>${data.notes ? esc(data.notes).replace(/\n/g, "<br>") : esc(labels.defaultNotes)}</p></div>`);
           }
           if (parts.length === 0) {
             return `<div class="info-card payment-card"><h4>${esc(labels.paymentTerms)}</h4><p>${esc(labels.defaultNotes)}</p></div>`;
           }
-          return `<div class="info-grid${parts.length === 1 ? ' single' : ''}">${parts.join("")}</div>`;
+          return `<div class="info-grid${parts.length === 1 ? ' single' : ''}${parts.length > 2 ? ' stacked' : ''}">${parts.join("")}</div>`;
         })()}
       </div>
       <div class="totals">

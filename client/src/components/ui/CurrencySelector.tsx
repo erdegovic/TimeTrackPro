@@ -40,6 +40,7 @@ interface CurrencySelectorProps {
   customCurrencies?: CustomCurrencyMap;
   manualRateCurrencyCodes?: string[];
   onSaveCustomCurrencies?: (currencies: CustomCurrencyMap) => Promise<void> | void;
+  formField?: boolean;
 }
 
 export function CurrencySelector({
@@ -50,6 +51,7 @@ export function CurrencySelector({
   customCurrencies = {},
   manualRateCurrencyCodes = [],
   onSaveCustomCurrencies,
+  formField = false,
 }: CurrencySelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -173,7 +175,11 @@ export function CurrencySelector({
     <div className={`relative ${className}`} ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`inline-flex items-center gap-1 px-2 py-1 font-medium text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors cursor-pointer ${
+        className={`items-center gap-2 font-medium transition-colors cursor-pointer ${
+          formField
+            ? "flex h-10 w-full justify-between rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground hover:bg-accent"
+            : "inline-flex rounded px-2 py-1 text-green-600 hover:bg-green-50 hover:text-green-700"
+        } ${
           compact ? "text-xs" : "text-sm"
         }`}
         type="button"
@@ -184,8 +190,8 @@ export function CurrencySelector({
       </button>
 
       {isOpen && (
-        <div className={`absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[100] overflow-hidden ${editorOpen ? "w-[520px]" : "w-72"}`}>
-          <div className="grid" style={{ gridTemplateColumns: editorOpen ? "280px 240px" : "1fr" }}>
+        <div className={`absolute top-full ${formField ? "left-0" : "right-0"} mt-1 max-w-[calc(100vw-2rem)] bg-white border border-gray-200 rounded-lg shadow-lg z-[100] overflow-hidden ${editorOpen ? "w-[520px]" : formField ? "w-full min-w-72" : "w-72"}`}>
+          <div className={`grid ${editorOpen ? "grid-cols-1 sm:grid-cols-[280px_240px]" : "grid-cols-1"}`}>
             <div className="min-w-0">
               <div className="p-3 border-b border-gray-200">
                 <div className="relative">
@@ -261,7 +267,7 @@ export function CurrencySelector({
             </div>
 
             {editorOpen && (
-              <div className="border-l border-gray-200 bg-gray-50 p-3">
+              <div className="border-t border-gray-200 bg-gray-50 p-3 sm:border-l sm:border-t-0">
                 <div className="mb-3 flex items-center justify-between">
                   <div>
                     <div className="text-sm font-semibold text-gray-900">{editingCode ? "Edit currency" : "Custom currency"}</div>

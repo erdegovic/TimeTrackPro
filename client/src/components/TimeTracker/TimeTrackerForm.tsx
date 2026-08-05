@@ -218,7 +218,12 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
           </span>
         )}
         {suggestion.project?.name && suggestion.client?.name && <span> · </span>}
-        {suggestion.client?.name && <span>{suggestion.client.name}</span>}
+        {suggestion.client?.name && (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: suggestion.client.color || "#2563eb" }} />
+            {suggestion.client.name}
+          </span>
+        )}
       </>
     );
   };
@@ -327,7 +332,8 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
                           }}
                         >
                           {selectedClientId === client.id && <Check className="h-4 w-4 mr-2" />}
-                          <span className={selectedClientId === client.id ? "ml-0" : "ml-6"}>
+                          <span className={`inline-flex items-center gap-2 ${selectedClientId === client.id ? "ml-0" : "ml-6"}`}>
+                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: client.color || "#2563eb" }} />
                             {client.name}
                           </span>
                         </div>

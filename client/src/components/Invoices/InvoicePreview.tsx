@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import { Client, Settings, TimeFormat } from "@shared/schema";
 import { generateInvoiceHTML, InvoiceLabels, InvoiceLineItem, InvoiceTemplateData } from "@/lib/invoice-html-generator";
 import { exportInvoicePdf } from "@/lib/invoice-pdf";
 import { useLocation } from "wouter";
+import { InvoiceDateFields } from "./InvoiceDateFields";
+import { calculateDueDate, DueDateMode, formatInvoiceDate, toInvoiceDateInput } from "@/lib/invoice-dates";
 
 interface InvoicePreviewProps {
   reportData: any;
@@ -118,6 +120,13 @@ export default function InvoicePreview({
   const [taxRate, setTaxRate] = useState(0);
   const [enableTax, setEnableTax] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [issueDateValue, setIssueDateValue] = useState(() => toInvoiceDateInput(propIssueDate));
+  const [dueDateMode, setDueDateMode] = useState<DueDateMode>(propDueDate ? "manual" : "calendar_month");
+  const [dueDateDays, setDueDateDays] = useState(30);
+  const [dueDateValue, setDueDateValue] = useState(() =>
+    propDueDate ? toInvoiceDateInput(propDueDate) : calculateDueDate(toInvoiceDateInput(propIssueDate), "calendar_month")
+  );
+  const dateDefaultsApplied = useRef(false);
 
   const { data: invoiceNumberData } = useQuery({
     queryKey: ["/api/next-invoice-number", clientId || "global"],
@@ -175,11 +184,19 @@ export default function InvoicePreview({
       if (!propNotes && !notes && (effectiveSettings as any).invoiceNotes) {
         setNotes((effectiveSettings as any).invoiceNotes);
       }
+      if (!propDueDate && !dateDefaultsApplied.current) {
+        const mode = ((effectiveSettings as any).defaultDueDateMode || "calendar_month") as DueDateMode;
+        const days = Number((effectiveSettings as any).defaultDueDays || 30);
+        setDueDateMode(mode === "manual" ? "calendar_month" : mode);
+        setDueDateDays(days);
+        setDueDateValue(calculateDueDate(issueDateValue, mode === "days" ? "days" : "calendar_month", days));
+        dateDefaultsApplied.current = true;
+      }
     }
-  }, [effectiveSettings, propNotes]);
+  }, [effectiveSettings, propNotes, propDueDate, issueDateValue]);
 
-  const issueDate = propIssueDate || format(new Date(), "MMMM d, yyyy");
-  const dueDate = propDueDate || format(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), "MMMM d, yyyy");
+  const issueDate = formatInvoiceDate(issueDateValue);
+  const dueDate = formatInvoiceDate(dueDateValue);
 
   const formatHoursForInvoice = (hours: number, timeFormat: TimeFormat): string => {
     return timeFormat === "decimal" ? `${hours.toFixed(2)}h` : formatTimeFromDecimal(hours);
@@ -357,8 +374,8 @@ export default function InvoicePreview({
         total: invoiceTotal.toFixed(2),
         notes,
         timeEntryIds,
-        issueDate: format(new Date(issueDate), "yyyy-MM-dd"),
-        dueDate: format(new Date(dueDate), "yyyy-MM-dd"),
+        issueDate: issueDateValue,
+        dueDate: dueDateValue,
         invoiceNumber,
         status: "draft",
         lineItems: JSON.stringify(lineItemsData),
@@ -517,6 +534,8 @@ export default function InvoicePreview({
       showProjectName: (s as any)?.showProjectName !== false,
       paymentDetails,
       showPaymentDetails: !!(s as any)?.showBankDetails && !!paymentDetails,
+      paymentTerms: (s as any)?.paymentTerms || "",
+      showPaymentTerms: (s as any)?.showPaymentTerms === true,
       footerNotes: (s as any)?.invoiceFooterText || "",
       showFooterNotes: (s as any)?.showFooterNotes !== false,
     };
@@ -669,6 +688,24 @@ export default function InvoicePreview({
               </div>
             </div>
           )}
+
+          <div className="space-y-2 rounded-md border border-gray-200 bg-gray-50/50 p-3">
+            <h3 className="text-sm font-medium text-gray-700">Invoice dates</h3>
+            <InvoiceDateFields
+              issueDate={issueDateValue}
+              dueDate={dueDateValue}
+              mode={dueDateMode}
+              days={dueDateDays}
+              showDueDate={showDueDate}
+              onIssueDateChange={setIssueDateValue}
+              onDueDateChange={(value) => {
+                setDueDateValue(value);
+                setDueDate?.(value);
+              }}
+              onModeChange={setDueDateMode}
+              onDaysChange={setDueDateDays}
+            />
+          </div>
 
           {/* Notes */}
           <div className="space-y-2">

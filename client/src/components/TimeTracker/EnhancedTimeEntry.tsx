@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Edit, Trash2, Play, Square, ChevronDown, ChevronRight, Calendar, Check, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,8 +9,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTimerContext } from "@/context/TimerContext";
 import { TimeEntry, Client, Project } from "@shared/schema";
-import { format, parse, isValid } from "date-fns";
+import { format } from "date-fns";
 import { NotesButton } from "./TimeEntryNotes";
+import { resolveTimeRange } from "@/lib/time-entry-time";
 
 interface TimeBlock {
   id: string;
@@ -213,35 +214,6 @@ export default function EnhancedTimeEntry({
     }
 
     return 0;
-  };
-
-  const parseTimeInput = (timeStr: string, baseDate: Date): Date => {
-    try {
-      // Parse various time formats like "2:30pm", "14:30", "2:30"
-      let parsedTime: Date;
-      
-      if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
-        // 12-hour format with AM/PM
-        parsedTime = parse(timeStr, 'h:mma', baseDate);
-        if (!isValid(parsedTime)) {
-          parsedTime = parse(timeStr, 'h:mmaa', baseDate);
-        }
-      } else if (timeStr.includes(':')) {
-        // 24-hour format or time without AM/PM
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        parsedTime = new Date(baseDate);
-        parsedTime.setHours(hours, minutes, 0, 0);
-      } else {
-        // Just a number, assume it's hours
-        const hours = parseInt(timeStr);
-        parsedTime = new Date(baseDate);
-        parsedTime.setHours(hours, 0, 0, 0);
-      }
-
-      return isValid(parsedTime) ? parsedTime : baseDate;
-    } catch (error) {
-      return baseDate;
-    }
   };
 
   const updateTimeBlock = async (blockId: string, newStartTime: Date, newEndTime: Date): Promise<boolean> => {
@@ -656,7 +628,10 @@ export default function EnhancedTimeEntry({
                     <SelectContent className="select-content">
                       {clients.map((client) => (
                         <SelectItem key={client.id} value={client.id.toString()}>
-                          {client.name}
+                          <span className="inline-flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: client.color || "#2563eb" }} />
+                            {client.name}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -715,11 +690,13 @@ export default function EnhancedTimeEntry({
                 {/* Always show client name if project exists (since all projects have clients) */}
                 {groupedEntry.project && groupedEntry.client && (
                   <span 
-                    className="ml-2 cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                    className="ml-2 inline-flex cursor-pointer items-center gap-1.5 hover:underline transition-colors"
+                    style={{ color: groupedEntry.client.color || "#2563eb" }}
                     onClick={handleEditEntry}
                     title="Click to edit client"
                   >
-                    • {groupedEntry.client.name}
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: groupedEntry.client.color || "#2563eb" }} />
+                    {groupedEntry.client.name}
                   </span>
                 )}
                 {/* Fallback: if no client data but we have project, find client from projects */}
@@ -727,11 +704,13 @@ export default function EnhancedTimeEntry({
                   const foundClient = clients.find(c => c.id === groupedEntry.project?.clientId);
                   return foundClient ? (
                     <span 
-                      className="ml-2 cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                      className="ml-2 inline-flex cursor-pointer items-center gap-1.5 hover:underline transition-colors"
+                      style={{ color: foundClient.color || "#2563eb" }}
                       onClick={handleEditEntry}
                       title="Click to edit client"
                     >
-                      • {foundClient.name}
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: foundClient.color || "#2563eb" }} />
+                      {foundClient.name}
                     </span>
                   ) : null;
                 })()}
@@ -741,10 +720,12 @@ export default function EnhancedTimeEntry({
                   if (groupedEntry.client) {
                     return (
                       <span 
-                        className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                        className="inline-flex cursor-pointer items-center gap-1.5 hover:underline transition-colors"
+                        style={{ color: groupedEntry.client.color || "#2563eb" }}
                         onClick={handleEditEntry}
                         title="Click to edit client or assign project"
                       >
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: groupedEntry.client.color || "#2563eb" }} />
                         {groupedEntry.client.name}
                       </span>
                     );
@@ -834,7 +815,7 @@ export default function EnhancedTimeEntry({
                       handleDurationCancel();
                     }
                   }}
-                  className="w-20 h-6 text-xs font-mono text-center"
+                  className="h-7 w-24 min-w-[6rem] text-center font-mono text-xs"
                   placeholder="0:00:00"
                   autoFocus
                 />
@@ -1006,6 +987,9 @@ function EditableTimeRange({
 }) {
   const [startInput, setStartInput] = useState("");
   const [endInput, setEndInput] = useState("");
+  const editorRef = useRef<HTMLDivElement>(null);
+  const savingRef = useRef(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (isEditing) {
@@ -1024,45 +1008,28 @@ function EditableTimeRange({
   }, [startTime, endTime, isEditing]);
 
   const handleSave = async () => {
-    const baseDate = new Date(startTime);
-    const newStart = parseTimeInput(startInput, baseDate);
-    const newEnd = parseTimeInput(endInput, baseDate);
-    
-    const didUpdate = await onUpdate(newStart, newEnd);
-    if (didUpdate) {
-      onEditToggle(false);
+    if (savingRef.current) return;
+    const resolved = resolveTimeRange(startInput, endInput, startTime, endTime);
+    if (!resolved) {
+      toast({
+        title: "Check the time",
+        description: "Enter a valid start and end time, for example 1430 or 2:30 pm.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    savingRef.current = true;
+    try {
+      const didUpdate = await onUpdate(resolved.start, resolved.end);
+      if (didUpdate) onEditToggle(false);
+    } finally {
+      savingRef.current = false;
     }
   };
 
   const handleCancel = () => {
     onEditToggle(false);
-  };
-
-  const parseTimeInput = (timeStr: string, baseDate: Date): Date => {
-    try {
-      let parsedTime: Date;
-      
-      if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
-        parsedTime = parse(timeStr, 'h:mma', baseDate);
-        if (!isValid(parsedTime)) {
-          parsedTime = parse(timeStr, 'h:mmaa', baseDate);
-        }
-      } else if (timeStr.includes(':')) {
-        const parts = timeStr.split(':');
-        const hours = parseInt(parts[0]);
-        const minutes = parseInt(parts[1]) || 0;
-        parsedTime = new Date(baseDate);
-        parsedTime.setHours(hours, minutes, 0, 0);
-      } else {
-        const hours = parseInt(timeStr);
-        parsedTime = new Date(baseDate);
-        parsedTime.setHours(hours, 0, 0, 0);
-      }
-
-      return isValid(parsedTime) ? parsedTime : baseDate;
-    } catch (error) {
-      return baseDate;
-    }
   };
 
   const formatTime = (date: Date) => {
@@ -1071,21 +1038,32 @@ function EditableTimeRange({
 
   if (isEditing) {
     return (
-      <div className="flex items-center space-x-2">
+      <div
+        ref={editorRef}
+        className="flex flex-wrap items-center gap-2"
+        onBlurCapture={(event) => {
+          if (!editorRef.current?.contains(event.relatedTarget as Node | null)) void handleSave();
+        }}
+      >
         <Input
           value={startInput}
           onChange={(e) => setStartInput(e.target.value)}
-          className="w-20 h-7 text-xs"
+          className="h-7 w-24 font-mono text-xs"
           placeholder="6:33pm"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void handleSave();
+            if (e.key === 'Escape') handleCancel();
+          }}
+          autoFocus
         />
         <span className="text-gray-400">-</span>
         <Input
           value={endInput}
           onChange={(e) => setEndInput(e.target.value)}
-          className="w-20 h-7 text-xs"
+          className="h-7 w-24 font-mono text-xs"
           placeholder="7:46pm"
           onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSave();
+            if (e.key === 'Enter') void handleSave();
             if (e.key === 'Escape') handleCancel();
           }}
         />

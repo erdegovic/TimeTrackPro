@@ -37,6 +37,7 @@ import { exportInvoicePdf } from "@/lib/invoice-pdf";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { formatInvoiceNumber } from "@shared/invoice-number";
+import { calculateDueDate, formatInvoiceDate } from "@/lib/invoice-dates";
 
 const CURRENCY_PRESETS = [
   { code: "USD", symbol: "$",  label: "USD — US Dollar ($)" },
@@ -140,6 +141,10 @@ const settingsSchema = z.object({
     z.string().transform((val) => (val === '' ? '0' : val))
   ),
   showDueDate: z.boolean().default(true),
+  defaultDueDateMode: z.enum(["calendar_month", "days"]).default("calendar_month"),
+  defaultDueDays: z.coerce.number().int().min(1).max(365).default(30),
+  showPaymentTerms: z.boolean().default(false),
+  paymentTerms: z.string().max(2000).optional(),
   
   // Invoice Customization
   companyLogo: z.string().optional(),
@@ -524,6 +529,10 @@ export default function SettingsPage() {
       enableTax: false,
       defaultTaxRate: "0",
       showDueDate: true,
+      defaultDueDateMode: "calendar_month",
+      defaultDueDays: 30,
+      showPaymentTerms: false,
+      paymentTerms: "Payment is due according to the terms shown on this invoice.",
       companyLogo: "",
       showLogo: true,
       logoSize: "64",
@@ -585,6 +594,10 @@ export default function SettingsPage() {
         enableTax: settings.enableTax ?? false,
         defaultTaxRate: settings.defaultTaxRate?.toString() || "0",
         showDueDate: settings.showDueDate ?? true,
+        defaultDueDateMode: ((settings as any).defaultDueDateMode === "days" ? "days" : "calendar_month") as "days" | "calendar_month",
+        defaultDueDays: Number((settings as any).defaultDueDays || 30),
+        showPaymentTerms: (settings as any).showPaymentTerms ?? false,
+        paymentTerms: (settings as any).paymentTerms || "Payment is due according to the terms shown on this invoice.",
         companyLogo: settings.companyLogo || "",
         showLogo: settings.showLogo ?? true,
         logoSize: settings.logoSize || "64",
@@ -775,7 +788,7 @@ export default function SettingsPage() {
       }),
       issueDate: previewOverride?.issueDate || format(new Date(), "MMMM d, yyyy"),
       dueDate: watchedValues.showDueDate
-        ? previewOverride?.dueDate || format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")
+        ? previewOverride?.dueDate || formatInvoiceDate(calculateDueDate(format(new Date(), "yyyy-MM-dd"), watchedValues.defaultDueDateMode, watchedValues.defaultDueDays))
         : "",
       clientName: previewOverride?.clientName || "Sample Client Co.",
       clientAddress: previewOverride?.clientAddress || "123 Client Street",
@@ -803,6 +816,8 @@ export default function SettingsPage() {
       showProjectName: watchedValues.showProjectName,
       paymentDetails: paymentHtml,
       showPaymentDetails: watchedValues.showBankDetails && !!paymentHtml,
+      paymentTerms: watchedValues.paymentTerms || "",
+      showPaymentTerms: watchedValues.showPaymentTerms,
       footerNotes: watchedValues.invoiceFooterText || "",
       showFooterNotes: watchedValues.showFooterNotes ?? true,
     };
@@ -814,7 +829,8 @@ export default function SettingsPage() {
     (watchedValues as any).companyLogo, (watchedValues as any).showLogo, (watchedValues as any).logoSize,
     watchedValues.invoiceColorTheme, watchedValues.invoiceAccentColor, watchedValues.invoiceTextColor,
     watchedValues.invoiceBackgroundColor, watchedValues.defaultTimeFormat, watchedValues.enableTax,
-    watchedValues.defaultTaxRate, watchedValues.showDueDate, watchedValues.showInvoiceNotes, watchedValues.invoiceNotes, watchedValues.showDateColumn,
+    watchedValues.defaultTaxRate, watchedValues.showDueDate, watchedValues.defaultDueDateMode, watchedValues.defaultDueDays,
+    watchedValues.showPaymentTerms, watchedValues.paymentTerms, watchedValues.showInvoiceNotes, watchedValues.invoiceNotes, watchedValues.showDateColumn,
     watchedValues.showHourlyRate, watchedValues.showProjectName, watchedValues.enableWeeklyCategorization, watchedValues.showBankDetails, watchedValues.invoiceFooterText,
     watchedValues.showFooterNotes, watchedValues.invoiceLanguage, watchedValues.paymentMethodType, watchedValues.bankName,
     watchedValues.bankAccountName, watchedValues.bankAccountNumber, watchedValues.bankSortCode,
@@ -850,25 +866,24 @@ export default function SettingsPage() {
       console.log("[Settings Frontend] Sending data to API:", data);
       const response = await apiRequest("PUT", "/api/settings", data);
       console.log("[Settings Frontend] API response received:", response);
-      return response;
+      return response.json() as Promise<Settings>;
     },
-    onSuccess: () => {
+    onSuccess: (updatedSettings) => {
       console.log("[Settings Frontend] Update successful");
+      queryClient.setQueryData(["/api/settings"], updatedSettings);
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       toast({
         title: "Settings updated",
         description: "Your settings have been saved successfully.",
       });
-      setIsSubmitting(false);
     },
     onError: (error) => {
       console.error("[Settings Frontend] Error updating settings:", error);
       toast({
         title: "Error",
-        description: "Failed to update settings. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to update settings. Please try again.",
         variant: "destructive",
       });
-      setIsSubmitting(false);
     },
   });
 
@@ -896,10 +911,14 @@ export default function SettingsPage() {
     console.log("[Settings Frontend] Form submitted with data:", data);
     console.log("[Settings Frontend] Form errors:", form.formState.errors);
     setIsSubmitting(true);
-    if (data.invoiceLanguage === "custom") {
-      saveInvoiceLabels.mutate(customInvoiceLabels);
+    try {
+      if (data.invoiceLanguage === "custom") {
+        await saveInvoiceLabels.mutateAsync(customInvoiceLabels);
+      }
+      await updateSettingsMutation.mutateAsync(data);
+    } finally {
+      setIsSubmitting(false);
     }
-    updateSettingsMutation.mutate(data);
   };
 
   if (isLoading) {
@@ -1518,6 +1537,43 @@ export default function SettingsPage() {
                                   )}
                                 />
                               ))}
+                              {watchedValues.showDueDate && (
+                                <div className="mt-2 space-y-2 rounded-md border border-gray-200 bg-gray-50 p-2">
+                                  <FormField
+                                    control={form.control}
+                                    name="defaultDueDateMode"
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel className="text-[11px] text-gray-500">Default Payment Period</FormLabel>
+                                        <Select value={field.value} onValueChange={field.onChange}>
+                                          <FormControl><SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger></FormControl>
+                                          <SelectContent>
+                                            <SelectItem value="calendar_month">1 calendar month</SelectItem>
+                                            <SelectItem value="days">Custom number of days</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </FormItem>
+                                    )}
+                                  />
+                                  {watchedValues.defaultDueDateMode === "days" && (
+                                    <FormField
+                                      control={form.control}
+                                      name="defaultDueDays"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel className="text-[11px] text-gray-500">Days</FormLabel>
+                                          <Select value={String(field.value)} onValueChange={(value) => field.onChange(Number(value))}>
+                                            <FormControl><SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger></FormControl>
+                                            <SelectContent>
+                                              {[7, 14, 30, 45, 60, 90].map((days) => <SelectItem key={days} value={String(days)}>{days} days</SelectItem>)}
+                                            </SelectContent>
+                                          </Select>
+                                        </FormItem>
+                                      )}
+                                    />
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </CollapsibleContent>
@@ -1658,6 +1714,53 @@ export default function SettingsPage() {
                                 </FormItem>
                               )} />
                             )}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+
+                    {/* Payment Terms - kept separately from payment account details */}
+                    <div className="bg-white rounded-md border overflow-hidden">
+                      <Collapsible
+                        open={openSections.has("terms")}
+                        onOpenChange={(o) => { const s = new Set(openSections); o ? s.add("terms") : s.delete("terms"); setOpenSections(s); }}
+                      >
+                        <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
+                          <CollapsibleTrigger className="flex-1 text-left">
+                            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <FileText className="h-3 w-3" /> Payment Terms
+                            </span>
+                          </CollapsibleTrigger>
+                          <div className="flex items-center gap-2">
+                            <FormField
+                              control={form.control}
+                              name="showPaymentTerms"
+                              render={({ field }) => <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>}
+                            />
+                            <CollapsibleTrigger>
+                              <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${openSections.has("terms") ? "rotate-180" : ""}`} />
+                            </CollapsibleTrigger>
+                          </div>
+                        </div>
+                        <CollapsibleContent>
+                          <div className={`px-3 pb-3 border-t pt-2 ${!watchedValues.showPaymentTerms ? "opacity-50 pointer-events-none" : ""}`}>
+                            <FormField
+                              control={form.control}
+                              name="paymentTerms"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <Textarea
+                                      value={field.value || ""}
+                                      onChange={field.onChange}
+                                      className="min-h-20 text-xs"
+                                      placeholder="Payment is due by the stated due date."
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
                           </div>
                         </CollapsibleContent>
                       </Collapsible>
@@ -1805,22 +1908,9 @@ export default function SettingsPage() {
           {/* Save Button */}
           <div className="flex justify-end gap-4 pt-6 border-t">
             <Button
-              type="button"
+              type="submit"
               disabled={isSubmitting}
               className="flex items-center gap-2"
-              onClick={() => {
-                console.log("[Settings Frontend] Button clicked, form state:", {
-                  isValid: form.formState.isValid,
-                  errors: form.formState.errors,
-                  values: form.getValues()
-                });
-                
-                // Try to submit manually to bypass form validation issues
-                const currentValues = form.getValues();
-                console.log("[Settings Frontend] Manual submit with values:", currentValues);
-                setIsSubmitting(true);
-                updateSettingsMutation.mutate(currentValues);
-              }}
             >
               {isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

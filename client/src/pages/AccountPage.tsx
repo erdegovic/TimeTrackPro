@@ -16,7 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
-import { Lock, User, Key, Upload } from 'lucide-react';
+import { Lock, User, Key, Upload, Loader2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { queryClient } from '@/lib/queryClient';
 import ProfileForm from '@/components/Auth/ProfileForm';
@@ -36,6 +36,7 @@ type PasswordFormValues = z.infer<typeof passwordSchema>;
 export default function AccountPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>("");
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
 
@@ -51,7 +52,7 @@ export default function AccountPage() {
 
   // Avatar upload handler
   const handleAvatarClick = () => {
-    if (fileInputRef.current) {
+    if (!isAvatarUploading && fileInputRef.current) {
       fileInputRef.current.click();
     }
   };
@@ -59,13 +60,25 @@ export default function AccountPage() {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) {
+      toast({ variant: 'destructive', title: 'Unsupported image', description: 'Choose a PNG, JPEG, WEBP, or GIF image.' });
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ variant: 'destructive', title: 'Image is too large', description: 'Choose an image smaller than 5 MB.' });
+      event.target.value = '';
+      return;
+    }
+
+    const previousAvatar = avatarUrl;
+    setIsAvatarUploading(true);
 
     // In a real app, you would upload the file to a server
     // For now, just use a local URL
     const reader = new FileReader();
     reader.onload = async (e) => {
       if (e.target?.result) {
-        // Set avatar locally
         setAvatarUrl(e.target.result.toString());
         
         // Send to server
@@ -78,32 +91,46 @@ export default function AccountPage() {
             body: JSON.stringify({ 
               avatarUrl: e.target.result.toString() 
             }),
+            credentials: 'include',
           });
           
           if (response.ok) {
+            const result = await response.json();
             toast({
               title: 'Avatar updated',
               description: 'Your profile picture has been updated successfully',
             });
             
             // Update user in react-query cache
-            queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+            queryClient.setQueryData(['/api/auth/user'], result.user);
+            await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
           } else {
+            const error = await response.json().catch(() => ({}));
+            setAvatarUrl(previousAvatar);
             toast({
               variant: 'destructive',
               title: 'Update failed',
-              description: 'Failed to update avatar',
+              description: error.message || 'Failed to update avatar',
             });
           }
         } catch (error) {
           console.error('Error updating avatar:', error);
+          setAvatarUrl(previousAvatar);
           toast({
             variant: 'destructive',
             title: 'Error',
             description: 'An unexpected error occurred',
           });
+        } finally {
+          setIsAvatarUploading(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
         }
       }
+    };
+    reader.onerror = () => {
+      setIsAvatarUploading(false);
+      event.target.value = '';
+      toast({ variant: 'destructive', title: 'Could not read image', description: 'Please choose the file again.' });
     };
     reader.readAsDataURL(file);
   };
@@ -167,8 +194,8 @@ export default function AccountPage() {
             <CardContent className="pt-4 sm:pt-6">
               <div className="flex flex-col items-center space-y-3 sm:space-y-4">
                 <div className="relative">
-                  <Avatar className="h-20 w-20 sm:h-24 sm:w-24 cursor-pointer" onClick={handleAvatarClick}>
-                    <AvatarImage src={user?.profileImageUrl || avatarUrl} alt="Profile" />
+                  <Avatar className="h-20 w-20 sm:h-24 sm:w-24 cursor-pointer overflow-hidden rounded-full" onClick={handleAvatarClick}>
+                    <AvatarImage src={avatarUrl || user?.profileImageUrl || undefined} alt="Profile" className="h-full w-full object-cover" />
                     <AvatarFallback className="bg-gray-100">
                       <User className="h-10 w-10 text-gray-400" />
                     </AvatarFallback>
@@ -177,10 +204,11 @@ export default function AccountPage() {
                     size="icon" 
                     className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-primary text-primary-foreground" 
                     onClick={handleAvatarClick}
+                    disabled={isAvatarUploading}
                     title="Upload profile picture"
                     aria-label="Upload profile picture"
                   >
-                    <Upload className="h-4 w-4" />
+                    {isAvatarUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                   </Button>
                   <input 
                     type="file" 
@@ -188,6 +216,7 @@ export default function AccountPage() {
                     className="hidden" 
                     accept="image/*" 
                     onChange={handleFileChange}
+                    disabled={isAvatarUploading}
                   />
                 </div>
                 <div className="text-center">

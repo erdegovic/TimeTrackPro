@@ -245,7 +245,7 @@ export default function AdminPage() {
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-2 text-xs text-amber-700">
                           <AlertTriangle className="h-4 w-4" />
-                          Snapshot backups pending
+                          Backups not configured
                         </div>
                         <div className="mt-1 text-xs text-gray-500">Latest: {formatDate(user.backup.latestSnapshotAt)}</div>
                       </td>
@@ -273,7 +273,7 @@ export default function AdminPage() {
                             size="sm"
                             onClick={() => restoreUser.mutate(user.id)}
                             disabled
-                            title="Restore will be enabled after encrypted backup snapshots are implemented."
+                            title="Restore will be enabled after an encrypted snapshot destination is configured."
                           >
                             <RotateCcw className="mr-2 h-4 w-4" />
                             Restore

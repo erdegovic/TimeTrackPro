@@ -94,17 +94,19 @@ export default function TimeEntryList() {
   const updateCurrencyMutation = useMutation({
     mutationFn: (newCurrency: string) => 
       apiRequest("PUT", "/api/settings", { defaultCurrency: newCurrency }),
-    onSuccess: () => {
+    onSuccess: async (response) => {
+      const updatedSettings = await response.json();
+      queryClient.setQueryData(["/api/settings"], updatedSettings);
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       toast({
         title: "Currency updated",
         description: "Default currency has been changed successfully.",
       });
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to update currency.",
+        description: error instanceof Error ? error.message : "Failed to update currency.",
         variant: "destructive",
       });
     },
@@ -383,6 +385,7 @@ export default function TimeEntryList() {
       if (!acc[groupKey]) {
         acc[groupKey] = {
           label: groupLabel,
+          color: groupBy === "client" ? entry.client?.color : groupBy === "project" ? entry.project?.color : undefined,
           entries: [],
           totalHours: 0
         };
@@ -395,7 +398,7 @@ export default function TimeEntryList() {
     });
     
     return acc;
-  }, {} as Record<string, { label: string; entries: any[]; totalHours: number }>);
+  }, {} as Record<string, { label: string; color?: string | null; entries: any[]; totalHours: number }>);
 
   // Sort entries within each group (newest first)
   Object.values(groupedEntries).forEach(group => {
@@ -918,7 +921,10 @@ export default function TimeEntryList() {
           <div key={groupKey} className="tickd-card mb-6">
             <div className="px-4 py-3 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-medium text-gray-900">{group.label}</h2>
+                <h2 className="flex items-center gap-2 text-lg font-medium text-gray-900">
+                  {group.color && <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: group.color }} />}
+                  {group.label}
+                </h2>
                 <div className="flex items-center gap-4">
                   <span className="text-sm font-medium text-gray-500">
                     Total: {timeFormat === "decimal" ? group.totalHours.toFixed(1) + "h" : formatTimeFromDecimal(group.totalHours)}
@@ -999,7 +1005,10 @@ export default function TimeEntryList() {
                     {/* Second line: Client, Project, and Actions */}
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                       <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs text-gray-500">
-                        <span className="font-medium">{entry.client?.name || "—"}</span>
+                        <span className="flex items-center gap-1.5 font-medium">
+                          {entry.client && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.client.color || "#2563eb" }} />}
+                          {entry.client?.name || "—"}
+                        </span>
                         <span className="hidden sm:inline">•</span>
                         <span style={{ color: (entry.project as any)?.color || "#6B7280" }}>
                           {entry.project?.name || "—"}
@@ -1135,7 +1144,12 @@ export default function TimeEntryList() {
                   <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
                   <SelectContent>
                     {clients.map((client) => (
-                      <SelectItem key={client.id} value={String(client.id)}>{client.name}</SelectItem>
+                      <SelectItem key={client.id} value={String(client.id)}>
+                        <span className="inline-flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: client.color || "#2563eb" }} />
+                          {client.name}
+                        </span>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

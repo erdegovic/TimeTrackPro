@@ -23,7 +23,9 @@ const updateProfileSchema = z.object({
 
 // Schema for avatar update
 const updateAvatarSchema = z.object({
-  avatarUrl: z.string().min(1, 'Avatar URL is required')
+  avatarUrl: z.string()
+    .max(7_000_000, 'Profile image is too large')
+    .regex(/^data:image\/(png|jpeg|webp|gif);base64,/i, 'Profile image must be a PNG, JPEG, WEBP, or GIF')
 });
 
 /**
@@ -358,7 +360,7 @@ export async function updateAvatar(req: Request, res: Response) {
     
     const userId = req.user.id;
     
-    console.log(`Avatar update request for user ${userId} with URL: ${avatarUrl}`);
+    console.log(`Avatar update request for user ${userId}`);
     
     // Get user from database
     const user = await storage.getUser(userId);
@@ -381,7 +383,19 @@ export async function updateAvatar(req: Request, res: Response) {
     
     return res.status(200).json({ 
       message: 'Avatar updated successfully',
-      profileImageUrl: updatedUser.profileImageUrl
+      profileImageUrl: updatedUser.profileImageUrl,
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        username: updatedUser.username,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        profileImageUrl: updatedUser.profileImageUrl,
+        role: updatedUser.role,
+        status: updatedUser.status,
+        createdAt: updatedUser.createdAt,
+        updatedAt: updatedUser.updatedAt,
+      }
     });
     
   } catch (error) {

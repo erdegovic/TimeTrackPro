@@ -16,6 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { generatePdf } from "@/lib/enhanced-pdf-generator";
 import { Invoice, Client, Settings } from "@shared/schema";
 import { formatCurrency } from "@/lib/utils/timeUtils";
+import { InvoiceDateFields } from "./InvoiceDateFields";
+import { DueDateMode } from "@/lib/invoice-dates";
 
 interface LineItem {
   id: number;
@@ -41,6 +43,8 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
   const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoiceNumber);
   const [issueDate, setIssueDate] = useState(invoice.issueDate);
   const [dueDate, setDueDate] = useState(invoice.dueDate);
+  const [dueDateMode, setDueDateMode] = useState<DueDateMode>("manual");
+  const [dueDateDays, setDueDateDays] = useState(30);
   const [status, setStatus] = useState(invoice.status);
   const [notes, setNotes] = useState("");
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
@@ -292,16 +296,17 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
               <Label htmlFor="invoiceNumber" className="text-xs text-gray-500">Invoice Number</Label>
               <Input id="invoiceNumber" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className="mt-1 h-9" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="issueDate" className="text-xs text-gray-500">Issue Date</Label>
-                <Input id="issueDate" type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} className="mt-1 h-9" />
-              </div>
-              <div>
-                <Label htmlFor="dueDate" className="text-xs text-gray-500">Due Date</Label>
-                <Input id="dueDate" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="mt-1 h-9" />
-              </div>
-            </div>
+            <InvoiceDateFields
+              issueDate={issueDate}
+              dueDate={dueDate}
+              mode={dueDateMode}
+              days={dueDateDays}
+              showDueDate={settings?.showDueDate !== false}
+              onIssueDateChange={setIssueDate}
+              onDueDateChange={setDueDate}
+              onModeChange={setDueDateMode}
+              onDaysChange={setDueDateDays}
+            />
           </div>
 
           {/* Client */}

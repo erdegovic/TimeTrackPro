@@ -63,8 +63,17 @@ export default function ClientsPage() {
   const columns = [
     {
       header: "Name",
-      accessorKey: "name" as keyof Client,
+      accessorKey: (row: Client) => (
+        <span className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: row.color || "#2563eb" }} />
+          <span>{row.name}</span>
+        </span>
+      ),
       className: "font-medium",
+    },
+    {
+      header: "Currency",
+      accessorKey: (row: Client) => row.currency || "USD",
     },
     {
       header: "Email",
@@ -174,7 +183,11 @@ export default function ClientsPage() {
                 <div key={client.id} className="px-5 py-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="break-words text-base font-semibold text-gray-900">{client.name}</h3>
+                      <h3 className="flex items-center gap-2 break-words text-base font-semibold text-gray-900">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: client.color || "#2563eb" }} />
+                        {client.name}
+                      </h3>
+                      <p className="mt-1 text-xs font-medium text-gray-500">{client.currency || "USD"}</p>
                       {client.email && <p className="mt-1 break-all text-sm text-gray-600">{client.email}</p>}
                       {client.phone && <p className="mt-1 text-sm text-gray-600">{client.phone}</p>}
                       {location && <p className="mt-1 break-words text-sm text-gray-500">{location}</p>}

@@ -452,12 +452,12 @@ export class DatabaseStorage implements IStorage {
   async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
     const [result] = await db.insert(invoices).values(invoice).returning();
 
-    const settingsData = await this.getSettings();
-    if (settingsData) {
+    const settingsData = invoice.userId ? await this.getSettings(invoice.userId) : undefined;
+    if (settingsData && invoice.userId) {
       await db
         .update(settings)
         .set({ nextInvoiceNumber: sql`${settings.nextInvoiceNumber} + 1` })
-        .where(eq(settings.id, settingsData.id));
+        .where(and(eq(settings.id, settingsData.id), eq(settings.userId, invoice.userId)));
     }
 
     return result;
@@ -486,11 +486,11 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount > 0;
   }
 
-  async getNextInvoiceNumber(options: InvoiceNumberOptions = {}): Promise<string> {
-    const settingsData = await this.getSettings();
+  async getNextInvoiceNumber(userId: number, options: InvoiceNumberOptions = {}): Promise<string> {
+    const settingsData = await this.getSettings(userId);
     if (!settingsData) {
       // Create default settings if none exist
-      const settings = await this.createDefaultSettings();
+      const settings = await this.createDefaultSettings(userId);
       return formatInvoiceNumber(settings.nextInvoiceNumber, options);
     }
     
@@ -505,42 +505,51 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Settings methods
-  async getSettings(): Promise<Settings | undefined> {
-    const [settingsData] = await db.select().from(settings);
+  async getSettings(userId: number): Promise<Settings | undefined> {
+    const [settingsData] = await db
+      .select()
+      .from(settings)
+      .where(eq(settings.userId, userId));
     
     if (!settingsData) {
-      return this.createDefaultSettings();
+      return this.createDefaultSettings(userId);
     }
     
     return settingsData;
   }
 
   async updateSettings(
+    userId: number,
     settingsData: Partial<InsertSettings>
   ): Promise<Settings> {
     // Get current settings or create default if none exist
-    const currentSettings = await this.getSettings();
+    const currentSettings = await this.getSettings(userId);
     
     if (!currentSettings) {
-      return this.createDefaultSettings();
+      return this.createDefaultSettings(userId, settingsData);
     }
     
     const [updatedSettings] = await db
       .update(settings)
       .set(settingsData)
-      .where(eq(settings.id, currentSettings.id))
+      .where(and(eq(settings.id, currentSettings.id), eq(settings.userId, userId)))
       .returning();
       
     return updatedSettings;
   }
 
-  private async createDefaultSettings(): Promise<Settings> {
-    const defaultSettings = this.getDefaultSettings();
-    const [settings] = await db
+  private async createDefaultSettings(userId: number, overrides: Partial<InsertSettings> = {}): Promise<Settings> {
+    const defaultSettings = { ...this.getDefaultSettings(), ...overrides, userId };
+    const [createdSettings] = await db
       .insert(settings)
       .values(defaultSettings)
+      .onConflictDoNothing({ target: settings.userId })
       .returning();
-    return settings;
+    if (createdSettings) return createdSettings;
+
+    const [existingSettings] = await db.select().from(settings).where(eq(settings.userId, userId));
+    if (!existingSettings) throw new Error(`Could not create settings for user ${userId}`);
+    return existingSettings;
   }
 
   private getDefaultSettings(): InsertSettings {
@@ -568,6 +577,10 @@ export class DatabaseStorage implements IStorage {
       defaultTaxRate: "0",
       enableTax: false,
       showDueDate: true,
+      defaultDueDateMode: "calendar_month",
+      defaultDueDays: 30,
+      showPaymentTerms: false,
+      paymentTerms: "Payment is due according to the terms shown on this invoice.",
       invoiceNotes: "Thank you for your business. Payment due within 30 days.",
       showInvoiceNotes: true,
       showProjectName: true,

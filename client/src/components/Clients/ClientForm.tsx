@@ -27,6 +27,12 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { InsertClient, Settings } from "@shared/schema";
+import { CurrencySelector } from "@/components/ui/CurrencySelector";
+import {
+  CustomCurrencyMap,
+  fetchCustomCurrencyRates,
+  saveCustomCurrencyRates,
+} from "@/lib/currency-rates";
 import {
   generateInvoiceHTML,
   INVOICE_LABEL_FIELDS,
@@ -49,6 +55,7 @@ const clientSchema = z.object({
   phone: z.string().optional(),
   taxId: z.string().optional(),
   currency: z.string().default("USD"),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Choose a valid colour").default("#2563eb"),
   invoiceLanguage: z.string().default("en"),
   useClientInvoiceSettings: z.boolean().default(false),
   invoiceNumberPrefix: z.string().max(20).optional(),
@@ -173,6 +180,19 @@ export default function ClientForm({ onSuccess, onCancel, initialData, isEditing
   const { data: settings } = useQuery<Settings>({
     queryKey: ["/api/settings"],
   });
+  const { data: customCurrencyData } = useQuery({
+    queryKey: ["/api/custom-currency-rates"],
+    queryFn: fetchCustomCurrencyRates,
+  });
+  const customCurrencies = customCurrencyData?.currencies || {};
+  const saveCustomCurrencies = useMutation({
+    mutationFn: (currencies: CustomCurrencyMap) => saveCustomCurrencyRates(currencies),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["/api/custom-currency-rates"], data);
+      toast({ title: "Currency saved", description: "The custom currency is available in your account." });
+    },
+    onError: () => toast({ title: "Could not save currency", description: "Please check the code and USD rate.", variant: "destructive" }),
+  });
 
   const { data: invoiceLabelData } = useQuery<{ labels: Partial<InvoiceLabels> }>({
     queryKey: ["/api/invoice-label-overrides"],
@@ -197,6 +217,7 @@ export default function ClientForm({ onSuccess, onCancel, initialData, isEditing
       phone: initialData?.phone || "",
       taxId: initialData?.taxId || "",
       currency: initialData?.currency || "USD",
+      color: (initialData as any)?.color || "#2563eb",
       invoiceLanguage: (initialData as any)?.invoiceLanguage || "en",
       useClientInvoiceSettings: invoiceProfile.enabled === true,
       invoiceNumberPrefix: invoiceProfile.invoiceNumberPrefix ?? (settings as any)?.invoiceNumberPrefix ?? "INV-",
@@ -399,6 +420,7 @@ export default function ClientForm({ onSuccess, onCancel, initialData, isEditing
       phone: data.phone,
       taxId: data.taxId,
       currency: data.currency,
+      color: data.color,
       invoiceLanguage: data.invoiceLanguage,
       invoiceSettings: JSON.stringify(invoiceSettings),
     };
@@ -562,20 +584,44 @@ export default function ClientForm({ onSuccess, onCancel, initialData, isEditing
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Client Currency</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select currency" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="USD">USD - US Dollar</SelectItem>
-                    <SelectItem value="EUR">EUR - Euro</SelectItem>
-                    <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                    <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
-                    <SelectItem value="RSD">RSD - Serbian Dinar</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <CurrencySelector
+                    selectedCurrency={field.value}
+                    onCurrencyChange={field.onChange}
+                    customCurrencies={customCurrencies}
+                    onSaveCustomCurrencies={async (currencies) => { await saveCustomCurrencies.mutateAsync(currencies); }}
+                    formField
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="color"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Client Colour</FormLabel>
+                <FormControl>
+                  <div className="flex h-10 items-center gap-3 rounded-md border border-input bg-background px-3">
+                    <input
+                      type="color"
+                      value={field.value}
+                      onChange={field.onChange}
+                      className="h-7 w-9 cursor-pointer rounded border-0 bg-transparent p-0"
+                      aria-label="Choose client colour"
+                    />
+                    <Input
+                      value={field.value}
+                      onChange={field.onChange}
+                      className="h-8 border-0 px-0 font-mono uppercase shadow-none focus-visible:ring-0"
+                      maxLength={7}
+                      aria-label="Client colour hex value"
+                    />
+                  </div>
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
