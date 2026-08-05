@@ -17,27 +17,27 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-white text-[#101828]">
-      <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen overflow-x-hidden bg-white text-[#101828]">
+      <header className="sticky top-0 z-50 border-b border-[#dfe5ee] bg-white/95 backdrop-blur-xl">
+        <div className="mx-auto flex h-[68px] max-w-[1536px] items-center px-4 sm:px-6 lg:px-10 2xl:px-12">
           <Link href="/" className="flex items-center" aria-label="Tickd home">
-            <img src={tickdLogoFull} alt="Tickd" className="h-9 w-auto" />
+            <img src={tickdLogoFull} alt="Tickd" className="h-8 w-auto" />
           </Link>
-          <nav className="ml-12 hidden items-center gap-8 md:flex" aria-label="Main navigation">
+          <nav className="ml-14 hidden items-center gap-8 md:flex" aria-label="Main navigation">
             {navigation.map((item) => (
-              <Link key={item.href} href={item.href} className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-950">
+              <Link key={item.href} href={item.href} className="text-sm font-semibold text-[#667085] transition-colors hover:text-[#071127]">
                 {item.label}
               </Link>
             ))}
           </nav>
           <div className="ml-auto hidden items-center gap-3 md:flex">
-            <Link href="/contact" className="text-sm font-medium text-gray-600 hover:text-gray-950">Contact</Link>
+            <Link href="/contact" className="mr-2 text-sm font-semibold text-[#667085] hover:text-[#071127]">Contact</Link>
             {user ? (
-              <Button asChild><Link href="/tracker">Open Tickd</Link></Button>
+              <Button className="rounded-md" asChild><Link href="/tracker">Open Tickd</Link></Button>
             ) : (
               <>
-                <Button variant="ghost" asChild><Link href="/login">Log in</Link></Button>
-                <Button asChild><Link href="/pricing">Get started</Link></Button>
+                <Button variant="ghost" className="rounded-md" asChild><Link href="/login">Log in</Link></Button>
+                <Button className="rounded-md px-5" asChild><Link href="/pricing">Get started</Link></Button>
               </>
             )}
           </div>
@@ -68,22 +68,22 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
 
       <main>{children}</main>
 
-      <footer className="border-t border-gray-200 bg-[#071127] text-white">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.5fr_1fr_1fr] lg:px-8">
+      <footer className="border-t border-[#dfe5ee] bg-[#f8fafc] text-[#17233d]">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.5fr_1fr_1fr] lg:px-8">
           <div>
-            <img src={tickdLogoFull} alt="Tickd" className="h-9 w-auto rounded bg-white px-2 py-1" />
-            <p className="mt-4 max-w-sm text-sm leading-6 text-gray-300">Calm time tracking, clear reports, and invoices your clients understand.</p>
+            <img src={tickdLogoFull} alt="Tickd" className="h-9 w-auto" />
+            <p className="mt-5 max-w-sm text-sm leading-6 text-[#667085]">Calm time tracking, clear reports, and invoices your clients understand.</p>
           </div>
           <div>
-            <p className="text-sm font-semibold">Product</p>
-            <div className="mt-4 flex flex-col gap-3 text-sm text-gray-300"><Link href="/how-it-works">How it works</Link><Link href="/pricing">Pricing</Link><Link href="/faq">FAQ</Link></div>
+            <p className="text-sm font-bold">Product</p>
+            <div className="mt-4 flex flex-col gap-3 text-sm font-medium text-[#667085]"><Link className="hover:text-[#071127]" href="/how-it-works">How it works</Link><Link className="hover:text-[#071127]" href="/pricing">Pricing</Link><Link className="hover:text-[#071127]" href="/faq">FAQ</Link></div>
           </div>
           <div>
-            <p className="text-sm font-semibold">Support</p>
-            <div className="mt-4 flex flex-col gap-3 text-sm text-gray-300"><Link href="/help">Help center</Link><Link href="/contact">Contact</Link><Link href="/login">Log in</Link></div>
+            <p className="text-sm font-bold">Support</p>
+            <div className="mt-4 flex flex-col gap-3 text-sm font-medium text-[#667085]"><Link className="hover:text-[#071127]" href="/help">Help center</Link><Link className="hover:text-[#071127]" href="/contact">Contact</Link><Link className="hover:text-[#071127]" href="/login">Log in</Link></div>
           </div>
         </div>
-        <div className="border-t border-white/10 px-4 py-5 text-center text-xs text-gray-400">&copy; {new Date().getFullYear()} Tickd. All rights reserved.</div>
+        <div className="border-t border-[#dfe5ee] px-4 py-5 text-center text-xs text-[#8a94a5]">&copy; {new Date().getFullYear()} Tickd. All rights reserved.</div>
       </footer>
     </div>
   );
