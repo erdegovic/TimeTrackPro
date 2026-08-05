@@ -17,6 +17,7 @@ import {
   isEmailVerificationChallengeToken,
   verifyEmailVerificationCode,
 } from '../utils/email-verification-code';
+import { validateCaptcha } from '../utils/captcha';
 
 // Create router
 const router = Router();
@@ -751,8 +752,12 @@ router.post('/register', async (req: Request, res: Response) => {
 
     const { email, password, firstName, lastName, captchaToken, plan, termsVersion, privacyVersion } = validation.data;
     
-    // Verify captcha (simplified here, would verify with service in production)
-    if (!captchaToken && process.env.NODE_ENV === 'production') {
+    const captchaIsRequired = process.env.NODE_ENV === 'production';
+    const captchaIsValid = captchaToken
+      ? await validateCaptcha(captchaToken)
+      : !captchaIsRequired;
+
+    if (!captchaIsValid) {
       return res.status(400).json({ message: 'Captcha verification failed' });
     }
     

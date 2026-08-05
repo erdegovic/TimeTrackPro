@@ -29,6 +29,8 @@ const registerSchema = z.object({
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
+const RECAPTCHA_TEST_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
+
 export default function RegisterForm() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -41,6 +43,8 @@ export default function RegisterForm() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const captchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY
+    || (import.meta.env.DEV ? RECAPTCHA_TEST_SITE_KEY : "");
 
   const { register, control, handleSubmit, formState: { errors }, reset, watch } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -218,13 +222,28 @@ export default function RegisterForm() {
           </div>
 
           <div className="flex justify-center pt-1">
-            <ReCAPTCHA
-              sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"}
-              onChange={token => setCaptchaToken(token)}
-            />
+            {captchaSiteKey ? (
+              <ReCAPTCHA
+                sitekey={captchaSiteKey}
+                onChange={token => setCaptchaToken(token)}
+                onExpired={() => setCaptchaToken(null)}
+                onErrored={() => {
+                  setCaptchaToken(null);
+                  toast({
+                    title: "Verification unavailable",
+                    description: "The CAPTCHA could not load. Please refresh the page and try again.",
+                    variant: "destructive",
+                  });
+                }}
+              />
+            ) : (
+              <p role="alert" className="text-sm text-red-600">
+                Registration verification is temporarily unavailable.
+              </p>
+            )}
           </div>
 
-          <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={isSubmitting || !selectedPlan || !acceptedLegal}>
+          <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={isSubmitting || !selectedPlan || !acceptedLegal || !captchaSiteKey}>
             {isSubmitting ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating account...</>
             ) : "Create account"}
