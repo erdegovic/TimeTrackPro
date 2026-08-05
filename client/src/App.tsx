@@ -33,9 +33,12 @@ import HelpArticlePage from "./pages/HelpArticlePage";
 import ContactPage from "./pages/ContactPage";
 import PlansPage from "./pages/PlansPage";
 import { useAuth } from "./hooks/useAuth";
+import TickdLoadingScreen from "./components/marketing/TickdLoadingScreen";
 
 function RootRoute() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return <TickdLoadingScreen />;
 
   if (!user) return <LandingPage />;
 

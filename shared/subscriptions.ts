@@ -15,3 +15,7 @@ export const subscriptionPlanRank: Record<SubscriptionPlan, number> = {
   pro: 1,
   ultimate: 2,
 };
+
+export const getAdminGrantedSubscriptionStatus = (
+  plan: SubscriptionPlan,
+): "active" | "complimentary" => plan === "free" ? "active" : "complimentary";

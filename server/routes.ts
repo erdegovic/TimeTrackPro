@@ -43,6 +43,7 @@ import {
   runAccountBackupCycle,
 } from "./backups/account-snapshots";
 import { sendContactMessage } from "./utils/email-service";
+import { getAdminGrantedSubscriptionStatus } from "@shared/subscriptions";
 
 const parseInvoiceSettings = (raw?: string | null) => {
   if (!raw) return {};
@@ -553,6 +554,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lastName: usersTable.lastName,
           role: usersTable.role,
           status: usersTable.status,
+          subscriptionPlan: usersTable.subscriptionPlan,
+          subscriptionStatus: usersTable.subscriptionStatus,
+          subscriptionChangedAt: usersTable.subscriptionChangedAt,
           createdAt: usersTable.createdAt,
           updatedAt: usersTable.updatedAt,
         })
@@ -654,6 +658,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Valid status is required" });
       }
       res.status(500).json({ message: "Failed to update user status" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/subscription", authenticate, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const userId = Number(req.params.id);
+      const { plan } = z.object({ plan: z.enum(["free", "pro", "ultimate"]) }).parse(req.body);
+      if (!Number.isInteger(userId) || userId <= 0) {
+        return res.status(400).json({ message: "Invalid user id" });
+      }
+
+      const [updatedUser] = await db
+        .update(usersTable)
+        .set({
+          subscriptionPlan: plan,
+          subscriptionStatus: getAdminGrantedSubscriptionStatus(plan),
+          subscriptionChangedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(usersTable.id, userId))
+        .returning({
+          id: usersTable.id,
+          email: usersTable.email,
+          subscriptionPlan: usersTable.subscriptionPlan,
+          subscriptionStatus: usersTable.subscriptionStatus,
+          subscriptionChangedAt: usersTable.subscriptionChangedAt,
+        });
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating complimentary subscription:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Valid subscription plan is required" });
+      }
+      res.status(500).json({ message: "Failed to update subscription plan" });
     }
   });
 

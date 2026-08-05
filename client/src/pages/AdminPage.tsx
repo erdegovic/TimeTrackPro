@@ -15,8 +15,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import type { SubscriptionPlan } from "@shared/subscriptions";
 
 type AdminSummary = {
   totalUsers: number;
@@ -36,6 +38,9 @@ type AdminUser = {
   lastName?: string | null;
   role: "admin" | "user";
   status: "pending" | "active" | "inactive";
+  subscriptionPlan: SubscriptionPlan;
+  subscriptionStatus: string;
+  subscriptionChangedAt?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   counts: {
@@ -109,6 +114,28 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/summary"] });
       toast({ title: "User status updated" });
     },
+  });
+
+  const updateSubscription = useMutation({
+    mutationFn: async ({ id, plan }: { id: number; plan: SubscriptionPlan }) => {
+      const response = await apiRequest("POST", `/api/admin/users/${id}/subscription`, { plan });
+      return response.json();
+    },
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Plan updated",
+        description: variables.plan === "free"
+          ? "The user is now on the Free plan."
+          : `${variables.plan === "pro" ? "Pro" : "Ultimate"} access was granted at no charge.`,
+      });
+    },
+    onError: (error: Error) => toast({
+      title: "Plan could not be updated",
+      description: error.message,
+      variant: "destructive",
+    }),
   });
 
   const forceLogout = useMutation({
@@ -281,7 +308,7 @@ export default function AdminPage() {
         <CardHeader>
           <CardTitle className="text-lg">Users</CardTitle>
           <CardDescription>
-            Counts are shown for recovery confidence. Item names, descriptions, notes, and invoice contents stay private.
+            Grant complimentary plans and manage recovery without viewing private work. Item names, descriptions, notes, and invoice contents stay private.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -289,12 +316,13 @@ export default function AdminPage() {
             <div className="py-8 text-center text-sm text-gray-500">Loading users...</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1120px] text-left text-sm">
+              <table className="w-full min-w-[1280px] text-left text-sm">
                 <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
                   <tr>
                     <th className="px-3 py-3">User</th>
                     <th className="px-3 py-3">Status</th>
                     <th className="px-3 py-3">Role</th>
+                    <th className="px-3 py-3">Plan</th>
                     <th className="px-3 py-3">Recovery counts</th>
                     <th className="px-3 py-3">Backup</th>
                     <th className="px-3 py-3 text-right">Actions</th>
@@ -318,6 +346,25 @@ export default function AdminPage() {
                         <Badge variant={user.role === "admin" ? "default" : "outline"}>
                           {user.role}
                         </Badge>
+                      </td>
+                      <td className="px-3 py-3">
+                        <Select
+                          value={user.subscriptionPlan || "free"}
+                          onValueChange={(plan: SubscriptionPlan) => updateSubscription.mutate({ id: user.id, plan })}
+                          disabled={updateSubscription.isPending}
+                        >
+                          <SelectTrigger className="h-9 w-[155px] capitalize" aria-label={`Plan for ${user.email}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="free">Free</SelectItem>
+                            <SelectItem value="pro">Pro · complimentary</SelectItem>
+                            <SelectItem value="ultimate">Ultimate · complimentary</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <div className="mt-1.5 text-[11px] text-gray-500">
+                          {user.subscriptionStatus === "complimentary" ? "Granted by admin" : user.subscriptionStatus}
+                        </div>
                       </td>
                       <td className="px-3 py-3 text-xs text-gray-600">
                         <div>Clients: {user.counts.clients}</div>
