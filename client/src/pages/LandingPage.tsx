@@ -74,9 +74,9 @@ const internationalFeatures = [
 ];
 
 const privacySignals = [
-  { icon: LockKeyhole, label: "Account isolated", detail: "Every workspace request is scoped to the signed-in account." },
-  { icon: ShieldCheck, label: "Encrypted storage", detail: "Production storage is encrypted at rest and browser traffic uses HTTPS." },
-  { icon: ArchiveRestore, label: "Protected backups", detail: "Account snapshots are AES-256-GCM encrypted before storage." },
+  { icon: LockKeyhole, label: "Secure access", detail: "Authentication and scoped permissions protect account access." },
+  { icon: ShieldCheck, label: "Protected data", detail: "Production data is encrypted in transit and at rest." },
+  { icon: ArchiveRestore, label: "Reliable recovery", detail: "Encrypted account backups support safe restoration when needed." },
 ];
 
 export default function LandingPage() {
@@ -117,11 +117,11 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="relative min-w-0 xl:h-[610px]" aria-label="Tickd product preview">
+          <div className="relative min-w-0 xl:h-[640px] 2xl:h-[670px]" aria-label="Tickd product preview">
             <img
               src={laptopImage}
               alt="Tickd dashboard inside a silver laptop, showing time by day, client, and project with the creative music panel"
-              className="mx-auto block h-auto w-full max-w-[920px] object-contain xl:absolute xl:right-0 xl:top-1/2 xl:w-[820px] xl:max-w-none xl:-translate-y-1/2 2xl:w-[980px]"
+              className="mx-auto block h-auto w-full max-w-[920px] object-contain xl:absolute xl:right-0 xl:top-1/2 xl:h-[620px] xl:w-auto xl:max-w-none xl:-translate-y-1/2 2xl:h-[650px]"
             />
           </div>
         </div>
@@ -225,9 +225,9 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center lg:gap-14">
             <div>
-              <p className="text-sm font-bold text-[#138a3b]">Private by default</p>
-              <h2 className="mt-3 text-3xl font-semibold leading-tight text-[#071127]">Your work stays yours.</h2>
-              <p className="mt-3 max-w-md text-sm leading-6 text-[#667085]">Other Tickd users cannot access your workspace.</p>
+              <p className="text-sm font-bold text-[#138a3b]">Privacy and security</p>
+              <h2 className="mt-3 text-3xl font-semibold leading-tight text-[#071127]">Handled with care, by design.</h2>
+              <p className="mt-3 max-w-md text-sm leading-6 text-[#667085]">Tickd uses established safeguards across access, storage, and recovery, with clear policies for how information is processed.</p>
             </div>
             <div className="grid gap-5 sm:grid-cols-3">
               {privacySignals.map(({ icon: Icon, label, detail }, index) => (

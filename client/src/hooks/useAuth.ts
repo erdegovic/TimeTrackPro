@@ -3,6 +3,7 @@ import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 import type { SubscriptionPlan } from "@shared/subscriptions";
+import { isPublicRoute } from "@/lib/public-routes";
 
 // Define user type for TypeScript
 export interface UserProfile {
@@ -45,23 +46,7 @@ export function useAuth() {
   useEffect(() => {
     if (isError || (!isLoading && user === null)) {
       // Don't redirect if on public pages
-      const publicPaths = [
-        "/login", 
-        "/register", 
-        "/verify-email", 
-        "/forgot-password", 
-        "/reset-password",
-        "/registration-success",
-        "/unverified-email",
-        "/pricing",
-        "/how-it-works",
-        "/faq",
-        "/help",
-        "/contact",
-      ];
-
-      const isPublicPath = location === "/" || publicPaths.some(path => location.startsWith(path));
-      if (!isPublicPath) {
+      if (!isPublicRoute(location)) {
         navigate("/login");
       }
     }
