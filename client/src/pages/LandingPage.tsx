@@ -6,10 +6,14 @@ import {
   FileText,
   Globe2,
   Languages,
+  Layers3,
+  LockKeyhole,
   Palette,
   Play,
   ReceiptText,
+  ShieldCheck,
   TimerReset,
+  ArchiveRestore,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PublicLayout from "@/components/marketing/PublicLayout";
@@ -22,19 +26,19 @@ const workflow = [
     number: "01",
     icon: Play,
     title: "Track with context",
-    text: "Start in one click or add time manually. Every block stays connected to the right client, project, rate, and currency.",
+    text: "Start the timer. Client, project, rate, and currency stay attached.",
   },
   {
     number: "02",
     icon: BarChart3,
     title: "Review the real picture",
-    text: "See where the week went, edit the details, and understand your work without rebuilding it in a spreadsheet.",
+    text: "See the week clearly and fix the details before they become admin.",
   },
   {
     number: "03",
     icon: ReceiptText,
     title: "Finish ready to send",
-    text: "Turn approved time into a clear report or a polished invoice while every useful detail is still attached.",
+    text: "Turn approved time into a clear report or a polished invoice.",
   },
 ];
 
@@ -42,23 +46,25 @@ const capabilities = [
   {
     icon: TimerReset,
     label: "Time that stays editable",
-    detail: "Timers, manual entries, flexible blocks, and precise corrections.",
   },
   {
     icon: BarChart3,
     label: "A dashboard that adds up",
-    detail: "Days, clients, projects, rates, and converted totals in one view.",
   },
   {
     icon: FileText,
     label: "Reports built for review",
-    detail: "Group, adjust, edit, export, and keep the numbers consistent.",
   },
   {
     icon: ReceiptText,
     label: "Invoices that feel like yours",
-    detail: "Reusable client templates with the details your business needs.",
   },
+];
+
+const workspaceSignals = [
+  { icon: Layers3, label: "One workspace", detail: "Track to invoice" },
+  { icon: Globe2, label: "Made to travel", detail: "Currencies and languages" },
+  { icon: BarChart3, label: "Your data, clearly", detail: "Hours and value connected" },
 ];
 
 const internationalFeatures = [
@@ -67,11 +73,17 @@ const internationalFeatures = [
   { icon: Palette, text: "Client-specific invoice styling" },
 ];
 
+const privacySignals = [
+  { icon: LockKeyhole, label: "Account isolated", detail: "Every workspace request is scoped to the signed-in account." },
+  { icon: ShieldCheck, label: "Encrypted storage", detail: "Production storage is encrypted at rest and browser traffic uses HTTPS." },
+  { icon: ArchiveRestore, label: "Protected backups", detail: "Account snapshots are AES-256-GCM encrypted before storage." },
+];
+
 export default function LandingPage() {
   return (
     <PublicLayout>
       <section className="overflow-hidden border-b border-[#dfe5ee] bg-white">
-        <div className="mx-auto grid max-w-[1536px] items-center gap-10 px-4 pb-10 pt-14 sm:px-6 sm:pb-14 sm:pt-16 lg:px-10 xl:min-h-[690px] xl:grid-cols-[minmax(420px,0.78fr)_minmax(0,1.22fr)] xl:gap-4 xl:py-16 2xl:px-12">
+        <div className="mx-auto grid max-w-[1536px] items-center gap-10 px-4 pb-10 pt-12 sm:px-6 sm:pb-12 sm:pt-14 lg:px-10 xl:min-h-[650px] xl:grid-cols-[minmax(420px,0.78fr)_minmax(0,1.22fr)] xl:gap-4 xl:py-14 2xl:px-12">
           <div className="relative z-10 max-w-[560px] xl:pb-8">
             <p className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.16em] text-[#096cfb]">
               <span className="h-px w-8 bg-[#096cfb]" aria-hidden="true" />
@@ -86,8 +98,8 @@ export default function LandingPage() {
             <p className="mt-8 max-w-[530px] text-[38px] font-semibold leading-[1.06] text-[#071127] sm:text-[52px]">
               Time. Tasks. Invoices. <span className="text-[#096cfb]">All Tickd.</span>
             </p>
-            <p className="mt-6 max-w-[510px] text-base leading-7 text-[#536075] sm:text-lg sm:leading-8">
-              Capture the work, understand where it went, and turn it into something ready to send. One calm workspace from first click to final invoice.
+            <p className="mt-6 max-w-[480px] text-base leading-7 text-[#536075] sm:text-lg sm:leading-8">
+              Track the work. See where it went. Send the invoice.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Button size="lg" className="h-12 rounded-md px-6 text-base shadow-[0_10px_28px_rgba(9,108,251,0.2)]" asChild>
@@ -114,50 +126,45 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="border-t border-[#dfe5ee] bg-[#f8fafc]">
-          <div className="mx-auto grid max-w-[1536px] divide-y divide-[#dfe5ee] px-4 sm:px-6 md:grid-cols-3 md:divide-x md:divide-y-0 lg:px-10 2xl:px-12">
-            <div className="py-5 md:pr-8">
-              <p className="text-xs font-bold uppercase tracking-[0.13em] text-[#8a94a5]">One workspace</p>
-              <p className="mt-1 text-sm font-semibold text-[#17233d]">From focused work to final invoice</p>
-            </div>
-            <div className="py-5 md:px-8">
-              <p className="text-xs font-bold uppercase tracking-[0.13em] text-[#8a94a5]">Made to travel</p>
-              <p className="mt-1 text-sm font-semibold text-[#17233d]">Currencies and invoice languages included</p>
-            </div>
-            <div className="py-5 md:pl-8">
-              <p className="text-xs font-bold uppercase tracking-[0.13em] text-[#8a94a5]">Your data, clearly</p>
-              <p className="mt-1 text-sm font-semibold text-[#17233d]">Clients, projects, hours, and value connected</p>
-            </div>
+        <div className="bg-[#096cfb] text-white">
+          <div className="mx-auto grid max-w-[1536px] divide-y divide-white/20 px-4 sm:px-6 md:grid-cols-3 md:divide-x md:divide-y-0 lg:px-10 2xl:px-12">
+            {workspaceSignals.map(({ icon: Icon, label, detail }, index) => (
+              <div key={label} className={`flex items-center gap-4 py-5 ${index === 0 ? "md:pl-0 md:pr-8" : index === workspaceSignals.length - 1 ? "md:pl-8 md:pr-0" : "md:px-8"}`}>
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-white/12 text-[#62dc80] ring-1 ring-white/20">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.13em] text-white/70">{label}</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{detail}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-white py-20 sm:py-28">
+      <section className="bg-white py-16 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-12 lg:grid-cols-[0.78fr_1.22fr] lg:gap-20">
-            <div className="lg:sticky lg:top-28 lg:self-start">
-              <p className="text-sm font-bold text-[#096cfb]">One continuous workflow</p>
-              <h2 className="mt-4 max-w-md text-3xl font-semibold leading-tight text-[#071127] sm:text-5xl">
-                Less admin between the work and getting paid.
-              </h2>
-              <p className="mt-6 max-w-md text-base leading-7 text-[#5a6577]">
-                Tickd keeps the context attached, so your week never needs to be reconstructed at the end of the month.
-              </p>
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-bold text-[#138a3b]">One continuous workflow</p>
+              <h2 className="mt-3 max-w-2xl text-3xl font-semibold leading-tight text-[#071127] sm:text-5xl">Less admin. More finished work.</h2>
             </div>
-            <div className="border-t border-[#d8e0ea]">
-              {workflow.map(({ number, icon: Icon, title, text }) => (
-                <article key={title} className="grid gap-5 border-b border-[#d8e0ea] py-8 sm:grid-cols-[88px_0.9fr_1.2fr] sm:items-start sm:py-10">
-                  <div className="flex items-center gap-3 text-sm font-bold text-[#8a94a5]">
-                    <span>{number}</span>
-                    <span className="grid h-8 w-8 place-items-center rounded-md bg-[#edf4ff] text-[#096cfb]">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-[#111827]">{title}</h3>
-                  <p className="text-sm leading-6 text-[#667085] sm:text-base sm:leading-7">{text}</p>
-                </article>
-              ))}
-            </div>
+            <p className="max-w-sm text-sm leading-6 text-[#667085]">Everything useful stays attached from the first click to the final invoice.</p>
+          </div>
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {workflow.map(({ number, icon: Icon, title, text }, index) => (
+              <article key={title} className={`min-h-[250px] rounded-lg border p-6 sm:p-7 ${index === 1 ? "border-[#cfead6] bg-[#f3fbf5]" : "border-[#d9e5f5] bg-[#f5f9ff]"}`}>
+                <div className="flex items-center justify-between">
+                  <span className={`grid h-11 w-11 place-items-center rounded-md ${index === 1 ? "bg-[#34C759] text-white" : "bg-[#096cfb] text-white"}`}>
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="text-sm font-bold text-[#98a2b3]">{number}</span>
+                </div>
+                <h3 className="mt-10 text-xl font-semibold text-[#111827]">{title}</h3>
+                <p className="mt-3 max-w-xs text-sm leading-6 text-[#667085]">{text}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
@@ -179,38 +186,58 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="mt-16 grid border-y border-white/15 sm:grid-cols-2 lg:grid-cols-4">
-            {capabilities.map(({ icon: Icon, label, detail }, index) => (
-              <div key={label} className={`min-h-56 py-8 sm:px-7 ${index > 0 ? "sm:border-l sm:border-white/15" : ""}`}>
-                <Icon className="h-6 w-6 text-[#79adff]" />
-                <p className="mt-12 text-base font-semibold">{label}</p>
-                <p className="mt-3 text-sm leading-6 text-[#9eabc0]">{detail}</p>
+          <div className="mt-14 grid border-y border-white/15 sm:grid-cols-2 lg:grid-cols-4">
+            {capabilities.map(({ icon: Icon, label }, index) => (
+              <div key={label} className={`flex min-h-32 items-center gap-4 py-7 sm:px-7 ${index > 0 ? "sm:border-l sm:border-white/15" : ""}`}>
+                <Icon className={`h-6 w-6 shrink-0 ${index % 2 === 0 ? "text-[#79adff]" : "text-[#62dc80]"}`} />
+                <p className="text-base font-semibold">{label}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="border-b border-[#dfe5ee] bg-[#eef5ff] py-20 sm:py-24">
+      <section className="border-b border-[#d7eadc] bg-[#f2fbf4] py-16 sm:py-20">
         <div className="mx-auto grid max-w-7xl gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_1fr] lg:items-center lg:gap-20 lg:px-8">
           <div>
-            <p className="text-sm font-bold text-[#096cfb]">Built for international work</p>
+            <p className="text-sm font-bold text-[#138a3b]">Built for international work</p>
             <h2 className="mt-4 max-w-xl text-3xl font-semibold leading-tight text-[#071127] sm:text-5xl">
               Your client should recognize the invoice as yours.
             </h2>
-            <p className="mt-6 max-w-xl text-base leading-7 text-[#566377]">
-              Keep one dependable workflow while adapting the language, currency, labels, colors, and payment details for each client.
+            <p className="mt-5 max-w-lg text-base leading-7 text-[#566377]">
+              Adapt language, currency, labels, colors, and payment details for each client.
             </p>
           </div>
-          <div className="border-y border-[#cbd9ec]">
-            {internationalFeatures.map(({ icon: Icon, text }) => (
-              <div key={text} className="flex items-center gap-4 border-b border-[#cbd9ec] py-6 last:border-b-0">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-white text-[#096cfb] shadow-sm">
+          <div className="border-y border-[#c8e2cf]">
+            {internationalFeatures.map(({ icon: Icon, text }, index) => (
+              <div key={text} className="flex items-center gap-4 border-b border-[#c8e2cf] py-6 last:border-b-0">
+                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-md bg-white shadow-sm ${index === 1 ? "text-[#138a3b]" : "text-[#096cfb]"}`}>
                   <Icon className="h-5 w-5" />
                 </span>
                 <p className="text-base font-semibold text-[#17233d] sm:text-lg">{text}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-[#dfe5ee] bg-white py-14 sm:py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center lg:gap-14">
+            <div>
+              <p className="text-sm font-bold text-[#138a3b]">Private by default</p>
+              <h2 className="mt-3 text-3xl font-semibold leading-tight text-[#071127]">Your work stays yours.</h2>
+              <p className="mt-3 max-w-md text-sm leading-6 text-[#667085]">Other Tickd users cannot access your workspace.</p>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-3">
+              {privacySignals.map(({ icon: Icon, label, detail }, index) => (
+                <div key={label} className="border-l border-[#dfe5ee] pl-5">
+                  <Icon className={`h-5 w-5 ${index === 1 ? "text-[#34C759]" : "text-[#096cfb]"}`} />
+                  <p className="mt-4 text-sm font-bold text-[#17233d]">{label}</p>
+                  <p className="mt-2 text-xs leading-5 text-[#667085]">{detail}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -224,9 +251,6 @@ export default function LandingPage() {
             <h2 className="mt-3 max-w-3xl text-3xl font-semibold leading-tight text-[#071127] sm:text-5xl">
               Give every hour a clear place to land.
             </h2>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-[#5e697a]">
-              Set up a client, choose a project, and start the timer. Tickd keeps the structure around your work.
-            </p>
           </div>
           <Button size="lg" className="h-12 rounded-md px-6" asChild>
             <Link href="/register?plan=free">

@@ -1,16 +1,19 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { useLocation } from 'wouter';
 import { Check, Eye, EyeOff, Loader2 } from 'lucide-react';
 import GoogleSignInButton from './GoogleSignInButton';
 import { planDetails } from '@/lib/plans';
+import { Link } from 'wouter';
+import { CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION } from '@shared/legal';
 
 const registerSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -18,6 +21,7 @@ const registerSchema = z.object({
   confirmPassword: z.string(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  acceptedLegal: z.boolean().refine(value => value, "You must agree before creating an account"),
 }).refine(data => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
@@ -31,16 +35,18 @@ export default function RegisterForm() {
   const registrationParams = new URLSearchParams(window.location.search);
   const initialPlan = registrationParams.get('plan');
   const needsPlanForGoogle = registrationParams.get('error') === 'choose-plan';
+  const needsLegalForGoogle = registrationParams.get('error') === 'accept-terms';
   const [selectedPlan, setSelectedPlan] = useState<'free' | 'pro' | null>(initialPlan === 'free' || initialPlan === 'pro' ? initialPlan : null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<RegisterFormValues>({
+  const { register, control, handleSubmit, formState: { errors }, reset, watch } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { email: '', password: '', confirmPassword: '', firstName: '', lastName: '' },
+    defaultValues: { email: '', password: '', confirmPassword: '', firstName: '', lastName: '', acceptedLegal: false },
   });
+  const acceptedLegal = watch('acceptedLegal');
 
   const onSubmit = async (data: RegisterFormValues) => {
     if (!selectedPlan) {
@@ -57,7 +63,14 @@ export default function RegisterForm() {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, captchaToken, plan: selectedPlan }),
+        body: JSON.stringify({
+          ...data,
+          acceptedTerms: data.acceptedLegal,
+          termsVersion: CURRENT_TERMS_VERSION,
+          privacyVersion: CURRENT_PRIVACY_VERSION,
+          captchaToken,
+          plan: selectedPlan,
+        }),
       });
       const result = await response.json();
 
@@ -84,6 +97,7 @@ export default function RegisterForm() {
         </div>
 
         {needsPlanForGoogle && <div className="mb-5 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">Choose a plan before creating a new account with Google.</div>}
+        {needsLegalForGoogle && <div className="mb-5 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">Review and accept the current Terms of Service and Privacy Policy before creating an account.</div>}
 
         <fieldset className="mb-7">
           <legend className="mb-3 text-sm font-semibold text-gray-900">1. Choose a plan</legend>
@@ -112,8 +126,30 @@ export default function RegisterForm() {
         </fieldset>
 
         <div className={!selectedPlan ? 'pointer-events-none opacity-45' : ''} aria-disabled={!selectedPlan}>
-        <p className="mb-3 text-sm font-semibold text-gray-900">2. Create your account</p>
-        {selectedPlan && <GoogleSignInButton label="Sign up with Google" plan={selectedPlan} />}
+        <p className="mb-3 text-sm font-semibold text-gray-900">2. Review the agreement</p>
+        <Controller
+          name="acceptedLegal"
+          control={control}
+          render={({ field }) => (
+            <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="acceptedLegal"
+                  checked={field.value}
+                  onCheckedChange={(checked) => field.onChange(checked === true)}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="acceptedLegal" className="text-sm font-normal leading-5 text-gray-700">
+                  I agree to the <Link href="/terms" target="_blank" className="font-semibold text-blue-600 hover:underline">Terms of Service</Link> and acknowledge the <Link href="/privacy" target="_blank" className="font-semibold text-blue-600 hover:underline">Privacy Policy</Link>.
+                </Label>
+              </div>
+              {errors.acceptedLegal && <p className="ml-7 mt-2 text-xs text-red-500">{errors.acceptedLegal.message}</p>}
+            </div>
+          )}
+        />
+
+        <p className="mb-3 mt-6 text-sm font-semibold text-gray-900">3. Create your account</p>
+        {selectedPlan && <GoogleSignInButton label="Sign up with Google" plan={selectedPlan} legalAccepted={acceptedLegal} termsVersion={CURRENT_TERMS_VERSION} privacyVersion={CURRENT_PRIVACY_VERSION} />}
 
         <div className="my-5 flex items-center gap-3" aria-hidden="true">
           <div className="h-px flex-1 bg-gray-200" />
@@ -188,7 +224,7 @@ export default function RegisterForm() {
             />
           </div>
 
-          <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={isSubmitting || !selectedPlan}>
+          <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={isSubmitting || !selectedPlan || !acceptedLegal}>
             {isSubmitting ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating account...</>
             ) : "Create account"}

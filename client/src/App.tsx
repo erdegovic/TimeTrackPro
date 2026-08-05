@@ -32,6 +32,8 @@ import HelpPage from "./pages/HelpPage";
 import HelpArticlePage from "./pages/HelpArticlePage";
 import ContactPage from "./pages/ContactPage";
 import PlansPage from "./pages/PlansPage";
+import TermsPage from "./pages/TermsPage";
+import PrivacyPage from "./pages/PrivacyPage";
 import { useAuth } from "./hooks/useAuth";
 import TickdLoadingScreen from "./components/marketing/TickdLoadingScreen";
 
@@ -55,6 +57,8 @@ function Router() {
       <Route path="/help/:topic" component={HelpArticlePage} />
       <Route path="/help" component={HelpPage} />
       <Route path="/contact" component={ContactPage} />
+      <Route path="/terms" component={TermsPage} />
+      <Route path="/privacy" component={PrivacyPage} />
       <Route path="/login">
         <LoginPage />
       </Route>

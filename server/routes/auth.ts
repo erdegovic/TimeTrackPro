@@ -8,6 +8,11 @@ import { verificationTypeEnum } from '@shared/schema';
 import { getBaseUrl } from '../utils/url-helper';
 import { isRegistrationPlan, isSubscriptionPlan, subscriptionPlanRank } from '@shared/subscriptions';
 import {
+  CURRENT_PRIVACY_VERSION,
+  CURRENT_TERMS_VERSION,
+  legalAcceptanceSchema,
+} from '@shared/legal';
+import {
   createEmailVerificationChallenge,
   isEmailVerificationChallengeToken,
   verifyEmailVerificationCode,
@@ -33,7 +38,7 @@ const registrationRequestSchema = z.object({
   lastName: z.string().trim().max(100).nullish(),
   captchaToken: z.string().nullish(),
   plan: z.enum(['free', 'pro']),
-});
+}).and(legalAcceptanceSchema);
 
 const emailCodeRequestSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -583,8 +588,23 @@ router.get('/google', async (req: Request, res: Response) => {
     req.session.oauthState = state;
     req.session.oauthNonce = nonce;
     req.session.oauthReturnTo = safeReturnTo(req.query.returnTo);
-    req.session.oauthRegistrationPlan = isRegistrationPlan(req.query.plan)
+    const registrationPlan = isRegistrationPlan(req.query.plan)
       ? req.query.plan
+      : undefined;
+    const legalAcceptance = legalAcceptanceSchema.safeParse({
+      acceptedTerms: req.query.acceptedTerms === 'true',
+      termsVersion: req.query.termsVersion,
+      privacyVersion: req.query.privacyVersion,
+    });
+    if (registrationPlan && !legalAcceptance.success) {
+      return res.redirect(`/register?plan=${registrationPlan}&error=accept-terms`);
+    }
+    req.session.oauthRegistrationPlan = registrationPlan;
+    req.session.oauthTermsVersion = legalAcceptance.success
+      ? legalAcceptance.data.termsVersion
+      : undefined;
+    req.session.oauthPrivacyVersion = legalAcceptance.success
+      ? legalAcceptance.data.privacyVersion
       : undefined;
     await saveSession(req);
 
@@ -610,12 +630,16 @@ router.get('/google/callback', async (req: Request, res: Response) => {
   const expectedNonce = req.session.oauthNonce;
   const returnTo = safeReturnTo(req.session.oauthReturnTo);
   const registrationPlan = req.session.oauthRegistrationPlan;
+  const termsVersion = req.session.oauthTermsVersion;
+  const privacyVersion = req.session.oauthPrivacyVersion;
 
   delete req.session.oauthCodeVerifier;
   delete req.session.oauthState;
   delete req.session.oauthNonce;
   delete req.session.oauthReturnTo;
   delete req.session.oauthRegistrationPlan;
+  delete req.session.oauthTermsVersion;
+  delete req.session.oauthPrivacyVersion;
 
   if (!codeVerifier || !expectedState || !expectedNonce) {
     return res.redirect('/login?error=google-session-expired');
@@ -668,6 +692,9 @@ router.get('/google/callback', async (req: Request, res: Response) => {
         if (!registrationPlan) {
           return res.redirect('/register?error=choose-plan');
         }
+        if (termsVersion !== CURRENT_TERMS_VERSION || privacyVersion !== CURRENT_PRIVACY_VERSION) {
+          return res.redirect('/register?error=accept-terms');
+        }
 
         const generatedPassword = await bcrypt.hash(
           crypto.randomBytes(32).toString('hex'),
@@ -689,6 +716,9 @@ router.get('/google/callback', async (req: Request, res: Response) => {
           subscriptionPlan: registrationPlan,
           subscriptionStatus: 'active',
           subscriptionChangedAt: new Date(),
+          termsAcceptedAt: new Date(),
+          termsVersion,
+          privacyVersion,
         });
       }
     }
@@ -715,11 +745,11 @@ router.post('/register', async (req: Request, res: Response) => {
     const validation = registrationRequestSchema.safeParse(req.body);
     if (!validation.success) {
       return res.status(400).json({
-        message: 'Enter a valid email address and a password of at least 8 characters.',
+        message: 'Enter valid account details and agree to the current Terms of Service and Privacy Policy.',
       });
     }
 
-    const { email, password, firstName, lastName, captchaToken, plan } = validation.data;
+    const { email, password, firstName, lastName, captchaToken, plan, termsVersion, privacyVersion } = validation.data;
     
     // Verify captcha (simplified here, would verify with service in production)
     if (!captchaToken && process.env.NODE_ENV === 'production') {
@@ -755,6 +785,9 @@ router.post('/register', async (req: Request, res: Response) => {
       subscriptionPlan: plan,
       subscriptionStatus: 'active',
       subscriptionChangedAt: new Date(),
+      termsAcceptedAt: new Date(),
+      termsVersion,
+      privacyVersion,
     });
     
     // Create verification record with createdAt date - explicitly mark as a registration

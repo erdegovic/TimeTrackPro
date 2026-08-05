@@ -5,9 +5,12 @@ import { Button } from '@/components/ui/button';
 type GoogleSignInButtonProps = {
   label: string;
   plan?: 'free' | 'pro';
+  legalAccepted?: boolean;
+  termsVersion?: string;
+  privacyVersion?: string;
 };
 
-export default function GoogleSignInButton({ label, plan }: GoogleSignInButtonProps) {
+export default function GoogleSignInButton({ label, plan, legalAccepted = true, termsVersion, privacyVersion }: GoogleSignInButtonProps) {
   const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
@@ -27,10 +30,18 @@ export default function GoogleSignInButton({ label, plan }: GoogleSignInButtonPr
     <Button
       type="button"
       variant="outline"
+      disabled={!legalAccepted}
       className="h-11 w-full border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50"
       onClick={() => {
         const params = new URLSearchParams({ returnTo: '/' });
-        if (plan) params.set('plan', plan);
+        if (plan) {
+          params.set('plan', plan);
+          if (legalAccepted && termsVersion && privacyVersion) {
+            params.set('acceptedTerms', 'true');
+            params.set('termsVersion', termsVersion);
+            params.set('privacyVersion', privacyVersion);
+          }
+        }
         window.location.assign(`/api/auth/google?${params.toString()}`);
       }}
     >

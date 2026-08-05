@@ -14,7 +14,10 @@ export async function ensureCurrentSchema() {
       ALTER TABLE users
         ADD COLUMN IF NOT EXISTS subscription_plan text NOT NULL DEFAULT 'free',
         ADD COLUMN IF NOT EXISTS subscription_status text NOT NULL DEFAULT 'active',
-        ADD COLUMN IF NOT EXISTS subscription_changed_at timestamp DEFAULT now()
+        ADD COLUMN IF NOT EXISTS subscription_changed_at timestamp DEFAULT now(),
+        ADD COLUMN IF NOT EXISTS terms_accepted_at timestamp,
+        ADD COLUMN IF NOT EXISTS terms_version text,
+        ADD COLUMN IF NOT EXISTS privacy_version text
     `);
     await client.query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS color text DEFAULT '#2563eb'`);
     await client.query(`

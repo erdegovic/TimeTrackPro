@@ -9,6 +9,7 @@ const faqs = [
   ["Can I edit tracked time?", "Yes. Descriptions, projects, dates, start and end times, durations, and individual timer blocks can be corrected."],
   ["Can I export reports and invoices?", "Report and invoice export is included in Pro. Exports use the chosen client and project currency."],
   ["Is my account data separated from other users?", "Yes. Time entries, timers, clients, projects, reports, invoices, settings, and custom preferences are scoped to the signed-in account."],
+  ["How is my data protected?", "Other Tickd users cannot access your workspace. Production storage is encrypted at rest, browser traffic uses HTTPS, and account snapshots are encrypted with AES-256-GCM before storage. Tickd is not described as zero-knowledge encryption because the server must process workspace data to create dashboards, reports, invoices, and restorations."],
   ["How do I get help?", "Visit the Help page for workflow guidance or use the Contact form to reach Tickd support."],
 ];
 
