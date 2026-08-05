@@ -14,6 +14,7 @@ const publicRoutePrefixes = [
   "/contact",
   "/terms",
   "/privacy",
+  "/refund-policy",
 ];
 
 export function isPublicRoute(location: string) {

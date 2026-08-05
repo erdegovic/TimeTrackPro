@@ -34,6 +34,7 @@ import ContactPage from "./pages/ContactPage";
 import PlansPage from "./pages/PlansPage";
 import TermsPage from "./pages/TermsPage";
 import PrivacyPage from "./pages/PrivacyPage";
+import RefundPolicyPage from "./pages/RefundPolicyPage";
 import { useAuth } from "./hooks/useAuth";
 import TickdLoadingScreen from "./components/marketing/TickdLoadingScreen";
 
@@ -59,6 +60,7 @@ function Router() {
       <Route path="/contact" component={ContactPage} />
       <Route path="/terms" component={TermsPage} />
       <Route path="/privacy" component={PrivacyPage} />
+      <Route path="/refund-policy" component={RefundPolicyPage} />
       <Route path="/login">
         <LoginPage />
       </Route>

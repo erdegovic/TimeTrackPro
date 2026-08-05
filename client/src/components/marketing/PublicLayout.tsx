@@ -26,7 +26,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
           </div>
           <div>
             <p className="text-sm font-bold">Legal</p>
-            <div className="mt-4 flex flex-col gap-3 text-sm font-medium text-[#667085]"><Link className="hover:text-[#071127]" href="/terms">Terms of Service</Link><Link className="hover:text-[#071127]" href="/privacy">Privacy Policy</Link></div>
+            <div className="mt-4 flex flex-col gap-3 text-sm font-medium text-[#667085]"><Link className="hover:text-[#071127]" href="/terms">Terms of Service</Link><Link className="hover:text-[#071127]" href="/privacy">Privacy Policy</Link><Link className="hover:text-[#071127]" href="/refund-policy">Refund Policy</Link></div>
           </div>
         </div>
         <div className="border-t border-[#dfe5ee] px-4 py-5 text-center text-xs text-[#8a94a5]">&copy; {new Date().getFullYear()} Tickd. All rights reserved.</div>
