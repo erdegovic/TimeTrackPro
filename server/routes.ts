@@ -43,7 +43,7 @@ import {
   runAccountBackupCycle,
 } from "./backups/account-snapshots";
 import { sendContactMessage } from "./utils/email-service";
-import { getAdminGrantedSubscriptionStatus } from "@shared/subscriptions";
+import { getAdminGrantedSubscriptionStatus, getInvoiceCapabilities } from "@shared/subscriptions";
 
 const parseInvoiceSettings = (raw?: string | null) => {
   if (!raw) return {};
@@ -220,6 +220,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Admin authorization error:", error);
       res.status(500).json({ message: "Failed to verify admin access" });
+    }
+  };
+
+  const requireInvoicePro = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.session?.userId || req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const user = await storage.getUser(userId);
+      const access = getInvoiceCapabilities(user?.subscriptionPlan, user?.subscriptionStatus);
+      if (!user || !access.canSave) {
+        return res.status(403).json({
+          code: "PRO_REQUIRED",
+          message: "Upgrade to Pro to save and manage invoices.",
+        });
+      }
+
+      req.user = { ...(req.user || {}), ...user };
+      next();
+    } catch (error) {
+      console.error("Invoice subscription authorization error:", error);
+      res.status(500).json({ message: "Failed to verify invoice access" });
     }
   };
 
@@ -1659,7 +1683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/invoices", authenticate, async (req: Request, res: Response) => {
+  app.post("/api/invoices", authenticate, requireInvoicePro, async (req: Request, res: Response) => {
     try {
       const userId = req.session?.userId;
       if (!userId) {
@@ -1693,7 +1717,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // PATCH for partial invoice status updates
-  app.patch("/api/invoices/:id/status", authenticate, async (req: Request, res: Response) => {
+  app.patch("/api/invoices/:id/status", authenticate, requireInvoicePro, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       const { status } = req.body;
@@ -1720,7 +1744,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/invoices/:id", authenticate, async (req: Request, res: Response) => {
+  app.put("/api/invoices/:id", authenticate, requireInvoicePro, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -1784,7 +1808,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/next-invoice-number", authenticate, async (req: Request, res: Response) => {
+  app.get("/api/next-invoice-number", authenticate, requireInvoicePro, async (req: Request, res: Response) => {
     try {
       const userId = req.user!.id;
       const settings = await storage.getSettings(userId);

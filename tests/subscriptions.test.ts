@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   getAdminGrantedSubscriptionStatus,
+  getInvoiceCapabilities,
   isRegistrationPlan,
   isSubscriptionPlan,
   subscriptionPlanRank,
@@ -11,6 +12,27 @@ test("registration accepts available plans and rejects coming-soon plans", () =>
   assert.equal(isRegistrationPlan("free"), true);
   assert.equal(isRegistrationPlan("pro"), true);
   assert.equal(isRegistrationPlan("ultimate"), false);
+});
+
+test("invoice access keeps Free previews visible but watermarked", () => {
+  assert.deepEqual(getInvoiceCapabilities("free", "active"), {
+    canPreview: true,
+    canSave: false,
+    canExport: false,
+    watermarkPreview: true,
+  });
+});
+
+test("active and complimentary paid plans can save and export invoices", () => {
+  assert.equal(getInvoiceCapabilities("pro", "active").canExport, true);
+  assert.equal(getInvoiceCapabilities("pro", "complimentary").canSave, true);
+  assert.equal(getInvoiceCapabilities("ultimate", "active").watermarkPreview, false);
+});
+
+test("inactive paid subscriptions fall back to Free invoice access", () => {
+  assert.equal(getInvoiceCapabilities("pro", "canceled").canExport, false);
+  assert.equal(getInvoiceCapabilities("pro", "expired").watermarkPreview, true);
+  assert.equal(getInvoiceCapabilities("ultimate", "unpaid").canSave, false);
 });
 
 test("subscription plans preserve a stable downgrade order", () => {

@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit, FileSpreadsheet, File, Plus, Minus, Loader2 } from "lucide-react";
+import { Edit, FileSpreadsheet, File, Plus, Minus, Loader2, Lock, Sparkles } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatTimeFromDecimal, formatCurrency, parseTime } from "@/lib/utils/timeUtils";
@@ -14,6 +14,9 @@ import { exportInvoicePdf } from "@/lib/invoice-pdf";
 import { useLocation } from "wouter";
 import { InvoiceDateFields } from "./InvoiceDateFields";
 import { calculateDueDate, DueDateMode, formatInvoiceDate, toInvoiceDateInput } from "@/lib/invoice-dates";
+import { useAuth } from "@/hooks/useAuth";
+import { getInvoiceCapabilities } from "@shared/subscriptions";
+import tickdLogoFull from "@/assets/tickd-logo-full.svg";
 
 interface InvoicePreviewProps {
   reportData: any;
@@ -107,6 +110,11 @@ export default function InvoicePreview({
 }: InvoicePreviewProps) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const { user } = useAuth();
+  const invoiceAccess = useMemo(
+    () => getInvoiceCapabilities(user?.subscriptionPlan, user?.subscriptionStatus),
+    [user?.subscriptionPlan, user?.subscriptionStatus],
+  );
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [editableEntries, setEditableEntries] = useState<any[]>([]);
   const [additionalItems, setAdditionalItems] = useState<{ description: string; amount: number; id: number }[]>(
@@ -136,11 +144,18 @@ export default function InvoicePreview({
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
+    enabled: invoiceAccess.canSave && !propInvoiceNumber,
   });
 
   useEffect(() => {
-    if (invoiceNumberData?.invoiceNumber) setInvoiceNumber(invoiceNumberData.invoiceNumber);
-  }, [invoiceNumberData]);
+    if (propInvoiceNumber) {
+      setInvoiceNumber(propInvoiceNumber);
+    } else if (invoiceAccess.watermarkPreview) {
+      setInvoiceNumber("PREVIEW");
+    } else if (invoiceNumberData?.invoiceNumber) {
+      setInvoiceNumber(invoiceNumberData.invoiceNumber);
+    }
+  }, [invoiceAccess.watermarkPreview, invoiceNumberData, propInvoiceNumber]);
 
   const { data: client } = useQuery<Client>({
     queryKey: ["/api/clients", clientId],
@@ -336,6 +351,10 @@ export default function InvoicePreview({
   };
 
   const handleCreateInvoice = async () => {
+    if (!invoiceAccess.canSave) {
+      toast({ title: "Pro feature", description: "Upgrade to Pro to save invoice records." });
+      return;
+    }
     if (!reportData || !activeClient) {
       toast({ title: "Error", description: "Missing client or report data", variant: "destructive" });
       return;
@@ -505,7 +524,7 @@ export default function InvoicePreview({
       businessAddress: [s?.businessAddress, s?.businessCity, s?.businessState].filter(Boolean).join(", "),
       businessEmail: s?.businessEmail || "",
       businessPhone: s?.businessPhone || "",
-      invoiceNumber: propInvoiceNumber || invoiceNumber,
+      invoiceNumber: propInvoiceNumber || invoiceNumber || "PREVIEW",
       issueDate,
       dueDate: showDueDate ? dueDate : "",
       clientName: c?.name || "Client",
@@ -538,12 +557,18 @@ export default function InvoicePreview({
       showPaymentTerms: (s as any)?.showPaymentTerms === true,
       footerNotes: (s as any)?.invoiceFooterText || "",
       showFooterNotes: (s as any)?.showFooterNotes !== false,
+      watermarkPreview: invoiceAccess.watermarkPreview,
+      watermarkLogoUrl: invoiceAccess.watermarkPreview ? tickdLogoFull : undefined,
     };
-  }, [groupedInvoiceEntries, additionalItems, notes, showInvoiceNotes, effectiveSettings, activeClient, invoiceNumber, propInvoiceNumber, subtotal, taxRate, enableTax, issueDate, dueDate, showDueDate, reportData, reportUsesWeeklyGrouping, getAdditionalItemsTotal, invoiceLabelData]);
+  }, [groupedInvoiceEntries, additionalItems, notes, showInvoiceNotes, effectiveSettings, activeClient, invoiceNumber, propInvoiceNumber, subtotal, taxRate, enableTax, issueDate, dueDate, showDueDate, reportData, reportUsesWeeklyGrouping, getAdditionalItemsTotal, invoiceLabelData, invoiceAccess.watermarkPreview]);
 
   const htmlString = useMemo(() => generateInvoiceHTML(templateData), [templateData]);
 
   const handleExportPdf = async () => {
+    if (!invoiceAccess.canExport) {
+      toast({ title: "Pro feature", description: "Upgrade to Pro to export clean, selectable-text invoices." });
+      return;
+    }
     if (!activeClient) return;
     setPdfLoading(true);
     try {
@@ -582,10 +607,27 @@ export default function InvoicePreview({
     <div className="bg-white shadow rounded-lg mb-6">
       <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
         <h2 className="text-lg font-medium text-gray-900">Invoice Preview — {templateLabel} Template</h2>
-        <p className="mt-1 text-sm text-gray-500">{propInvoiceNumber || invoiceNumber}</p>
+        <p className="mt-1 text-sm text-gray-500">{propInvoiceNumber || invoiceNumber || "PREVIEW"}</p>
       </div>
 
       <div className="p-6">
+        {invoiceAccess.watermarkPreview && (
+          <div className="mb-5 flex flex-col gap-4 rounded-md border border-blue-200 bg-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white text-blue-600 shadow-sm">
+                <Lock className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-blue-950">Free invoice preview</p>
+                <p className="mt-1 text-sm leading-5 text-blue-800">Build and review the complete invoice with a Tickd watermark. Pro removes the watermark and unlocks saving and selectable-text PDF export.</p>
+              </div>
+            </div>
+            <Button className="shrink-0 rounded-md" size="sm" onClick={() => navigate("/plans")}>
+              <Sparkles className="mr-2 h-4 w-4" /> Upgrade to Pro
+            </Button>
+          </div>
+        )}
+
         {/* Invoice template preview */}
         <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden" style={{ background: "#f1f3f5" }}>
           <div style={{ width: "100%", overflowX: "auto", padding: "16px" }}>
@@ -741,12 +783,12 @@ export default function InvoicePreview({
               <Button variant="outline" onClick={handleEditInvoiceSettings}>
                 {activeClient?.id ? "Edit client invoice profile" : "Edit invoice settings"}
               </Button>
-              <Button variant="outline" onClick={handleCreateInvoice}>
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
+              <Button variant="outline" onClick={handleCreateInvoice} disabled={!invoiceAccess.canSave} title={!invoiceAccess.canSave ? "Upgrade to Pro to save invoices" : undefined}>
+                {invoiceAccess.canSave ? <FileSpreadsheet className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}
                 Save Invoice
               </Button>
-              <Button onClick={handleExportPdf} disabled={pdfLoading}>
-                {pdfLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <File className="mr-2 h-4 w-4" />}
+              <Button onClick={handleExportPdf} disabled={pdfLoading || !invoiceAccess.canExport} title={!invoiceAccess.canExport ? "Upgrade to Pro to export invoices" : undefined}>
+                {pdfLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : invoiceAccess.canExport ? <File className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}
                 Export PDF
               </Button>
             </div>

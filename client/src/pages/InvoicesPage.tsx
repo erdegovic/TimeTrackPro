@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
-  FileText, Trash2, FileDown, Edit, Plus, CheckCircle, Send, Clock, MoreHorizontal
+  FileText, Trash2, FileDown, Edit, Plus, CheckCircle, Send, Clock, MoreHorizontal, Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,8 @@ import { generatePdf } from "@/lib/enhanced-pdf-generator";
 import { formatCurrency } from "@/lib/utils/timeUtils";
 import { Invoice, Client, Settings } from "@shared/schema";
 import InvoiceEditor from "../components/Invoices/InvoiceEditor";
+import { useAuth } from "@/hooks/useAuth";
+import { getInvoiceCapabilities } from "@shared/subscriptions";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline"; icon: any; className: string }> = {
   draft:  { label: "Draft",  variant: "secondary", icon: Clock,        className: "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200" },
@@ -31,6 +33,8 @@ function getCurrencySymbol(currency: string) {
 
 export default function InvoicesPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const invoiceAccess = getInvoiceCapabilities(user?.subscriptionPlan, user?.subscriptionStatus);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
 
@@ -62,6 +66,10 @@ export default function InvoicesPage() {
   });
 
   const handleExportPdf = async (invoice: Invoice) => {
+    if (!invoiceAccess.canExport) {
+      toast({ title: "Pro feature", description: "Upgrade to Pro to export invoice PDFs." });
+      return;
+    }
     const client = clients.find(c => c.id === invoice.clientId);
     if (!client || !settings) {
       toast({ title: "Error", description: "Missing client or business details.", variant: "destructive" });
@@ -158,6 +166,10 @@ export default function InvoicesPage() {
   };
 
   const openEdit = async (invoice: Invoice) => {
+    if (!invoiceAccess.canSave) {
+      toast({ title: "Pro feature", description: "Upgrade to Pro to edit saved invoices." });
+      return;
+    }
     try {
       const res = await fetch(`/api/invoices/${invoice.id}`);
       const full = await res.json();
@@ -206,6 +218,21 @@ export default function InvoicesPage() {
           <p className="text-gray-500 mt-1 text-sm">Manage your invoices and track payments.</p>
         </div>
       </div>
+
+      {!invoiceAccess.canSave && (
+        <div className="flex flex-col gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <Lock className="mt-0.5 h-5 w-5 flex-none text-blue-600" />
+            <div>
+              <p className="text-sm font-semibold text-blue-950">Invoice previews are included with Free</p>
+              <p className="mt-0.5 text-sm text-blue-700">Saved invoice management and clean PDF exports are available on Pro.</p>
+            </div>
+          </div>
+          <Button asChild size="sm" className="shrink-0">
+            <a href="/plans">View Pro</a>
+          </Button>
+        </div>
+      )}
 
       {/* How to create an invoice */}
       <div className="flex gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
@@ -322,7 +349,11 @@ export default function InvoicesPage() {
                         <td className="px-6 py-4">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <button className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer transition-colors ${sc.className}`}>
+                              <button
+                                disabled={!invoiceAccess.canSave}
+                                title={invoiceAccess.canSave ? "Update invoice status" : "Upgrade to Pro to update invoice status"}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${invoiceAccess.canSave ? "cursor-pointer" : "cursor-not-allowed opacity-70"} ${sc.className}`}
+                              >
                                 <StatusIcon className="h-3 w-3" />
                                 {sc.label}
                               </button>
@@ -359,16 +390,18 @@ export default function InvoicesPage() {
                               className="h-8 w-8 text-gray-400 hover:text-gray-700"
                               title="Edit Invoice"
                               onClick={() => openEdit(invoice)}
+                              disabled={!invoiceAccess.canSave}
                             >
-                              <Edit className="h-4 w-4" />
+                              {invoiceAccess.canSave ? <Edit className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                             </Button>
                             <Button
                               variant="ghost" size="icon"
                               className="h-8 w-8 text-gray-400 hover:text-gray-700"
                               title="Export PDF"
                               onClick={() => handleExportPdf(invoice)}
+                              disabled={!invoiceAccess.canExport}
                             >
-                              <FileDown className="h-4 w-4" />
+                              {invoiceAccess.canExport ? <FileDown className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                             </Button>
                             <Button
                               variant="ghost" size="icon"

@@ -50,6 +50,8 @@ export interface InvoiceTemplateData {
   showPaymentTerms?: boolean;
   footerNotes?: string;
   showFooterNotes?: boolean;
+  watermarkPreview?: boolean;
+  watermarkLogoUrl?: string;
 }
 
 export const TEMPLATE_OPTIONS = [
@@ -263,6 +265,11 @@ const INVOICE_CSS = `
   .invoice { position: relative; z-index: 1; min-height: 297mm; padding: 20mm; }
   .template-label { display: none; }
 
+  .preview-watermark { position: absolute; inset: 0; z-index: 20; overflow: hidden; pointer-events: none; }
+  .preview-watermark__item { position: absolute; top: 49%; left: 50%; display: flex; width: 170%; transform: translate(-50%,-50%) rotate(-45deg); flex-direction: column; align-items: center; gap: 14px; color: #0569fb; opacity: 0.14; }
+  .preview-watermark__item img { display: block; width: 145mm; max-height: 47mm; object-fit: contain; }
+  .preview-watermark__item span { padding: 7px 20px; border: 3px solid currentColor; font-size: 20px; font-weight: 900; letter-spacing: 0.24em; line-height: 1; text-transform: uppercase; white-space: nowrap; }
+
   .topline { display: grid; grid-template-columns: 1.25fr 0.75fr; gap: 26px; align-items: start; }
   .brand { display: flex; align-items: center; gap: 12px; }
   .mark { display: grid; width: 42px; height: 42px; place-items: center; flex: 0 0 auto; border-radius: 8px; color: #fff; font-weight: 800; letter-spacing: 0.02em; }
@@ -284,7 +291,7 @@ const INVOICE_CSS = `
   .billing-block p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.65; }
 
   table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th { padding: 11px 10px; color: var(--muted); font-size: 9.5px; font-weight: 800; letter-spacing: 0.1em; text-align: left; text-transform: uppercase; white-space: nowrap; }
+  th { height: 42px; padding: 10px; color: var(--muted); font-size: 9.5px; font-weight: 800; letter-spacing: 0.1em; line-height: 1.2; text-align: left; text-transform: uppercase; vertical-align: middle; white-space: nowrap; }
   td { padding: 14px 10px; border-top: 1px solid var(--line); vertical-align: top; }
   th:nth-child(n+2), td:nth-child(n+2) { text-align: right; }
   .item-title { display: block; color: var(--ink); font-weight: 760; }
@@ -304,8 +311,8 @@ const INVOICE_CSS = `
   .payment-card h4 { color: var(--ink); }
   .totals { width: 100%; }
   .total-row { display: flex; justify-content: space-between; gap: 18px; padding: 8px 0; color: var(--muted); border-bottom: 1px solid var(--line); font-size: 11px; }
-  .grand-total { margin-top: 10px; padding: 13px 14px; color: #fff; border-radius: 6px; font-size: 16px; font-weight: 850; }
-  .grand-total span { float: right; }
+  .grand-total { display: flex; min-height: 48px; margin-top: 10px; padding: 10px 14px; align-items: center; justify-content: space-between; gap: 16px; color: #fff; border-radius: 6px; font-size: 16px; font-weight: 850; line-height: 1.2; }
+  .grand-total span { float: none; }
 
   .footer { position: absolute; right: 20mm; bottom: 13mm; left: 20mm; z-index: 4; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; line-height: 1.55; }
   .footer * { max-width: 100%; }
@@ -741,6 +748,9 @@ function buildColorOverrideCSS(data: InvoiceTemplateData): string {
 
 export function generateInvoiceHTML(data: InvoiceTemplateData): string {
   const colorOverrides = buildColorOverrideCSS(data);
+  const watermark = data.watermarkPreview
+    ? `<div class="preview-watermark" aria-hidden="true"><div class="preview-watermark__item">${data.watermarkLogoUrl ? `<img src="${esc(data.watermarkLogoUrl)}" alt="">` : ""}<span>Free preview</span></div></div>`
+    : "";
   return `<!DOCTYPE html>
 <html lang="${esc(data.language || "en")}">
 <head>
@@ -755,6 +765,7 @@ export function generateInvoiceHTML(data: InvoiceTemplateData): string {
 </head>
 <body>
   <section class="invoice-page ${esc(data.template)}">
+    ${watermark}
     <div class="invoice">
       ${buildInvoiceBody(data)}
     </div>

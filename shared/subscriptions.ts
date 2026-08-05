@@ -19,3 +19,30 @@ export const subscriptionPlanRank: Record<SubscriptionPlan, number> = {
 export const getAdminGrantedSubscriptionStatus = (
   plan: SubscriptionPlan,
 ): "active" | "complimentary" => plan === "free" ? "active" : "complimentary";
+
+export type InvoiceCapabilities = {
+  canPreview: true;
+  canSave: boolean;
+  canExport: boolean;
+  watermarkPreview: boolean;
+};
+
+const inactiveSubscriptionStatuses = new Set(["canceled", "expired", "unpaid"]);
+
+export const getInvoiceCapabilities = (
+  plan: unknown,
+  status?: unknown,
+): InvoiceCapabilities => {
+  const normalizedPlan = isSubscriptionPlan(plan) ? plan : "free";
+  const normalizedStatus = typeof status === "string" ? status.toLowerCase() : "active";
+  const hasPaidAccess =
+    subscriptionPlanRank[normalizedPlan] >= subscriptionPlanRank.pro &&
+    !inactiveSubscriptionStatuses.has(normalizedStatus);
+
+  return {
+    canPreview: true,
+    canSave: hasPaidAccess,
+    canExport: hasPaidAccess,
+    watermarkPreview: !hasPaidAccess,
+  };
+};

@@ -18,7 +18,7 @@ import {
   Download, Loader2, Save, Upload, X, Palette, Eye, FileText, Building,
   ChevronRight, ChevronDown, Zap, BrushIcon, Type, CreditCard,
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
-  List, ListOrdered, Minus, Link
+  List, ListOrdered, Minus, Link, Lock
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -38,6 +38,9 @@ import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { formatInvoiceNumber } from "@shared/invoice-number";
 import { calculateDueDate, formatInvoiceDate } from "@/lib/invoice-dates";
+import { useAuth } from "@/hooks/useAuth";
+import { getInvoiceCapabilities } from "@shared/subscriptions";
+import tickdLogoFull from "@/assets/tickd-logo-full.svg";
 
 const CURRENCY_PRESETS = [
   { code: "USD", symbol: "$",  label: "USD — US Dollar ($)" },
@@ -471,7 +474,12 @@ const RichTextEditor = ({ value, onChange, placeholder }: {
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const [location] = useLocation();
+  const { user } = useAuth();
+  const [location, navigate] = useLocation();
+  const invoiceAccess = useMemo(
+    () => getInvoiceCapabilities(user?.subscriptionPlan, user?.subscriptionStatus),
+    [user?.subscriptionPlan, user?.subscriptionStatus],
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("business");
   const [generatedPreview, setGeneratedPreview] = useState<InvoiceTemplateData | null>(null);
@@ -820,6 +828,8 @@ export default function SettingsPage() {
       showPaymentTerms: watchedValues.showPaymentTerms,
       footerNotes: watchedValues.invoiceFooterText || "",
       showFooterNotes: watchedValues.showFooterNotes ?? true,
+      watermarkPreview: invoiceAccess.watermarkPreview,
+      watermarkLogoUrl: invoiceAccess.watermarkPreview ? tickdLogoFull : undefined,
     };
     return data;
   }, [
@@ -836,11 +846,20 @@ export default function SettingsPage() {
     watchedValues.bankAccountName, watchedValues.bankAccountNumber, watchedValues.bankSortCode,
     watchedValues.iban, watchedValues.swift, watchedValues.routingNumber, watchedValues.paypalEmail,
     watchedValues.wiseEmail, watchedValues.otherPaymentInstructions, generatedPreview, customInvoiceLabels,
+    invoiceAccess.watermarkPreview,
   ]);
 
   const settingsPreviewHtml = useMemo(() => generateInvoiceHTML(settingsPreviewData), [settingsPreviewData]);
 
   const handleExportPreviewPdf = async () => {
+    if (!invoiceAccess.canExport) {
+      toast({
+        title: "Pro feature",
+        description: "Upgrade to Pro to export clean, selectable-text invoice PDFs.",
+      });
+      navigate("/plans");
+      return;
+    }
     setIsExportingPreview(true);
     try {
       const invoiceNumber = settingsPreviewData.invoiceNumber.replace(/[^a-z0-9-]+/gi, "-").replace(/^-|-$/g, "") || "invoice";
@@ -1880,15 +1899,18 @@ export default function SettingsPage() {
                       variant="outline"
                       size="sm"
                       onClick={handleExportPreviewPdf}
-                      disabled={isExportingPreview}
+                      disabled={isExportingPreview || !invoiceAccess.canExport}
                       className="h-8 text-xs bg-white"
+                      title={invoiceAccess.canExport ? "Export invoice preview as PDF" : "Upgrade to Pro to export invoices"}
                     >
                       {isExportingPreview ? (
                         <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      ) : !invoiceAccess.canExport ? (
+                        <Lock className="h-3.5 w-3.5 mr-1.5" />
                       ) : (
                         <Download className="h-3.5 w-3.5 mr-1.5" />
                       )}
-                      Export PDF
+                      {invoiceAccess.canExport ? "Export PDF" : "Pro export"}
                     </Button>
                   </div>
                   <div style={{ width: "794px", transformOrigin: "top left", transform: "scale(0.65)", marginBottom: "-393px" }}>
