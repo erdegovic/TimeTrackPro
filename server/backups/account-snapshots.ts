@@ -5,7 +5,10 @@ import { pool } from "../db";
 import { backupChecksum, decryptBackup, encryptBackup } from "./crypto";
 import { getBackupConfig, requireBackupConfig } from "./config";
 import { deleteBackupObject, downloadBackupObject, uploadBackupObject } from "./object-storage";
-import { selectSnapshotsToDelete } from "./retention";
+import {
+  selectRedundantScheduledSnapshotsToDelete,
+  selectSnapshotsToDelete,
+} from "./retention";
 
 const SNAPSHOT_FORMAT = "tickd-account-snapshot";
 const SNAPSHOT_SCHEMA_VERSION = 1;
@@ -375,18 +378,27 @@ export async function restoreAccountSnapshot(data: {
 }
 
 async function pruneUserSnapshots(userId: number) {
+  const config = getBackupConfig();
   const result = await pool.query(`
-    SELECT id, object_key, created_at
+    SELECT id, object_key, reason, created_at
     FROM account_snapshots
     WHERE user_id = $1 AND status = 'complete'
     ORDER BY created_at DESC
   `, [userId]);
-  const toDelete = selectSnapshotsToDelete(result.rows.map((row) => ({
+  const candidates = result.rows.map((row) => ({
     id: row.id,
+    reason: row.reason,
     createdAt: new Date(row.created_at),
-  })));
+  }));
+  const toDelete = new Map([
+    ...selectSnapshotsToDelete(candidates),
+    ...selectRedundantScheduledSnapshotsToDelete(
+      candidates,
+      config.intervalHours * 0.8 * 60 * 60 * 1000,
+    ),
+  ].map((snapshot) => [snapshot.id, snapshot]));
   const objectKeys = new Map(result.rows.map((row) => [row.id, row.object_key]));
-  for (const snapshot of toDelete) {
+  for (const snapshot of toDelete.values()) {
     const objectKey = objectKeys.get(snapshot.id);
     if (!objectKey) continue;
     await deleteBackupObject(objectKey);
@@ -401,22 +413,38 @@ async function pruneUserSnapshots(userId: number) {
 export async function runAccountBackupCycle(reason: "scheduled" | "manual" = "scheduled") {
   const config = getBackupConfig();
   if (!config.enabled || !config.configured) {
-    return { status: "not_configured" as const, successful: 0, failed: 0 };
+    return { status: "not_configured" as const, successful: 0, failed: 0, skipped: 0 };
   }
 
   const lockClient = await pool.connect();
   const lock = await lockClient.query("SELECT pg_try_advisory_lock($1) AS acquired", [BACKUP_LOCK_ID]);
   if (!lock.rows[0]?.acquired) {
     lockClient.release();
-    return { status: "already_running" as const, successful: 0, failed: 0 };
+    return { status: "already_running" as const, successful: 0, failed: 0, skipped: 0 };
   }
 
   let successful = 0;
   let failed = 0;
+  let skipped = 0;
   try {
     const users = await pool.query("SELECT id FROM users ORDER BY id");
     for (const user of users.rows) {
       try {
+        if (reason === "scheduled") {
+          const recent = await pool.query(`
+            SELECT 1
+            FROM account_snapshots
+            WHERE user_id = $1
+              AND status = 'complete'
+              AND completed_at > now() - ($2::double precision * interval '1 hour')
+            LIMIT 1
+          `, [user.id, config.intervalHours * 0.8]);
+          if (recent.rowCount) {
+            await pruneUserSnapshots(Number(user.id));
+            skipped += 1;
+            continue;
+          }
+        }
         await createAccountSnapshot(Number(user.id), reason);
         await pruneUserSnapshots(Number(user.id));
         successful += 1;
@@ -425,7 +453,7 @@ export async function runAccountBackupCycle(reason: "scheduled" | "manual" = "sc
         console.error(`Account backup failed for user ${user.id}:`, error);
       }
     }
-    return { status: failed ? "partial" as const : "complete" as const, successful, failed };
+    return { status: failed ? "partial" as const : "complete" as const, successful, failed, skipped };
   } finally {
     await lockClient.query("SELECT pg_advisory_unlock($1)", [BACKUP_LOCK_ID]).catch(() => undefined);
     lockClient.release();

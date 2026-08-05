@@ -3,6 +3,10 @@ export type RetentionCandidate = {
   createdAt: Date;
 };
 
+export type ScheduledRetentionCandidate = RetentionCandidate & {
+  reason: string;
+};
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function isoWeekKey(date: Date) {
@@ -43,4 +47,26 @@ export function selectSnapshotsToDelete(
     retainedBuckets.add(bucket);
     return false;
   });
+}
+
+/** Removes redundant scheduled snapshots created by overlapping app instances. */
+export function selectRedundantScheduledSnapshotsToDelete(
+  candidates: ScheduledRetentionCandidate[],
+  minimumSpacingMs: number,
+): ScheduledRetentionCandidate[] {
+  const sorted = [...candidates].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const redundant: ScheduledRetentionCandidate[] = [];
+  let latestKeptScheduledAt: number | null = null;
+
+  for (const candidate of sorted) {
+    if (candidate.reason !== "scheduled") continue;
+    const createdAt = candidate.createdAt.getTime();
+    if (latestKeptScheduledAt !== null && latestKeptScheduledAt - createdAt < minimumSpacingMs) {
+      redundant.push(candidate);
+      continue;
+    }
+    latestKeptScheduledAt = createdAt;
+  }
+
+  return redundant;
 }
