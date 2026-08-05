@@ -29,7 +29,7 @@ export function useAuth() {
     queryKey: ["/api/auth/user"],
     queryFn: async () => {
       const response = await fetch("/api/auth/user", { credentials: "include" });
-      if (response.status === 401) throw new Error("Unauthorized");
+      if (response.status === 401) return null;
       if (!response.ok) throw new Error(`Authentication request failed (${response.status})`);
 
       const contentType = response.headers.get("content-type") || "";
@@ -43,7 +43,7 @@ export function useAuth() {
 
   // Handle navigation based on authentication status
   useEffect(() => {
-    if (isError) {
+    if (isError || (!isLoading && user === null)) {
       // Don't redirect if on public pages
       const publicPaths = [
         "/login", 

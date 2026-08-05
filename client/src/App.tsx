@@ -29,17 +29,13 @@ import PricingPage from "./pages/PricingPage";
 import HowItWorksPage from "./pages/HowItWorksPage";
 import FaqPage from "./pages/FaqPage";
 import HelpPage from "./pages/HelpPage";
+import HelpArticlePage from "./pages/HelpArticlePage";
 import ContactPage from "./pages/ContactPage";
 import PlansPage from "./pages/PlansPage";
 import { useAuth } from "./hooks/useAuth";
-import { Logo } from "@/components/ui/logo";
 
 function RootRoute() {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <div className="flex min-h-screen items-center justify-center bg-white"><div className="animate-pulse"><Logo /></div></div>;
-  }
+  const { user } = useAuth();
 
   if (!user) return <LandingPage />;
 
@@ -53,6 +49,7 @@ function Router() {
       <Route path="/pricing" component={PricingPage} />
       <Route path="/how-it-works" component={HowItWorksPage} />
       <Route path="/faq" component={FaqPage} />
+      <Route path="/help/:topic" component={HelpArticlePage} />
       <Route path="/help" component={HelpPage} />
       <Route path="/contact" component={ContactPage} />
       <Route path="/login">
