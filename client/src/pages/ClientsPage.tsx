@@ -4,7 +4,7 @@ import { Plus, Edit, Trash2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import ClientForm from "@/components/Clients/ClientForm";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -227,6 +227,7 @@ export default function ClientsPage() {
         <DialogContent className="w-[96vw] max-w-[980px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Client</DialogTitle>
+            <DialogDescription>Add contact, billing currency, colour, and optional invoice preferences.</DialogDescription>
           </DialogHeader>
           <ClientForm
             onSuccess={() => setShowNewClientDialog(false)}
@@ -240,6 +241,7 @@ export default function ClientsPage() {
         <DialogContent className="w-[96vw] max-w-[980px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Client</DialogTitle>
+            <DialogDescription>Update this client's contact, billing, and invoice preferences.</DialogDescription>
           </DialogHeader>
           {editingClient && (
             <ClientForm 
