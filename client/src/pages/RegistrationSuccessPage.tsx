@@ -1,67 +1,160 @@
-import { useEffect, useState } from 'react';
-import { useLocation } from 'wouter';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Mail, Check, Timer, AlertCircle } from 'lucide-react';
-import AuthLayout from '@/components/layouts/AuthLayout';
-import { Link } from 'wouter';
+import { useEffect, useState } from "react";
+import { Link } from "wouter";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
+import { Check, Loader2, MailCheck, RefreshCw, ShieldCheck } from "lucide-react";
+import AuthLayout from "@/components/layouts/AuthLayout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 export default function RegistrationSuccessPage() {
-  const [location, navigate] = useLocation();
-  const [email, setEmail] = useState<string>('');
-  
-  // Extract email from query parameters
+  const { toast } = useToast();
+  const initialEmail = new URLSearchParams(window.location.search).get("email") || "";
+  const [email, setEmail] = useState(initialEmail);
+  const [code, setCode] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const emailParam = params.get('email');
-    if (emailParam) {
-      setEmail(emailParam);
+    if (resendCooldown <= 0) return;
+    const timer = window.setInterval(() => setResendCooldown((seconds) => Math.max(0, seconds - 1)), 1000);
+    return () => window.clearInterval(timer);
+  }, [resendCooldown]);
+
+  const verifyCode = async () => {
+    if (!email || !email.includes("@")) {
+      toast({ title: "Email required", description: "Enter the email address used during registration.", variant: "destructive" });
+      return;
     }
-  }, []);
-  
+    if (code.length !== 6) {
+      toast({ title: "Enter the complete code", description: "The verification code contains six digits.", variant: "destructive" });
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      const response = await fetch("/api/auth/verify-email-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "The code could not be verified.");
+      setIsVerified(true);
+    } catch (error) {
+      setCode("");
+      toast({
+        title: "Verification failed",
+        description: error instanceof Error ? error.message : "The code could not be verified.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const resendCode = async () => {
+    if (!email || !email.includes("@") || resendCooldown > 0) return;
+    setIsResending(true);
+    try {
+      const response = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "A new code could not be sent.");
+      setCode("");
+      setResendCooldown(60);
+      toast({ title: "New code sent", description: "Check your inbox for the latest six-digit code." });
+    } catch (error) {
+      toast({
+        title: "Could not resend code",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   return (
     <AuthLayout>
-      <div className="w-full flex justify-center items-center min-h-[calc(100vh-100px)]">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1 flex flex-col items-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <Check className="h-8 w-8 text-green-600" />
-            </div>
-            <CardTitle className="text-2xl text-center">Registration Successful!</CardTitle>
-            <CardDescription className="text-center">
-              We've sent a verification email to your inbox
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="bg-blue-50 p-4 rounded-md flex items-start">
-              <Mail className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-blue-800">Verification Required</p>
-                <p className="text-sm text-blue-700 mt-1">
-                  We've sent an email to <span className="font-medium">{email || 'your email address'}</span>. 
-                  Please check your inbox and click the verification link to activate your account.
-                </p>
+      <div className="w-full max-w-md">
+        <div className="rounded-lg border border-[#dfe5ee] bg-white p-6 shadow-[0_18px_55px_rgba(17,32,61,0.1)] sm:p-8">
+          {isVerified ? (
+            <div className="text-center">
+              <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-50 text-emerald-600">
+                <Check className="h-7 w-7" />
               </div>
+              <h1 className="mt-6 text-2xl font-bold text-[#071127]">Email verified</h1>
+              <p className="mt-3 text-sm leading-6 text-[#667085]">Your Tickd account is active. You can now sign in and start tracking.</p>
+              <Button className="mt-7 h-11 w-full" asChild><Link href="/login?verified=true">Continue to login</Link></Button>
             </div>
-            
-            <div className="bg-amber-50 p-4 rounded-md flex items-start">
-              <Timer className="h-5 w-5 text-amber-600 mt-0.5 mr-3 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-amber-800">Didn't receive the email?</p>
-                <p className="text-sm text-amber-700 mt-1">
-                  Please check your spam folder. If you still don't see it, you can request a new verification email after a few minutes.
-                </p>
+          ) : (
+            <>
+              <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#edf4ff] text-[#096cfb]">
+                <MailCheck className="h-6 w-6" />
               </div>
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-3">
-            <Button variant="default" className="w-full" asChild>
-              <Link href="/login">
-                Go to Login Page
-              </Link>
-            </Button>
-          </CardFooter>
-        </Card>
+              <div className="mt-5 text-center">
+                <h1 className="text-2xl font-bold text-[#071127]">Check your email</h1>
+                <p className="mt-2 text-sm leading-6 text-[#667085]">Enter the six-digit code we sent to finish creating your account.</p>
+              </div>
+
+              <div className="mt-6">
+                {initialEmail ? (
+                  <div className="rounded-md border border-[#dfe5ee] bg-[#f8fafc] px-4 py-3 text-center text-sm font-semibold text-[#344054]">{email}</div>
+                ) : (
+                  <div>
+                    <Label htmlFor="verification-email">Registration email</Label>
+                    <Input id="verification-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1 h-11" autoComplete="email" />
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-center">
+                <InputOTP
+                  maxLength={6}
+                  pattern={REGEXP_ONLY_DIGITS}
+                  value={code}
+                  onChange={setCode}
+                  onComplete={() => undefined}
+                  disabled={isVerifying}
+                  autoFocus
+                  aria-label="Six-digit email verification code"
+                >
+                  <InputOTPGroup>
+                    {Array.from({ length: 6 }, (_, index) => (
+                      <InputOTPSlot key={index} index={index} className="h-12 w-11 text-lg font-semibold sm:w-12" />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+
+              <Button onClick={verifyCode} disabled={isVerifying || code.length !== 6} className="mt-6 h-11 w-full text-base font-semibold">
+                {isVerifying ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Verifying...</> : <><ShieldCheck className="mr-2 h-4 w-4" />Verify email</>}
+              </Button>
+
+              <div className="mt-5 flex items-center justify-center gap-2 text-sm text-[#667085]">
+                <span>Didn't receive it?</span>
+                <button
+                  type="button"
+                  onClick={resendCode}
+                  disabled={isResending || resendCooldown > 0 || !email}
+                  className="inline-flex items-center font-semibold text-[#096cfb] hover:text-[#075bcf] disabled:cursor-not-allowed disabled:text-[#98a2b3]"
+                >
+                  {isResending && <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                  {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+                </button>
+              </div>
+              <p className="mt-5 text-center text-xs leading-5 text-[#98a2b3]">The latest code expires after 15 minutes. Check your spam folder if the message is missing.</p>
+            </>
+          )}
+        </div>
       </div>
     </AuthLayout>
   );

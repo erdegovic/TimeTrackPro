@@ -16,6 +16,7 @@ interface TickdEmailLayoutParams {
   actionUrl: string;
   expiry: string;
   securityNote: string;
+  verificationCode?: string;
 }
 
 const senderEmail = () => process.env.SENDER_EMAIL || "noreply@tickd.me";
@@ -41,6 +42,7 @@ const renderTickdEmail = ({
   actionUrl,
   expiry,
   securityNote,
+  verificationCode,
 }: TickdEmailLayoutParams) => {
   const safeActionUrl = escapeHtml(actionUrl);
   const logoUrl = escapeHtml(new URL("/tickd-logo-email.png", actionUrl).toString());
@@ -73,6 +75,10 @@ const renderTickdEmail = ({
                 <h1 style="margin:0 0 16px;color:#071127;font-size:28px;line-height:36px;font-weight:700;letter-spacing:0;">${escapeHtml(title)}</h1>
                 <p style="margin:0 0 16px;color:#344054;font-size:16px;line-height:26px;">${escapeHtml(introduction)}</p>
                 ${details ? `<p style="margin:0 0 16px;color:#344054;font-size:16px;line-height:26px;">${details}</p>` : ""}
+                ${verificationCode ? `<div style="margin:26px 0 8px;padding:20px;border:1px solid #c9daf5;border-radius:8px;background:#f4f8ff;text-align:center;">
+                  <p style="margin:0 0 8px;color:#667085;font-size:12px;line-height:18px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;">Your verification code</p>
+                  <p style="margin:0;color:#071127;font-family:Arial,Helvetica,sans-serif;font-size:34px;line-height:42px;font-weight:800;letter-spacing:8px;">${escapeHtml(verificationCode)}</p>
+                </div>` : ""}
                 <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0 24px;">
                   <tr>
                     <td bgcolor="#2474f5" style="border-radius:6px;">
@@ -195,15 +201,22 @@ export function getPasswordResetEmailContent(token: string, baseUrl: string): st
   });
 }
 
-export function getRegistrationEmailContent(token: string, baseUrl: string): string {
+export function getRegistrationEmailContent(token: string, baseUrl: string, verificationCode?: string, email?: string): string {
+  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+  const codeEntryUrl = `${normalizedBaseUrl}/registration-success${email ? `?email=${encodeURIComponent(email)}` : ""}`;
   return renderTickdEmail({
     preheader: "Confirm your email address to finish setting up Tickd.",
     title: "Welcome to Tickd",
-    introduction: "Your account is ready. Confirm your email address to start tracking time, organizing client work, and creating reports and invoices.",
-    actionLabel: "Confirm email address",
-    actionUrl: createActionUrl(baseUrl, "/verify-email", token),
-    expiry: "This confirmation link expires in 24 hours and can be used only once.",
+    introduction: verificationCode
+      ? "Enter this verification code in Tickd to finish creating your account."
+      : "Your account is ready. Confirm your email address to start tracking time, organizing client work, and creating reports and invoices.",
+    actionLabel: verificationCode ? "Enter verification code" : "Confirm email address",
+    actionUrl: verificationCode ? codeEntryUrl : createActionUrl(baseUrl, "/verify-email", token),
+    expiry: verificationCode
+      ? "This code expires in 15 minutes and can be used only once."
+      : "This confirmation link expires in 24 hours and can be used only once.",
     securityNote: "If you did not create a Tickd account, you can safely ignore this email.",
+    verificationCode,
   });
 }
 

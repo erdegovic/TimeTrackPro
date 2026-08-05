@@ -1,6 +1,5 @@
 import { ReactNode } from "react";
-import { Link } from "wouter";
-import tickdLogoFull from "@/assets/tickd-logo-full.svg";
+import PublicHeader from "@/components/marketing/PublicHeader";
 
 interface AuthLayoutProps {
   children: ReactNode;
@@ -9,13 +8,7 @@ interface AuthLayoutProps {
 export default function AuthLayout({ children }: AuthLayoutProps) {
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "hsl(var(--tickd-bg))" }}>
-      <header className="py-4 px-6 border-b bg-white shadow-sm">
-        <div className="container mx-auto">
-          <Link href="/" className="flex items-center gap-3 w-fit">
-            <img src={tickdLogoFull} alt="Tickd" className="h-10 w-auto max-w-[165px]" />
-          </Link>
-        </div>
-      </header>
+      <PublicHeader authenticationPage />
 
       <main className="flex-1 flex items-center justify-center py-12 px-4">
         {children}

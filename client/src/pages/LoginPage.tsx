@@ -48,11 +48,10 @@ export default function LoginPage() {
       
       if (response.ok) {
         toast({
-          title: "Email Sent",
-          description: "Verification email has been sent. Please check your inbox.",
+          title: "Code sent",
+          description: "A new six-digit verification code has been sent.",
         });
-        // Clear resend form
-        setStatusMessage(null);
+        navigate(`/registration-success?email=${encodeURIComponent(resendEmail)}`);
       } else {
         toast({
           title: "Failed to Resend",
@@ -102,7 +101,7 @@ export default function LoginPage() {
       setStatusMessage({
         type: 'error',
         title: 'Email Not Verified',
-        message: 'Your email address has not been verified. Please check your inbox for the verification email, or request a new one.',
+        message: 'Your email address has not been verified. Enter the code from your email, or request a new one.',
         needsResend: true
       });
     }
@@ -137,7 +136,7 @@ export default function LoginPage() {
 
   return (
     <AuthLayout>
-      <div className="flex items-center justify-center py-8">
+      <div className="flex w-full items-center justify-center py-8">
         <div className="max-w-md w-full">
           {statusMessage && (
             <Alert 
@@ -160,25 +159,32 @@ export default function LoginPage() {
           {statusMessage?.needsResend ? (
             <Card className="mb-6">
               <CardHeader>
-                <CardTitle className="text-lg">Resend Verification Email</CardTitle>
+                <CardTitle className="text-lg">Finish email verification</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-gray-600 mb-4">
-                  Enter your email address below to receive a new verification link.
+                  Enter your email address to continue with your existing code or request a new one.
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Input 
                     type="email" 
                     placeholder="your@email.com" 
                     value={resendEmail}
                     onChange={(e) => setResendEmail(e.target.value)}
-                    className="flex-1"
+                    className="min-w-0 flex-1"
                   />
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate(`/registration-success?email=${encodeURIComponent(resendEmail)}`)}
+                    disabled={!resendEmail}
+                  >
+                    Enter code
+                  </Button>
                   <Button 
                     onClick={handleResendVerification} 
                     disabled={isResending || !resendEmail}
                   >
-                    {isResending ? "Sending..." : "Resend"}
+                    {isResending ? "Sending..." : "Send new code"}
                   </Button>
                 </div>
               </CardContent>

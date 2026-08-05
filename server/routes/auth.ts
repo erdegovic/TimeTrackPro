@@ -7,6 +7,11 @@ import { storage } from '../storage';
 import { verificationTypeEnum } from '@shared/schema';
 import { getBaseUrl } from '../utils/url-helper';
 import { isRegistrationPlan, isSubscriptionPlan, subscriptionPlanRank } from '@shared/subscriptions';
+import {
+  createEmailVerificationChallenge,
+  isEmailVerificationChallengeToken,
+  verifyEmailVerificationCode,
+} from '../utils/email-verification-code';
 
 // Create router
 const router = Router();
@@ -29,6 +34,15 @@ const registrationRequestSchema = z.object({
   captchaToken: z.string().nullish(),
   plan: z.enum(['free', 'pro']),
 });
+
+const emailCodeRequestSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  code: z.string().trim().regex(/^\d{6}$/),
+});
+
+const verificationAttempts = new Map<string, { count: number; resetAt: number }>();
+const VERIFICATION_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+const MAX_VERIFICATION_ATTEMPTS = 5;
 
 const passwordResetResponse = {
   message: 'If that email is registered, you will receive password reset instructions.',
@@ -721,10 +735,10 @@ router.post('/register', async (req: Request, res: Response) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
     
-    // Create verification token
-    const verificationToken = crypto.randomBytes(32).toString('hex');
+    // Create a one-time verification challenge. Only the code hash is stored.
+    const { code: verificationCode, token: verificationToken } = createEmailVerificationChallenge();
     const expirationDate = new Date();
-    expirationDate.setHours(expirationDate.getHours() + 24); // 24 hour expiration
+    expirationDate.setMinutes(expirationDate.getMinutes() + 15);
     
     // Create user
     const user = await storage.createUser({
@@ -763,13 +777,13 @@ router.post('/register', async (req: Request, res: Response) => {
     const emailSent = await emailModule.sendEmail({
       to: email,
       subject: 'Confirm your Tickd email address',
-      htmlContent: emailModule.getRegistrationEmailContent(verificationToken, baseUrl)
+      htmlContent: emailModule.getRegistrationEmailContent(verificationToken, baseUrl, verificationCode, email)
     });
     
     if (emailSent) {
       console.log(`Verification email sent to ${email}`);
       if (process.env.NODE_ENV === 'development') {
-        console.log(`[DEV MODE] Email verification link: ${baseUrl}/verify-email?token=${verificationToken}`);
+        console.log(`[DEV MODE] Email verification code for ${email}: ${verificationCode}`);
       }
       
       // Return success with development testing info if in dev mode
@@ -798,6 +812,63 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/verify-email-code', async (req: Request, res: Response) => {
+  const validation = emailCodeRequestSchema.safeParse(req.body);
+  if (!validation.success) {
+    return res.status(400).json({ message: 'Enter the six-digit code from your email.' });
+  }
+
+  const { email, code } = validation.data;
+  const now = Date.now();
+
+  try {
+    const user = await storage.getUserByEmail(email);
+    if (!user) {
+      return res.status(400).json({ message: 'The code is invalid or has expired.' });
+    }
+    if (user.status === 'active') {
+      return res.status(200).json({ message: 'Your email is already verified.' });
+    }
+
+    const verifications = await storage.getVerificationsByUser(user.id);
+    const pendingVerification = verifications.find((verification) =>
+      verification.type === 'email' && isEmailVerificationChallengeToken(verification.token),
+    );
+
+    if (!pendingVerification || pendingVerification.expiresAt.getTime() <= now) {
+      if (pendingVerification) await storage.deleteVerification(pendingVerification.token);
+      return res.status(400).json({ message: 'The code is invalid or has expired. Request a new code.' });
+    }
+
+    const attemptKey = pendingVerification.token;
+    const attemptState = verificationAttempts.get(attemptKey);
+    if (attemptState && attemptState.resetAt > now && attemptState.count >= MAX_VERIFICATION_ATTEMPTS) {
+      return res.status(429).json({ message: 'Too many incorrect attempts. Request a new code or try again in 15 minutes.' });
+    }
+    if (!attemptState || attemptState.resetAt <= now) {
+      verificationAttempts.set(attemptKey, { count: 0, resetAt: now + VERIFICATION_ATTEMPT_WINDOW_MS });
+    }
+
+    if (!verifyEmailVerificationCode(pendingVerification.token, code)) {
+      const current = verificationAttempts.get(attemptKey)!;
+      verificationAttempts.set(attemptKey, { ...current, count: current.count + 1 });
+      return res.status(400).json({ message: 'That code is not correct. Check the email and try again.' });
+    }
+
+    await storage.updateUser(user.id, { status: 'active', verificationToken: null });
+    await Promise.all(
+      verifications
+        .filter((verification) => verification.type === 'email')
+        .map((verification) => storage.deleteVerification(verification.token)),
+    );
+    verificationAttempts.delete(attemptKey);
+    return res.status(200).json({ message: 'Email verified successfully.' });
+  } catch (error) {
+    console.error('Email code verification error:', error);
+    return res.status(500).json({ message: 'We could not verify the code. Please try again.' });
+  }
+});
+
 // Email verification endpoint
 router.get('/verify-email', async (req: Request, res: Response) => {
   try {
@@ -823,6 +894,11 @@ router.get('/verify-email', async (req: Request, res: Response) => {
     const user = await storage.getUser(verification.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
+    }
+
+    // New registrations must finish with the six-digit code. Legacy links remain valid.
+    if (isEmailVerificationChallengeToken(token)) {
+      return res.redirect(`/registration-success?email=${encodeURIComponent(user.email)}`);
     }
     
     // Update user status to active

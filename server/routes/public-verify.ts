@@ -1,7 +1,7 @@
 import { Request, Response, Router } from 'express';
-import crypto from 'crypto';
 import { storage } from '../storage';
 import { getBaseUrl } from '../utils/url-helper';
+import { createEmailVerificationChallenge } from '../utils/email-verification-code';
 
 const router = Router();
 
@@ -49,10 +49,9 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
         .map((verification) => storage.deleteVerification(verification.token)),
     );
     
-    // Generate a new verification token
-    const token = crypto.randomBytes(32).toString('hex');
+    const { code, token } = createEmailVerificationChallenge();
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour expiration
+    expiresAt.setMinutes(expiresAt.getMinutes() + 15);
     
     // Update user's verification token
     await storage.updateUser(user.id, {
@@ -76,7 +75,7 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
     const emailModule = await import('../utils/email-service');
     
     // Generate and send verification email
-    const emailContent = emailModule.getRegistrationEmailContent(token, baseUrl);
+    const emailContent = emailModule.getRegistrationEmailContent(token, baseUrl, code, email);
     const emailSent = await emailModule.sendEmail({
       to: email,
       subject: 'Confirm your Tickd email address',
@@ -88,7 +87,7 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
       
       // Log the verification link in development mode
       if (process.env.NODE_ENV === 'development') {
-        console.log(`[DEV] Verification link: ${baseUrl}/verify-email?token=${token}`);
+        console.log(`[DEV] Email verification code for ${email}: ${code}`);
       }
       
       return res.status(200).json({ 

@@ -4,8 +4,8 @@ import AuthLayout from "../components/layouts/AuthLayout";
 export default function RegisterPage() {
   return (
     <AuthLayout>
-      <div className="flex items-center justify-center py-8">
-        <div className="max-w-md w-full">
+      <div className="flex w-full items-center justify-center py-8">
+        <div className="w-full max-w-2xl">
           <RegisterForm />
         </div>
       </div>
