@@ -8,6 +8,7 @@ import { pool } from "./db";
 import { ensureCurrentSchema } from "./schema-bootstrap";
 import { startBackupScheduler } from "./backups/scheduler";
 import { registerPaddleWebhook } from "./billing/paddle";
+import { startUltimateScheduler } from "./ultimate/automation";
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -122,5 +123,6 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
     startBackupScheduler();
+    startUltimateScheduler();
   });
 })();

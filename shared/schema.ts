@@ -21,6 +21,8 @@ export const users = pgTable("users", {
   googleSubject: text("google_subject").unique(),
   invoiceLabelOverrides: text("invoice_label_overrides"),
   customCurrencyRates: text("custom_currency_rates"),
+  aiEnabled: boolean("ai_enabled").notNull().default(false),
+  aiDataConsentAt: timestamp("ai_data_consent_at"),
   subscriptionPlan: text("subscription_plan").notNull().default("free"),
   subscriptionStatus: text("subscription_status").notNull().default("active"),
   subscriptionChangedAt: timestamp("subscription_changed_at").defaultNow(),
@@ -96,6 +98,7 @@ export const clients = pgTable("clients", {
   color: text("color").default("#2563eb"),
   invoiceLanguage: text("invoice_language").default("en"),
   invoiceSettings: text("invoice_settings"),
+  aiPreferences: text("ai_preferences"),
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
 });
 
@@ -301,6 +304,93 @@ export const backupAuditEvents = pgTable("backup_audit_events", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   targetCreatedIdx: index("backup_audit_events_target_created_idx").on(table.targetUserId, table.createdAt),
+}));
+
+export const aiArtifacts = pgTable("ai_artifacts", {
+  id: text("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  clientId: integer("client_id").references(() => clients.id, { onDelete: "set null" }),
+  kind: text("kind").notNull(),
+  status: text("status").notNull().default("draft"),
+  sourceHash: text("source_hash").notNull(),
+  inputMeta: text("input_meta"),
+  result: text("result").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  approvedAt: timestamp("approved_at"),
+}, (table) => ({
+  userCreatedIdx: index("ai_artifacts_user_created_idx").on(table.userId, table.createdAt),
+}));
+
+export const aiUsageEvents = pgTable("ai_usage_events", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  action: text("action").notNull(),
+  actionUnits: integer("action_units").notNull().default(1),
+  model: text("model").notNull(),
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  estimatedCostMicros: integer("estimated_cost_micros").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userCreatedIdx: index("ai_usage_events_user_created_idx").on(table.userId, table.createdAt),
+}));
+
+export const recurringInvoiceSchedules = pgTable("recurring_invoice_schedules", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  frequency: text("frequency").notNull().default("monthly"),
+  billingDay: integer("billing_day").notNull().default(1),
+  sendHour: integer("send_hour").notNull().default(9),
+  timezone: text("timezone").notNull().default("UTC"),
+  periodMode: text("period_mode").notNull().default("previous_month"),
+  requireApproval: boolean("require_approval").notNull().default(true),
+  cancellationWindowMinutes: integer("cancellation_window_minutes").notNull().default(60),
+  nextRunAt: timestamp("next_run_at").notNull(),
+  lastRunAt: timestamp("last_run_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdx: index("recurring_invoice_schedules_user_idx").on(table.userId),
+  dueIdx: index("recurring_invoice_schedules_due_idx").on(table.enabled, table.nextRunAt),
+}));
+
+export const invoiceAutomationJobs = pgTable("invoice_automation_jobs", {
+  id: text("id").primaryKey(),
+  scheduleId: integer("schedule_id").references(() => recurringInvoiceSchedules.id, { onDelete: "set null" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  invoiceId: integer("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
+  status: text("status").notNull().default("preparing"),
+  periodStart: text("period_start").notNull(),
+  periodEnd: text("period_end").notNull(),
+  payload: text("payload").notNull(),
+  validation: text("validation").notNull(),
+  emailSubject: text("email_subject"),
+  emailBody: text("email_body"),
+  sendAt: timestamp("send_at"),
+  sentAt: timestamp("sent_at"),
+  cancelledAt: timestamp("cancelled_at"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userCreatedIdx: index("invoice_automation_jobs_user_created_idx").on(table.userId, table.createdAt),
+  statusSendIdx: index("invoice_automation_jobs_status_send_idx").on(table.status, table.sendAt),
+}));
+
+export const invoiceAutomationAudit = pgTable("invoice_automation_audit", {
+  id: serial("id").primaryKey(),
+  jobId: text("job_id").notNull().references(() => invoiceAutomationJobs.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  action: text("action").notNull(),
+  details: text("details"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  jobCreatedIdx: index("invoice_automation_audit_job_created_idx").on(table.jobId, table.createdAt),
 }));
 
 // Create Insert Schemas

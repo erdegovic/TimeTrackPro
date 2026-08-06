@@ -27,6 +27,13 @@ export type InvoiceCapabilities = {
   watermarkPreview: boolean;
 };
 
+export type UltimateCapabilities = {
+  canUseAi: boolean;
+  canAutomateInvoices: boolean;
+};
+
+export const ULTIMATE_MONTHLY_AI_ACTIONS = 100;
+
 const paidSubscriptionStatuses = new Set(["active", "trialing", "past_due", "complimentary"]);
 
 export const getInvoiceCapabilities = (
@@ -44,5 +51,21 @@ export const getInvoiceCapabilities = (
     canSave: hasPaidAccess,
     canExport: hasPaidAccess,
     watermarkPreview: !hasPaidAccess,
+  };
+};
+
+export const getUltimateCapabilities = (
+  plan: unknown,
+  status?: unknown,
+): UltimateCapabilities => {
+  const normalizedPlan = isSubscriptionPlan(plan) ? plan : "free";
+  const normalizedStatus = typeof status === "string" ? status.toLowerCase() : "active";
+  const hasUltimateAccess =
+    subscriptionPlanRank[normalizedPlan] >= subscriptionPlanRank.ultimate &&
+    paidSubscriptionStatuses.has(normalizedStatus);
+
+  return {
+    canUseAi: hasUltimateAccess,
+    canAutomateInvoices: hasUltimateAccess,
   };
 };

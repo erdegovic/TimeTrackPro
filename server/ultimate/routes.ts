@@ -1,0 +1,415 @@
+import { Router, type NextFunction, type Request, type Response } from "express";
+import { z } from "zod";
+import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { db } from "../db";
+import { authenticate } from "../middleware/auth";
+import { storage } from "../storage";
+import {
+  aiArtifacts,
+  clients,
+  invoiceAutomationAudit,
+  projects,
+  recurringInvoiceSchedules,
+  timeEntries,
+} from "@shared/schema";
+import { getUltimateCapabilities } from "@shared/subscriptions";
+import { getNextMonthlyRun } from "@shared/ultimate";
+import {
+  AiConfigurationError,
+  AiQuotaError,
+  getAiUsage,
+  runStructuredAi,
+  saveAiArtifact,
+} from "../ai/service";
+import {
+  approveInvoiceJob,
+  cancelInvoiceJob,
+  listAutomationData,
+  prepareInvoiceJob,
+  sendPreparedInvoice,
+} from "./automation";
+
+const router = Router();
+router.use(authenticate);
+
+const requireUltimate = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = await storage.getUser(req.user!.id);
+    if (!user || !getUltimateCapabilities(user.subscriptionPlan, user.subscriptionStatus).canUseAi) {
+      return res.status(403).json({ code: "ULTIMATE_REQUIRED", message: "Upgrade to Ultimate to use Smart Assistant." });
+    }
+    (req as any).accountUser = user;
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+const requireAiConsent = (req: Request, res: Response, next: NextFunction) => {
+  const user = (req as any).accountUser;
+  if (!user?.aiEnabled || !user?.aiDataConsentAt) {
+    return res.status(412).json({ code: "AI_CONSENT_REQUIRED", message: "Enable AI assistance before sending selected work data for processing." });
+  }
+  next();
+};
+
+const sendRouteError = (res: Response, error: unknown) => {
+  if (error instanceof z.ZodError) return res.status(400).json({ message: "Please check the submitted details.", errors: error.errors });
+  if (error instanceof AiConfigurationError) return res.status(503).json({ code: "AI_NOT_CONFIGURED", message: error.message });
+  if (error instanceof AiQuotaError) return res.status(429).json({ code: "AI_QUOTA_REACHED", message: error.message });
+  const message = error instanceof Error ? error.message : "The request could not be completed.";
+  if (/not found/i.test(message)) return res.status(404).json({ message });
+  if (/required|choose|unavailable|no work|no uninvoiced|not awaiting|not ready|can no longer|acknowledge/i.test(message)) {
+    return res.status(400).json({ message });
+  }
+  console.error("Ultimate route failed:", error);
+  return res.status(500).json({ message: "The request could not be completed." });
+};
+
+router.get("/status", requireUltimate, async (req, res) => {
+  try {
+    const user = (req as any).accountUser;
+    const usage = await getAiUsage(req.user!.id);
+    res.json({
+      enabled: user.aiEnabled === true,
+      consentedAt: user.aiDataConsentAt,
+      configured: Boolean(process.env.OPENAI_API_KEY),
+      usage,
+    });
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.put("/preferences", requireUltimate, async (req, res) => {
+  try {
+    const data = z.object({ enabled: z.boolean(), acknowledged: z.boolean().optional() }).parse(req.body);
+    if (data.enabled && !data.acknowledged && !(req as any).accountUser.aiDataConsentAt) {
+      return res.status(400).json({ message: "Acknowledge the AI data notice to continue." });
+    }
+    const user = await storage.updateUser(req.user!.id, {
+      aiEnabled: data.enabled,
+      ...(data.enabled && !(req as any).accountUser.aiDataConsentAt ? { aiDataConsentAt: new Date() } : {}),
+    } as any);
+    res.json({ enabled: user?.aiEnabled, consentedAt: user?.aiDataConsentAt });
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.post("/polish", requireUltimate, requireAiConsent, async (req, res) => {
+  try {
+    const data = z.object({ entryIds: z.array(z.number().int().positive()).min(1).max(100) }).parse(req.body);
+    const entries = await db.select().from(timeEntries).where(and(
+      eq(timeEntries.userId, req.user!.id),
+      inArray(timeEntries.id, data.entryIds),
+    ));
+    if (entries.length !== new Set(data.entryIds).size) throw new Error("One or more selected entries are unavailable.");
+    const projectIds = entries.map((entry) => entry.projectId).filter((id): id is number => Boolean(id));
+    const ownedProjects = projectIds.length
+      ? await db.select().from(projects).where(and(eq(projects.userId, req.user!.id), inArray(projects.id, projectIds)))
+      : [];
+    const clientIds = ownedProjects.map((project) => project.clientId);
+    const ownedClients = clientIds.length
+      ? await db.select().from(clients).where(and(eq(clients.userId, req.user!.id), inArray(clients.id, clientIds)))
+      : [];
+    const input = entries.map((entry) => {
+      const project = ownedProjects.find((item) => item.id === entry.projectId);
+      const client = ownedClients.find((item) => item.id === project?.clientId);
+      return { id: entry.id, description: entry.description, project: project?.name || "", client: client?.name || "" };
+    });
+    const ai = await runStructuredAi<{ suggestions: Array<{ entryId: number; polishedDescription: string; reason: string }> }>({
+      userId: req.user!.id,
+      action: "entry_polish",
+      writing: true,
+      instructions: "Rewrite time-entry descriptions into concise, professional client-facing language. Never invent tasks, outcomes, tools or deliverables. Preserve proper nouns and meaning. Return one suggestion per entry, even when the original is already good.",
+      input,
+      schemaName: "time_entry_polish",
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["suggestions"],
+        properties: {
+          suggestions: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["entryId", "polishedDescription", "reason"],
+              properties: {
+                entryId: { type: "integer" },
+                polishedDescription: { type: "string" },
+                reason: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+    });
+    const originals = new Map(entries.map((entry) => [entry.id, entry.description]));
+    const result = {
+      suggestions: ai.result.suggestions
+        .filter((item) => originals.has(item.entryId))
+        .map((item) => ({ ...item, originalDescription: originals.get(item.entryId) })),
+    };
+    const artifact = await saveAiArtifact({ userId: req.user!.id, kind: "entry_polish", source: input, inputMeta: { entryIds: data.entryIds }, result });
+    res.json({ artifactId: artifact.id, ...result });
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.post("/artifacts/:id/apply", requireUltimate, requireAiConsent, async (req, res) => {
+  try {
+    const data = z.object({ entryIds: z.array(z.number().int().positive()).min(1).max(100) }).parse(req.body);
+    const [artifact] = await db.select().from(aiArtifacts).where(and(
+      eq(aiArtifacts.id, req.params.id),
+      eq(aiArtifacts.userId, req.user!.id),
+    ));
+    if (!artifact || artifact.kind !== "entry_polish") throw new Error("Polish draft not found.");
+    const result = JSON.parse(artifact.result) as { suggestions: Array<{ entryId: number; polishedDescription: string; originalDescription: string }> };
+    const selected = new Set(data.entryIds);
+    let updatedCount = 0;
+    for (const suggestion of result.suggestions) {
+      if (!selected.has(suggestion.entryId)) continue;
+      const [updated] = await db.update(timeEntries).set({ description: suggestion.polishedDescription }).where(and(
+        eq(timeEntries.id, suggestion.entryId),
+        eq(timeEntries.userId, req.user!.id),
+        eq(timeEntries.description, suggestion.originalDescription),
+      )).returning({ id: timeEntries.id });
+      if (updated) updatedCount += 1;
+    }
+    await db.update(aiArtifacts).set({ status: "approved", approvedAt: new Date(), updatedAt: new Date() }).where(eq(aiArtifacts.id, artifact.id));
+    res.json({ updatedCount, skippedCount: data.entryIds.length - updatedCount });
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+const reviewSchema = z.object({
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  clientId: z.number().int().positive().optional(),
+  entryIds: z.array(z.number().int().positive()).max(500).optional(),
+  mode: z.enum(["work_review", "report_summary"]).default("work_review"),
+}).refine((value) => value.entryIds?.length || (value.startDate && value.endDate), "Choose a date range or entries.");
+
+router.post("/review", requireUltimate, requireAiConsent, async (req, res) => {
+  try {
+    const data = reviewSchema.parse(req.body);
+    const conditions = [eq(timeEntries.userId, req.user!.id)];
+    if (data.entryIds?.length) conditions.push(inArray(timeEntries.id, data.entryIds));
+    if (data.startDate) conditions.push(gte(timeEntries.date, data.startDate));
+    if (data.endDate) conditions.push(lte(timeEntries.date, data.endDate));
+    const rows = await db
+      .select({ entry: timeEntries, project: projects, client: clients })
+      .from(timeEntries)
+      .leftJoin(projects, eq(timeEntries.projectId, projects.id))
+      .leftJoin(clients, eq(projects.clientId, clients.id))
+      .where(and(...conditions));
+    const filtered = data.clientId ? rows.filter((row) => row.client?.id === data.clientId) : rows;
+    if (!filtered.length) throw new Error("No work was found for this selection.");
+    const totalHours = filtered.reduce((sum, row) => sum + Number(row.entry.duration || 0), 0);
+    const input = {
+      mode: data.mode,
+      range: { startDate: data.startDate, endDate: data.endDate },
+      totals: { entries: filtered.length, hours: Number(totalHours.toFixed(2)) },
+      entries: filtered.map(({ entry, project, client }) => ({
+        date: entry.date,
+        description: entry.description,
+        durationHours: Number(entry.duration || 0),
+        project: project?.name || "Unassigned",
+        client: client?.name || "Unassigned",
+        billable: entry.billable !== false,
+      })),
+    };
+    const ai = await runStructuredAi<{
+      headline: string;
+      summary: string;
+      accomplishments: string[];
+      insights: string[];
+      checks: string[];
+      clientReadySummary: string;
+    }>({
+      userId: req.user!.id,
+      action: data.mode,
+      writing: true,
+      instructions: "Analyze only the supplied time-entry facts. Do not invent outcomes. Produce a concise work review, practical operational insights, data-quality checks, and a polished client-ready summary. Treat calculated totals as authoritative.",
+      input,
+      schemaName: "work_review",
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["headline", "summary", "accomplishments", "insights", "checks", "clientReadySummary"],
+        properties: {
+          headline: { type: "string" },
+          summary: { type: "string" },
+          accomplishments: { type: "array", items: { type: "string" } },
+          insights: { type: "array", items: { type: "string" } },
+          checks: { type: "array", items: { type: "string" } },
+          clientReadySummary: { type: "string" },
+        },
+      },
+    });
+    const artifact = await saveAiArtifact({ userId: req.user!.id, clientId: data.clientId, kind: data.mode, source: input, inputMeta: data, result: ai.result });
+    res.json({ artifactId: artifact.id, totals: input.totals, ...ai.result });
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.put("/clients/:id/preferences", requireUltimate, async (req, res) => {
+  try {
+    const clientId = Number(req.params.id);
+    const data = z.object({
+      tone: z.enum(["concise", "warm", "formal", "detailed"]),
+      language: z.string().trim().min(2).max(50),
+      terminology: z.string().trim().max(1000).default(""),
+      instructions: z.string().trim().max(2000).default(""),
+    }).parse(req.body);
+    const client = await storage.getClient(clientId);
+    if (!client || client.userId !== req.user!.id) throw new Error("Client not found.");
+    const updated = await storage.updateClient(clientId, { aiPreferences: JSON.stringify(data) } as any);
+    res.json({ clientId, preferences: data, client: updated });
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.get("/automation", requireUltimate, async (req, res) => {
+  try {
+    res.json(await listAutomationData(req.user!.id));
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+const scheduleSchema = z.object({
+  clientId: z.number().int().positive(),
+  name: z.string().trim().min(2).max(120),
+  enabled: z.boolean().default(true),
+  billingDay: z.number().int().min(1).max(28),
+  sendHour: z.number().int().min(0).max(23),
+  timezone: z.string().trim().min(1).max(80),
+  requireApproval: z.boolean().default(true),
+  cancellationWindowMinutes: z.number().int().min(5).max(10080).default(60),
+});
+
+router.post("/schedules", requireUltimate, async (req, res) => {
+  try {
+    const data = scheduleSchema.parse(req.body);
+    const client = await storage.getClient(data.clientId);
+    if (!client || client.userId !== req.user!.id) throw new Error("Client not found.");
+    try { Intl.DateTimeFormat("en", { timeZone: data.timezone }); } catch { throw new Error("Choose a valid timezone."); }
+    const [schedule] = await db.insert(recurringInvoiceSchedules).values({
+      ...data,
+      userId: req.user!.id,
+      frequency: "monthly",
+      periodMode: "previous_month",
+      nextRunAt: getNextMonthlyRun(new Date(), data.billingDay, data.sendHour, data.timezone),
+    }).returning();
+    res.status(201).json(schedule);
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.put("/schedules/:id", requireUltimate, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const data = scheduleSchema.partial().parse(req.body);
+    if (data.timezone) {
+      try { Intl.DateTimeFormat("en", { timeZone: data.timezone }); } catch { throw new Error("Choose a valid timezone."); }
+    }
+    const [existing] = await db.select().from(recurringInvoiceSchedules).where(and(eq(recurringInvoiceSchedules.id, id), eq(recurringInvoiceSchedules.userId, req.user!.id)));
+    if (!existing) throw new Error("Schedule not found.");
+    if (data.clientId) {
+      const client = await storage.getClient(data.clientId);
+      if (!client || client.userId !== req.user!.id) throw new Error("Client not found.");
+    }
+    const billingDay = data.billingDay ?? existing.billingDay;
+    const sendHour = data.sendHour ?? existing.sendHour;
+    const [updated] = await db.update(recurringInvoiceSchedules).set({
+      ...data,
+      nextRunAt: getNextMonthlyRun(
+        new Date(),
+        billingDay,
+        sendHour,
+        data.timezone || existing.timezone,
+      ),
+      updatedAt: new Date(),
+    }).where(eq(recurringInvoiceSchedules.id, id)).returning();
+    res.json(updated);
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.delete("/schedules/:id", requireUltimate, async (req, res) => {
+  try {
+    const [deleted] = await db.delete(recurringInvoiceSchedules).where(and(
+      eq(recurringInvoiceSchedules.id, Number(req.params.id)),
+      eq(recurringInvoiceSchedules.userId, req.user!.id),
+    )).returning({ id: recurringInvoiceSchedules.id });
+    if (!deleted) return res.status(404).json({ message: "Schedule not found." });
+    res.json({ deleted: true });
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.post("/schedules/:id/run", requireUltimate, async (req, res) => {
+  try {
+    const job = await prepareInvoiceJob({ scheduleId: Number(req.params.id), userId: req.user!.id });
+    res.status(201).json(job);
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.post("/jobs/:id/approve", requireUltimate, async (req, res) => {
+  try {
+    res.json(await approveInvoiceJob(req.params.id, req.user!.id, req.body?.sendNow === true));
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.post("/jobs/:id/send-now", requireUltimate, async (req, res) => {
+  try {
+    const job = await approveInvoiceJob(req.params.id, req.user!.id, true);
+    res.json(await sendPreparedInvoice(job.id, req.user!.id));
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.post("/jobs/:id/retry", requireUltimate, async (req, res) => {
+  try {
+    res.json(await sendPreparedInvoice(req.params.id, req.user!.id));
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.post("/jobs/:id/cancel", requireUltimate, async (req, res) => {
+  try {
+    res.json(await cancelInvoiceJob(req.params.id, req.user!.id));
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.get("/jobs/:id/audit", requireUltimate, async (req, res) => {
+  try {
+    const events = await db.select().from(invoiceAutomationAudit).where(and(
+      eq(invoiceAutomationAudit.jobId, req.params.id),
+      eq(invoiceAutomationAudit.userId, req.user!.id),
+    )).orderBy(desc(invoiceAutomationAudit.createdAt));
+    res.json(events);
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+export default router;

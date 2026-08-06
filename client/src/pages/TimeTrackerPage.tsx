@@ -1,7 +1,8 @@
 // TimeTrackerPage.tsx
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import TimeTrackerForm from "@/components/TimeTracker/TimeTrackerForm";
@@ -65,6 +66,9 @@ export default function TimeTrackerPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Time Tracker</h1>
         <div className="flex items-center space-x-2 flex-wrap">
+          <Button variant="outline" size="sm" asChild className="flex-shrink-0">
+            <Link href="/ultimate"><Sparkles className="mr-1 h-4 w-4" /> Polish entries</Link>
+          </Button>
           <Button onClick={() => {
             setPreDialogClientIds(new Set(clients.map(c => c.id)));
             setShowNewClientDialog(true);

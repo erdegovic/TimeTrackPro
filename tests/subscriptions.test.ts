@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   getAdminGrantedSubscriptionStatus,
   getInvoiceCapabilities,
+  getUltimateCapabilities,
   isRegistrationPlan,
   isSubscriptionPlan,
   subscriptionPlanRank,
@@ -52,4 +53,11 @@ test("admin grants distinguish complimentary access from the free plan", () => {
   assert.equal(getAdminGrantedSubscriptionStatus("free"), "active");
   assert.equal(getAdminGrantedSubscriptionStatus("pro"), "complimentary");
   assert.equal(getAdminGrantedSubscriptionStatus("ultimate"), "complimentary");
+});
+
+test("Ultimate tools require an active or complimentary Ultimate plan", () => {
+  assert.equal(getUltimateCapabilities("ultimate", "active").canUseAi, true);
+  assert.equal(getUltimateCapabilities("ultimate", "complimentary").canAutomateInvoices, true);
+  assert.equal(getUltimateCapabilities("pro", "active").canUseAi, false);
+  assert.equal(getUltimateCapabilities("ultimate", "canceled").canAutomateInvoices, false);
 });

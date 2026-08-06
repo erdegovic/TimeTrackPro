@@ -230,6 +230,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <NavItem href="/notes" icon={<MessageSquare className="w-5 h-5" />} isActive={location === '/notes'}>
                 Notes
               </NavItem>
+              <NavItem href="/ultimate" icon={<Sparkles className="w-5 h-5" />} isActive={location === '/ultimate'}>
+                Smart Assistant
+                {subscriptionPlan === "ultimate" && <span className="ml-auto text-[9px] font-bold">ULTIMATE</span>}
+              </NavItem>
               <NavItem href="/settings" icon={<Settings className="w-5 h-5" />} isActive={location === '/settings'}>
                 Settings
               </NavItem>

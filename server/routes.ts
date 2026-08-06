@@ -45,6 +45,7 @@ import {
 import { sendContactMessage } from "./utils/email-service";
 import { getAdminGrantedSubscriptionStatus, getInvoiceCapabilities } from "@shared/subscriptions";
 import paddleBillingRoutes from "./billing/paddle";
+import ultimateRoutes from "./ultimate/routes";
 
 const parseInvoiceSettings = (raw?: string | null) => {
   if (!raw) return {};
@@ -112,6 +113,7 @@ const getMusicRoot = () => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.use("/api/ultimate", ultimateRoutes);
   const contactRequestSchema = z.object({
     name: z.string().trim().min(2).max(100),
     email: z.string().trim().toLowerCase().email().max(255),

@@ -34,7 +34,16 @@ PADDLE_API_KEY=...
 PADDLE_CLIENT_TOKEN=...
 PADDLE_WEBHOOK_SECRET=...
 PADDLE_PRO_PRICE_ID=...
+OPENAI_API_KEY=...
+OPENAI_AI_MODEL=gpt-5.4-nano
+OPENAI_AI_WRITING_MODEL=gpt-5.4-mini
+AI_MONTHLY_COST_LIMIT_MICROS=2000000
 ```
+
+The OpenAI key is server-only. The default application limit above is USD 2.00
+per Ultimate account per calendar month, with a separate allowance of 100 Smart
+Actions. Tickd sends only the work records a user selects; private notes and
+account credentials are excluded.
 
 While Paddle is reviewing the live account, live credentials may be stored under
 `PADDLE_LIVE_API_KEY`, `PADDLE_LIVE_CLIENT_TOKEN`, `PADDLE_LIVE_WEBHOOK_SECRET`,

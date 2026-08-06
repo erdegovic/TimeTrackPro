@@ -35,6 +35,7 @@ import PlansPage from "./pages/PlansPage";
 import TermsPage from "./pages/TermsPage";
 import PrivacyPage from "./pages/PrivacyPage";
 import RefundPolicyPage from "./pages/RefundPolicyPage";
+import UltimatePage from "./pages/UltimatePage";
 import { useAuth } from "./hooks/useAuth";
 import TickdLoadingScreen from "./components/marketing/TickdLoadingScreen";
 
@@ -100,6 +101,7 @@ function Router() {
             <Route path="/settings" component={SettingsPage} />
             <Route path="/account" component={AccountPage} />
             <Route path="/plans" component={PlansPage} />
+            <Route path="/ultimate" component={UltimatePage} />
             <Route path="/admin" component={AdminPage} />
             <Route component={NotFound} />
           </Switch>

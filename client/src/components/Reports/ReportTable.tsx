@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,13 +9,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { format } from "date-fns";
-import { Check, Download, Edit3, File, X } from "lucide-react";
+import { Check, Copy, Download, Edit3, File, Loader2, Sparkles, X } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { generatePdf } from "@/lib/pdf-generator-fixed-new";
 import { adjustTime, roundTime, formatCurrency } from "@/lib/utils/timeUtils";
 import { ReportFilters, Client, TimeEntry, Project, TimeFormat, RoundingType, Settings } from "@shared/schema";
 import { useEffect, useMemo, useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useAuth } from "@/hooks/useAuth";
+import { getUltimateCapabilities } from "@shared/subscriptions";
 
 interface ReportTableProps {
   filters: ReportFilters;
@@ -53,8 +56,11 @@ interface ReportData {
 
 export default function ReportTable({ filters, onGenerateInvoice }: ReportTableProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const ultimateAccess = getUltimateCapabilities(user?.subscriptionPlan, user?.subscriptionStatus);
   const [isEditing, setIsEditing] = useState(false);
   const [editableReportData, setEditableReportData] = useState<ReportData | null>(null);
+  const [reportSummary, setReportSummary] = useState<any>(null);
 
   // Fetch settings to check if weekly categorization is enabled
   const { data: settings } = useQuery<Settings>({
@@ -230,6 +236,18 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
       description: `Your report has been exported as ${filename}`,
     });
   };
+
+  const reportSummaryMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/ultimate/review", {
+        entryIds: displayedReportData?.timeEntries.map((entry) => entry.id) || [],
+        mode: "report_summary",
+      });
+      return response.json();
+    },
+    onSuccess: setReportSummary,
+    onError: (error: Error) => toast({ title: "Summary could not be prepared", description: error.message, variant: "destructive" }),
+  });
 
   if (isLoading) {
     return (
@@ -576,11 +594,17 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
 
       
       <div className="flex justify-between">
-        <div>
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={exportReport}>
             <Download className="mr-2 h-4 w-4" />
             Export Report
           </Button>
+          {ultimateAccess.canUseAi && (
+            <Button variant="outline" onClick={() => reportSummaryMutation.mutate()} disabled={reportSummaryMutation.isPending}>
+              {reportSummaryMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              Write client summary
+            </Button>
+          )}
         </div>
         <div>
           <Button onClick={() => {
@@ -592,6 +616,22 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
           </Button>
         </div>
       </div>
+      <Dialog open={Boolean(reportSummary)} onOpenChange={(open) => !open && setReportSummary(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{reportSummary?.headline || "Client-ready summary"}</DialogTitle>
+            <DialogDescription>Prepared only from the entries in this report. Review it before sharing.</DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950 whitespace-pre-wrap">
+            {reportSummary?.clientReadySummary}
+          </div>
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => navigator.clipboard.writeText(reportSummary?.clientReadySummary || "").then(() => toast({ title: "Summary copied" }))}>
+              <Copy className="mr-2 h-4 w-4" />Copy summary
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

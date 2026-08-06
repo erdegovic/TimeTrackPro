@@ -5,6 +5,7 @@ interface EmailParams {
   subject: string;
   htmlContent: string;
   replyTo?: string;
+  attachments?: Array<{ name: string; content: string }>;
 }
 
 interface TickdEmailLayoutParams {
@@ -142,6 +143,7 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
         subject: params.subject,
         htmlContent: params.htmlContent,
         ...(params.replyTo ? { replyTo: { email: params.replyTo } } : {}),
+        ...(params.attachments?.length ? { attachment: params.attachments } : {}),
       }),
     });
 
@@ -157,6 +159,46 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
     console.error("Transactional email request failed:", error);
     return false;
   }
+}
+
+export async function sendInvoiceEmail(params: {
+  to: string;
+  replyTo?: string;
+  subject: string;
+  introduction: string;
+  invoiceNumber: string;
+  clientName: string;
+  total: string;
+  dueDate: string;
+  pdfBase64: string;
+}): Promise<boolean> {
+  const safeIntroduction = escapeHtml(params.introduction).replace(/\n/g, "<br>");
+  return sendEmail({
+    to: params.to,
+    replyTo: params.replyTo,
+    subject: params.subject,
+    attachments: [{ name: `${params.invoiceNumber}.pdf`, content: params.pdfBase64 }],
+    htmlContent: `<!doctype html>
+<html lang="en"><body style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#101828;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;">
+      <tr><td style="padding:0 4px 18px;"><img src="https://tickd.me/tickd-logo-email.png" width="140" alt="Tickd" style="display:block;height:auto;border:0;"></td></tr>
+      <tr><td style="padding:36px;background:#fff;border:1px solid #dfe6f0;border-radius:8px;">
+        <div style="width:44px;height:4px;background:#2474f5;border-radius:2px;margin-bottom:22px;"></div>
+        <p style="margin:0 0 18px;color:#344054;font-size:16px;line-height:25px;">${safeIntroduction}</p>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-collapse:collapse;">
+          <tr><td style="padding:11px 0;border-top:1px solid #e4e9f1;color:#667085;font-size:13px;">Invoice</td><td align="right" style="padding:11px 0;border-top:1px solid #e4e9f1;font-weight:700;">${escapeHtml(params.invoiceNumber)}</td></tr>
+          <tr><td style="padding:11px 0;border-top:1px solid #e4e9f1;color:#667085;font-size:13px;">Client</td><td align="right" style="padding:11px 0;border-top:1px solid #e4e9f1;font-weight:700;">${escapeHtml(params.clientName)}</td></tr>
+          <tr><td style="padding:11px 0;border-top:1px solid #e4e9f1;color:#667085;font-size:13px;">Amount due</td><td align="right" style="padding:11px 0;border-top:1px solid #e4e9f1;font-weight:700;">${escapeHtml(params.total)}</td></tr>
+          <tr><td style="padding:11px 0;border-top:1px solid #e4e9f1;color:#667085;font-size:13px;">Due date</td><td align="right" style="padding:11px 0;border-top:1px solid #e4e9f1;font-weight:700;">${escapeHtml(params.dueDate)}</td></tr>
+        </table>
+        <p style="margin:24px 0 0;color:#667085;font-size:13px;line-height:21px;">The invoice is attached as a selectable-text PDF. Reply to this email to contact the sender.</p>
+      </td></tr>
+      <tr><td style="padding:18px 4px 0;color:#98a2b3;font-size:11px;line-height:18px;">Prepared and delivered securely with Tickd.</td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`,
+  });
 }
 
 export async function sendContactMessage(params: {
