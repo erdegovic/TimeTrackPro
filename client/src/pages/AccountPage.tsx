@@ -79,8 +79,8 @@ export default function AccountPage() {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) {
-      toast({ variant: 'destructive', title: 'Unsupported image', description: 'Choose a PNG, JPEG, WEBP, or GIF image.' });
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      toast({ variant: 'destructive', title: 'Unsupported image', description: 'Choose a PNG, JPEG, or WebP image.' });
       event.target.value = '';
       return;
     }
@@ -233,7 +233,7 @@ export default function AccountPage() {
                     type="file" 
                     ref={fileInputRef} 
                     className="hidden" 
-                    accept="image/*" 
+                    accept="image/png,image/jpeg,image/webp"
                     onChange={handleFileChange}
                     disabled={isAvatarUploading}
                   />

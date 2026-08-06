@@ -18,6 +18,8 @@ import {
   verifyEmailVerificationCode,
 } from '../utils/email-verification-code';
 import { validateCaptcha } from '../utils/captcha';
+import { establishAuthenticatedSession, revokeUserSessions } from '../session-store';
+import { validateProfileImageDataUrl } from '../utils/profile-image';
 
 // Create router
 const router = Router();
@@ -29,7 +31,12 @@ const forgotPasswordRequestSchema = z.object({
 
 const resetPasswordRequestSchema = z.object({
   token: z.string().min(32),
-  password: z.string().min(8),
+  password: z.string().min(8).max(128),
+});
+
+const passwordUpdateSchema = z.object({
+  currentPassword: z.string().min(1).max(128),
+  newPassword: z.string().min(8).max(128),
 });
 
 const registrationRequestSchema = z.object({
@@ -77,10 +84,6 @@ const getGoogleConfiguration = () => {
 
 const saveSession = (req: Request) => new Promise<void>((resolve, reject) => {
   req.session.save((error) => error ? reject(error) : resolve());
-});
-
-const regenerateSession = (req: Request) => new Promise<void>((resolve, reject) => {
-  req.session.regenerate((error) => error ? reject(error) : resolve());
 });
 
 const safeReturnTo = (value: unknown) => {
@@ -173,8 +176,6 @@ const updateProfile = async (req: Request, res: Response) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-
-    console.log('Profile update request for user', userId, ':', req.body);
 
     // Check if email is being changed
     if (normalizedEmail && normalizedEmail !== user.email) {
@@ -350,7 +351,12 @@ const updatePassword = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const { currentPassword, newPassword } = req.body;
+    const validation = passwordUpdateSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ message: 'Use a password between 8 and 128 characters.' });
+    }
+
+    const { currentPassword, newPassword } = validation.data;
     
     // Get current user
     const user = await storage.getUser(userId);
@@ -365,10 +371,12 @@ const updatePassword = async (req: Request, res: Response) => {
     }
 
     // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
     
     // Update user's password
     await storage.updateUser(userId, { password: hashedPassword });
+    await revokeUserSessions(userId, req.sessionID);
+    await establishAuthenticatedSession(req, userId, 'password');
 
     return res.status(200).json({ message: 'Password updated successfully' });
   } catch (error) {
@@ -385,16 +393,19 @@ const updateAvatar = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const { avatarUrl } = req.body;
+    const avatar = validateProfileImageDataUrl(req.body?.avatarUrl);
+    if (!avatar.valid) {
+      return res.status(400).json({ message: avatar.message });
+    }
     
     // Update user's profile image
     const updatedUser = await storage.updateUser(userId, { 
-      profileImageUrl: avatarUrl 
+      profileImageUrl: avatar.value,
     });
 
     return res.status(200).json({ 
       message: 'Avatar updated successfully',
-      user: updatedUser
+      user: serializeUser(updatedUser),
     });
   } catch (error) {
     console.error('Error updating avatar:', error);
@@ -465,10 +476,8 @@ const resendVerification = async (req: Request, res: Response) => {
       htmlContent
     });
     
-    if (emailSent) {
-      console.log(`Verification email resent successfully to ${pendingEmailChange.newEmail}`);
-    } else {
-      console.error(`Failed to resend verification email to ${pendingEmailChange.newEmail}`);
+    if (!emailSent) {
+      console.error('Failed to resend verification email');
       return res.status(503).json({ message: 'We could not send the confirmation email. Please try again.' });
     }
     
@@ -588,6 +597,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
       resetPasswordToken: null,
     });
     await storage.deleteVerification(verification.token);
+    await revokeUserSessions(user.id);
 
     return res.status(200).json({ message: 'Your password has been reset successfully.' });
   } catch (error) {
@@ -758,9 +768,7 @@ router.get('/google/callback', async (req: Request, res: Response) => {
       return res.redirect('/login?error=account-inactive');
     }
 
-    await regenerateSession(req);
-    req.session.userId = user.id;
-    await saveSession(req);
+    await establishAuthenticatedSession(req, user.id, 'google');
     res.redirect(getRequestedCheckoutPath(
       user.subscriptionRequestedPlan,
       user.subscriptionRequestedBillingInterval,
@@ -855,7 +863,6 @@ router.post('/register', async (req: Request, res: Response) => {
     });
     
     if (emailSent) {
-      console.log(`Verification email sent to ${email}`);
       if (process.env.NODE_ENV === 'development') {
         console.log(`[DEV MODE] Email verification code for ${email}: ${verificationCode}`);
       }
@@ -875,7 +882,7 @@ router.post('/register', async (req: Request, res: Response) => {
       }
     } else {
       // If email fails, still return success but log error
-      console.error(`Failed to send verification email to ${email}`);
+      console.error('Failed to send verification email during registration');
       return res.status(201).json({
         message: 'Registration successful, but we could not send a verification email. Please contact support.'
       });

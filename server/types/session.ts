@@ -3,6 +3,9 @@ import 'express-session';
 declare module 'express-session' {
   interface SessionData {
     userId?: number;
+    authMethod?: "password" | "google";
+    authenticatedAt?: number;
+    adminReauthenticatedAt?: number;
     oauthState?: string;
     oauthNonce?: string;
     oauthCodeVerifier?: string;

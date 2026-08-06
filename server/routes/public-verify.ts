@@ -19,14 +19,11 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Email is required' });
     }
     
-    console.log(`Public resend verification request for: ${email}`);
-    
     // Find user by email
     const user = await storage.getUserByEmail(email);
     
     // Don't reveal if user exists for security
     if (!user) {
-      console.log(`User not found for email: ${email}`);
       return res.status(200).json({ 
         message: 'If your account exists, a verification email has been sent.' 
       });
@@ -34,13 +31,10 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
     
     // Check if user already verified
     if (user.status === 'active') {
-      console.log(`User already verified: ${email}`);
       return res.status(200).json({ 
         message: 'Your account is already verified. Please log in.' 
       });
     }
-
-    console.log(`Generating verification token for user: ${user.id}`);
 
     const existingVerifications = await storage.getVerificationsByUser(user.id);
     await Promise.all(
@@ -83,8 +77,6 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
     });
     
     if (emailSent) {
-      console.log(`Verification email sent to ${email}`);
-      
       // Log the verification link in development mode
       if (process.env.NODE_ENV === 'development') {
         console.log(`[DEV] Email verification code for ${email}: ${code}`);
@@ -94,7 +86,7 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
         message: 'Verification email has been sent. Please check your inbox.' 
       });
     } else {
-      console.error(`Failed to send verification email to ${email}`);
+      console.error('Failed to send verification email');
       return res.status(500).json({ 
         message: 'Failed to send verification email. Please try again later.' 
       });

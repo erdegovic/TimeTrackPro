@@ -19,7 +19,6 @@ import {
   timeEntryNotes as timeEntryNotesTable,
   creativityNotes as creativityNotesTable,
   weeklyGoals as weeklyGoalsTable,
-  sessions as sessionsTable,
   timeEntries as timeEntriesTable,
   users as usersTable,
 } from "@shared/schema";
@@ -29,9 +28,7 @@ import { db } from "./db";
 import { eq, inArray, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import authRoutes from "./routes/auth";
-import profileRoutes from "./routes/profile";
-import verifyRoutes from "./routes/verify";
-import { authenticate, handleVerificationRedirect } from "./middleware/auth";
+import { authenticate } from "./middleware/auth";
 import fetch from "node-fetch";
 import { getLiveExchangeRates } from "./exchange-rates";
 import {
@@ -46,6 +43,10 @@ import { sendContactMessage } from "./utils/email-service";
 import { getAdminGrantedSubscriptionStatus, getInvoiceCapabilities } from "@shared/subscriptions";
 import paddleBillingRoutes from "./billing/paddle";
 import ultimateRoutes from "./ultimate/routes";
+import { establishAuthenticatedSession, revokeUserSessions } from "./session-store";
+import { SESSION_COOKIE_NAME, sessionCookieOptions } from "./security";
+import { recordAdminAuditEvent } from "./admin-audit";
+import { validateProfileImageDataUrl } from "./utils/profile-image";
 
 const parseInvoiceSettings = (raw?: string | null) => {
   if (!raw) return {};
@@ -226,6 +227,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
+  const requireRecentAuthentication = (req: Request, res: Response, next: NextFunction) => {
+    const authenticatedAt = req.session?.authenticatedAt;
+    if (!authenticatedAt || Date.now() - authenticatedAt > 30 * 60 * 1000) {
+      return res.status(428).json({
+        code: "ADMIN_REAUTH_REQUIRED",
+        message: "For security, sign out and sign back in before using recovery controls.",
+      });
+    }
+
+    next();
+  };
+
   const requireInvoicePro = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.session?.userId || req.user?.id;
@@ -261,11 +274,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register auth routes
   app.use('/api/auth', authRoutes);
   
-  // Register profile routes (password, profile, and avatar updates)
-  app.use('/api/auth', profileRoutes);
-  
-  // Register email verification routes (no authentication required)
-  app.use('/api/auth', verifyRoutes);
   app.use('/api/billing', paddleBillingRoutes);
 
   app.get('/api/music-library', async (_req: Request, res: Response) => {
@@ -304,166 +312,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ playlists });
   });
   
-  // Add direct resend verification endpoint
-  app.post('/api/auth/resend-verification', async (req: Request, res: Response) => {
-    try {
-      const { email } = req.body;
-      
-      if (!email || typeof email !== 'string') {
-        return res.status(400).json({ message: 'Email is required' });
-      }
-      
-      console.log(`Resend verification request for email: ${email}`);
-      
-      // Find user by email
-      const user = await storage.getUserByEmail(email);
-      
-      // Don't reveal if user exists for security
-      if (!user) {
-        console.log(`User not found for email: ${email}`);
-        return res.status(200).json({ 
-          message: 'If your account exists, a verification email has been sent.' 
-        });
-      }
-      
-      // Check if user already verified
-      if (user.status === 'active') {
-        console.log(`User already verified: ${email}`);
-        return res.status(200).json({ 
-          message: 'Your account is already verified. Please log in.' 
-        });
-      }
-      
-      // Generate a new verification token
-      const crypto = require('crypto');
-      const token = crypto.randomBytes(32).toString('hex');
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 1); // Token expires in 24 hours
-      
-      // Update user's verification token
-      await storage.updateUser(user.id, {
-        verificationToken: token
-      });
-      
-      // Create verification record
-      await storage.createVerification({
-        userId: user.id,
-        token,
-        type: 'email',
-        newEmail: '',
-        expiresAt,
-        createdAt: new Date()
-      });
-      
-      // Construct the base URL for the verification link
-      let baseUrl = process.env.NODE_ENV === 'production' 
-        ? 'https://tickd.me' 
-        : `${req.protocol}://${req.get('host')}`;
-      
-      // Import email utilities
-      const emailModule = await import('./utils/email-service');
-      
-      // Generate email content with verification link
-      const emailContent = emailModule.getRegistrationEmailContent(token, baseUrl);
-      
-      // Send verification email
-      const emailSent = await emailModule.sendEmail({
-        to: email,
-        subject: 'Verify Your Email Address - Tickd',
-        htmlContent: emailContent
-      });
-      
-      if (emailSent) {
-        console.log(`Verification email resent to ${email}`);
-        
-        // For development, log the verification URL
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[DEV MODE] Email verification link:', `${baseUrl}/verify-email?token=${token}`);
-        }
-        
-        return res.status(200).json({ 
-          message: 'Verification email has been sent. Please check your inbox.' 
-        });
-      } else {
-        console.error(`Failed to send verification email to ${email}`);
-        return res.status(500).json({ 
-          message: 'Failed to send verification email. Please try again later.' 
-        });
-      }
-    } catch (error) {
-      console.error('Error resending verification email:', error);
-      return res.status(500).json({ 
-        message: 'An unexpected error occurred. Please try again.' 
-      });
-    }
-  });
-  
-  // Simplified email verification redirect - direct visitors to API endpoint
-  app.get('/verify-email-change', handleVerificationRedirect);
-  app.get('/verify-email', handleVerificationRedirect);
-  
-  // API endpoint to verify email token
-  app.get('/api/auth/verify-email', async (req: Request, res: Response) => {
-    try {
-      const token = req.query.token as string;
-      
-      if (!token) {
-        // Redirect to login with error message
-        return res.redirect('/login?error=missing-token');
-      }
-      
-      console.log('Processing verification token:', token);
-      
-      // Find verification record
-      const verification = await storage.getVerificationByToken(token);
-      
-      if (!verification) {
-        console.log('Verification token not found in database:', token);
-        // Redirect to login with error message
-        return res.redirect('/login?error=invalid-token');
-      }
-      
-      console.log('Verification record found:', verification);
-      
-      // Find user
-      const user = await storage.getUser(verification.userId);
-      
-      if (!user) {
-        console.log('User not found for verification:', verification.userId);
-        // Redirect to login with error message
-        return res.redirect('/login?error=user-not-found');
-      }
-      
-      console.log('Found user for verification:', user.id);
-      
-      // Update user status
-      await storage.updateUser(user.id, { 
-        status: 'active',
-        verificationToken: null
-      });
-      
-      console.log('User status updated to active');
-      
-      // Remove verification token
-      await storage.deleteVerification(token);
-      
-      console.log('Verification token deleted');
-      
-      // Redirect to login with success message
-      return res.redirect('/login?verified=true');
-    } catch (error) {
-      console.error('Email verification error:', error);
-      // Redirect to login with error message
-      return res.redirect('/login?error=verification-failed');
-    }
-  });
-  
   // Login endpoint
   app.post('/api/login', async (req: Request, res: Response) => {
     try {
-      const { email, password, rememberMe } = req.body;
-      
-      console.log(`Login attempt with email: ${email}`);
+      const validation = z.object({
+        email: z.string().trim().toLowerCase().email(),
+        password: z.string().min(1).max(128),
+      }).safeParse(req.body);
+      if (!validation.success) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+      const { email, password } = validation.data;
       
       // Find user by email
       const foundUser = await storage.getUserByEmail(email);
@@ -475,13 +334,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verify password with bcrypt
       const passwordValid = await bcrypt.compare(password, foundUser.password);
       if (!passwordValid) {
-        console.log(`Login rejected - incorrect password for: ${email}`);
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
       // Check if email is verified
       if (foundUser.status === 'pending') {
-        console.log(`Login rejected - unverified email: ${email}`);
         return res.status(403).json({ 
           message: 'Please verify your email address before logging in',
           needsVerification: true,
@@ -489,12 +346,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Rotate the session identifier after authentication to prevent fixation.
-      await new Promise<void>((resolve, reject) => {
-        req.session.regenerate((error) => error ? reject(error) : resolve());
-      });
-      req.session.userId = foundUser.id;
-      console.log(`Login successful - session created for user ${foundUser.id}`);
+      if (foundUser.status !== 'active') {
+        return res.status(403).json({ message: 'This account is not active.' });
+      }
+
+      await establishAuthenticatedSession(req, foundUser.id, 'password');
       
       return res.status(200).json({
         message: "Login successful",
@@ -620,7 +476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/admin-users", authenticate, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/admin/admin-users", authenticate, requireAdmin, requireRecentAuthentication, async (req: Request, res: Response) => {
     try {
       const { email } = z.object({ email: z.string().email() }).parse(req.body);
       const user = await storage.getUserByEmail(email.toLowerCase().trim());
@@ -640,6 +496,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: usersTable.status,
         });
 
+      await recordAdminAuditEvent(req, {
+        action: "admin.role_granted",
+        targetUserId: updatedUser.id,
+      });
       res.json(updatedUser);
     } catch (error) {
       console.error("Error adding admin user:", error);
@@ -650,12 +510,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/users/:id/status", authenticate, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/admin/users/:id/status", authenticate, requireAdmin, requireRecentAuthentication, async (req: Request, res: Response) => {
     try {
       const userId = Number(req.params.id);
       const { status } = z.object({ status: z.enum(["active", "inactive"]) }).parse(req.body);
       if (!Number.isFinite(userId)) {
         return res.status(400).json({ message: "Invalid user id" });
+      }
+      if (userId === req.session.userId && status === "inactive") {
+        return res.status(400).json({ message: "You cannot freeze your own admin account" });
       }
 
       const [updatedUser] = await db
@@ -674,6 +537,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
+      if (status === "inactive") await revokeUserSessions(userId);
+      await recordAdminAuditEvent(req, {
+        action: "account.status_changed",
+        targetUserId: userId,
+        details: { status },
+      });
       res.json(updatedUser);
     } catch (error) {
       console.error("Error updating user status:", error);
@@ -684,7 +553,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/users/:id/subscription", authenticate, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/admin/users/:id/subscription", authenticate, requireAdmin, requireRecentAuthentication, async (req: Request, res: Response) => {
     try {
       const userId = Number(req.params.id);
       const { plan } = z.object({ plan: z.enum(["free", "pro", "ultimate"]) }).parse(req.body);
@@ -713,6 +582,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
+      await recordAdminAuditEvent(req, {
+        action: "subscription.admin_changed",
+        targetUserId: userId,
+        details: { plan },
+      });
       res.json(updatedUser);
     } catch (error) {
       console.error("Error updating complimentary subscription:", error);
@@ -723,14 +597,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/users/:id/force-logout", authenticate, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/admin/users/:id/force-logout", authenticate, requireAdmin, requireRecentAuthentication, async (req: Request, res: Response) => {
     try {
       const userId = Number(req.params.id);
       if (!Number.isFinite(userId)) {
         return res.status(400).json({ message: "Invalid user id" });
       }
 
-      await db.delete(sessionsTable).where(eq(sessionsTable.userId, userId));
+      await revokeUserSessions(userId);
+      await recordAdminAuditEvent(req, {
+        action: "account.sessions_revoked",
+        targetUserId: userId,
+      });
       res.json({ success: true });
     } catch (error) {
       console.error("Error forcing logout:", error);
@@ -738,12 +616,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/backups/run", authenticate, requireAdmin, async (_req: Request, res: Response) => {
+  app.post("/api/admin/backups/run", authenticate, requireAdmin, requireRecentAuthentication, async (req: Request, res: Response) => {
     try {
       const result = await runAccountBackupCycle("manual");
       if (result.status === "not_configured") {
         return res.status(503).json({ message: "Backup storage is not configured yet" });
       }
+      await recordAdminAuditEvent(req, {
+        action: "backup.cycle_run",
+        details: { successful: result.successful, failed: result.failed },
+      });
       res.json(result);
     } catch (error) {
       console.error("Manual backup cycle failed:", error);
@@ -751,11 +633,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/users/:id/backup", authenticate, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/admin/users/:id/backup", authenticate, requireAdmin, requireRecentAuthentication, async (req: Request, res: Response) => {
     try {
       const userId = Number(req.params.id);
       if (!Number.isInteger(userId) || userId <= 0) return res.status(400).json({ message: "Invalid user id" });
       const snapshot = await createAccountSnapshot(userId, "manual");
+      await recordAdminAuditEvent(req, {
+        action: "backup.account_created",
+        targetUserId: userId,
+        details: { snapshotId: snapshot.id },
+      });
       res.json({ id: snapshot.id, completedAt: snapshot.completedAt, byteSize: snapshot.byteSize });
     } catch (error) {
       console.error("Manual account backup failed:", error);
@@ -763,7 +650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/users/:id/restore", authenticate, requireAdmin, async (req: Request, res: Response) => {
+  app.post("/api/admin/users/:id/restore", authenticate, requireAdmin, requireRecentAuthentication, async (req: Request, res: Response) => {
     try {
       const targetUserId = Number(req.params.id);
       const { confirmationEmail } = z.object({ confirmationEmail: z.string().email() }).parse(req.body);
@@ -783,6 +670,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         adminUserId,
         targetUserId,
         snapshotId: latestSnapshot.id,
+      });
+      await recordAdminAuditEvent(req, {
+        action: "backup.account_restored",
+        targetUserId,
+        details: { snapshotId: latestSnapshot.id },
       });
       res.json({
         success: true,
@@ -1049,9 +941,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get time entries with project and client data
-      console.log(`Fetching time entries for user ${userId}`);
       const timeEntries = await storage.getTimeEntriesByUser(userId);
-      console.log(`Found ${timeEntries.length} time entries for user ${userId}`);
       const projects = await storage.getProjectsByUser(userId);
       const clients = await storage.getClientsByUser(userId);
       
@@ -1269,10 +1159,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'User not authenticated' });
       }
       
-      console.log(`[Reports] Generating report for user ${userId} with filters:`, {
-        clientId, projectId, startDate, endDate, timeFormat, roundingType, timeAdjustment
-      });
-      
       // Create filters object including userId
       const filters = {
         userId,
@@ -1287,8 +1173,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const entries = await storage.getTimeEntriesByFilters(filters);
-      
-      console.log(`[Reports] Found ${entries.length} entries for user ${userId}`);
       
       // Get all projects and clients for enrichment
       const projects = await storage.getProjectsByUser(userId);
@@ -1472,8 +1356,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalAmount = weeklyData.reduce((sum: number, week: any) => sum + week.totalAmount, 0);
       const reportCurrencies = Array.from(new Set(enrichedEntries.map((entry: any) => entry.currency).filter(Boolean)));
       const reportCurrency = reportCurrencies.length === 1 ? reportCurrencies[0] : settings?.defaultCurrency || 'USD';
-      
-      console.log(`[Reports] Returning report data with ${enrichedEntries.length} entries, ${weeklyData.length} groups, total: ${reportCurrency} ${totalAmount.toFixed(2)}`);
       
       return res.json({
         timeEntries: enrichedEntries,
@@ -1863,17 +1745,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.put("/api/settings", authenticate, async (req: Request, res: Response) => {
     try {
-      console.log('[Settings] PUT request received with body:', JSON.stringify(req.body, null, 2));
-      
       const data = insertSettingsSchema.partial().parse(req.body);
+      if (data.companyLogo) {
+        const logo = validateProfileImageDataUrl(data.companyLogo);
+        if (!logo.valid) return res.status(400).json({ message: logo.message });
+        data.companyLogo = logo.value;
+      }
       if (data.defaultCurrency) {
         data.defaultCurrency = data.defaultCurrency.trim().toUpperCase();
       }
-      console.log('[Settings] Schema validation passed, parsed data:', JSON.stringify(data, null, 2));
-      
       const settings = await storage.updateSettings(req.user!.id, data);
-      console.log('[Settings] Settings updated successfully:', JSON.stringify(settings, null, 2));
-      
       res.json(settings);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -2128,7 +2009,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Logout error:", err);
         return res.status(500).json({ message: "Logout failed" });
       }
-      res.clearCookie("connect.sid");
+      res.clearCookie(SESSION_COOKIE_NAME, {
+        ...sessionCookieOptions,
+        maxAge: undefined,
+      });
       res.json({ message: "Logged out" });
     });
   });

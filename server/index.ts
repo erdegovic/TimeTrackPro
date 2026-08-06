@@ -9,6 +9,20 @@ import { ensureCurrentSchema } from "./schema-bootstrap";
 import { startBackupScheduler } from "./backups/scheduler";
 import { registerPaddleWebhook } from "./billing/paddle";
 import { startUltimateScheduler } from "./ultimate/automation";
+import { randomUUID } from "node:crypto";
+import {
+  accountRecoveryLimiter,
+  adminLimiter,
+  apiLimiter,
+  contactLimiter,
+  emailVerificationLimiter,
+  loginLimiter,
+  protectStateChangingApiRequests,
+  registrationLimiter,
+  securityHeaders,
+  SESSION_COOKIE_NAME,
+  sessionCookieOptions,
+} from "./security";
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -21,11 +35,30 @@ if (isProduction && !sessionSecret) {
 if (isProduction) {
   app.set("trust proxy", 1);
 }
+app.disable("x-powered-by");
+app.use(securityHeaders);
+
+app.use((req, res, next) => {
+  const requestId = randomUUID();
+  res.setHeader("X-Request-ID", requestId);
+  res.locals.requestId = requestId;
+  next();
+});
+
 // Paddle signature verification requires the untouched request body.
 registerPaddleWebhook(app);
-// Increase payload limit to handle image uploads (10MB)
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+app.use(express.json({ limit: "8mb" }));
+app.use(express.urlencoded({ extended: false, limit: "1mb" }));
+
+app.use("/api/login", loginLimiter);
+app.use("/api/auth/register", registrationLimiter);
+app.use("/api/auth/forgot-password", accountRecoveryLimiter);
+app.use("/api/auth/reset-password", accountRecoveryLimiter);
+app.use("/api/auth/resend-verification", emailVerificationLimiter);
+app.use("/api/auth/verify-email-code", emailVerificationLimiter);
+app.use("/api/contact", contactLimiter);
+app.use("/api/admin", adminLimiter);
+app.use("/api", apiLimiter, protectStateChangingApiRequests);
 
 app.get('/api/health', async (_req, res) => {
   try {
@@ -44,7 +77,7 @@ app.use('/api/auth', publicVerifyRoutes);
 const PgSessionStore = connectPgSimple(session);
 
 app.use(session({
-  name: "tickd.sid",
+  name: SESSION_COOKIE_NAME,
   store: new PgSessionStore({
     pool,
     tableName: "express_sessions",
@@ -53,38 +86,18 @@ app.use(session({
   secret: sessionSecret || 'tickd-local-development-secret',
   resave: false,
   saveUninitialized: false,
-  cookie: {
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: 'lax'
-  }
+  rolling: true,
+  cookie: sessionCookieOptions,
 }));
 
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
 
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
+      log(`${req.method} ${path} ${res.statusCode} in ${duration}ms [${res.locals.requestId}]`);
     }
   });
 

@@ -134,6 +134,27 @@ export async function ensureCurrentSchema() {
       ON backup_audit_events (target_user_id, created_at)
     `);
     await client.query(`
+      CREATE TABLE IF NOT EXISTS admin_audit_events (
+        id bigserial PRIMARY KEY,
+        admin_user_id integer REFERENCES users(id) ON DELETE SET NULL,
+        target_user_id integer REFERENCES users(id) ON DELETE SET NULL,
+        action text NOT NULL,
+        outcome text NOT NULL DEFAULT 'success',
+        request_id text,
+        ip_hash text,
+        details text,
+        created_at timestamp DEFAULT now()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS admin_audit_events_admin_created_idx
+      ON admin_audit_events (admin_user_id, created_at)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS admin_audit_events_target_created_idx
+      ON admin_audit_events (target_user_id, created_at)
+    `);
+    await client.query(`
       CREATE TABLE IF NOT EXISTS ai_artifacts (
         id text PRIMARY KEY,
         user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,

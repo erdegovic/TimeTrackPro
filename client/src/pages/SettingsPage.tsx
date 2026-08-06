@@ -688,10 +688,10 @@ export default function SettingsPage() {
     const file = event.target.files?.[0];
     if (file) {
       // Validate file type
-      if (!file.type.startsWith('image/')) {
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
         toast({
           title: "Invalid file type",
-          description: "Please select an image file",
+          description: "Please select a PNG, JPEG, or WebP image",
           variant: "destructive",
         });
         return;
@@ -1321,11 +1321,11 @@ export default function SettingsPage() {
                                 <Upload className="h-3 w-3 mr-1.5" />
                                 Upload Logo
                               </Button>
-                              <p className="text-[11px] text-gray-400 text-center">PNG, JPG, GIF — max 2 MB</p>
+                              <p className="text-[11px] text-gray-400 text-center">PNG, JPG, or WebP - max 2 MB</p>
                               <input
                                 ref={fileInputRef}
                                 type="file"
-                                accept="image/*"
+                                accept="image/png,image/jpeg,image/webp"
                                 onChange={handleLogoUpload}
                                 className="hidden"
                               />

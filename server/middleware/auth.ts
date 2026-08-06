@@ -3,23 +3,13 @@ import '../types/session';
 
 // Authenticate middleware to check if user is logged in
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.session) {
-    req.session = {} as any;
-  }
-  
   // Check for user session
-  if (!req.session.userId) {
-    console.log('Authentication failed: No userId in session', {
-      sessionId: req.sessionID,
-      hasSession: !!req.session,
-      sessionKeys: req.session ? Object.keys(req.session) : 'no session'
-    });
+  if (!req.session?.userId) {
     return res.status(401).json({ message: 'Unauthorized' });
   }
   
   // Add user object to request
   req.user = { id: req.session.userId };
-  console.log('Authentication successful for user:', req.session.userId);
   next();
 };
 

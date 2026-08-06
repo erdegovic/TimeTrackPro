@@ -280,8 +280,6 @@ export class MemStorage implements Partial<IStorage> {
       fontFamily: null,
     };
 
-    // Add some sample data
-    this.seedData();
   }
 
   // Initialize with some sample data
@@ -289,9 +287,9 @@ export class MemStorage implements Partial<IStorage> {
     // Create a test user
     const testUser: User = {
       id: this.userId++,
-      username: "test@example.com",
-      email: "test@example.com",
-      password: "$2a$10$K4L.QF3QrsSE.KWXCCq8yutlJMBBpkj/Y4Kfk7bARnrJM0H9iy4ee", // password123
+      username: "disabled-memory-seed",
+      email: "disabled-memory-seed@invalid.local",
+      password: "disabled",
       firstName: "Test",
       lastName: "User",
       profileImageUrl: null,

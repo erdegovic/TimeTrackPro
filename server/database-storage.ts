@@ -66,17 +66,11 @@ export class DatabaseStorage implements IStorage {
 
   // Verification methods
   async createVerification(verification: Omit<Verification, "id">): Promise<Verification> {
-    console.log('Database: Creating verification record', {
-      userId: verification.userId,
-      type: verification.type,
-      expiresAt: verification.expiresAt,
-    });
     try {
       const [result] = await db
         .insert(verifications)
         .values(verification)
         .returning();
-      console.log('Database: Verification record created successfully:', result.id);
       return result;
     } catch (error) {
       console.error('Database: Failed to create verification record:', error);
@@ -196,46 +190,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTimeEntriesByUser(userId: number): Promise<TimeEntry[]> {
-    console.log(`[DB] Querying time entries for user ${userId}`);
-    
     try {
-      // Use the standard Drizzle query
-      const result = await db
+      return await db
         .select()
         .from(timeEntries)
         .where(eq(timeEntries.userId, userId))
         .orderBy(desc(timeEntries.date), desc(timeEntries.id));
-      
-      console.log(`[DB] Query returned ${result.length} entries for user ${userId}`);
-      
-      // Also log some sample entries for debugging
-      if (result.length > 0) {
-        console.log(`[DB] Sample entries:`, result.slice(0, 3).map(e => ({ 
-          id: e.id, 
-          description: e.description, 
-          date: e.date,
-          userId: e.userId 
-        })));
-      } else {
-        // Try to understand why no entries are found
-        console.log(`[DB] No entries found for user ${userId}, checking total entries in table...`);
-        const totalEntries = await db.select().from(timeEntries);
-        console.log(`[DB] Total entries in table: ${totalEntries.length}`);
-        
-        if (totalEntries.length > 0) {
-          const userIds = [...new Set(totalEntries.map(e => e.userId))];
-          console.log(`[DB] User IDs in database: ${userIds.join(', ')}`);
-          console.log(`[DB] Looking for userId: ${userId} (type: ${typeof userId})`);
-          
-          const entriesForThisUser = totalEntries.filter(e => e.userId === userId);
-          console.log(`[DB] Entries for user ${userId} when filtered in JS: ${entriesForThisUser.length}`);
-        }
-      }
-      
-      return result;
     } catch (error) {
-      console.error(`[DB] Error querying time entries for user ${userId}:`, error);
-      return [];
+      console.error('[DB] Error querying time entries:', error);
+      throw error;
     }
   }
 
@@ -319,9 +282,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTimeEntry(entryData: InsertTimeEntry): Promise<TimeEntry> {
-    console.log('=== CREATING TIME ENTRY - COMPLETE REWRITE ===');
-    console.log('Input entryData:', JSON.stringify(entryData, null, 2));
-    
     // Determine date string with robust fallbacks
     let dateString: string;
     if (entryData.date && typeof entryData.date === 'string' && entryData.date.trim().length > 0) {
@@ -334,12 +294,8 @@ export class DatabaseStorage implements IStorage {
       dateString = now.toISOString().substring(0, 10); // YYYY-MM-DD format
     }
     
-    console.log('Using date string:', dateString);
-    
     // Create working date object for calculations
     const workingDate = new Date(dateString + 'T12:00:00.000Z'); // Force UTC midday
-    console.log('Working date object:', workingDate);
-    
     // Calculate all week/date related fields manually
     const weekStart = startOfWeek(workingDate, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(workingDate, { weekStartsOn: 1 });
@@ -347,8 +303,6 @@ export class DatabaseStorage implements IStorage {
     const weekLabel = `Week ${weekNumber} (${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')})`;
     const month = format(workingDate, 'yyyy-MM');
     const year = getYear(workingDate);
-    
-    console.log('Calculated fields:', { weekNumber, weekLabel, month, year });
     
     // Build the complete entry object
     const completeEntry = {
@@ -367,12 +321,8 @@ export class DatabaseStorage implements IStorage {
       invoiceId: (entryData as any).invoiceId || null
     };
     
-    console.log('Complete entry for database:', JSON.stringify(completeEntry, null, 2));
-    
     try {
       const [result] = await db.insert(timeEntries).values(completeEntry).returning();
-      console.log('=== TIME ENTRY CREATED SUCCESSFULLY ===');
-      console.log('Created entry:', JSON.stringify(result, null, 2));
       return result;
     } catch (error) {
       console.error('=== DATABASE INSERT ERROR ===');
