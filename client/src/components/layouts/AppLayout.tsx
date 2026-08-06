@@ -33,6 +33,7 @@ import { queryClient } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { Client, Project } from "@shared/schema";
 import { useTimerContext } from "@/context/TimerContext";
+import TickdLoadingScreen from "@/components/marketing/TickdLoadingScreen";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,7 +79,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [creativitySidebarCollapsed, setCreativitySidebarCollapsed] = useState(false);
   
   // Get user profile data from authentication
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const {
     isTracking: hasActiveTimer,
     description: timerDescription,
@@ -140,6 +141,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }, []);
 
   const closeSidebar = () => setSidebarOpen(false);
+
+  if (isAuthLoading || !user) return <TickdLoadingScreen />;
   
   return (
     <CreativitySidebarContext.Provider value={{

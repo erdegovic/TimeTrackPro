@@ -54,7 +54,7 @@ export function useAuth() {
         navigate("/login");
       }
     }
-  }, [isError, location, navigate]);
+  }, [isError, isLoading, location, navigate, user]);
 
   // Function to log the user out
   const logout = async () => {
