@@ -14,7 +14,8 @@ import GoogleSignInButton from './GoogleSignInButton';
 import { planDetails } from '@/lib/plans';
 import { Link } from 'wouter';
 import { CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION } from '@shared/legal';
-import type { SubscriptionPlan } from '@shared/subscriptions';
+import type { BillingInterval, SubscriptionPlan } from '@shared/subscriptions';
+import BillingCycleToggle from '@/components/billing/BillingCycleToggle';
 
 const registerSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -41,6 +42,9 @@ export default function RegisterForm() {
   const needsLegalForGoogle = registrationParams.get('error') === 'accept-terms';
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(
     initialPlan === 'free' || initialPlan === 'pro' || initialPlan === 'ultimate' ? initialPlan : null,
+  );
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>(
+    registrationParams.get('billing') === 'annual' ? 'annual' : 'monthly',
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
@@ -77,6 +81,7 @@ export default function RegisterForm() {
           privacyVersion: CURRENT_PRIVACY_VERSION,
           captchaToken,
           plan: selectedPlan,
+          billingInterval,
         }),
       });
       const result = await response.json();
@@ -108,6 +113,7 @@ export default function RegisterForm() {
 
         <fieldset className="mb-7">
           <legend className="mb-3 text-sm font-semibold text-gray-900">1. Choose a plan</legend>
+          <BillingCycleToggle value={billingInterval} onChange={setBillingInterval} compact />
           <div className="grid gap-3 sm:grid-cols-3">
             {planDetails.map((plan) => {
               const selected = selectedPlan === plan.id;
@@ -123,7 +129,15 @@ export default function RegisterForm() {
                 >
                   {selected && <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-white"><Check className="h-3 w-3" /></span>}
                   <span className="block text-sm font-bold text-gray-900">{plan.name}</span>
-                  <span className="mt-2 block text-xl font-bold text-gray-900">{plan.price}<span className="text-xs font-medium text-gray-500">/mo</span></span>
+                  <span className="mt-2 block text-xl font-bold text-gray-900">
+                    ${billingInterval === 'annual' ? plan.annualPrice.toFixed(2) : plan.monthlyPrice.toFixed(2)}
+                    <span className="text-xs font-medium text-gray-500">/{billingInterval === 'annual' ? 'yr' : 'mo'}</span>
+                  </span>
+                  {billingInterval === 'annual' && plan.id !== 'free' && (
+                    <span className="mt-1 block text-xs font-semibold text-emerald-700">
+                      Save {plan.annualDiscount}% · ${(plan.annualPrice / 12).toFixed(2)}/mo
+                    </span>
+                  )}
                   {plan.emphasis && <span className="mt-2 block text-xs font-semibold text-blue-700">{plan.emphasis}</span>}
                 </button>
               );
@@ -156,7 +170,7 @@ export default function RegisterForm() {
         />
 
         <p className="mb-3 mt-6 text-sm font-semibold text-gray-900">3. Create your account</p>
-        {selectedPlan && <GoogleSignInButton label="Sign up with Google" plan={selectedPlan} legalAccepted={acceptedLegal} termsVersion={CURRENT_TERMS_VERSION} privacyVersion={CURRENT_PRIVACY_VERSION} />}
+        {selectedPlan && <GoogleSignInButton label="Sign up with Google" plan={selectedPlan} billingInterval={billingInterval} legalAccepted={acceptedLegal} termsVersion={CURRENT_TERMS_VERSION} privacyVersion={CURRENT_PRIVACY_VERSION} />}
 
         <div className="my-5 flex items-center gap-3" aria-hidden="true">
           <div className="h-px flex-1 bg-gray-200" />

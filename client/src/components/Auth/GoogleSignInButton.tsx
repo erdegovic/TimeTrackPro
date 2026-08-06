@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import { FcGoogle } from 'react-icons/fc';
 import { Button } from '@/components/ui/button';
-import type { SubscriptionPlan } from '@shared/subscriptions';
+import type { BillingInterval, SubscriptionPlan } from '@shared/subscriptions';
 
 type GoogleSignInButtonProps = {
   label: string;
   plan?: SubscriptionPlan;
+  billingInterval?: BillingInterval;
   legalAccepted?: boolean;
   termsVersion?: string;
   privacyVersion?: string;
 };
 
-export default function GoogleSignInButton({ label, plan, legalAccepted = true, termsVersion, privacyVersion }: GoogleSignInButtonProps) {
+export default function GoogleSignInButton({ label, plan, billingInterval = 'monthly', legalAccepted = true, termsVersion, privacyVersion }: GoogleSignInButtonProps) {
   const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export default function GoogleSignInButton({ label, plan, legalAccepted = true, 
         const params = new URLSearchParams({ returnTo: '/' });
         if (plan) {
           params.set('plan', plan);
+          params.set('billingInterval', billingInterval);
           if (legalAccepted && termsVersion && privacyVersion) {
             params.set('acceptedTerms', 'true');
             params.set('termsVersion', termsVersion);

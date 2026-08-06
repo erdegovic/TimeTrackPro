@@ -7,9 +7,11 @@ import { storage } from "../storage";
 import {
   extractTickdCheckoutToken,
   hasPaidPaddleStatus,
-  resolvePaddlePlan,
+  resolvePaddlePrice,
   type PaddlePaidPlan,
+  type PaddlePriceMap,
 } from "@shared/paddle-billing";
+import { subscriptionPlanRank } from "@shared/subscriptions";
 
 type PaddleEnvironment = "sandbox" | "production";
 
@@ -25,9 +27,15 @@ const getPaddle = () => {
   });
 };
 
-const getConfiguredPriceIds = (): Partial<Record<PaddlePaidPlan, string>> => ({
-  pro: process.env.PADDLE_PRO_PRICE_ID,
-  ultimate: process.env.PADDLE_ULTIMATE_PRICE_ID,
+const getConfiguredPriceIds = (): PaddlePriceMap => ({
+  pro: {
+    monthly: process.env.PADDLE_PRO_PRICE_ID,
+    annual: process.env.PADDLE_PRO_ANNUAL_PRICE_ID,
+  },
+  ultimate: {
+    monthly: process.env.PADDLE_ULTIMATE_PRICE_ID,
+    annual: process.env.PADDLE_ULTIMATE_ANNUAL_PRICE_ID,
+  },
 });
 
 export const isPaddleCheckoutConfigured = () => Boolean(
@@ -38,7 +46,7 @@ export const isPaddleCheckoutConfigured = () => Boolean(
 );
 
 export const hasConfiguredProPrice = (items: Array<{ price?: { id?: string } | null }>) => {
-  return resolvePaddlePlan(items, getConfiguredPriceIds()) === "pro";
+  return resolvePaddlePrice(items, getConfiguredPriceIds())?.plan === "pro";
 };
 
 const findUserIdForPaddleEvent = async (data: {
@@ -95,8 +103,8 @@ const releaseEventForRetry = async (eventId: string) => {
 };
 
 const processSubscriptionEvent = async (data: any) => {
-  const plan = resolvePaddlePlan(data.items || [], getConfiguredPriceIds());
-  if (!plan) return;
+  const selection = resolvePaddlePrice(data.items || [], getConfiguredPriceIds());
+  if (!selection) return;
   const userId = await findUserIdForPaddleEvent(data);
   if (!userId) throw new Error(`No Tickd user matched Paddle subscription ${data.id}`);
 
@@ -111,19 +119,21 @@ const processSubscriptionEvent = async (data: any) => {
          subscription_status = $3,
          subscription_changed_at = now(),
          subscription_requested_plan = NULL,
-         subscription_current_period_end = $4,
-         subscription_cancel_at_period_end = $5,
-         paddle_customer_id = COALESCE($6, paddle_customer_id),
-         paddle_subscription_id = $7,
+         subscription_billing_interval = $4,
+         subscription_requested_billing_interval = NULL,
+         subscription_current_period_end = $5,
+         subscription_cancel_at_period_end = $6,
+         paddle_customer_id = COALESCE($7, paddle_customer_id),
+         paddle_subscription_id = $8,
          updated_at = now()
      WHERE id = $1`,
-    [userId, paidAccess ? plan : "free", status, periodEnd, cancelAtPeriodEnd, data.customerId, data.id],
+    [userId, paidAccess ? selection.plan : "free", status, selection.billingInterval, periodEnd, cancelAtPeriodEnd, data.customerId, data.id],
   );
 };
 
 const processCompletedTransaction = async (data: any) => {
-  const plan = resolvePaddlePlan(data.items || [], getConfiguredPriceIds());
-  if (!plan) return;
+  const selection = resolvePaddlePrice(data.items || [], getConfiguredPriceIds());
+  if (!selection) return;
   const userId = await findUserIdForPaddleEvent(data);
   if (!userId) throw new Error(`No Tickd user matched Paddle transaction ${data.id}`);
 
@@ -133,13 +143,15 @@ const processCompletedTransaction = async (data: any) => {
          subscription_status = 'active',
          subscription_changed_at = now(),
          subscription_requested_plan = NULL,
-         subscription_current_period_end = COALESCE($3, subscription_current_period_end),
+         subscription_billing_interval = $3,
+         subscription_requested_billing_interval = NULL,
+         subscription_current_period_end = COALESCE($4, subscription_current_period_end),
          subscription_cancel_at_period_end = false,
-         paddle_customer_id = COALESCE($4, paddle_customer_id),
-         paddle_subscription_id = COALESCE($5, paddle_subscription_id),
+         paddle_customer_id = COALESCE($5, paddle_customer_id),
+         paddle_subscription_id = COALESCE($6, paddle_subscription_id),
          updated_at = now()
      WHERE id = $1`,
-    [userId, plan, data.billingPeriod?.endsAt || null, data.customerId, data.subscriptionId],
+    [userId, selection.plan, selection.billingInterval, data.billingPeriod?.endsAt || null, data.customerId, data.subscriptionId],
   );
 };
 
@@ -222,11 +234,17 @@ router.get("/config", async (req: Request, res: Response) => {
     environment: getEnvironment(),
     clientToken: enabled ? process.env.PADDLE_CLIENT_TOKEN : null,
     priceIds: {
-      pro: enabled ? priceIds.pro || null : null,
-      ultimate: enabled ? priceIds.ultimate || null : null,
+      pro: {
+        monthly: enabled ? priceIds.pro?.monthly || null : null,
+        annual: enabled ? priceIds.pro?.annual || null : null,
+      },
+      ultimate: {
+        monthly: enabled ? priceIds.ultimate?.monthly || null : null,
+        annual: enabled ? priceIds.ultimate?.annual || null : null,
+      },
     },
-    proPriceId: enabled ? priceIds.pro || null : null,
-    ultimatePriceId: enabled ? priceIds.ultimate || null : null,
+    proPriceId: enabled ? priceIds.pro?.monthly || null : null,
+    ultimatePriceId: enabled ? priceIds.ultimate?.monthly || null : null,
     customerId: user.paddleCustomerId || null,
     checkoutToken,
     email: user.email,
@@ -235,6 +253,7 @@ router.get("/config", async (req: Request, res: Response) => {
 
 const changePlanSchema = z.object({
   plan: z.enum(["pro", "ultimate"]),
+  billingInterval: z.enum(["monthly", "annual"]),
 });
 
 router.post("/change-plan", async (req: Request, res: Response) => {
@@ -250,7 +269,7 @@ router.post("/change-plan", async (req: Request, res: Response) => {
     return res.status(400).json({ message: "Start a Paddle subscription before changing paid plans." });
   }
 
-  const priceId = getConfiguredPriceIds()[validation.data.plan];
+  const priceId = getConfiguredPriceIds()[validation.data.plan]?.[validation.data.billingInterval];
   if (!priceId) return res.status(503).json({ message: `${validation.data.plan === "pro" ? "Pro" : "Ultimate"} checkout is not configured.` });
 
   try {
@@ -260,20 +279,28 @@ router.post("/change-plan", async (req: Request, res: Response) => {
       return res.status(409).json({ message: "The linked Paddle subscription could not be verified." });
     }
 
-    const isUpgrade = validation.data.plan === "ultimate";
+    const currentPlan = user.subscriptionPlan === "ultimate" ? "ultimate" : "pro";
+    const currentInterval = user.subscriptionBillingInterval === "annual" ? "annual" : "monthly";
+    const isPlanUpgrade = subscriptionPlanRank[validation.data.plan] > subscriptionPlanRank[currentPlan];
+    const isCadenceUpgrade = validation.data.plan === currentPlan
+      && currentInterval === "monthly"
+      && validation.data.billingInterval === "annual";
+    const isImmediate = isPlanUpgrade || isCadenceUpgrade;
     const subscription = await paddle.subscriptions.update(user.paddleSubscriptionId, {
       items: [{ priceId, quantity: 1 }],
-      prorationBillingMode: isUpgrade ? "prorated_immediately" : "prorated_next_billing_period",
+      prorationBillingMode: isImmediate ? "prorated_immediately" : "prorated_next_billing_period",
       customData: {
         ...(currentSubscription.customData || {}),
         tickd_plan: validation.data.plan,
+        tickd_billing_interval: validation.data.billingInterval,
       },
     });
 
     return res.json({
       plan: validation.data.plan,
+      billingInterval: validation.data.billingInterval,
       status: subscription.status,
-      effective: isUpgrade ? "immediate" : "next_billing_period",
+      effective: isImmediate ? "immediate" : "next_billing_period",
     });
   } catch (error) {
     console.error("Could not change Paddle subscription plan:", error);

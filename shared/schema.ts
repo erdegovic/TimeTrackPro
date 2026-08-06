@@ -27,6 +27,8 @@ export const users = pgTable("users", {
   subscriptionStatus: text("subscription_status").notNull().default("active"),
   subscriptionChangedAt: timestamp("subscription_changed_at").defaultNow(),
   subscriptionRequestedPlan: text("subscription_requested_plan"),
+  subscriptionBillingInterval: text("subscription_billing_interval").notNull().default("monthly"),
+  subscriptionRequestedBillingInterval: text("subscription_requested_billing_interval"),
   subscriptionCurrentPeriodEnd: timestamp("subscription_current_period_end"),
   subscriptionCancelAtPeriodEnd: boolean("subscription_cancel_at_period_end").notNull().default(false),
   paddleCustomerId: text("paddle_customer_id").unique(),

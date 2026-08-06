@@ -8,7 +8,7 @@ const sections = [
   },
   {
     title: "Canceling a subscription",
-    content: <p>You can cancel a paid subscription through the billing portal in your Tickd account. Unless checkout states otherwise, cancellation stops the next renewal and Pro access continues until the end of the current paid billing period. Canceling does not normally create a partial refund for time already paid.</p>,
+    content: <p>You can cancel a paid subscription through the billing portal in your Tickd account. Unless checkout states otherwise, cancellation stops the next renewal and paid access continues until the end of the current billing period. Canceling does not normally create a partial refund for time already paid.</p>,
   },
   {
     title: "When a refund may be available",

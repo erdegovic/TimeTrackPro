@@ -1,6 +1,14 @@
-import type { SubscriptionPlan } from "./subscriptions";
+import type { BillingInterval, SubscriptionPlan } from "./subscriptions";
 
 export type PaddlePaidPlan = Exclude<SubscriptionPlan, "free">;
+export type PaddlePriceMap = Partial<
+  Record<PaddlePaidPlan, Partial<Record<BillingInterval, string>>>
+>;
+
+export type PaddlePriceSelection = {
+  plan: PaddlePaidPlan;
+  billingInterval: BillingInterval;
+};
 
 export const extractTickdCheckoutToken = (customData: unknown): string | null => {
   if (!customData || typeof customData !== "object") return null;
@@ -12,20 +20,32 @@ export const extractTickdCheckoutToken = (customData: unknown): string | null =>
 export const hasPaidPaddleStatus = (status: string) =>
   ["active", "trialing", "past_due"].includes(status.toLowerCase());
 
-export const resolvePaddlePlan = (
+export const resolvePaddlePrice = (
   items: Array<{ price?: { id?: string } | null }>,
-  priceIds: Partial<Record<PaddlePaidPlan, string>>,
-): PaddlePaidPlan | null => {
-  const matchedPlans = new Set<PaddlePaidPlan>();
+  priceIds: PaddlePriceMap,
+): PaddlePriceSelection | null => {
+  const matches = new Map<string, PaddlePriceSelection>();
 
   for (const item of items) {
     const itemPriceId = item.price?.id;
     if (!itemPriceId) continue;
 
     for (const plan of ["pro", "ultimate"] as const) {
-      if (priceIds[plan] && itemPriceId === priceIds[plan]) matchedPlans.add(plan);
+      for (const billingInterval of ["monthly", "annual"] as const) {
+        if (priceIds[plan]?.[billingInterval] === itemPriceId) {
+          matches.set(`${plan}:${billingInterval}`, { plan, billingInterval });
+        }
+      }
     }
   }
 
-  return matchedPlans.size === 1 ? matchedPlans.values().next().value || null : null;
+  return matches.size === 1 ? matches.values().next().value || null : null;
 };
+
+export const resolvePaddlePlan = (
+  items: Array<{ price?: { id?: string } | null }>,
+  priceIds: Partial<Record<PaddlePaidPlan, string>>,
+): PaddlePaidPlan | null => resolvePaddlePrice(items, {
+  pro: { monthly: priceIds.pro },
+  ultimate: { monthly: priceIds.ultimate },
+})?.plan || null;

@@ -16,6 +16,8 @@ export async function ensureCurrentSchema() {
         ADD COLUMN IF NOT EXISTS subscription_status text NOT NULL DEFAULT 'active',
         ADD COLUMN IF NOT EXISTS subscription_changed_at timestamp DEFAULT now(),
         ADD COLUMN IF NOT EXISTS subscription_requested_plan text,
+        ADD COLUMN IF NOT EXISTS subscription_billing_interval text NOT NULL DEFAULT 'monthly',
+        ADD COLUMN IF NOT EXISTS subscription_requested_billing_interval text,
         ADD COLUMN IF NOT EXISTS subscription_current_period_end timestamp,
         ADD COLUMN IF NOT EXISTS subscription_cancel_at_period_end boolean NOT NULL DEFAULT false,
         ADD COLUMN IF NOT EXISTS paddle_customer_id text,

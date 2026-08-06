@@ -4,10 +4,17 @@ import {
   getAdminGrantedSubscriptionStatus,
   getInvoiceCapabilities,
   getUltimateCapabilities,
+  isBillingInterval,
   isRegistrationPlan,
   isSubscriptionPlan,
   subscriptionPlanRank,
 } from "../shared/subscriptions";
+
+test("billing intervals accept only supported subscription cadences", () => {
+  assert.equal(isBillingInterval("monthly"), true);
+  assert.equal(isBillingInterval("annual"), true);
+  assert.equal(isBillingInterval("yearly"), false);
+});
 
 test("registration accepts every live plan", () => {
   assert.equal(isRegistrationPlan("free"), true);

@@ -389,7 +389,13 @@ export default function AccountPage() {
                   <div className="flex flex-col gap-5 rounded-lg border border-gray-200 bg-gray-50 p-5 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <div className="flex items-center gap-2"><h3 className="text-xl font-bold">{currentPlanDetails.name}</h3>{currentPlan !== 'free' && <span className="rounded bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white">{currentPlan.toUpperCase()}</span>}</div>
-                      <p className="mt-1 text-sm text-gray-600">{currentPlanDetails.price} per month</p>
+                      <p className="mt-1 text-sm text-gray-600">
+                        {currentPlan === 'free'
+                          ? '$0 per month'
+                          : user?.subscriptionBillingInterval === 'annual'
+                            ? `$${currentPlanDetails.annualPrice.toFixed(2)} per year ($${(currentPlanDetails.annualPrice / 12).toFixed(2)}/month)`
+                            : `$${currentPlanDetails.monthlyPrice.toFixed(2)} per month`}
+                      </p>
                     </div>
                     <Button asChild><Link href="/plans">{currentPlan === 'free' ? 'View upgrade options' : 'Compare plans'}</Link></Button>
                   </div>

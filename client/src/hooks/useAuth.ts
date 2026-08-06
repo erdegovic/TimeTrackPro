@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
-import type { SubscriptionPlan } from "@shared/subscriptions";
+import type { BillingInterval, SubscriptionPlan } from "@shared/subscriptions";
 import { isPublicRoute } from "@/lib/public-routes";
 
 // Define user type for TypeScript
@@ -18,6 +18,8 @@ export interface UserProfile {
   subscriptionPlan?: SubscriptionPlan;
   subscriptionStatus?: string;
   subscriptionRequestedPlan?: SubscriptionPlan | null;
+  subscriptionBillingInterval?: BillingInterval;
+  subscriptionRequestedBillingInterval?: BillingInterval | null;
   subscriptionCurrentPeriodEnd?: string | null;
   subscriptionCancelAtPeriodEnd?: boolean;
   paddleCustomerId?: string | null;

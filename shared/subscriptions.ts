@@ -2,6 +2,12 @@ export const subscriptionPlans = ["free", "pro", "ultimate"] as const;
 
 export type SubscriptionPlan = (typeof subscriptionPlans)[number];
 
+export const billingIntervals = ["monthly", "annual"] as const;
+export type BillingInterval = (typeof billingIntervals)[number];
+
+export const isBillingInterval = (value: unknown): value is BillingInterval =>
+  typeof value === "string" && billingIntervals.includes(value as BillingInterval);
+
 export const registrationPlans = ["free", "pro", "ultimate"] as const;
 
 export const isSubscriptionPlan = (value: unknown): value is SubscriptionPlan =>

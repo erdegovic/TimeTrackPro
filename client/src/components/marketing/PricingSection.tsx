@@ -3,31 +3,34 @@ import { Check, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { planDetails } from "@/lib/plans";
-import { subscriptionPlanRank, type SubscriptionPlan } from "@shared/subscriptions";
-import type { PaddlePaidPlan } from "@shared/paddle-billing";
+import { subscriptionPlanRank, type BillingInterval, type SubscriptionPlan } from "@shared/subscriptions";
+import type { PaddlePaidPlan, PaddlePriceSelection } from "@shared/paddle-billing";
 import { changePaddlePlan, openPlanCheckout } from "@/lib/paddle";
 import { queryClient } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
+import BillingCycleToggle from "@/components/billing/BillingCycleToggle";
 
 type PricingSectionProps = {
   currentPlan?: SubscriptionPlan;
+  currentBillingInterval?: BillingInterval;
   paddleSubscriptionId?: string | null;
   compact?: boolean;
-  autoCheckout?: PaddlePaidPlan | null;
+  autoCheckout?: PaddlePriceSelection | null;
 };
 
-export default function PricingSection({ currentPlan, paddleSubscriptionId, compact = false, autoCheckout = null }: PricingSectionProps) {
+export default function PricingSection({ currentPlan, currentBillingInterval = "monthly", paddleSubscriptionId, compact = false, autoCheckout = null }: PricingSectionProps) {
   const [busyPlan, setBusyPlan] = useState<PaddlePaidPlan | null>(null);
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>(autoCheckout?.billingInterval || "monthly");
   const autoCheckoutStarted = useRef(false);
 
-  const refreshSubscription = async (expectedPlan: PaddlePaidPlan) => {
+  const refreshSubscription = async (expectedPlan: PaddlePaidPlan, expectedInterval: BillingInterval) => {
     for (let attempt = 0; attempt < 10; attempt += 1) {
       await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 400 : 1200));
       const response = await fetch("/api/auth/user", { credentials: "include" });
       if (!response.ok) continue;
       const user = await response.json();
       queryClient.setQueryData(["/api/auth/user"], user);
-      if (user.subscriptionPlan === expectedPlan && ["active", "trialing", "past_due"].includes(user.subscriptionStatus)) {
+      if (user.subscriptionPlan === expectedPlan && user.subscriptionBillingInterval === expectedInterval && ["active", "trialing", "past_due"].includes(user.subscriptionStatus)) {
         const planName = expectedPlan === "ultimate" ? "Ultimate" : "Pro";
         toast({
           title: `Tickd ${planName} is active`,
@@ -43,24 +46,24 @@ export default function PricingSection({ currentPlan, paddleSubscriptionId, comp
     toast({ title: "Payment received", description: "Paddle is still confirming your subscription. Refresh this page in a moment." });
   };
 
-  const selectPaidPlan = async (plan: PaddlePaidPlan) => {
+  const selectPaidPlan = async (plan: PaddlePaidPlan, interval: BillingInterval) => {
     if (busyPlan) return;
     setBusyPlan(plan);
     let removeListener: () => void = () => {};
     try {
       if (currentPlan && currentPlan !== "free" && paddleSubscriptionId) {
-        const result = await changePaddlePlan(plan);
+        const result = await changePaddlePlan(plan, interval);
         toast({
           title: result.effective === "immediate" ? "Plan change submitted" : "Downgrade scheduled",
           description: result.effective === "immediate"
             ? "Paddle is applying your new plan now."
             : "The lower price takes effect at your next billing date.",
         });
-        await refreshSubscription(plan);
+        await refreshSubscription(plan, interval);
       } else {
-        removeListener = await openPlanCheckout(plan, () => {
+        removeListener = await openPlanCheckout(plan, interval, () => {
           removeListener();
-          void refreshSubscription(plan);
+          void refreshSubscription(plan, interval);
         });
         setBusyPlan(null);
       }
@@ -77,7 +80,8 @@ export default function PricingSection({ currentPlan, paddleSubscriptionId, comp
   useEffect(() => {
     if (autoCheckout && currentPlan === "free" && !autoCheckoutStarted.current) {
       autoCheckoutStarted.current = true;
-      void selectPaidPlan(autoCheckout);
+      setBillingInterval(autoCheckout.billingInterval);
+      void selectPaidPlan(autoCheckout.plan, autoCheckout.billingInterval);
     }
   }, [autoCheckout, currentPlan]);
 
@@ -93,17 +97,23 @@ export default function PricingSection({ currentPlan, paddleSubscriptionId, comp
             <p className="max-w-xl text-base leading-7 text-[#667085] lg:pb-1">No crowded bundles and no hidden extras. Choose the plan that matches the work you do today.</p>
           </div>
         )}
+        <BillingCycleToggle value={billingInterval} onChange={setBillingInterval} compact={compact} />
         <div className={`grid gap-4 ${compact ? "lg:grid-cols-3" : "mt-12 lg:grid-cols-3 lg:items-stretch"}`}>
           {planDetails.map((plan) => {
-            const isCurrent = currentPlan === plan.id;
+            const isCurrent = currentPlan === plan.id && (plan.id === "free" || currentBillingInterval === billingInterval);
             const isHighlighted = !compact && plan.id === "pro";
             const mutedText = isHighlighted ? "text-[#aebbd0]" : "text-[#667085]";
+            const annualMonthlyEquivalent = plan.annualPrice / 12;
+            const paidActionLabel = currentPlan === plan.id
+              ? `Switch to ${billingInterval === "annual" ? "yearly" : "monthly"} billing`
+              : `${currentPlan === "free" ? "Upgrade" : "Switch"} to ${plan.name}`;
             return (
               <article key={plan.id} className={`relative flex min-h-[420px] flex-col rounded-md border p-7 ${isHighlighted ? "border-[#071127] bg-[#071127] text-white shadow-[0_24px_70px_rgba(7,17,39,0.2)]" : "border-[#d8e0ea] bg-white text-[#101828]"}`}>
                 {plan.emphasis && <span className={`absolute right-5 top-5 rounded-md px-2.5 py-1 text-xs font-bold ${isHighlighted ? "bg-[#1473ff] text-white" : plan.available ? "bg-[#edf4ff] text-[#096cfb]" : "bg-[#f0f2f5] text-[#667085]"}`}>{plan.emphasis}</span>}
                 <div className="pr-24">
                   <h3 className="text-xl font-semibold">{plan.name}</h3>
-                  <div className="mt-7 flex items-end gap-1"><span className="text-4xl font-semibold tracking-tight">{plan.price}</span><span className={`pb-1 text-sm ${mutedText}`}>/ month</span></div>
+                  <div className="mt-7 flex items-end gap-1"><span className="text-4xl font-semibold tracking-tight">${billingInterval === "annual" ? plan.annualPrice.toFixed(2) : plan.monthlyPrice.toFixed(2)}</span><span className={`pb-1 text-sm ${mutedText}`}>/ {billingInterval === "annual" ? "year" : "month"}</span></div>
+                  {billingInterval === "annual" && plan.id !== "free" && <p className={`mt-2 text-xs font-semibold ${isHighlighted ? "text-emerald-300" : "text-emerald-700"}`}>Save {plan.annualDiscount}% · ${annualMonthlyEquivalent.toFixed(2)}/month, billed yearly</p>}
                   <p className={`mt-5 min-h-[48px] text-sm leading-6 ${mutedText}`}>{plan.description}</p>
                 </div>
                 <ul className="mt-7 flex-1 space-y-3.5 border-t border-current/10 pt-7">
@@ -117,12 +127,12 @@ export default function PricingSection({ currentPlan, paddleSubscriptionId, comp
                   ) : !paddleSubscriptionId && subscriptionPlanRank[plan.id] < subscriptionPlanRank[currentPlan] ? (
                     <Button className="mt-7" variant="outline" asChild><Link href="/account?tab=subscription">Managed by Tickd</Link></Button>
                   ) : (
-                    <Button className="mt-7" onClick={() => void selectPaidPlan(plan.id as PaddlePaidPlan)} disabled={busyPlan !== null}>
-                      {busyPlan === plan.id ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Updating plan</> : `${currentPlan === "free" ? "Upgrade" : "Switch"} to ${plan.name}`}
+                    <Button className="mt-7" onClick={() => void selectPaidPlan(plan.id as PaddlePaidPlan, billingInterval)} disabled={busyPlan !== null}>
+                      {busyPlan === plan.id ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Updating plan</> : paidActionLabel}
                     </Button>
                   )
                 ) : (
-                  <Button className={`mt-7 rounded-md ${isHighlighted ? "bg-white text-[#071127] hover:bg-[#edf4ff]" : ""}`} variant={plan.id === "pro" ? "default" : "outline"} asChild><Link href={`/register?plan=${plan.id}`}>{plan.id === "free" ? "Start free" : `Choose ${plan.name}`}</Link></Button>
+                  <Button className={`mt-7 rounded-md ${isHighlighted ? "bg-white text-[#071127] hover:bg-[#edf4ff]" : ""}`} variant={plan.id === "pro" ? "default" : "outline"} asChild><Link href={`/register?plan=${plan.id}&billing=${billingInterval}`}>{plan.id === "free" ? "Start free" : `Choose ${plan.name}`}</Link></Button>
                 )}
               </article>
             );

@@ -6,7 +6,7 @@ import * as oidc from 'openid-client';
 import { storage } from '../storage';
 import { verificationTypeEnum } from '@shared/schema';
 import { getBaseUrl } from '../utils/url-helper';
-import { isRegistrationPlan, isSubscriptionPlan } from '@shared/subscriptions';
+import { isBillingInterval, isRegistrationPlan, isSubscriptionPlan } from '@shared/subscriptions';
 import {
   CURRENT_PRIVACY_VERSION,
   CURRENT_TERMS_VERSION,
@@ -39,6 +39,7 @@ const registrationRequestSchema = z.object({
   lastName: z.string().trim().max(100).nullish(),
   captchaToken: z.string().nullish(),
   plan: z.enum(['free', 'pro', 'ultimate']),
+  billingInterval: z.enum(['monthly', 'annual']).default('monthly'),
 }).and(legalAcceptanceSchema);
 
 const emailCodeRequestSchema = z.object({
@@ -88,6 +89,12 @@ const safeReturnTo = (value: unknown) => {
     : '/';
 };
 
+const getRequestedCheckoutPath = (plan: unknown, billingInterval: unknown) => {
+  if (!isRegistrationPlan(plan) || plan === 'free') return null;
+  const interval = isBillingInterval(billingInterval) ? billingInterval : 'monthly';
+  return `/plans?checkout=${plan}&billing=${interval}`;
+};
+
 const serializeUser = (user: Awaited<ReturnType<typeof storage.getUser>>) => {
   if (!user) return undefined;
 
@@ -107,6 +114,12 @@ const serializeUser = (user: Awaited<ReturnType<typeof storage.getUser>>) => {
     subscriptionChangedAt: user.subscriptionChangedAt,
     subscriptionRequestedPlan: isRegistrationPlan(user.subscriptionRequestedPlan)
       ? user.subscriptionRequestedPlan
+      : null,
+    subscriptionBillingInterval: isBillingInterval(user.subscriptionBillingInterval)
+      ? user.subscriptionBillingInterval
+      : 'monthly',
+    subscriptionRequestedBillingInterval: isBillingInterval(user.subscriptionRequestedBillingInterval)
+      ? user.subscriptionRequestedBillingInterval
       : null,
     subscriptionCurrentPeriodEnd: user.subscriptionCurrentPeriodEnd,
     subscriptionCancelAtPeriodEnd: user.subscriptionCancelAtPeriodEnd,
@@ -608,6 +621,9 @@ router.get('/google', async (req: Request, res: Response) => {
       return res.redirect(`/register?plan=${registrationPlan}&error=accept-terms`);
     }
     req.session.oauthRegistrationPlan = registrationPlan;
+    req.session.oauthRegistrationBillingInterval = registrationPlan
+      ? (isBillingInterval(req.query.billingInterval) ? req.query.billingInterval : 'monthly')
+      : undefined;
     req.session.oauthTermsVersion = legalAcceptance.success
       ? legalAcceptance.data.termsVersion
       : undefined;
@@ -638,6 +654,7 @@ router.get('/google/callback', async (req: Request, res: Response) => {
   const expectedNonce = req.session.oauthNonce;
   const returnTo = safeReturnTo(req.session.oauthReturnTo);
   const registrationPlan = req.session.oauthRegistrationPlan;
+  const registrationBillingInterval = req.session.oauthRegistrationBillingInterval;
   const termsVersion = req.session.oauthTermsVersion;
   const privacyVersion = req.session.oauthPrivacyVersion;
 
@@ -646,6 +663,7 @@ router.get('/google/callback', async (req: Request, res: Response) => {
   delete req.session.oauthNonce;
   delete req.session.oauthReturnTo;
   delete req.session.oauthRegistrationPlan;
+  delete req.session.oauthRegistrationBillingInterval;
   delete req.session.oauthTermsVersion;
   delete req.session.oauthPrivacyVersion;
 
@@ -724,6 +742,10 @@ router.get('/google/callback', async (req: Request, res: Response) => {
           subscriptionPlan: 'free',
           subscriptionStatus: 'active',
           subscriptionRequestedPlan: registrationPlan === 'free' ? null : registrationPlan,
+          subscriptionBillingInterval: 'monthly',
+          subscriptionRequestedBillingInterval: registrationPlan === 'free'
+            ? null
+            : (isBillingInterval(registrationBillingInterval) ? registrationBillingInterval : 'monthly'),
           subscriptionChangedAt: new Date(),
           termsAcceptedAt: new Date(),
           termsVersion,
@@ -739,11 +761,10 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     await regenerateSession(req);
     req.session.userId = user.id;
     await saveSession(req);
-    res.redirect(
-      user.subscriptionRequestedPlan && user.subscriptionRequestedPlan !== 'free'
-        ? `/plans?checkout=${user.subscriptionRequestedPlan}`
-        : returnTo,
-    );
+    res.redirect(getRequestedCheckoutPath(
+      user.subscriptionRequestedPlan,
+      user.subscriptionRequestedBillingInterval,
+    ) || returnTo);
   } catch (error) {
     console.error('Google authentication callback failed:', error);
     res.redirect('/login?error=google-sign-in-failed');
@@ -762,7 +783,7 @@ router.post('/register', async (req: Request, res: Response) => {
       });
     }
 
-    const { email, password, firstName, lastName, captchaToken, plan, termsVersion, privacyVersion } = validation.data;
+    const { email, password, firstName, lastName, captchaToken, plan, billingInterval, termsVersion, privacyVersion } = validation.data;
     
     const captchaIsRequired = process.env.NODE_ENV === 'production';
     const captchaIsValid = captchaToken
@@ -802,6 +823,8 @@ router.post('/register', async (req: Request, res: Response) => {
       subscriptionPlan: 'free',
       subscriptionStatus: 'active',
       subscriptionRequestedPlan: plan === 'free' ? null : plan,
+      subscriptionBillingInterval: 'monthly',
+      subscriptionRequestedBillingInterval: plan === 'free' ? null : billingInterval,
       subscriptionChangedAt: new Date(),
       termsAcceptedAt: new Date(),
       termsVersion,
@@ -915,8 +938,11 @@ router.post('/verify-email-code', async (req: Request, res: Response) => {
     verificationAttempts.delete(attemptKey);
     return res.status(200).json({
       message: 'Email verified successfully.',
-      next: updatedUser?.subscriptionRequestedPlan && updatedUser.subscriptionRequestedPlan !== 'free'
-        ? `/login?verified=true&plan=${updatedUser.subscriptionRequestedPlan}`
+      next: getRequestedCheckoutPath(
+        updatedUser?.subscriptionRequestedPlan,
+        updatedUser?.subscriptionRequestedBillingInterval,
+      )
+        ? `/login?verified=true&plan=${updatedUser?.subscriptionRequestedPlan}&billing=${updatedUser?.subscriptionRequestedBillingInterval || 'monthly'}`
         : '/login?verified=true',
     });
   } catch (error) {

@@ -64,7 +64,8 @@ export default function LoginForm() {
       if (response.ok) {
         queryClient.setQueryData(["/api/auth/user"], result.user);
         const requestedPlan = result.user?.subscriptionRequestedPlan;
-        navigate(requestedPlan && requestedPlan !== "free" ? `/plans?checkout=${requestedPlan}` : "/");
+        const requestedBilling = result.user?.subscriptionRequestedBillingInterval === "annual" ? "annual" : "monthly";
+        navigate(requestedPlan && requestedPlan !== "free" ? `/plans?checkout=${requestedPlan}&billing=${requestedBilling}` : "/");
       } else if (response.status === 403 && result.message?.includes("verify")) {
         navigate(`/unverified-email?email=${encodeURIComponent(data.email)}`);
       } else {

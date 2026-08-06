@@ -8,6 +8,7 @@ declare module 'express-session' {
     oauthCodeVerifier?: string;
     oauthReturnTo?: string;
     oauthRegistrationPlan?: "free" | "pro" | "ultimate";
+    oauthRegistrationBillingInterval?: "monthly" | "annual";
     oauthTermsVersion?: string;
     oauthPrivacyVersion?: string;
   }

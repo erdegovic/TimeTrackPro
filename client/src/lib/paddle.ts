@@ -1,11 +1,12 @@
 import { initializePaddle, type Paddle, type PaddleEventData } from "@paddle/paddle-js";
 import type { PaddlePaidPlan } from "@shared/paddle-billing";
+import type { BillingInterval } from "@shared/subscriptions";
 
 export type PaddleBillingConfig = {
   enabled: boolean;
   environment: "sandbox" | "production";
   clientToken: string | null;
-  priceIds: Record<PaddlePaidPlan, string | null>;
+  priceIds: Record<PaddlePaidPlan, Record<BillingInterval, string | null>>;
   proPriceId: string | null;
   ultimatePriceId: string | null;
   customerId: string | null;
@@ -42,10 +43,10 @@ export const getPaddleBillingConfig = async (): Promise<PaddleBillingConfig> => 
   return result;
 };
 
-export const openPlanCheckout = async (plan: PaddlePaidPlan, onCompleted: () => void) => {
+export const openPlanCheckout = async (plan: PaddlePaidPlan, billingInterval: BillingInterval, onCompleted: () => void) => {
   const config = await getPaddleBillingConfig();
-  const priceId = config.priceIds?.[plan]
-    || (plan === "pro" ? config.proPriceId : config.ultimatePriceId);
+  const priceId = config.priceIds?.[plan]?.[billingInterval]
+    || (billingInterval === "monthly" ? (plan === "pro" ? config.proPriceId : config.ultimatePriceId) : null);
   if (!config.enabled || !priceId || !config.checkoutToken) {
     throw new Error("Secure checkout is not available yet.");
   }
@@ -57,7 +58,7 @@ export const openPlanCheckout = async (plan: PaddlePaidPlan, onCompleted: () => 
   paddle.Checkout.open({
     items: [{ priceId, quantity: 1 }],
     customer: { email: config.email },
-    customData: { tickd_checkout_token: config.checkoutToken, tickd_plan: plan },
+    customData: { tickd_checkout_token: config.checkoutToken, tickd_plan: plan, tickd_billing_interval: billingInterval },
     settings: {
       displayMode: "overlay",
       theme: "light",
@@ -70,16 +71,16 @@ export const openPlanCheckout = async (plan: PaddlePaidPlan, onCompleted: () => 
   return () => checkoutCompletedListeners.delete(onCompleted);
 };
 
-export const changePaddlePlan = async (plan: PaddlePaidPlan) => {
+export const changePaddlePlan = async (plan: PaddlePaidPlan, billingInterval: BillingInterval) => {
   const response = await fetch("/api/billing/change-plan", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ plan }),
+    body: JSON.stringify({ plan, billingInterval }),
   });
   const result = await response.json();
   if (!response.ok) throw new Error(result.message || "The subscription could not be changed.");
-  return result as { plan: PaddlePaidPlan; status: string; effective: "immediate" | "next_billing_period" };
+  return result as { plan: PaddlePaidPlan; billingInterval: BillingInterval; status: string; effective: "immediate" | "next_billing_period" };
 };
 
 export const openBillingPortal = async () => {
