@@ -468,18 +468,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Find user by email
       const foundUser = await storage.getUserByEmail(email);
       
-      // For development, accept test credentials
-      const isTestCredential = email === 'test@example.com' && password === 'password123';
-      
-      if (isTestCredential) {
-        // Dev-only test credentials bypass
-        req.session.userId = 1;
-        return res.status(200).json({
-          message: "Login successful",
-          user: { id: 1, username: "testuser", firstName: "Test", lastName: "User", email: "test@example.com" }
-        });
-      }
-
       if (!foundUser) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
@@ -501,7 +489,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Set up user session
+      // Rotate the session identifier after authentication to prevent fixation.
+      await new Promise<void>((resolve, reject) => {
+        req.session.regenerate((error) => error ? reject(error) : resolve());
+      });
       req.session.userId = foundUser.id;
       console.log(`Login successful - session created for user ${foundUser.id}`);
       

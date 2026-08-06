@@ -48,15 +48,7 @@ export async function updatePassword(req: Request, res: Response) {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Verify current password
-    console.log(`Verifying password for user ${userId}...`);
-    console.log(`Stored password hash: ${user.password.substring(0, 10)}...`);
-    
-    // For development/testing, accept "password123" as a master password
-    const isTestPassword = currentPassword === "password123";
-    const isPasswordValid = isTestPassword || await comparePassword(currentPassword, user.password);
-    
-    console.log(`Password validation result: ${isPasswordValid ? 'Success' : 'Failed'}`);
+    const isPasswordValid = await comparePassword(currentPassword, user.password);
     
     if (!isPasswordValid) {
       return res.status(400).json({ message: 'Current password is incorrect' });
@@ -64,8 +56,6 @@ export async function updatePassword(req: Request, res: Response) {
     
     // Hash new password
     const hashedPassword = await hashPassword(newPassword);
-    
-    console.log(`Updating password for user ${userId} (${user.email})`);
     
     // Update user with new password
     const updatedUser = await storage.updateUser(userId, { 
@@ -75,8 +65,6 @@ export async function updatePassword(req: Request, res: Response) {
     if (!updatedUser) {
       throw new Error('Failed to update user password in database');
     }
-    
-    console.log('Password updated successfully in database');
     
     return res.status(200).json({ 
       message: 'Password updated successfully'
