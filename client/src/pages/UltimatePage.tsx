@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { format, subDays } from "date-fns";
+import { addDays, endOfMonth, format, isValid, parseISO, startOfMonth, subDays, subMonths } from "date-fns";
 import { Link } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -81,6 +81,37 @@ const statusStyles: Record<string, string> = {
 };
 
 const statusLabel = (status: string) => status.replace(/_/g, " ").replace(/\b\w/g, (value) => value.toUpperCase());
+
+type SchedulePeriodMode = "previous_month" | "specific_month" | "custom_range";
+
+const isCalendarDate = (value: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = parseISO(value);
+  return isValid(parsed) && format(parsed, "yyyy-MM-dd") === value;
+};
+
+const getMonthPeriod = (month: string) => {
+  if (!/^\d{4}-\d{2}$/.test(month)) return { startDate: "", endDate: "" };
+  const date = parseISO(`${month}-01`);
+  if (!isValid(date)) return { startDate: "", endDate: "" };
+  return {
+    startDate: format(startOfMonth(date), "yyyy-MM-dd"),
+    endDate: format(endOfMonth(date), "yyyy-MM-dd"),
+  };
+};
+
+const getRecommendedPreparationDate = (endDate: string) => {
+  const today = format(new Date(), "yyyy-MM-dd");
+  if (!isCalendarDate(endDate)) return today;
+  const firstAvailableDate = format(addDays(parseISO(endDate), 1), "yyyy-MM-dd");
+  return firstAvailableDate > today ? firstAvailableDate : today;
+};
+
+const formatPeriod = (startDate?: string | null, endDate?: string | null) => {
+  if (!startDate || !endDate) return "Choose an invoice period";
+  if (!isCalendarDate(startDate) || !isCalendarDate(endDate)) return "Choose a valid invoice period";
+  return `${format(parseISO(startDate), "MMM d, yyyy")} - ${format(parseISO(endDate), "MMM d, yyyy")}`;
+};
 
 export default function UltimatePage() {
   const { user } = useAuth();
@@ -323,26 +354,151 @@ function ReviewList({ title, icon: Icon, items }: { title: string; icon: any; it
 function ScheduleComposer({ clients, onCreated }: { clients: Client[]; onCreated: () => void }) {
   const { toast } = useToast();
   const [clientId, setClientId] = useState("");
+  const defaultMonth = format(subMonths(new Date(), 1), "yyyy-MM");
+  const defaultPeriod = getMonthPeriod(defaultMonth);
+  const [periodMode, setPeriodMode] = useState<SchedulePeriodMode>("previous_month");
+  const [specificMonth, setSpecificMonth] = useState(defaultMonth);
+  const [periodStart, setPeriodStart] = useState(defaultPeriod.startDate);
+  const [periodEnd, setPeriodEnd] = useState(defaultPeriod.endDate);
+  const [prepareDate, setPrepareDate] = useState(getRecommendedPreparationDate(defaultPeriod.endDate));
   const [billingDay, setBillingDay] = useState("1");
   const [sendHour, setSendHour] = useState("9");
   const [autoSend, setAutoSend] = useState(false);
   const [windowMinutes, setWindowMinutes] = useState("60");
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const isRecurring = periodMode === "previous_month";
+  const selectedPeriod = periodMode === "specific_month"
+    ? getMonthPeriod(specificMonth)
+    : { startDate: periodStart, endDate: periodEnd };
+  const earliestPrepareDate = isCalendarDate(selectedPeriod.endDate)
+    ? format(addDays(parseISO(selectedPeriod.endDate), 1), "yyyy-MM-dd")
+    : undefined;
+  const oneTimePeriodValid = isRecurring || Boolean(
+    isCalendarDate(selectedPeriod.startDate) &&
+    isCalendarDate(selectedPeriod.endDate) &&
+    selectedPeriod.startDate <= selectedPeriod.endDate &&
+    isCalendarDate(prepareDate) &&
+    prepareDate > selectedPeriod.endDate,
+  );
+
+  const choosePeriodMode = (value: string) => {
+    const mode = value as SchedulePeriodMode;
+    setPeriodMode(mode);
+    if (mode === "specific_month") {
+      const period = getMonthPeriod(specificMonth);
+      setPrepareDate(getRecommendedPreparationDate(period.endDate));
+    } else if (mode === "custom_range") {
+      setPrepareDate(getRecommendedPreparationDate(periodEnd));
+    }
+  };
+
   const mutation = useMutation({
     mutationFn: () => {
       const client = clients.find((item) => item.id === Number(clientId));
-      return apiRequest("POST", "/api/ultimate/schedules", { clientId: Number(clientId), name: `${client?.name || "Client"} monthly invoice`, enabled: true, billingDay: Number(billingDay), sendHour: Number(sendHour), timezone, requireApproval: !autoSend, cancellationWindowMinutes: Number(windowMinutes) });
+      const periodName = periodMode === "specific_month"
+        ? (specificMonth ? format(parseISO(`${specificMonth}-01`), "MMMM yyyy") : "selected month")
+        : periodMode === "custom_range" ? "custom period" : "monthly";
+      return apiRequest("POST", "/api/ultimate/schedules", {
+        clientId: Number(clientId),
+        name: `${client?.name || "Client"} ${periodName} invoice`,
+        enabled: true,
+        periodMode,
+        periodStart: isRecurring ? null : selectedPeriod.startDate,
+        periodEnd: isRecurring ? null : selectedPeriod.endDate,
+        prepareDate: isRecurring ? undefined : prepareDate,
+        billingDay: Number(billingDay),
+        sendHour: Number(sendHour),
+        timezone,
+        requireApproval: !autoSend,
+        cancellationWindowMinutes: Number(windowMinutes),
+      });
     },
-    onSuccess: () => { onCreated(); toast({ title: "Invoice schedule created" }); },
+    onSuccess: () => { onCreated(); toast({ title: isRecurring ? "Monthly schedule created" : "Invoice period scheduled" }); },
     onError: (error: Error) => toast({ title: "Could not create schedule", description: error.message, variant: "destructive" }),
   });
-  return <Card><CardHeader><CardTitle className="text-lg">Create a monthly invoice schedule</CardTitle><CardDescription>Tickd collects the previous month’s uninvoiced entries, validates them, prepares a PDF and email, then follows your approval rule.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid gap-3 sm:grid-cols-4"><div className="sm:col-span-2"><Label>Client</Label><Select value={clientId} onValueChange={setClientId}><SelectTrigger className="mt-1"><SelectValue placeholder="Choose client" /></SelectTrigger><SelectContent>{clients.map((client) => <SelectItem key={client.id} value={String(client.id)}>{client.name}{!client.email ? " · email needed" : ""}</SelectItem>)}</SelectContent></Select></div><div><Label htmlFor="billing-day">Day of month</Label><Input id="billing-day" className="mt-1" type="number" min="1" max="28" value={billingDay} onChange={(event) => setBillingDay(event.target.value)} /></div><div><Label htmlFor="send-hour">Prepare at</Label><Select value={sendHour} onValueChange={setSendHour}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>{Array.from({ length: 24 }, (_, hour) => <SelectItem key={hour} value={String(hour)}>{String(hour).padStart(2,"0")}:00</SelectItem>)}</SelectContent></Select></div></div><div className="flex flex-col gap-4 rounded-md border bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-gray-900">Send automatically after checks</p><p className="mt-0.5 text-sm text-gray-500">When off, every prepared invoice waits for approval.</p></div><Switch checked={autoSend} onCheckedChange={setAutoSend} /></div>{autoSend && <div className="max-w-xs"><Label htmlFor="cancel-window">Cancellation window</Label><Select value={windowMinutes} onValueChange={setWindowMinutes}><SelectTrigger id="cancel-window" className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="15">15 minutes</SelectItem><SelectItem value="30">30 minutes</SelectItem><SelectItem value="60">1 hour</SelectItem><SelectItem value="360">6 hours</SelectItem><SelectItem value="1440">24 hours</SelectItem></SelectContent></Select></div>}<Button onClick={() => mutation.mutate()} disabled={!clientId || mutation.isPending}>{mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarClock className="mr-2 h-4 w-4" />}Create schedule</Button></CardContent></Card>;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">Schedule invoice preparation</CardTitle>
+        <CardDescription>Use the usual monthly cycle or save an exact one-time billing period for irregular work.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div>
+          <Label>Invoice period</Label>
+          <Tabs value={periodMode} onValueChange={choosePeriodMode} className="mt-2">
+            <TabsList className="grid h-auto w-full grid-cols-1 sm:grid-cols-3">
+              <TabsTrigger value="previous_month" className="min-h-10">Previous month</TabsTrigger>
+              <TabsTrigger value="specific_month" className="min-h-10">Specific month</TabsTrigger>
+              <TabsTrigger value="custom_range" className="min-h-10">Custom range</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <Label>Client</Label>
+            <Select value={clientId} onValueChange={setClientId}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Choose client" /></SelectTrigger>
+              <SelectContent>{clients.map((client) => <SelectItem key={client.id} value={String(client.id)}>{client.name}{!client.email ? " · email needed" : ""}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+
+          {periodMode === "specific_month" && (
+            <div>
+              <Label htmlFor="invoice-month">Month</Label>
+              <Input id="invoice-month" className="mt-1" type="month" value={specificMonth} onChange={(event) => {
+                setSpecificMonth(event.target.value);
+                if (event.target.value) setPrepareDate(getRecommendedPreparationDate(getMonthPeriod(event.target.value).endDate));
+              }} />
+            </div>
+          )}
+        </div>
+
+        {periodMode === "custom_range" && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><Label htmlFor="period-start">Period starts</Label><Input id="period-start" className="mt-1" type="date" value={periodStart} max={periodEnd} onChange={(event) => setPeriodStart(event.target.value)} /></div>
+            <div><Label htmlFor="period-end">Period ends</Label><Input id="period-end" className="mt-1" type="date" value={periodEnd} min={periodStart} onChange={(event) => { setPeriodEnd(event.target.value); if (event.target.value) setPrepareDate(getRecommendedPreparationDate(event.target.value)); }} /></div>
+          </div>
+        )}
+
+        {!isRecurring && (
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-4">
+            <p className="text-sm font-semibold text-blue-950">One-time period: {formatPeriod(selectedPeriod.startDate, selectedPeriod.endDate)}</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div><Label htmlFor="prepare-date">Prepare on</Label><Input id="prepare-date" className="mt-1 bg-white" type="date" min={earliestPrepareDate} value={prepareDate} onChange={(event) => setPrepareDate(event.target.value)} /></div>
+              <div><Label>Prepare at</Label><Select value={sendHour} onValueChange={setSendHour}><SelectTrigger className="mt-1 bg-white"><SelectValue /></SelectTrigger><SelectContent>{Array.from({ length: 24 }, (_, hour) => <SelectItem key={hour} value={String(hour)}>{String(hour).padStart(2,"0")}:00</SelectItem>)}</SelectContent></Select></div>
+            </div>
+            <p className="mt-2 text-xs text-blue-800">This schedule completes after Tickd prepares the selected period once.</p>
+          </div>
+        )}
+
+        {isRecurring && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><Label htmlFor="billing-day">Prepare every month on day</Label><Input id="billing-day" className="mt-1" type="number" min="1" max="28" value={billingDay} onChange={(event) => setBillingDay(event.target.value)} /></div>
+            <div><Label>Prepare at</Label><Select value={sendHour} onValueChange={setSendHour}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>{Array.from({ length: 24 }, (_, hour) => <SelectItem key={hour} value={String(hour)}>{String(hour).padStart(2,"0")}:00</SelectItem>)}</SelectContent></Select></div>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-4 rounded-md border bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div><p className="text-sm font-semibold text-gray-900">Send automatically after checks</p><p className="mt-0.5 text-sm text-gray-500">When off, every prepared invoice waits for approval.</p></div>
+          <Switch checked={autoSend} onCheckedChange={setAutoSend} aria-label="Send automatically after checks" />
+        </div>
+        {autoSend && <div className="max-w-xs"><Label htmlFor="cancel-window">Cancellation window</Label><Select value={windowMinutes} onValueChange={setWindowMinutes}><SelectTrigger id="cancel-window" className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="15">15 minutes</SelectItem><SelectItem value="30">30 minutes</SelectItem><SelectItem value="60">1 hour</SelectItem><SelectItem value="360">6 hours</SelectItem><SelectItem value="1440">24 hours</SelectItem></SelectContent></Select></div>}
+        {!oneTimePeriodValid && <p className="text-sm text-red-600">The preparation date must be after the selected invoice period.</p>}
+        <Button onClick={() => mutation.mutate()} disabled={!clientId || !oneTimePeriodValid || mutation.isPending}>
+          {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarClock className="mr-2 h-4 w-4" />}
+          {isRecurring ? "Create monthly schedule" : "Schedule this period"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
 }
 
 function ScheduleList({ schedules, onChanged }: { schedules: any[]; onChanged: () => void }) {
   const { toast } = useToast();
   const action = useMutation({ mutationFn: ({ method, url, data }: any) => apiRequest(method, url, data), onSuccess: () => { onChanged(); toast({ title: "Schedule updated" }); }, onError: (error: Error) => toast({ title: "Schedule action failed", description: error.message, variant: "destructive" }) });
-  return <Card><CardHeader><CardTitle className="text-lg">Schedules</CardTitle><CardDescription>Monthly schedules always use uninvoiced entries from the previous calendar month.</CardDescription></CardHeader><CardContent>{schedules.length ? <div className="divide-y rounded-md border">{schedules.map((schedule) => <div key={schedule.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex items-center gap-2"><p className="text-sm font-semibold text-gray-900">{schedule.name}</p><Badge variant={schedule.enabled ? "default" : "secondary"}>{schedule.enabled ? "Active" : "Paused"}</Badge></div><p className="mt-1 text-xs text-gray-500">Next preparation {new Date(schedule.nextRunAt).toLocaleString()} · {schedule.requireApproval ? "Approval required" : `${schedule.cancellationWindowMinutes}-minute cancellation window`}</p></div><div className="flex gap-1"><Button variant="outline" size="sm" onClick={() => action.mutate({ method:"POST", url:`/api/ultimate/schedules/${schedule.id}/run` })} disabled={action.isPending}><Play className="mr-2 h-3.5 w-3.5" />Prepare now</Button><Button variant="ghost" size="icon" aria-label={schedule.enabled ? "Pause schedule" : "Activate schedule"} onClick={() => action.mutate({ method:"PUT", url:`/api/ultimate/schedules/${schedule.id}`, data:{ enabled: !schedule.enabled } })}>{schedule.enabled ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}</Button><Button variant="ghost" size="icon" aria-label="Delete schedule" className="text-red-600" onClick={() => action.mutate({ method:"DELETE", url:`/api/ultimate/schedules/${schedule.id}` })}><Trash2 className="h-4 w-4" /></Button></div></div>)}</div> : <p className="py-6 text-center text-sm text-gray-500">No schedules yet.</p>}</CardContent></Card>;
+  return <Card><CardHeader><CardTitle className="text-lg">Schedules</CardTitle><CardDescription>Recurring monthly cycles and saved one-time periods are managed together.</CardDescription></CardHeader><CardContent>{schedules.length ? <div className="divide-y rounded-md border">{schedules.map((schedule) => { const isOneTime = schedule.frequency === "once"; const completed = isOneTime && Boolean(schedule.lastRunAt); return <div key={schedule.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold text-gray-900">{schedule.name}</p><Badge variant={completed || !schedule.enabled ? "secondary" : "default"}>{completed ? "Prepared" : schedule.enabled ? "Active" : "Paused"}</Badge><Badge variant="outline">{isOneTime ? "One time" : "Monthly"}</Badge></div><p className="mt-1 text-xs text-gray-600">{isOneTime ? formatPeriod(schedule.periodStart, schedule.periodEnd) : "Previous calendar month"}</p><p className="mt-1 text-xs text-gray-500">{completed ? `Prepared ${new Date(schedule.lastRunAt).toLocaleString()}` : `Next preparation ${new Date(schedule.nextRunAt).toLocaleString()}`} · {schedule.requireApproval ? "Approval required" : `${schedule.cancellationWindowMinutes}-minute cancellation window`}</p></div><div className="flex gap-1">{!completed && <Button variant="outline" size="sm" onClick={() => action.mutate({ method:"POST", url:`/api/ultimate/schedules/${schedule.id}/run` })} disabled={action.isPending}><Play className="mr-2 h-3.5 w-3.5" />{isOneTime ? "Prepare early" : "Prepare now"}</Button>}{!completed && <Button variant="ghost" size="icon" aria-label={schedule.enabled ? "Pause schedule" : "Activate schedule"} onClick={() => action.mutate({ method:"PUT", url:`/api/ultimate/schedules/${schedule.id}`, data:{ enabled: !schedule.enabled } })}>{schedule.enabled ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}</Button>}<Button variant="ghost" size="icon" aria-label="Delete schedule" className="text-red-600" onClick={() => action.mutate({ method:"DELETE", url:`/api/ultimate/schedules/${schedule.id}` })}><Trash2 className="h-4 w-4" /></Button></div></div>; })}</div> : <p className="py-6 text-center text-sm text-gray-500">No schedules yet.</p>}</CardContent></Card>;
 }
 
 function ApprovalQueue({ jobs, onChanged }: { jobs: any[]; onChanged: () => void }) {

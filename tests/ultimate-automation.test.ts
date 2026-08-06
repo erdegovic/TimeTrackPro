@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildAutomationLineItems, estimateAiCostMicros, getNextMonthlyRun, getPreviousMonthPeriod } from "../shared/ultimate";
+import { buildAutomationLineItems, estimateAiCostMicros, getNextMonthlyRun, getPreviousMonthPeriod, getZonedDateRunAt } from "../shared/ultimate";
 
 test("invoice automation groups matching entries across a month", () => {
   const rows = buildAutomationLineItems([
@@ -27,6 +27,11 @@ test("previous-month range and next run are deterministic", () => {
   assert.equal(getNextMonthlyRun(new Date("2026-08-06T12:00:00Z"), 10, 9, "UTC").toISOString(), "2026-08-10T09:00:00.000Z");
   assert.equal(getNextMonthlyRun(new Date("2026-08-16T12:00:00Z"), 10, 9, "UTC").toISOString(), "2026-09-10T09:00:00.000Z");
   assert.equal(getNextMonthlyRun(new Date("2026-08-06T12:00:00Z"), 10, 9, "Europe/Belgrade").toISOString(), "2026-08-10T07:00:00.000Z");
+});
+
+test("one-time preparation dates honor the user's timezone", () => {
+  assert.equal(getZonedDateRunAt("2026-08-10", 9, "UTC").toISOString(), "2026-08-10T09:00:00.000Z");
+  assert.equal(getZonedDateRunAt("2026-08-10", 9, "Europe/Belgrade").toISOString(), "2026-08-10T07:00:00.000Z");
 });
 
 test("AI cost estimation uses micro-dollars", () => {

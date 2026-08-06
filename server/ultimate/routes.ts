@@ -13,7 +13,7 @@ import {
   timeEntries,
 } from "@shared/schema";
 import { getUltimateCapabilities } from "@shared/subscriptions";
-import { getNextMonthlyRun } from "@shared/ultimate";
+import { getNextMonthlyRun, getZonedDateRunAt } from "@shared/ultimate";
 import {
   AiConfigurationError,
   AiQuotaError,
@@ -59,7 +59,7 @@ const sendRouteError = (res: Response, error: unknown) => {
   if (error instanceof AiQuotaError) return res.status(429).json({ code: "AI_QUOTA_REACHED", message: error.message });
   const message = error instanceof Error ? error.message : "The request could not be completed.";
   if (/not found/i.test(message)) return res.status(404).json({ message });
-  if (/required|choose|unavailable|no work|no uninvoiced|not awaiting|not ready|can no longer|acknowledge/i.test(message)) {
+  if (/required|choose|unavailable|no work|no uninvoiced|not awaiting|not ready|can no longer|acknowledge|invoice start|preparation date|one-time period|completed/i.test(message)) {
     return res.status(400).json({ message });
   }
   console.error("Ultimate route failed:", error);
@@ -284,6 +284,7 @@ router.get("/automation", requireUltimate, async (req, res) => {
   }
 });
 
+const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const scheduleSchema = z.object({
   clientId: z.number().int().positive(),
   name: z.string().trim().min(2).max(120),
@@ -291,22 +292,61 @@ const scheduleSchema = z.object({
   billingDay: z.number().int().min(1).max(28),
   sendHour: z.number().int().min(0).max(23),
   timezone: z.string().trim().min(1).max(80),
+  periodMode: z.enum(["previous_month", "specific_month", "custom_range"]).default("previous_month"),
+  periodStart: dateStringSchema.nullable().optional(),
+  periodEnd: dateStringSchema.nullable().optional(),
+  prepareDate: dateStringSchema.optional(),
   requireApproval: z.boolean().default(true),
   cancellationWindowMinutes: z.number().int().min(5).max(10080).default(60),
 });
 
+const isCalendarDate = (value: string) => {
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+};
+
+const validateOneTimePeriod = (data: {
+  periodMode: string;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+  prepareDate?: string;
+}) => {
+  if (data.periodMode === "previous_month") return;
+  if (!data.periodStart || !data.periodEnd || !data.prepareDate) {
+    throw new Error("Choose the invoice period and preparation date.");
+  }
+  if (![data.periodStart, data.periodEnd, data.prepareDate].every(isCalendarDate)) {
+    throw new Error("Choose valid invoice and preparation dates.");
+  }
+  if (data.periodStart > data.periodEnd) throw new Error("The invoice start date must be before its end date.");
+  if (data.prepareDate <= data.periodEnd) throw new Error("The preparation date must be after the invoice period ends.");
+  if (data.periodMode === "specific_month") {
+    const [year, month] = data.periodStart.split("-").map(Number);
+    const expectedEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+    if (!data.periodStart.endsWith("-01") || data.periodEnd !== expectedEnd) {
+      throw new Error("Choose a complete calendar month for this invoice period.");
+    }
+  }
+};
+
 router.post("/schedules", requireUltimate, async (req, res) => {
   try {
     const data = scheduleSchema.parse(req.body);
+    validateOneTimePeriod(data);
     const client = await storage.getClient(data.clientId);
     if (!client || client.userId !== req.user!.id) throw new Error("Client not found.");
     try { Intl.DateTimeFormat("en", { timeZone: data.timezone }); } catch { throw new Error("Choose a valid timezone."); }
+    const { prepareDate, ...scheduleData } = data;
+    const isRecurring = data.periodMode === "previous_month";
     const [schedule] = await db.insert(recurringInvoiceSchedules).values({
-      ...data,
+      ...scheduleData,
       userId: req.user!.id,
-      frequency: "monthly",
-      periodMode: "previous_month",
-      nextRunAt: getNextMonthlyRun(new Date(), data.billingDay, data.sendHour, data.timezone),
+      frequency: isRecurring ? "monthly" : "once",
+      periodStart: isRecurring ? null : data.periodStart,
+      periodEnd: isRecurring ? null : data.periodEnd,
+      nextRunAt: isRecurring
+        ? getNextMonthlyRun(new Date(), data.billingDay, data.sendHour, data.timezone)
+        : getZonedDateRunAt(prepareDate!, data.sendHour, data.timezone),
     }).returning();
     res.status(201).json(schedule);
   } catch (error) {
@@ -329,14 +369,30 @@ router.put("/schedules/:id", requireUltimate, async (req, res) => {
     }
     const billingDay = data.billingDay ?? existing.billingDay;
     const sendHour = data.sendHour ?? existing.sendHour;
+    const timezone = data.timezone || existing.timezone;
+    const periodMode = data.periodMode || existing.periodMode;
+    const periodStart = data.periodStart === undefined ? existing.periodStart : data.periodStart;
+    const periodEnd = data.periodEnd === undefined ? existing.periodEnd : data.periodEnd;
+    const schedulingChanged = ["periodMode", "periodStart", "periodEnd", "prepareDate", "billingDay", "sendHour", "timezone"]
+      .some((key) => Object.prototype.hasOwnProperty.call(data, key));
+    if (periodMode !== "previous_month" && schedulingChanged) {
+      validateOneTimePeriod({ periodMode, periodStart, periodEnd, prepareDate: data.prepareDate });
+    }
+    if (existing.frequency === "once" && existing.lastRunAt && data.enabled === true) {
+      throw new Error("A completed one-time schedule cannot be activated again.");
+    }
+    const { prepareDate, ...updates } = data;
+    const isRecurring = periodMode === "previous_month";
     const [updated] = await db.update(recurringInvoiceSchedules).set({
-      ...data,
-      nextRunAt: getNextMonthlyRun(
-        new Date(),
-        billingDay,
-        sendHour,
-        data.timezone || existing.timezone,
-      ),
+      ...updates,
+      frequency: isRecurring ? "monthly" : "once",
+      periodStart: isRecurring ? null : periodStart,
+      periodEnd: isRecurring ? null : periodEnd,
+      nextRunAt: schedulingChanged
+        ? isRecurring
+          ? getNextMonthlyRun(new Date(), billingDay, sendHour, timezone)
+          : getZonedDateRunAt(prepareDate!, sendHour, timezone)
+        : existing.nextRunAt,
       updatedAt: new Date(),
     }).where(eq(recurringInvoiceSchedules.id, id)).returning();
     res.json(updated);
@@ -360,7 +416,17 @@ router.delete("/schedules/:id", requireUltimate, async (req, res) => {
 
 router.post("/schedules/:id/run", requireUltimate, async (req, res) => {
   try {
-    const job = await prepareInvoiceJob({ scheduleId: Number(req.params.id), userId: req.user!.id });
+    const scheduleId = Number(req.params.id);
+    const [schedule] = await db.select().from(recurringInvoiceSchedules).where(and(
+      eq(recurringInvoiceSchedules.id, scheduleId),
+      eq(recurringInvoiceSchedules.userId, req.user!.id),
+    ));
+    if (!schedule) throw new Error("Schedule not found.");
+    if (schedule.frequency === "once" && schedule.lastRunAt) throw new Error("This one-time period was already prepared.");
+    const job = await prepareInvoiceJob({ scheduleId, userId: req.user!.id });
+    if (schedule.frequency === "once") {
+      await db.update(recurringInvoiceSchedules).set({ enabled: false, lastRunAt: new Date(), updatedAt: new Date() }).where(eq(recurringInvoiceSchedules.id, schedule.id));
+    }
     res.status(201).json(job);
   } catch (error) {
     sendRouteError(res, error);

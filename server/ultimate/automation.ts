@@ -110,7 +110,9 @@ export async function prepareInvoiceJob(params: {
 
   const period = params.periodStart && params.periodEnd
     ? { startDate: params.periodStart, endDate: params.periodEnd }
-    : getPreviousMonthPeriod();
+    : schedule.periodMode !== "previous_month" && schedule.periodStart && schedule.periodEnd
+      ? { startDate: schedule.periodStart, endDate: schedule.periodEnd }
+      : getPreviousMonthPeriod();
   const clientInvoiceSettings = parseObject(client.invoiceSettings);
   const effectiveSettings = clientInvoiceSettings.enabled
     ? { ...(baseSettings || {}), ...clientInvoiceSettings }
@@ -457,17 +459,36 @@ export async function runUltimateAutomationCycle() {
   ));
 
   for (const schedule of dueSchedules) {
-    const nextRunAt = getNextMonthlyRun(
-      now,
-      schedule.billingDay,
-      schedule.sendHour,
-      schedule.timezone,
-    );
-    await db.update(recurringInvoiceSchedules).set({ lastRunAt: now, nextRunAt, updatedAt: now }).where(eq(recurringInvoiceSchedules.id, schedule.id));
+    const isOneTime = schedule.frequency === "once";
+    const nextRunAt = isOneTime
+      ? schedule.nextRunAt
+      : getNextMonthlyRun(now, schedule.billingDay, schedule.sendHour, schedule.timezone);
+    const [claimed] = await db.update(recurringInvoiceSchedules).set({
+      enabled: isOneTime ? false : schedule.enabled,
+      lastRunAt: now,
+      nextRunAt,
+      updatedAt: now,
+    }).where(and(
+      eq(recurringInvoiceSchedules.id, schedule.id),
+      eq(recurringInvoiceSchedules.enabled, true),
+      lte(recurringInvoiceSchedules.nextRunAt, now),
+    )).returning({ id: recurringInvoiceSchedules.id });
+    if (!claimed) continue;
     try {
       await prepareInvoiceJob({ scheduleId: schedule.id, userId: schedule.userId });
     } catch (error) {
       console.error(`Recurring invoice schedule ${schedule.id} failed:`, error);
+      if (isOneTime) {
+        await db.update(recurringInvoiceSchedules).set({
+          enabled: true,
+          lastRunAt: null,
+          nextRunAt: new Date(now.getTime() + 15 * 60 * 1000),
+          updatedAt: new Date(),
+        }).where(and(
+          eq(recurringInvoiceSchedules.id, schedule.id),
+          eq(recurringInvoiceSchedules.lastRunAt, now),
+        ));
+      }
     }
   }
 

@@ -184,6 +184,11 @@ export async function ensureCurrentSchema() {
     await client.query(`CREATE INDEX IF NOT EXISTS recurring_invoice_schedules_user_idx ON recurring_invoice_schedules(user_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS recurring_invoice_schedules_due_idx ON recurring_invoice_schedules(enabled, next_run_at)`);
     await client.query(`
+      ALTER TABLE recurring_invoice_schedules
+        ADD COLUMN IF NOT EXISTS period_start text,
+        ADD COLUMN IF NOT EXISTS period_end text
+    `);
+    await client.query(`
       CREATE TABLE IF NOT EXISTS invoice_automation_jobs (
         id text PRIMARY KEY,
         schedule_id integer REFERENCES recurring_invoice_schedules(id) ON DELETE SET NULL,

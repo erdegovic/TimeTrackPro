@@ -96,6 +96,67 @@ export function getPreviousMonthPeriod(anchor = new Date()) {
   };
 }
 
+const getZonedFormatter = (timeZone: string) => new Intl.DateTimeFormat("en-US", {
+  timeZone,
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  hour: "numeric",
+  minute: "numeric",
+  second: "numeric",
+  hourCycle: "h23",
+});
+
+const getZonedParts = (date: Date, timeZone: string) => Object.fromEntries(
+  getZonedFormatter(timeZone)
+    .formatToParts(date)
+    .filter((part) => part.type !== "literal")
+    .map((part) => [part.type, Number(part.value)]),
+) as Record<string, number>;
+
+const zonedDateTimeToUtc = (
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  timeZone: string,
+) => {
+  const target = Date.UTC(year, month - 1, day, hour, 0, 0);
+  let candidate = new Date(target);
+
+  // Two passes account for an offset change close to a DST transition.
+  for (let pass = 0; pass < 2; pass += 1) {
+    const parts = getZonedParts(candidate, timeZone);
+    const represented = Date.UTC(
+      parts.year,
+      parts.month - 1,
+      parts.day,
+      parts.hour,
+      parts.minute,
+      parts.second,
+    );
+    candidate = new Date(candidate.getTime() + target - represented);
+  }
+  return candidate;
+};
+
+export function getZonedDateRunAt(
+  dateString: string,
+  sendHour: number,
+  timeZone = "UTC",
+) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateString);
+  if (!match) throw new Error("Choose a valid preparation date.");
+  const hour = Math.min(23, Math.max(0, Math.trunc(sendHour)));
+  return zonedDateTimeToUtc(
+    Number(match[1]),
+    Number(match[2]),
+    Number(match[3]),
+    hour,
+    timeZone,
+  );
+}
+
 export function getNextMonthlyRun(
   after: Date,
   billingDay: number,
@@ -104,52 +165,15 @@ export function getNextMonthlyRun(
 ): Date {
   const day = Math.min(28, Math.max(1, Math.trunc(billingDay)));
   const hour = Math.min(23, Math.max(0, Math.trunc(sendHour)));
-
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    minute: "numeric",
-    second: "numeric",
-    hourCycle: "h23",
-  });
-  const partsFor = (date: Date) => Object.fromEntries(
-    formatter
-      .formatToParts(date)
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, Number(part.value)]),
-  ) as Record<string, number>;
-  const zonedToUtc = (year: number, month: number, targetDay: number) => {
-    const target = Date.UTC(year, month - 1, targetDay, hour, 0, 0);
-    let candidate = new Date(target);
-
-    // Two passes account for an offset change close to a DST transition.
-    for (let pass = 0; pass < 2; pass += 1) {
-      const parts = partsFor(candidate);
-      const represented = Date.UTC(
-        parts.year,
-        parts.month - 1,
-        parts.day,
-        parts.hour,
-        parts.minute,
-        parts.second,
-      );
-      candidate = new Date(candidate.getTime() + target - represented);
-    }
-    return candidate;
-  };
-
-  const current = partsFor(after);
+  const current = getZonedParts(after, timeZone);
   let year = current.year;
   let month = current.month;
-  let candidate = zonedToUtc(year, month, day);
+  let candidate = zonedDateTimeToUtc(year, month, day, hour, timeZone);
   if (candidate <= after) {
     const followingMonth = new Date(Date.UTC(year, month, 1));
     year = followingMonth.getUTCFullYear();
     month = followingMonth.getUTCMonth() + 1;
-    candidate = zonedToUtc(year, month, day);
+    candidate = zonedDateTimeToUtc(year, month, day, hour, timeZone);
   }
   return candidate;
 }
