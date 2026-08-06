@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <!-- Hostinger adds its own minimal CSP header, so this policy preserves the
+         application's stricter browser protections at the document level. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' https://cdn.paddle.com https://*.paddle.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.paddle.com https://paddle.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net; frame-src 'self' https://*.paddle.com https://paddle.com https://www.google.com https://recaptcha.google.com https://www.recaptcha.net; form-action 'self' https://*.paddle.com https://paddle.com; upgrade-insecure-requests" />
     <meta name="description" content="Tickd - Time tracking software for freelancers with project management, client management, and invoice generation.">
     <title>Tickd - Time Tracking for Freelancers</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Nunito+Sans:wght@900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -14,13 +17,11 @@
     <!-- Open Graph tags for better social media sharing -->
     <meta property="og:title" content="Tickd - Time Tracking for Freelancers">
     <meta property="og:description" content="Professional time tracking app with project management, client tracking, and automated invoice generation.">
-    <meta property="og:url" content="https://tickd.app">
+    <meta property="og:url" content="https://tickd.me">
     <meta property="og:type" content="website">
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
-    <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
   </body>
 </html>

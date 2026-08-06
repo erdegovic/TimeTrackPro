@@ -25,8 +25,9 @@ export const securityHeaders = helmet({
         "https://paddle.com",
         "https://www.google.com",
         "https://www.gstatic.com",
+        "https://www.recaptcha.net",
       ],
-      fontSrc: ["'self'", "data:"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
       formAction: ["'self'", "https://*.paddle.com", "https://paddle.com"],
       frameAncestors: ["'none'"],
       frameSrc: [
@@ -35,6 +36,7 @@ export const securityHeaders = helmet({
         "https://paddle.com",
         "https://www.google.com",
         "https://recaptcha.google.com",
+        "https://www.recaptcha.net",
       ],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
       objectSrc: ["'none'"],
@@ -46,7 +48,7 @@ export const securityHeaders = helmet({
         "https://www.gstatic.com",
       ],
       scriptSrcAttr: ["'none'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       upgradeInsecureRequests: isProduction ? [] : null,
     },
   },
@@ -57,6 +59,7 @@ export const securityHeaders = helmet({
     ? { maxAge: 31_536_000, includeSubDomains: true, preload: false }
     : false,
   referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  xFrameOptions: { action: "deny" },
 });
 
 function normalizeOrigin(value: string | undefined): string | undefined {
