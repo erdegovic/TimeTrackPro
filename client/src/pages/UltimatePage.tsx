@@ -13,8 +13,11 @@ import {
   Loader2,
   Lock,
   Mail,
+  Pencil,
   Play,
+  Plus,
   RefreshCcw,
+  Save,
   Send,
   Sparkles,
   Trash2,
@@ -25,7 +28,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getUltimateCapabilities } from "@shared/subscriptions";
-import type { Client, TimeEntry } from "@shared/schema";
+import type { Client, Settings, TimeEntry } from "@shared/schema";
+import {
+  DEFAULT_INVOICE_EMAIL_BODY,
+  DEFAULT_INVOICE_EMAIL_SUBJECT,
+  renderAutomationTemplate,
+  type InvoiceAutomationProfile,
+} from "@shared/ultimate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -113,6 +122,25 @@ const formatPeriod = (startDate?: string | null, endDate?: string | null) => {
   return `${format(parseISO(startDate), "MMM d, yyyy")} - ${format(parseISO(endDate), "MMM d, yyyy")}`;
 };
 
+const getClientAutomationProfile = (
+  client: Client | undefined,
+  settings: Settings | undefined,
+  user: any,
+): InvoiceAutomationProfile => {
+  let saved: Partial<InvoiceAutomationProfile> = {};
+  try { saved = JSON.parse(client?.aiPreferences || "{}").automation || {}; } catch {}
+  const userName = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
+  return {
+    emailSubjectTemplate: saved.emailSubjectTemplate || DEFAULT_INVOICE_EMAIL_SUBJECT,
+    emailBodyTemplate: saved.emailBodyTemplate || DEFAULT_INVOICE_EMAIL_BODY,
+    roundHoursUp: saved.roundHoursUp === true,
+    percentageIncreaseEnabled: saved.percentageIncreaseEnabled === true,
+    percentageIncrease: Number(saved.percentageIncrease || 0),
+    replyToEmail: saved.replyToEmail || settings?.businessEmail || user?.email || "",
+    replyToName: saved.replyToName || settings?.businessName || userName || user?.username || "",
+  };
+};
+
 export default function UltimatePage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -136,6 +164,7 @@ export default function UltimatePage() {
   });
   const { data: entries = [] } = useQuery<TimeEntry[]>({ queryKey: ["/api/time-entries"], enabled: access.canUseAi });
   const { data: clients = [] } = useQuery<Client[]>({ queryKey: ["/api/clients"], enabled: access.canUseAi });
+  const { data: settings } = useQuery<Settings>({ queryKey: ["/api/settings"], enabled: access.canAutomateInvoices });
   const { data: projects = [] } = useQuery<any[]>({ queryKey: ["/api/projects"], enabled: access.canUseAi });
   const { data: automation } = useQuery<AutomationData>({
     queryKey: ["/api/ultimate/automation"],
@@ -330,7 +359,7 @@ export default function UltimatePage() {
         </TabsContent>
 
         <TabsContent value="automation" className="mt-5 space-y-6">
-          <ScheduleComposer clients={clients} onCreated={() => queryClient.invalidateQueries({ queryKey: ["/api/ultimate/automation"] })} />
+          <ScheduleComposer clients={clients} settings={settings} user={user} aiEnabled={status?.enabled === true} onCreated={() => queryClient.invalidateQueries({ queryKey: ["/api/ultimate/automation"] })} />
           <ScheduleList schedules={automation?.schedules || []} onChanged={() => queryClient.invalidateQueries({ queryKey: ["/api/ultimate/automation"] })} />
           <ApprovalQueue jobs={automation?.jobs || []} onChanged={() => { queryClient.invalidateQueries({ queryKey: ["/api/ultimate/automation"] }); queryClient.invalidateQueries({ queryKey: ["/api/invoices"] }); }} />
         </TabsContent>
@@ -351,7 +380,19 @@ function ReviewList({ title, icon: Icon, items }: { title: string; icon: any; it
   return <div><div className="flex items-center gap-2 text-sm font-semibold text-gray-900"><Icon className="h-4 w-4 text-blue-600" />{title}</div><ul className="mt-3 space-y-2">{items.map((item, index) => <li key={index} className="text-sm leading-5 text-gray-600">{item}</li>)}</ul></div>;
 }
 
-function ScheduleComposer({ clients, onCreated }: { clients: Client[]; onCreated: () => void }) {
+function ScheduleComposer({
+  clients,
+  settings,
+  user,
+  aiEnabled,
+  onCreated,
+}: {
+  clients: Client[];
+  settings?: Settings;
+  user: any;
+  aiEnabled: boolean;
+  onCreated: () => void;
+}) {
   const { toast } = useToast();
   const [clientId, setClientId] = useState("");
   const defaultMonth = format(subMonths(new Date(), 1), "yyyy-MM");
@@ -365,6 +406,7 @@ function ScheduleComposer({ clients, onCreated }: { clients: Client[]; onCreated
   const [sendHour, setSendHour] = useState("9");
   const [autoSend, setAutoSend] = useState(false);
   const [windowMinutes, setWindowMinutes] = useState("60");
+  const [profile, setProfile] = useState<InvoiceAutomationProfile>(() => getClientAutomationProfile(undefined, settings, user));
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const isRecurring = periodMode === "previous_month";
   const selectedPeriod = periodMode === "specific_month"
@@ -380,6 +422,46 @@ function ScheduleComposer({ clients, onCreated }: { clients: Client[]; onCreated
     isCalendarDate(prepareDate) &&
     prepareDate > selectedPeriod.endDate,
   );
+  const previewPeriod = isRecurring ? defaultPeriod : selectedPeriod;
+  const selectedClient = clients.find((item) => item.id === Number(clientId));
+  const emailPreviewValues = {
+    clientName: selectedClient?.name || "Client name",
+    periodStart: previewPeriod.startDate || "YYYY-MM-DD",
+    periodEnd: previewPeriod.endDate || "YYYY-MM-DD",
+    issueDate: format(new Date(), "yyyy-MM-dd"),
+    dueDate: format(addDays(new Date(), 30), "yyyy-MM-dd"),
+    businessName: profile.replyToName || "Your business",
+  };
+
+  const saveAutomationProfile = async () => {
+    if (!clientId) throw new Error("Choose a client first.");
+    await apiRequest("PUT", `/api/ultimate/clients/${clientId}/automation-profile`, profile);
+  };
+
+  const profileMutation = useMutation({
+    mutationFn: saveAutomationProfile,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      toast({ title: "Client automation defaults saved" });
+    },
+    onError: (error: Error) => toast({ title: "Could not save client defaults", description: error.message, variant: "destructive" }),
+  });
+
+  const emailPolishMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/ultimate/clients/${clientId}/email-polish`, {
+        subject: profile.emailSubjectTemplate,
+        body: profile.emailBodyTemplate,
+      });
+      return response.json() as Promise<{ subject: string; body: string }>;
+    },
+    onSuccess: (result) => {
+      setProfile((current) => ({ ...current, emailSubjectTemplate: result.subject, emailBodyTemplate: result.body }));
+      queryClient.invalidateQueries({ queryKey: ["/api/ultimate/status"] });
+      toast({ title: "Email polished", description: "Review it, then save the client defaults." });
+    },
+    onError: (error: Error) => toast({ title: "Email polish failed", description: error.message, variant: "destructive" }),
+  });
 
   const choosePeriodMode = (value: string) => {
     const mode = value as SchedulePeriodMode;
@@ -393,11 +475,12 @@ function ScheduleComposer({ clients, onCreated }: { clients: Client[]; onCreated
   };
 
   const mutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const client = clients.find((item) => item.id === Number(clientId));
       const periodName = periodMode === "specific_month"
         ? (specificMonth ? format(parseISO(`${specificMonth}-01`), "MMMM yyyy") : "selected month")
         : periodMode === "custom_range" ? "custom period" : "monthly";
+      await saveAutomationProfile();
       return apiRequest("POST", "/api/ultimate/schedules", {
         clientId: Number(clientId),
         name: `${client?.name || "Client"} ${periodName} invoice`,
@@ -413,7 +496,7 @@ function ScheduleComposer({ clients, onCreated }: { clients: Client[]; onCreated
         cancellationWindowMinutes: Number(windowMinutes),
       });
     },
-    onSuccess: () => { onCreated(); toast({ title: isRecurring ? "Monthly schedule created" : "Invoice period scheduled" }); },
+    onSuccess: () => { onCreated(); queryClient.invalidateQueries({ queryKey: ["/api/clients"] }); toast({ title: isRecurring ? "Monthly schedule created" : "Invoice period scheduled" }); },
     onError: (error: Error) => toast({ title: "Could not create schedule", description: error.message, variant: "destructive" }),
   });
 
@@ -438,7 +521,10 @@ function ScheduleComposer({ clients, onCreated }: { clients: Client[]; onCreated
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <Label>Client</Label>
-            <Select value={clientId} onValueChange={setClientId}>
+            <Select value={clientId} onValueChange={(value) => {
+              setClientId(value);
+              setProfile(getClientAutomationProfile(clients.find((client) => client.id === Number(value)), settings, user));
+            }}>
               <SelectTrigger className="mt-1"><SelectValue placeholder="Choose client" /></SelectTrigger>
               <SelectContent>{clients.map((client) => <SelectItem key={client.id} value={String(client.id)}>{client.name}{!client.email ? " · email needed" : ""}</SelectItem>)}</SelectContent>
             </Select>
@@ -480,6 +566,76 @@ function ScheduleComposer({ clients, onCreated }: { clients: Client[]; onCreated
           </div>
         )}
 
+        {clientId && (
+          <div className="space-y-5 border-y py-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-950">{selectedClient?.name} automation defaults</p>
+                <p className="mt-1 text-sm text-gray-500">These settings apply whenever Tickd prepares an invoice for this client.</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => profileMutation.mutate()} disabled={profileMutation.isPending}>
+                {profileMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save client defaults
+              </Button>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-md border bg-gray-50 p-4">
+                <p className="text-sm font-semibold text-gray-900">Time adjustments</p>
+                <div className="mt-4 space-y-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div><p className="text-sm font-medium text-gray-800">Percentage increase</p><p className="text-xs text-gray-500">Applied to grouped hours before rounding.</p></div>
+                    <Switch checked={profile.percentageIncreaseEnabled} onCheckedChange={(checked) => setProfile((current) => ({ ...current, percentageIncreaseEnabled: checked }))} aria-label="Apply percentage increase" />
+                  </div>
+                  {profile.percentageIncreaseEnabled && <div className="max-w-40"><Label htmlFor="automation-percentage">Increase by</Label><div className="relative mt-1"><Input id="automation-percentage" className="pr-8 bg-white" type="number" min="0" max="500" step="0.1" value={profile.percentageIncrease} onChange={(event) => setProfile((current) => ({ ...current, percentageIncrease: Number(event.target.value) }))} /><span className="pointer-events-none absolute right-3 top-2.5 text-sm text-gray-500">%</span></div></div>}
+                  <div className="flex items-center justify-between gap-4 border-t pt-4">
+                    <div><p className="text-sm font-medium text-gray-800">Round hours upward to 0.1</p><p className="text-xs text-gray-500">For example, 0.64 becomes 0.7.</p></div>
+                    <Switch checked={profile.roundHoursUp} onCheckedChange={(checked) => setProfile((current) => ({ ...current, roundHoursUp: checked }))} aria-label="Round hours upward to one tenth" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-md border bg-gray-50 p-4">
+                <p className="text-sm font-semibold text-gray-900">Sender identity</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div><Label htmlFor="automation-sender-name">Sender name</Label><Input id="automation-sender-name" className="mt-1 bg-white" value={profile.replyToName} onChange={(event) => setProfile((current) => ({ ...current, replyToName: event.target.value }))} /></div>
+                  <div><Label htmlFor="automation-reply-email">Replies go to</Label><Input id="automation-reply-email" className="mt-1 bg-white" type="email" value={profile.replyToEmail} onChange={(event) => setProfile((current) => ({ ...current, replyToEmail: event.target.value }))} /></div>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-gray-500">Delivered from Tickd’s authenticated mail service as “{profile.replyToName || "Your business"} via Tickd”. Replies go directly to the address above.</p>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div><p className="text-sm font-semibold text-gray-950">Invoice email</p><p className="mt-1 text-sm text-gray-500">Edit the reusable template and preview the message your client will receive.</p></div>
+                <Button variant="outline" size="sm" onClick={() => emailPolishMutation.mutate()} disabled={!aiEnabled || emailPolishMutation.isPending}>
+                  {emailPolishMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <WandSparkles className="mr-2 h-4 w-4" />}
+                  Polish email
+                </Button>
+              </div>
+              <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                <div className="space-y-3">
+                  <div><Label htmlFor="automation-email-subject">Subject template</Label><Input id="automation-email-subject" className="mt-1" value={profile.emailSubjectTemplate} onChange={(event) => setProfile((current) => ({ ...current, emailSubjectTemplate: event.target.value }))} /></div>
+                  <div><Label htmlFor="automation-email-body">Message template</Label><Textarea id="automation-email-body" className="mt-1 min-h-48 resize-y" value={profile.emailBodyTemplate} onChange={(event) => setProfile((current) => ({ ...current, emailBodyTemplate: event.target.value }))} /></div>
+                  <p className="text-xs leading-5 text-gray-500">Available fields: {"{clientName}"}, {"{periodStart}"}, {"{periodEnd}"}, {"{issueDate}"}, {"{dueDate}"}, {"{businessName}"}.</p>
+                </div>
+                <div className="overflow-hidden rounded-md border bg-white">
+                  <div className="border-b bg-gray-50 px-4 py-3 text-xs text-gray-600">
+                    <div className="grid grid-cols-[4rem_1fr] gap-1"><span>From</span><span className="truncate font-medium text-gray-900">{profile.replyToName || "Your business"} via Tickd &lt;noreply@tickd.me&gt;</span><span>Reply to</span><span className="truncate">{profile.replyToEmail || "Add a reply address"}</span><span>To</span><span className="truncate">{selectedClient?.email || "Client email needed"}</span></div>
+                  </div>
+                  <div className="p-5">
+                    <p className="text-xs font-semibold uppercase text-blue-600">Email preview</p>
+                    <p className="mt-2 break-words text-base font-semibold text-gray-950">{renderAutomationTemplate(profile.emailSubjectTemplate, emailPreviewValues)}</p>
+                    <div className="mt-5 h-1 w-11 rounded bg-blue-600" />
+                    <p className="mt-5 whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">{renderAutomationTemplate(profile.emailBodyTemplate, emailPreviewValues)}</p>
+                    <div className="mt-6 flex items-center gap-3 border-t pt-4 text-xs text-gray-500"><Mail className="h-4 w-4 text-blue-600" /><span>Invoice PDF attached · due {emailPreviewValues.dueDate}</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col gap-4 rounded-md border bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div><p className="text-sm font-semibold text-gray-900">Send automatically after checks</p><p className="mt-0.5 text-sm text-gray-500">When off, every prepared invoice waits for approval.</p></div>
           <Switch checked={autoSend} onCheckedChange={setAutoSend} aria-label="Send automatically after checks" />
@@ -503,6 +659,105 @@ function ScheduleList({ schedules, onChanged }: { schedules: any[]; onChanged: (
 
 function ApprovalQueue({ jobs, onChanged }: { jobs: any[]; onChanged: () => void }) {
   const { toast } = useToast();
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const action = useMutation({ mutationFn: ({ url, data }: any) => apiRequest("POST", url, data), onSuccess: () => { onChanged(); toast({ title: "Invoice queue updated" }); }, onError: (error: Error) => toast({ title: "Invoice action failed", description: error.message, variant: "destructive" }) });
-  return <Card><CardHeader><CardTitle className="text-lg">Approval queue and history</CardTitle><CardDescription>Prepared invoices stay visible after sending so every automated action can be traced.</CardDescription></CardHeader><CardContent>{jobs.length ? <div className="space-y-3">{jobs.map((job) => { const payload = job.payload || {}; const validation = job.validation || { errors:[], warnings:[] }; const cancellable = ["pending_approval","scheduled","needs_attention"].includes(job.status); return <div key={job.id} className="rounded-md border p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold text-gray-900">{payload.client?.name || "Client invoice"}</p><span className={`rounded border px-2 py-0.5 text-xs font-medium ${statusStyles[job.status] || statusStyles.cancelled}`}>{statusLabel(job.status)}</span></div><p className="mt-1 text-xs text-gray-500">{job.periodStart} to {job.periodEnd} · {payload.currency} {Number(payload.total || 0).toFixed(2)} · {payload.lineItems?.length || 0} items</p>{job.sendAt && job.status === "scheduled" && <p className="mt-1 text-xs font-medium text-blue-700">Sends {new Date(job.sendAt).toLocaleString()}</p>}</div><div className="flex flex-wrap gap-1">{job.status === "pending_approval" && <><Button size="sm" onClick={() => action.mutate({ url:`/api/ultimate/jobs/${job.id}/approve`, data:{ sendNow:false } })}><Check className="mr-2 h-3.5 w-3.5" />Approve</Button><Button size="sm" variant="outline" onClick={() => action.mutate({ url:`/api/ultimate/jobs/${job.id}/send-now`, data:{} })}><Send className="mr-2 h-3.5 w-3.5" />Send now</Button></>}{job.status === "failed" && <Button size="sm" variant="outline" onClick={() => action.mutate({ url:`/api/ultimate/jobs/${job.id}/retry`, data:{} })}><RefreshCcw className="mr-2 h-3.5 w-3.5" />Retry</Button>}{cancellable && <Button size="sm" variant="ghost" className="text-red-600" onClick={() => action.mutate({ url:`/api/ultimate/jobs/${job.id}/cancel`, data:{} })}>Cancel</Button>}</div></div>{validation.errors?.length > 0 && <div className="mt-3 rounded-md bg-red-50 p-3 text-xs text-red-800">{validation.errors.join(" ")}</div>}{validation.warnings?.length > 0 && <div className="mt-3 rounded-md bg-amber-50 p-3 text-xs text-amber-800">{validation.warnings.join(" ")}</div>}{job.errorMessage && <p className="mt-3 text-xs text-red-700">{job.errorMessage}</p>}<div className="mt-3 grid gap-2 sm:grid-cols-2">{payload.lineItems?.slice(0,6).map((item:any) => <div key={item.key} className="flex items-start justify-between gap-3 text-xs"><span className="min-w-0 truncate text-gray-600">{item.description}</span><span className="shrink-0 font-mono text-gray-900">{Number(item.hours).toFixed(2)}h · {payload.currency} {Number(item.amount).toFixed(2)}</span></div>)}</div></div>; })}</div> : <p className="py-6 text-center text-sm text-gray-500">Prepared invoices will appear here.</p>}</CardContent></Card>;
+  return (
+    <Card>
+      <CardHeader><CardTitle className="text-lg">Approval queue and history</CardTitle><CardDescription>Review the invoice and the exact email together before anything is sent.</CardDescription></CardHeader>
+      <CardContent>
+        {jobs.length ? <div className="space-y-3">{jobs.map((job) => {
+          const payload = job.payload || {};
+          const validation = job.validation || { errors: [], warnings: [] };
+          const cancellable = ["pending_approval", "scheduled", "needs_attention"].includes(job.status);
+          const editable = ["pending_approval", "scheduled", "needs_attention"].includes(job.status);
+          return <div key={job.id} className="rounded-md border p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold text-gray-900">{payload.client?.name || "Client invoice"}</p><span className={`rounded border px-2 py-0.5 text-xs font-medium ${statusStyles[job.status] || statusStyles.cancelled}`}>{statusLabel(job.status)}</span></div>
+                <p className="mt-1 text-xs text-gray-500">{job.periodStart} to {job.periodEnd} · {payload.currency} {Number(payload.total || 0).toFixed(2)} · {payload.lineItems?.length || 0} items</p>
+                {job.sendAt && job.status === "scheduled" && <p className="mt-1 text-xs font-medium text-blue-700">Sends {new Date(job.sendAt).toLocaleString()}</p>}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {editable && <Button size="sm" variant="outline" onClick={() => setEditingJobId(editingJobId === job.id ? null : job.id)}><Pencil className="mr-2 h-3.5 w-3.5" />{editingJobId === job.id ? "Close editor" : "Edit invoice and email"}</Button>}
+                {job.status === "pending_approval" && <><Button size="sm" onClick={() => action.mutate({ url: `/api/ultimate/jobs/${job.id}/approve`, data: { sendNow: false } })}><Check className="mr-2 h-3.5 w-3.5" />Approve</Button><Button size="sm" variant="outline" onClick={() => action.mutate({ url: `/api/ultimate/jobs/${job.id}/send-now`, data: {} })}><Send className="mr-2 h-3.5 w-3.5" />Send now</Button></>}
+                {job.status === "failed" && <Button size="sm" variant="outline" onClick={() => action.mutate({ url: `/api/ultimate/jobs/${job.id}/retry`, data: {} })}><RefreshCcw className="mr-2 h-3.5 w-3.5" />Retry</Button>}
+                {cancellable && <Button size="sm" variant="ghost" className="text-red-600" onClick={() => action.mutate({ url: `/api/ultimate/jobs/${job.id}/cancel`, data: {} })}>Cancel</Button>}
+              </div>
+            </div>
+            {validation.errors?.length > 0 && <div className="mt-3 rounded-md bg-red-50 p-3 text-xs text-red-800">{validation.errors.join(" ")}</div>}
+            {validation.warnings?.length > 0 && <div className="mt-3 rounded-md bg-amber-50 p-3 text-xs text-amber-800">{validation.warnings.join(" ")}</div>}
+            {job.errorMessage && <p className="mt-3 text-xs text-red-700">{job.errorMessage}</p>}
+            {editingJobId === job.id
+              ? <PreparedJobEditor job={job} onSaved={() => { setEditingJobId(null); onChanged(); }} />
+              : <div className="mt-3 grid gap-2 sm:grid-cols-2">{payload.lineItems?.slice(0, 6).map((item: any) => <div key={item.key} className="flex items-start justify-between gap-3 text-xs"><span className="min-w-0 truncate text-gray-600">{item.description}</span><span className="shrink-0 font-mono text-gray-900">{Number(item.hours).toFixed(2)}{item.isCustom ? "" : "h"} · {payload.currency} {Number(item.amount).toFixed(2)}</span></div>)}</div>}
+          </div>;
+        })}</div> : <p className="py-6 text-center text-sm text-gray-500">Prepared invoices will appear here.</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PreparedJobEditor({ job, onSaved }: { job: any; onSaved: () => void }) {
+  const { toast } = useToast();
+  const payload = job.payload || {};
+  const [emailSubject, setEmailSubject] = useState(job.emailSubject || "");
+  const [emailBody, setEmailBody] = useState(job.emailBody || "");
+  const [lineItems, setLineItems] = useState<any[]>(() => (payload.lineItems || []).map((item: any) => ({ ...item })));
+  const updateItem = (key: string, field: string, value: string | number) => setLineItems((items) => items.map((item) => item.key === key ? { ...item, [field]: value } : item));
+  const subtotal = lineItems.reduce((sum, item) => sum + Math.max(0, Number(item.hours || 0)) * Math.max(0, Number(item.rate || 0)), 0);
+  const tax = subtotal * Number(payload.taxRate || 0) / 100;
+
+  const saveMutation = useMutation({
+    mutationFn: () => apiRequest("PUT", `/api/ultimate/jobs/${job.id}/draft`, {
+      emailSubject,
+      emailBody,
+      lineItems: lineItems.map((item) => ({
+        key: item.key,
+        description: item.description,
+        projectName: item.projectName || "",
+        hours: Number(item.hours || 0),
+        rate: Number(item.rate || 0),
+        weekLabel: item.weekLabel || undefined,
+        isCustom: item.isCustom === true,
+      })),
+    }),
+    onSuccess: () => { toast({ title: "Prepared invoice updated" }); onSaved(); },
+    onError: (error: Error) => toast({ title: "Could not update prepared invoice", description: error.message, variant: "destructive" }),
+  });
+  const polishMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/ultimate/clients/${job.clientId}/email-polish`, { subject: emailSubject, body: emailBody });
+      return response.json() as Promise<{ subject: string; body: string }>;
+    },
+    onSuccess: (result) => { setEmailSubject(result.subject); setEmailBody(result.body); queryClient.invalidateQueries({ queryKey: ["/api/ultimate/status"] }); },
+    onError: (error: Error) => toast({ title: "Email polish failed", description: error.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="mt-4 space-y-5 border-t pt-5">
+      <div>
+        <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-gray-950">Invoice items</p><Button variant="outline" size="sm" onClick={() => setLineItems((items) => [...items, { key: `custom:${Date.now()}`, description: "Additional item", projectName: "", hours: 1, rate: 0, isCustom: true }])}><Plus className="mr-2 h-3.5 w-3.5" />Add item</Button></div>
+        <div className="mt-3 space-y-2">{lineItems.map((item) => <div key={item.key} className="grid gap-2 rounded-md border bg-gray-50 p-3 sm:grid-cols-[minmax(0,1fr)_7rem_8rem_2.5rem]">
+          <div className="space-y-2"><div><Label className="text-xs">Description</Label><Input className="mt-1 bg-white" value={item.description} onChange={(event) => updateItem(item.key, "description", event.target.value)} /></div><Input className="bg-white" aria-label={`Project for ${item.description}`} placeholder="Project (optional)" value={item.projectName || ""} onChange={(event) => updateItem(item.key, "projectName", event.target.value)} /></div>
+          <div><Label className="text-xs">{item.isCustom ? "Quantity" : "Hours"}</Label><Input className="mt-1 bg-white" type="number" min="0" step="0.01" value={item.hours} onChange={(event) => updateItem(item.key, "hours", Number(event.target.value))} /></div>
+          <div><Label className="text-xs">Rate</Label><Input className="mt-1 bg-white" type="number" min="0" step="0.01" value={item.rate} onChange={(event) => updateItem(item.key, "rate", Number(event.target.value))} /></div>
+          <div className="flex items-end"><Button variant="ghost" size="icon" className="text-red-600" aria-label={`Remove ${item.description}`} onClick={() => setLineItems((items) => items.filter((candidate) => candidate.key !== item.key))}><Trash2 className="h-4 w-4" /></Button></div>
+        </div>)}</div>
+        <div className="mt-3 flex justify-end text-sm"><div className="w-56 space-y-1"><div className="flex justify-between text-gray-500"><span>Subtotal</span><span>{payload.currency} {subtotal.toFixed(2)}</span></div>{Number(payload.taxRate || 0) > 0 && <div className="flex justify-between text-gray-500"><span>Tax</span><span>{payload.currency} {tax.toFixed(2)}</span></div>}<div className="flex justify-between border-t pt-2 font-semibold text-gray-950"><span>Total</span><span>{payload.currency} {(subtotal + tax).toFixed(2)}</span></div></div></div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-gray-950">Email for this invoice</p><Button variant="outline" size="sm" onClick={() => polishMutation.mutate()} disabled={polishMutation.isPending}>{polishMutation.isPending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <WandSparkles className="mr-2 h-3.5 w-3.5" />}Polish</Button></div>
+          <div><Label htmlFor={`job-subject-${job.id}`}>Subject</Label><Input id={`job-subject-${job.id}`} className="mt-1" value={emailSubject} onChange={(event) => setEmailSubject(event.target.value)} /></div>
+          <div><Label htmlFor={`job-body-${job.id}`}>Message</Label><Textarea id={`job-body-${job.id}`} className="mt-1 min-h-44" value={emailBody} onChange={(event) => setEmailBody(event.target.value)} /></div>
+        </div>
+        <div className="overflow-hidden rounded-md border bg-white">
+          <div className="border-b bg-gray-50 px-4 py-3 text-xs text-gray-600"><div className="grid grid-cols-[4rem_1fr] gap-1"><span>From</span><span className="truncate font-medium text-gray-900">{payload.sender?.name || payload.business?.businessName || "Your business"} via Tickd</span><span>Reply to</span><span className="truncate">{payload.sender?.replyToEmail || payload.business?.businessEmail}</span><span>To</span><span className="truncate">{payload.client?.email}</span></div></div>
+          <div className="p-5"><p className="text-xs font-semibold uppercase text-blue-600">Email preview</p><p className="mt-2 break-words text-base font-semibold text-gray-950">{emailSubject}</p><div className="mt-5 h-1 w-11 rounded bg-blue-600" /><p className="mt-5 whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">{emailBody}</p><div className="mt-6 flex items-center gap-3 border-t pt-4 text-xs text-gray-500"><Mail className="h-4 w-4 text-blue-600" /><span>Invoice PDF attached · {payload.currency} {(subtotal + tax).toFixed(2)}</span></div></div>
+        </div>
+      </div>
+      <div className="flex justify-end"><Button onClick={() => saveMutation.mutate()} disabled={!emailSubject.trim() || !emailBody.trim() || !lineItems.length || saveMutation.isPending}>{saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Save invoice and email</Button></div>
+    </div>
+  );
 }

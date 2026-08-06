@@ -21,7 +21,49 @@ export type AutomationLineItem = {
   dates: string[];
   timeEntryIds: number[];
   weekLabel?: string;
+  isCustom?: boolean;
 };
+
+export type InvoiceAutomationProfile = {
+  emailSubjectTemplate: string;
+  emailBodyTemplate: string;
+  roundHoursUp: boolean;
+  percentageIncreaseEnabled: boolean;
+  percentageIncrease: number;
+  replyToEmail: string;
+  replyToName: string;
+};
+
+export const DEFAULT_INVOICE_EMAIL_SUBJECT = "Invoice for {periodStart} to {periodEnd}";
+export const DEFAULT_INVOICE_EMAIL_BODY = "Hello {clientName},\n\nPlease find the attached invoice for work completed from {periodStart} to {periodEnd}.\n\nThank you.";
+
+export function renderAutomationTemplate(
+  template: string,
+  values: Record<string, string>,
+) {
+  return template.replace(/\{([a-zA-Z][a-zA-Z0-9]*)\}/g, (match, key) => values[key] ?? match);
+}
+
+export function applyInvoiceAutomationAdjustments(
+  items: AutomationLineItem[],
+  options: { roundHoursUp?: boolean; percentageIncreaseEnabled?: boolean; percentageIncrease?: number },
+) {
+  const percentage = options.percentageIncreaseEnabled
+    ? Math.min(500, Math.max(0, Number(options.percentageIncrease || 0)))
+    : 0;
+
+  return items.map((item) => {
+    const increasedHours = Math.max(0, item.hours) * (1 + percentage / 100);
+    const hours = options.roundHoursUp
+      ? Math.ceil((increasedHours - Number.EPSILON) * 10) / 10
+      : Number(increasedHours.toFixed(6));
+    return {
+      ...item,
+      hours,
+      amount: Number((hours * Math.max(0, item.rate)).toFixed(2)),
+    };
+  });
+}
 
 const normalizedDescription = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase();
 

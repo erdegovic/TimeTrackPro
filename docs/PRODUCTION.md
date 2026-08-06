@@ -100,6 +100,12 @@ For local testing, add:
 
 Tickd uses Authorization Code flow with PKCE, state, and nonce checks. A verified Google email links to an existing Tickd account on first use; otherwise Tickd creates an active account.
 
+## Invoice email identity
+
+Invoice messages use the authenticated Brevo sender configured by `SENDER_EMAIL`. A user's saved client automation profile controls the sender display name and `Reply-To` address, so replies return directly to that user without pretending that an unverified address sent the message.
+
+Do not put arbitrary user addresses in the `From` header. Brevo requires each sender address to be registered and verified. True mailbox sending requires a separate provider connection, such as Gmail OAuth with the narrow `gmail.send` scope, encrypted refresh-token storage, revocation controls, and Google's sensitive-scope verification before public release.
+
 ## Deployments
 
 Pushing to GitHub `main` triggers a Hostinger deployment after the repository is connected. After changing environment variables, use **Settings & Redeploy** in hPanel.

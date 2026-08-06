@@ -5,6 +5,8 @@ interface EmailParams {
   subject: string;
   htmlContent: string;
   replyTo?: string;
+  replyToName?: string;
+  senderName?: string;
   attachments?: Array<{ name: string; content: string }>;
 }
 
@@ -136,13 +138,13 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
       },
       body: JSON.stringify({
         sender: {
-          name: "Tickd",
+          name: params.senderName || "Tickd",
           email: senderEmail(),
         },
         to: [{ email: params.to }],
         subject: params.subject,
         htmlContent: params.htmlContent,
-        ...(params.replyTo ? { replyTo: { email: params.replyTo } } : {}),
+        ...(params.replyTo ? { replyTo: { email: params.replyTo, ...(params.replyToName ? { name: params.replyToName } : {}) } } : {}),
         ...(params.attachments?.length ? { attachment: params.attachments } : {}),
       }),
     });
@@ -164,6 +166,8 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
 export async function sendInvoiceEmail(params: {
   to: string;
   replyTo?: string;
+  replyToName?: string;
+  senderName?: string;
   subject: string;
   introduction: string;
   invoiceNumber: string;
@@ -176,6 +180,8 @@ export async function sendInvoiceEmail(params: {
   return sendEmail({
     to: params.to,
     replyTo: params.replyTo,
+    replyToName: params.replyToName,
+    senderName: params.senderName,
     subject: params.subject,
     attachments: [{ name: `${params.invoiceNumber}.pdf`, content: params.pdfBase64 }],
     htmlContent: `<!doctype html>

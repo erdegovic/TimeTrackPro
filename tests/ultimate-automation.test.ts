@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildAutomationLineItems, estimateAiCostMicros, getNextMonthlyRun, getPreviousMonthPeriod, getZonedDateRunAt } from "../shared/ultimate";
+import {
+  applyInvoiceAutomationAdjustments,
+  buildAutomationLineItems,
+  estimateAiCostMicros,
+  getNextMonthlyRun,
+  getPreviousMonthPeriod,
+  getZonedDateRunAt,
+  renderAutomationTemplate,
+} from "../shared/ultimate";
 
 test("invoice automation groups matching entries across a month", () => {
   const rows = buildAutomationLineItems([
@@ -32,6 +40,29 @@ test("previous-month range and next run are deterministic", () => {
 test("one-time preparation dates honor the user's timezone", () => {
   assert.equal(getZonedDateRunAt("2026-08-10", 9, "UTC").toISOString(), "2026-08-10T09:00:00.000Z");
   assert.equal(getZonedDateRunAt("2026-08-10", 9, "Europe/Belgrade").toISOString(), "2026-08-10T07:00:00.000Z");
+});
+
+test("invoice automation applies percentage before rounding hours upward", () => {
+  const [adjusted] = applyInvoiceAutomationAdjustments([{
+    key: "design",
+    description: "Design",
+    projectId: 1,
+    projectName: "Website",
+    hours: 0.64,
+    rate: 50,
+    amount: 32,
+    dates: ["2026-07-02"],
+    timeEntryIds: [1],
+  }], { percentageIncreaseEnabled: true, percentageIncrease: 10, roundHoursUp: true });
+  assert.equal(adjusted.hours, 0.8);
+  assert.equal(adjusted.amount, 40);
+});
+
+test("saved invoice email templates preserve unknown placeholders", () => {
+  assert.equal(
+    renderAutomationTemplate("Hello {clientName}: {periodStart} {futureField}", { clientName: "Alex", periodStart: "2026-07-01" }),
+    "Hello Alex: 2026-07-01 {futureField}",
+  );
 });
 
 test("AI cost estimation uses micro-dollars", () => {

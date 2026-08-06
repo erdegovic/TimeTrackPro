@@ -12,9 +12,13 @@ import {
   timeEntries,
 } from "@shared/schema";
 import {
+  applyInvoiceAutomationAdjustments,
   buildAutomationLineItems,
+  DEFAULT_INVOICE_EMAIL_BODY,
+  DEFAULT_INVOICE_EMAIL_SUBJECT,
   getNextMonthlyRun,
   getPreviousMonthPeriod,
+  renderAutomationTemplate,
   type AutomationLineItem,
 } from "@shared/ultimate";
 import { getUltimateCapabilities } from "@shared/subscriptions";
@@ -40,6 +44,8 @@ type JobPayload = {
   notes: string;
   paymentTerms: string;
   clientPreferences: Record<string, any>;
+  sender: { name: string; replyToEmail: string };
+  adjustments: { roundHoursUp: boolean; percentageIncreaseEnabled: boolean; percentageIncrease: number };
 };
 
 const parseObject = (value?: string | null): Record<string, any> => {
@@ -143,15 +149,29 @@ export async function prepareInvoiceJob(params: {
     sourceEntries,
     effectiveSettings.enableWeeklyCategorization === true,
   );
+  const preferences = parseObject(client.aiPreferences);
+  const automationProfile = parseObject(
+    preferences.automation && typeof preferences.automation === "object"
+      ? JSON.stringify(preferences.automation)
+      : null,
+  );
+  const adjustments = {
+    roundHoursUp: automationProfile.roundHoursUp === true,
+    percentageIncreaseEnabled: automationProfile.percentageIncreaseEnabled === true,
+    percentageIncrease: Math.min(500, Math.max(0, Number(automationProfile.percentageIncrease || 0))),
+  };
+  lineItems = applyInvoiceAutomationAdjustments(lineItems, adjustments);
   const validation: ValidationState = { errors: [], warnings: [] };
   if (!client.email) validation.errors.push("Add an email address to this client before sending.");
   if (!lineItems.length) validation.errors.push("No uninvoiced time entries were found for this period.");
   if (lineItems.some((item) => item.rate <= 0)) validation.errors.push("One or more projects have no hourly rate.");
   if (lineItems.some((item) => item.description === "Tracked work")) validation.warnings.push("Some entries have no client-ready description.");
 
-  const preferences = parseObject(client.aiPreferences);
-  let emailSubject = `Invoice for ${period.startDate} to ${period.endDate}`;
-  let emailBody = `Hello,\n\nPlease find the attached invoice for work completed from ${period.startDate} to ${period.endDate}.\n\nThank you.`;
+  const hasSavedEmailTemplate = Boolean(
+    automationProfile.emailSubjectTemplate || automationProfile.emailBodyTemplate,
+  );
+  let emailSubjectTemplate = automationProfile.emailSubjectTemplate || DEFAULT_INVOICE_EMAIL_SUBJECT;
+  let emailBodyTemplate = automationProfile.emailBodyTemplate || DEFAULT_INVOICE_EMAIL_BODY;
 
   if (user.aiEnabled && process.env.OPENAI_API_KEY && lineItems.length) {
     try {
@@ -194,8 +214,10 @@ export async function prepareInvoiceJob(params: {
         ...item,
         description: suggestions.get(item.key)?.trim() || item.description,
       }));
-      emailSubject = ai.result.emailSubject.trim() || emailSubject;
-      emailBody = ai.result.emailBody.trim() || emailBody;
+      if (!hasSavedEmailTemplate) {
+        emailSubjectTemplate = ai.result.emailSubject.trim() || emailSubjectTemplate;
+        emailBodyTemplate = ai.result.emailBody.trim() || emailBodyTemplate;
+      }
     } catch (error) {
       validation.warnings.push("AI wording was unavailable, so Tickd kept the original descriptions.");
       console.error("Invoice AI preparation failed:", error);
@@ -208,6 +230,16 @@ export async function prepareInvoiceJob(params: {
     effectiveSettings.defaultDueDateMode || "calendar_month",
     Number(effectiveSettings.defaultDueDays || 30),
   );
+  const templateValues = {
+    clientName: client.name,
+    periodStart: period.startDate,
+    periodEnd: period.endDate,
+    issueDate,
+    dueDate,
+    businessName: effectiveSettings.businessName || user.username,
+  };
+  const emailSubject = renderAutomationTemplate(emailSubjectTemplate, templateValues);
+  const emailBody = renderAutomationTemplate(emailBodyTemplate, templateValues);
   const subtotal = Number(lineItems.reduce((sum, item) => sum + item.amount, 0).toFixed(2));
   const taxRate = effectiveSettings.enableTax ? Number(effectiveSettings.defaultTaxRate || 0) : 0;
   const tax = Number((subtotal * taxRate / 100).toFixed(2));
@@ -226,6 +258,11 @@ export async function prepareInvoiceJob(params: {
     notes: effectiveSettings.invoiceNotes || "",
     paymentTerms: effectiveSettings.showPaymentTerms ? effectiveSettings.paymentTerms || "" : "",
     clientPreferences: preferences,
+    sender: {
+      name: automationProfile.replyToName || effectiveSettings.businessName || user.username,
+      replyToEmail: automationProfile.replyToEmail || effectiveSettings.businessEmail || user.email,
+    },
+    adjustments,
   };
   const id = crypto.randomUUID();
   const sendAt = schedule.requireApproval
@@ -308,6 +345,78 @@ export async function cancelInvoiceJob(jobId: string, userId: number) {
   return updated;
 }
 
+export async function updatePreparedInvoiceJob(params: {
+  jobId: string;
+  userId: number;
+  emailSubject: string;
+  emailBody: string;
+  lineItems: Array<Pick<AutomationLineItem, "key" | "description" | "projectName" | "hours" | "rate" | "weekLabel" | "isCustom">>;
+}) {
+  const job = await getOwnedJob(params.jobId, params.userId);
+  if (!job) throw new Error("Prepared invoice not found.");
+  if (!["pending_approval", "needs_attention", "scheduled"].includes(job.status)) {
+    throw new Error("This prepared invoice can no longer be edited.");
+  }
+  if (job.status === "scheduled" && job.sendAt && job.sendAt <= new Date()) {
+    throw new Error("This invoice is already being sent.");
+  }
+
+  const payload = JSON.parse(job.payload) as JobPayload;
+  const existingByKey = new Map(payload.lineItems.map((item) => [item.key, item]));
+  const lineItems: AutomationLineItem[] = params.lineItems.map((input, index) => {
+    const existing = existingByKey.get(input.key);
+    const hours = Math.max(0, Number(input.hours || 0));
+    const rate = Math.max(0, Number(input.rate || 0));
+    return {
+      key: existing?.key || `custom:${job.id}:${index}`,
+      description: input.description.trim(),
+      projectId: existing?.projectId || null,
+      projectName: input.projectName?.trim() || existing?.projectName || "",
+      hours,
+      rate,
+      amount: Number((hours * rate).toFixed(2)),
+      dates: existing?.dates || [],
+      timeEntryIds: existing?.timeEntryIds || [],
+      weekLabel: input.weekLabel || existing?.weekLabel,
+      isCustom: existing?.isCustom === true || !existing,
+    };
+  });
+  const subtotal = Number(lineItems.reduce((sum, item) => sum + item.amount, 0).toFixed(2));
+  const tax = Number((subtotal * payload.taxRate / 100).toFixed(2));
+  const validation: ValidationState = { errors: [], warnings: [] };
+  if (!payload.client.email) validation.errors.push("Add an email address to this client before sending.");
+  if (!lineItems.length) validation.errors.push("Add at least one invoice item before sending.");
+  if (lineItems.some((item) => !item.description)) validation.errors.push("Every invoice item needs a description.");
+  if (lineItems.some((item) => item.hours <= 0)) validation.errors.push("Every invoice item needs a quantity greater than zero.");
+  if (lineItems.some((item) => item.rate < 0)) validation.errors.push("Invoice rates cannot be negative.");
+
+  const updatedPayload: JobPayload = {
+    ...payload,
+    lineItems,
+    timeEntryIds: Array.from(new Set(lineItems.flatMap((item) => item.timeEntryIds))),
+    subtotal,
+    tax,
+    total: Number((subtotal + tax).toFixed(2)),
+  };
+  const nextStatus = job.status === "needs_attention" && validation.errors.length === 0
+    ? "pending_approval"
+    : job.status;
+  const [updated] = await db.update(invoiceAutomationJobs).set({
+    payload: JSON.stringify(updatedPayload),
+    validation: JSON.stringify(validation),
+    emailSubject: params.emailSubject.trim(),
+    emailBody: params.emailBody.trim(),
+    status: nextStatus,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(invoiceAutomationJobs.id, job.id),
+    inArray(invoiceAutomationJobs.status, ["pending_approval", "needs_attention", "scheduled"]),
+  )).returning();
+  if (!updated) throw new Error("This invoice changed while you were editing it. Refresh and try again.");
+  await addAudit(job.id, params.userId, "edited", { lineItemCount: lineItems.length, subtotal, total: updatedPayload.total });
+  return updated;
+}
+
 function toInvoicePdfData(payload: JobPayload, invoiceNumber: string): InvoiceTemplateData {
   const business = payload.business;
   return {
@@ -336,7 +445,7 @@ function toInvoicePdfData(payload: JobPayload, invoiceNumber: string): InvoiceTe
       rows.push({
         description: item.description,
         subDescription: item.projectName,
-        qty: `${item.hours.toFixed(2)} h`,
+        qty: item.isCustom ? item.hours.toFixed(2) : `${item.hours.toFixed(2)} h`,
         rate: `${payload.currency} ${item.rate.toFixed(2)}`,
         amount: `${payload.currency} ${item.amount.toFixed(2)}`,
         date: item.dates.length === 1 ? item.dates[0] : `${item.dates[0]} - ${item.dates[item.dates.length - 1]}`,
@@ -423,7 +532,9 @@ export async function sendPreparedInvoice(jobId: string, userId?: number) {
     const pdfBase64 = Buffer.from(pdf.output("arraybuffer")).toString("base64");
     const sent = await sendInvoiceEmail({
       to: payload.client.email,
-      replyTo: payload.business.businessEmail || undefined,
+      replyTo: payload.sender?.replyToEmail || payload.business.businessEmail || undefined,
+      replyToName: payload.sender?.name || payload.business.businessName || undefined,
+      senderName: payload.sender?.name ? `${payload.sender.name} via Tickd` : undefined,
       subject: claimed.emailSubject || `Invoice ${invoice.invoiceNumber}`,
       introduction: claimed.emailBody || "Please find your invoice attached.",
       invoiceNumber: invoice.invoiceNumber,

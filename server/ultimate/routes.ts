@@ -27,6 +27,7 @@ import {
   listAutomationData,
   prepareInvoiceJob,
   sendPreparedInvoice,
+  updatePreparedInvoiceJob,
 } from "./automation";
 
 const router = Router();
@@ -59,7 +60,7 @@ const sendRouteError = (res: Response, error: unknown) => {
   if (error instanceof AiQuotaError) return res.status(429).json({ code: "AI_QUOTA_REACHED", message: error.message });
   const message = error instanceof Error ? error.message : "The request could not be completed.";
   if (/not found/i.test(message)) return res.status(404).json({ message });
-  if (/required|choose|unavailable|no work|no uninvoiced|not awaiting|not ready|can no longer|acknowledge|invoice start|preparation date|one-time period|completed/i.test(message)) {
+  if (/required|choose|unavailable|no work|no uninvoiced|not awaiting|not ready|can no longer|acknowledge|invoice start|preparation date|one-time period|completed|already being sent|changed while/i.test(message)) {
     return res.status(400).json({ message });
   }
   console.error("Ultimate route failed:", error);
@@ -269,8 +270,72 @@ router.put("/clients/:id/preferences", requireUltimate, async (req, res) => {
     }).parse(req.body);
     const client = await storage.getClient(clientId);
     if (!client || client.userId !== req.user!.id) throw new Error("Client not found.");
-    const updated = await storage.updateClient(clientId, { aiPreferences: JSON.stringify(data) } as any);
-    res.json({ clientId, preferences: data, client: updated });
+    let existing: Record<string, any> = {};
+    try { existing = JSON.parse(client.aiPreferences || "{}"); } catch {}
+    const preferences = { ...existing, ...data };
+    const updated = await storage.updateClient(clientId, { aiPreferences: JSON.stringify(preferences) } as any);
+    res.json({ clientId, preferences, client: updated });
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+const automationProfileSchema = z.object({
+  emailSubjectTemplate: z.string().trim().min(1).max(200),
+  emailBodyTemplate: z.string().trim().min(1).max(5000),
+  roundHoursUp: z.boolean().default(false),
+  percentageIncreaseEnabled: z.boolean().default(false),
+  percentageIncrease: z.number().min(0).max(500).default(0),
+  replyToEmail: z.union([z.string().trim().email(), z.literal("")]),
+  replyToName: z.string().trim().max(120).default(""),
+});
+
+router.put("/clients/:id/automation-profile", requireUltimate, async (req, res) => {
+  try {
+    const clientId = Number(req.params.id);
+    const automation = automationProfileSchema.parse(req.body);
+    const client = await storage.getClient(clientId);
+    if (!client || client.userId !== req.user!.id) throw new Error("Client not found.");
+    let existing: Record<string, any> = {};
+    try { existing = JSON.parse(client.aiPreferences || "{}"); } catch {}
+    const preferences = { ...existing, automation };
+    const updated = await storage.updateClient(clientId, { aiPreferences: JSON.stringify(preferences) } as any);
+    res.json({ clientId, automation, client: updated });
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.post("/clients/:id/email-polish", requireUltimate, requireAiConsent, async (req, res) => {
+  try {
+    const clientId = Number(req.params.id);
+    const data = z.object({
+      subject: z.string().trim().min(1).max(200),
+      body: z.string().trim().min(1).max(5000),
+    }).parse(req.body);
+    const client = await storage.getClient(clientId);
+    if (!client || client.userId !== req.user!.id) throw new Error("Client not found.");
+    let preferences: Record<string, any> = {};
+    try { preferences = JSON.parse(client.aiPreferences || "{}"); } catch {}
+    const ai = await runStructuredAi<{ subject: string; body: string }>({
+      userId: req.user!.id,
+      action: "invoice_email_polish",
+      writing: true,
+      instructions: "Polish this reusable invoice email template. Keep it concise, professional, and natural. Preserve every {placeholder} exactly as written and do not add facts, payment promises, or new placeholders.",
+      input: {
+        client: { name: client.name, language: client.invoiceLanguage, preferences },
+        subject: data.subject,
+        body: data.body,
+      },
+      schemaName: "invoice_email_template",
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["subject", "body"],
+        properties: { subject: { type: "string" }, body: { type: "string" } },
+      },
+    });
+    res.json({ subject: ai.result.subject.trim(), body: ai.result.body.trim() });
   } catch (error) {
     sendRouteError(res, error);
   }
@@ -461,6 +526,33 @@ router.post("/jobs/:id/retry", requireUltimate, async (req, res) => {
 router.post("/jobs/:id/cancel", requireUltimate, async (req, res) => {
   try {
     res.json(await cancelInvoiceJob(req.params.id, req.user!.id));
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+const preparedLineItemSchema = z.object({
+  key: z.string().trim().min(1).max(250),
+  description: z.string().trim().min(1).max(500),
+  projectName: z.string().trim().max(200).default(""),
+  hours: z.number().min(0).max(1_000_000),
+  rate: z.number().min(0).max(1_000_000_000),
+  weekLabel: z.string().trim().max(100).optional(),
+  isCustom: z.boolean().optional(),
+});
+
+router.put("/jobs/:id/draft", requireUltimate, async (req, res) => {
+  try {
+    const data = z.object({
+      emailSubject: z.string().trim().min(1).max(200),
+      emailBody: z.string().trim().min(1).max(5000),
+      lineItems: z.array(preparedLineItemSchema).max(200),
+    }).parse(req.body);
+    res.json(await updatePreparedInvoiceJob({
+      jobId: req.params.id,
+      userId: req.user!.id,
+      ...data,
+    }));
   } catch (error) {
     sendRouteError(res, error);
   }
