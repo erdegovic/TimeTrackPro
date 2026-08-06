@@ -14,6 +14,9 @@ declare module 'express-session' {
     oauthRegistrationBillingInterval?: "monthly" | "annual";
     oauthTermsVersion?: string;
     oauthPrivacyVersion?: string;
+    gmailOauthState?: string;
+    gmailOauthCodeVerifier?: string;
+    gmailOauthNonce?: string;
   }
 }
 

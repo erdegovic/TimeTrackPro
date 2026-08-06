@@ -43,6 +43,7 @@ import {
   TEMPLATE_OPTIONS,
 } from "@/lib/invoice-html-generator";
 import { formatInvoiceNumber } from "@shared/invoice-number";
+import { InvoiceAiEditor } from "@/components/Invoices/InvoiceAiEditor";
 
 const clientSchema = z.object({
   name: z.string().min(1, "Client name is required"),
@@ -64,12 +65,16 @@ const clientSchema = z.object({
   invoiceTemplate: z.string().default("professional"),
   invoiceColorTheme: z.string().optional(),
   invoiceAccentColor: z.string().optional(),
+  invoiceTextColor: z.string().optional(),
+  invoiceBackgroundColor: z.string().optional(),
   showDateColumn: z.boolean().default(true),
   enableWeeklyCategorization: z.boolean().default(true),
   showHourlyRate: z.boolean().default(true),
   showProjectName: z.boolean().default(true),
   showInvoiceNotes: z.boolean().default(true),
   invoiceNotes: z.string().optional(),
+  showPaymentTerms: z.boolean().default(false),
+  paymentTerms: z.string().optional(),
   showFooterNotes: z.boolean().default(true),
   invoiceFooterText: z.string().optional(),
   showBankDetails: z.boolean().default(true),
@@ -84,6 +89,10 @@ const clientSchema = z.object({
   paypalEmail: z.string().optional(),
   wiseEmail: z.string().optional(),
   otherPaymentInstructions: z.string().optional(),
+  invoiceHeaderPlacement: z.enum(["standard", "reversed", "centered"]).default("standard"),
+  invoiceInfoLayout: z.enum(["columns", "stacked"]).default("columns"),
+  invoiceInfoOrder: z.string().default("payment,terms,notes"),
+  invoicePaymentAccentSide: z.enum(["left", "right"]).default("left"),
 });
 
 type ClientFormValues = z.infer<typeof clientSchema>;
@@ -106,12 +115,16 @@ const invoiceProfileKeys = [
   "invoiceNumberPadding",
   "invoiceColorTheme",
   "invoiceAccentColor",
+  "invoiceTextColor",
+  "invoiceBackgroundColor",
   "showDateColumn",
   "enableWeeklyCategorization",
   "showHourlyRate",
   "showProjectName",
   "showInvoiceNotes",
   "invoiceNotes",
+  "showPaymentTerms",
+  "paymentTerms",
   "showFooterNotes",
   "invoiceFooterText",
   "showBankDetails",
@@ -126,6 +139,10 @@ const invoiceProfileKeys = [
   "paypalEmail",
   "wiseEmail",
   "otherPaymentInstructions",
+  "invoiceHeaderPlacement",
+  "invoiceInfoLayout",
+  "invoiceInfoOrder",
+  "invoicePaymentAccentSide",
 ] as const;
 
 const buildPaymentDetails = (values: ClientFormValues) => {
@@ -226,12 +243,16 @@ export default function ClientForm({ onSuccess, onCancel, initialData, isEditing
       invoiceTemplate: invoiceProfile.invoiceTemplate || "professional",
       invoiceColorTheme: invoiceProfile.invoiceColorTheme || TEMPLATE_COLOR_DEFAULTS.professional.primary,
       invoiceAccentColor: invoiceProfile.invoiceAccentColor || TEMPLATE_COLOR_DEFAULTS.professional.accent || "#3b82f6",
+      invoiceTextColor: invoiceProfile.invoiceTextColor || (settings as any)?.invoiceTextColor || "#374151",
+      invoiceBackgroundColor: invoiceProfile.invoiceBackgroundColor || (settings as any)?.invoiceBackgroundColor || "#ffffff",
       showDateColumn: invoiceProfile.showDateColumn !== false,
       enableWeeklyCategorization: invoiceProfile.enableWeeklyCategorization !== false,
       showHourlyRate: invoiceProfile.showHourlyRate !== false,
       showProjectName: invoiceProfile.showProjectName !== false,
       showInvoiceNotes: invoiceProfile.showInvoiceNotes !== false,
       invoiceNotes: invoiceProfile.invoiceNotes || "",
+      showPaymentTerms: invoiceProfile.showPaymentTerms ?? (settings as any)?.showPaymentTerms ?? false,
+      paymentTerms: invoiceProfile.paymentTerms || (settings as any)?.paymentTerms || "",
       showFooterNotes: invoiceProfile.showFooterNotes !== false,
       invoiceFooterText: invoiceProfile.invoiceFooterText || "",
       showBankDetails: invoiceProfile.showBankDetails !== false,
@@ -246,6 +267,10 @@ export default function ClientForm({ onSuccess, onCancel, initialData, isEditing
       paypalEmail: invoiceProfile.paypalEmail || "",
       wiseEmail: invoiceProfile.wiseEmail || "",
       otherPaymentInstructions: invoiceProfile.otherPaymentInstructions || "",
+      invoiceHeaderPlacement: invoiceProfile.invoiceHeaderPlacement || (settings as any)?.invoiceHeaderPlacement || "standard",
+      invoiceInfoLayout: invoiceProfile.invoiceInfoLayout || (settings as any)?.invoiceInfoLayout || "columns",
+      invoiceInfoOrder: invoiceProfile.invoiceInfoOrder || (settings as any)?.invoiceInfoOrder || "payment,terms,notes",
+      invoicePaymentAccentSide: invoiceProfile.invoicePaymentAccentSide || (settings as any)?.invoicePaymentAccentSide || "left",
     },
   });
 
@@ -308,15 +333,21 @@ export default function ClientForm({ onSuccess, onCancel, initialData, isEditing
       logoSize: (settings as any)?.logoSize || "64",
       primaryColor: previewValues.invoiceColorTheme || undefined,
       accentColor: previewValues.invoiceAccentColor || undefined,
-      textColor: (settings as any)?.invoiceTextColor || undefined,
-      bgColor: (settings as any)?.invoiceBackgroundColor || undefined,
+      textColor: previewValues.invoiceTextColor || undefined,
+      bgColor: previewValues.invoiceBackgroundColor || undefined,
       showDateColumn: previewValues.showDateColumn,
       showHourlyRate: previewValues.showHourlyRate,
       showProjectName: previewValues.showProjectName,
       paymentDetails: buildPaymentDetails(previewValues),
       showPaymentDetails: previewValues.showBankDetails,
+      paymentTerms: previewValues.paymentTerms || "",
+      showPaymentTerms: previewValues.showPaymentTerms,
       footerNotes: previewValues.invoiceFooterText || "",
       showFooterNotes: previewValues.showFooterNotes,
+      invoiceHeaderPlacement: previewValues.invoiceHeaderPlacement,
+      invoiceInfoLayout: previewValues.invoiceInfoLayout,
+      invoiceInfoOrder: previewValues.invoiceInfoOrder,
+      invoicePaymentAccentSide: previewValues.invoicePaymentAccentSide,
     };
 
     return generateInvoiceHTML(previewData);
@@ -970,6 +1001,19 @@ export default function ClientForm({ onSuccess, onCancel, initialData, isEditing
               </div>
             )}
           </div>
+
+          <InvoiceAiEditor
+            context="client"
+            current={previewValues as unknown as Record<string, unknown>}
+            onApply={(customization) => {
+              form.setValue("useClientInvoiceSettings", true, { shouldDirty: true });
+              Object.entries(customization).forEach(([key, value]) => {
+                if (invoiceProfileKeys.includes(key as any)) {
+                  form.setValue(key as keyof ClientFormValues, value as never, { shouldDirty: true, shouldValidate: true });
+                }
+              });
+            }}
+          />
 
           <div className="min-w-0 max-w-full rounded-md border bg-white p-3">
             <div className="flex items-center justify-between gap-3 mb-3">

@@ -41,6 +41,7 @@ import { calculateDueDate, formatInvoiceDate } from "@/lib/invoice-dates";
 import { useAuth } from "@/hooks/useAuth";
 import { getInvoiceCapabilities } from "@shared/subscriptions";
 import tickdLogoFull from "@/assets/tickd-logo-full.svg";
+import { InvoiceAiEditor } from "@/components/Invoices/InvoiceAiEditor";
 
 const CURRENCY_PRESETS = [
   { code: "USD", symbol: "$",  label: "USD — US Dollar ($)" },
@@ -169,6 +170,10 @@ const settingsSchema = z.object({
   showProjectName: z.boolean().default(true),
   invoiceTemplate: z.enum(["classic", "professional", "media", "web", "graphic", "minimalistic", "freelancer", "avant", "luxe"]),
   invoiceLanguage: z.enum(["en", "sr", "de", "fr", "es", "custom"]).default("en"),
+  invoiceHeaderPlacement: z.enum(["standard", "reversed", "centered"]).default("standard"),
+  invoiceInfoLayout: z.enum(["columns", "stacked"]).default("columns"),
+  invoiceInfoOrder: z.string().default("payment,terms,notes"),
+  invoicePaymentAccentSide: z.enum(["left", "right"]).default("left"),
   
   // Report Settings
   enableWeeklyCategorization: z.boolean().default(true),
@@ -558,6 +563,10 @@ export default function SettingsPage() {
       showFooterNotes: true,
       invoiceTemplate: "professional" as const,
       invoiceLanguage: "en",
+      invoiceHeaderPlacement: "standard",
+      invoiceInfoLayout: "columns",
+      invoiceInfoOrder: "payment,terms,notes",
+      invoicePaymentAccentSide: "left",
       showHourlyRate: true,
       showProjectName: true,
       enableWeeklyCategorization: true,
@@ -638,6 +647,10 @@ export default function SettingsPage() {
         showFooterNotes: settings.showFooterNotes ?? true,
         invoiceTemplate: (settings.invoiceTemplate as "classic" | "professional" | "media" | "web" | "graphic" | "minimalistic" | "freelancer" | "avant" | "luxe") || "professional",
         invoiceLanguage: ((settings as any).invoiceLanguage as "en" | "sr" | "de" | "fr" | "es" | "custom") || "en",
+        invoiceHeaderPlacement: ((settings as any).invoiceHeaderPlacement as "standard" | "reversed" | "centered") || "standard",
+        invoiceInfoLayout: ((settings as any).invoiceInfoLayout as "columns" | "stacked") || "columns",
+        invoiceInfoOrder: (settings as any).invoiceInfoOrder || "payment,terms,notes",
+        invoicePaymentAccentSide: ((settings as any).invoicePaymentAccentSide as "left" | "right") || "left",
         showHourlyRate: settings.showHourlyRate ?? true,
         showProjectName: (settings as any).showProjectName ?? true,
         enableWeeklyCategorization: settings.enableWeeklyCategorization ?? true,
@@ -828,6 +841,10 @@ export default function SettingsPage() {
       showPaymentTerms: watchedValues.showPaymentTerms,
       footerNotes: watchedValues.invoiceFooterText || "",
       showFooterNotes: watchedValues.showFooterNotes ?? true,
+      invoiceHeaderPlacement: watchedValues.invoiceHeaderPlacement,
+      invoiceInfoLayout: watchedValues.invoiceInfoLayout,
+      invoiceInfoOrder: watchedValues.invoiceInfoOrder,
+      invoicePaymentAccentSide: watchedValues.invoicePaymentAccentSide,
       watermarkPreview: invoiceAccess.watermarkPreview,
       watermarkLogoUrl: invoiceAccess.watermarkPreview ? tickdLogoFull : undefined,
     };
@@ -843,6 +860,7 @@ export default function SettingsPage() {
     watchedValues.showPaymentTerms, watchedValues.paymentTerms, watchedValues.showInvoiceNotes, watchedValues.invoiceNotes, watchedValues.showDateColumn,
     watchedValues.showHourlyRate, watchedValues.showProjectName, watchedValues.enableWeeklyCategorization, watchedValues.showBankDetails, watchedValues.invoiceFooterText,
     watchedValues.showFooterNotes, watchedValues.invoiceLanguage, watchedValues.paymentMethodType, watchedValues.bankName,
+    watchedValues.invoiceHeaderPlacement, watchedValues.invoiceInfoLayout, watchedValues.invoiceInfoOrder, watchedValues.invoicePaymentAccentSide,
     watchedValues.bankAccountName, watchedValues.bankAccountNumber, watchedValues.bankSortCode,
     watchedValues.iban, watchedValues.swift, watchedValues.routingNumber, watchedValues.paypalEmail,
     watchedValues.wiseEmail, watchedValues.otherPaymentInstructions, generatedPreview, customInvoiceLabels,
@@ -1889,6 +1907,16 @@ export default function SettingsPage() {
 
                 {/* ── Right: Live Preview ───────────────────────────────── */}
                 <div className="flex-1 overflow-y-auto bg-gray-100 p-4">
+                  <InvoiceAiEditor
+                    context="settings"
+                    current={watchedValues as unknown as Record<string, unknown>}
+                    onApply={(customization) => {
+                      Object.entries(customization).forEach(([key, value]) => {
+                        form.setValue(key as keyof SettingsFormData, value as never, { shouldDirty: true, shouldValidate: true });
+                      });
+                    }}
+                    className="mb-4 bg-white"
+                  />
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div className="text-xs text-gray-500 flex items-center gap-1.5">
                       <Zap className="h-3.5 w-3.5" />

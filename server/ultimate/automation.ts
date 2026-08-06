@@ -24,8 +24,9 @@ import {
 import { getUltimateCapabilities } from "@shared/subscriptions";
 import { runStructuredAi } from "../ai/service";
 import { createInvoicePdf } from "../../client/src/lib/invoice-pdf";
-import type { InvoiceTemplateData } from "../../client/src/lib/invoice-html-generator";
-import { sendInvoiceEmail } from "../utils/email-service";
+import { generateInvoiceHTML, type InvoiceTemplateData } from "../../client/src/lib/invoice-html-generator";
+import { renderInvoiceEmailHtml, sendInvoiceEmail } from "../utils/email-service";
+import { getGmailConnection, sendInvoiceViaGmail } from "../integrations/gmail";
 
 type ValidationState = { errors: string[]; warnings: string[] };
 
@@ -44,7 +45,7 @@ type JobPayload = {
   notes: string;
   paymentTerms: string;
   clientPreferences: Record<string, any>;
-  sender: { name: string; replyToEmail: string };
+  sender: { name: string; replyToEmail: string; deliveryMethod: "client" | "self" | "gmail" };
   adjustments: { roundHoursUp: boolean; percentageIncreaseEnabled: boolean; percentageIncrease: number };
 };
 
@@ -160,9 +161,18 @@ export async function prepareInvoiceJob(params: {
     percentageIncreaseEnabled: automationProfile.percentageIncreaseEnabled === true,
     percentageIncrease: Math.min(500, Math.max(0, Number(automationProfile.percentageIncrease || 0))),
   };
+  const deliveryMethod = ["client", "self", "gmail"].includes(automationProfile.deliveryMethod)
+    ? automationProfile.deliveryMethod as "client" | "self" | "gmail"
+    : "client";
   lineItems = applyInvoiceAutomationAdjustments(lineItems, adjustments);
   const validation: ValidationState = { errors: [], warnings: [] };
-  if (!client.email) validation.errors.push("Add an email address to this client before sending.");
+  if (deliveryMethod !== "self" && !client.email) validation.errors.push("Add an email address to this client before sending.");
+  if (deliveryMethod === "self" && !(automationProfile.replyToEmail || effectiveSettings.businessEmail || user.email)) {
+    validation.errors.push("Add your delivery email before sending.");
+  }
+  if (deliveryMethod === "gmail" && !(await getGmailConnection(params.userId))) {
+    validation.errors.push("Connect Gmail before preparing invoices for Gmail delivery.");
+  }
   if (!lineItems.length) validation.errors.push("No uninvoiced time entries were found for this period.");
   if (lineItems.some((item) => item.rate <= 0)) validation.errors.push("One or more projects have no hourly rate.");
   if (lineItems.some((item) => item.description === "Tracked work")) validation.warnings.push("Some entries have no client-ready description.");
@@ -261,6 +271,7 @@ export async function prepareInvoiceJob(params: {
     sender: {
       name: automationProfile.replyToName || effectiveSettings.businessName || user.username,
       replyToEmail: automationProfile.replyToEmail || effectiveSettings.businessEmail || user.email,
+      deliveryMethod,
     },
     adjustments,
   };
@@ -351,6 +362,19 @@ export async function updatePreparedInvoiceJob(params: {
   emailSubject: string;
   emailBody: string;
   lineItems: Array<Pick<AutomationLineItem, "key" | "description" | "projectName" | "hours" | "rate" | "weekLabel" | "isCustom">>;
+  invoiceCustomization?: {
+    invoiceHeaderPlacement?: "standard" | "reversed" | "centered";
+    invoiceInfoLayout?: "columns" | "stacked";
+    invoiceInfoOrder?: string;
+    invoicePaymentAccentSide?: "left" | "right";
+    showBankDetails?: boolean;
+    showPaymentTerms?: boolean;
+    showInvoiceNotes?: boolean;
+    showFooterNotes?: boolean;
+    invoiceNotes?: string;
+    paymentTerms?: string;
+    invoiceFooterText?: string;
+  };
 }) {
   const job = await getOwnedJob(params.jobId, params.userId);
   if (!job) throw new Error("Prepared invoice not found.");
@@ -384,7 +408,9 @@ export async function updatePreparedInvoiceJob(params: {
   const subtotal = Number(lineItems.reduce((sum, item) => sum + item.amount, 0).toFixed(2));
   const tax = Number((subtotal * payload.taxRate / 100).toFixed(2));
   const validation: ValidationState = { errors: [], warnings: [] };
-  if (!payload.client.email) validation.errors.push("Add an email address to this client before sending.");
+  if (payload.sender.deliveryMethod !== "self" && !payload.client.email) validation.errors.push("Add an email address to this client before sending.");
+  if (payload.sender.deliveryMethod === "self" && !payload.sender.replyToEmail) validation.errors.push("Add your delivery email before sending.");
+  if (payload.sender.deliveryMethod === "gmail" && !(await getGmailConnection(params.userId))) validation.errors.push("Reconnect Gmail before sending.");
   if (!lineItems.length) validation.errors.push("Add at least one invoice item before sending.");
   if (lineItems.some((item) => !item.description)) validation.errors.push("Every invoice item needs a description.");
   if (lineItems.some((item) => item.hours <= 0)) validation.errors.push("Every invoice item needs a quantity greater than zero.");
@@ -392,6 +418,9 @@ export async function updatePreparedInvoiceJob(params: {
 
   const updatedPayload: JobPayload = {
     ...payload,
+    business: { ...payload.business, ...(params.invoiceCustomization || {}) },
+    notes: params.invoiceCustomization?.invoiceNotes ?? payload.notes,
+    paymentTerms: params.invoiceCustomization?.paymentTerms ?? payload.paymentTerms,
     lineItems,
     timeEntryIds: Array.from(new Set(lineItems.flatMap((item) => item.timeEntryIds))),
     subtotal,
@@ -417,7 +446,7 @@ export async function updatePreparedInvoiceJob(params: {
   return updated;
 }
 
-function toInvoicePdfData(payload: JobPayload, invoiceNumber: string): InvoiceTemplateData {
+export function toInvoicePdfData(payload: JobPayload, invoiceNumber: string): InvoiceTemplateData {
   const business = payload.business;
   return {
     template: business.invoiceTemplate || "professional",
@@ -449,6 +478,7 @@ function toInvoicePdfData(payload: JobPayload, invoiceNumber: string): InvoiceTe
         rate: `${payload.currency} ${item.rate.toFixed(2)}`,
         amount: `${payload.currency} ${item.amount.toFixed(2)}`,
         date: item.dates.length === 1 ? item.dates[0] : `${item.dates[0]} - ${item.dates[item.dates.length - 1]}`,
+        billingType: item.isCustom ? "quantity" : "hourly",
       });
       return rows;
     }),
@@ -472,7 +502,19 @@ function toInvoicePdfData(payload: JobPayload, invoiceNumber: string): InvoiceTe
     showPaymentTerms: business.showPaymentTerms === true,
     footerNotes: business.invoiceFooterText || "",
     showFooterNotes: business.showFooterNotes !== false,
+    invoiceHeaderPlacement: business.invoiceHeaderPlacement || "standard",
+    invoiceInfoLayout: business.invoiceInfoLayout || "columns",
+    invoiceInfoOrder: business.invoiceInfoOrder || "payment,terms,notes",
+    invoicePaymentAccentSide: business.invoicePaymentAccentSide || "left",
   };
+}
+
+export async function getPreparedInvoicePreviewHtml(jobId: string, userId: number) {
+  const job = await getOwnedJob(jobId, userId);
+  if (!job) throw new Error("Prepared invoice not found.");
+  const payload = JSON.parse(job.payload) as JobPayload;
+  const invoice = job.invoiceId ? await storage.getInvoice(job.invoiceId) : undefined;
+  return generateInvoiceHTML(toInvoicePdfData(payload, invoice?.invoiceNumber || "PREVIEW"));
 }
 
 export async function sendPreparedInvoice(jobId: string, userId?: number) {
@@ -530,19 +572,40 @@ export async function sendPreparedInvoice(jobId: string, userId?: number) {
 
     const pdf = createInvoicePdf(toInvoicePdfData(payload, invoice.invoiceNumber));
     const pdfBase64 = Buffer.from(pdf.output("arraybuffer")).toString("base64");
-    const sent = await sendInvoiceEmail({
-      to: payload.client.email,
-      replyTo: payload.sender?.replyToEmail || payload.business.businessEmail || undefined,
-      replyToName: payload.sender?.name || payload.business.businessName || undefined,
-      senderName: payload.sender?.name ? `${payload.sender.name} via Tickd` : undefined,
-      subject: claimed.emailSubject || `Invoice ${invoice.invoiceNumber}`,
-      introduction: claimed.emailBody || "Please find your invoice attached.",
+    const subject = claimed.emailSubject || `Invoice ${invoice.invoiceNumber}`;
+    const introduction = claimed.emailBody || "Please find your invoice attached.";
+    const senderName = payload.sender?.name || payload.business.businessName || "Tickd user";
+    const replyTo = payload.sender?.replyToEmail || payload.business.businessEmail || undefined;
+    const deliveryMethod = payload.sender?.deliveryMethod || "client";
+    const recipient = deliveryMethod === "self" ? replyTo : payload.client.email;
+    if (!recipient) throw new Error("No delivery email is available for this invoice.");
+    const invoiceEmail = {
+      introduction,
       invoiceNumber: invoice.invoiceNumber,
       clientName: payload.client.name,
       total: `${payload.currency} ${payload.total.toFixed(2)}`,
       dueDate: payload.dueDate,
-      pdfBase64,
-    });
+    };
+    const sent = deliveryMethod === "gmail"
+      ? await sendInvoiceViaGmail({
+          userId: job.userId,
+          to: recipient,
+          replyTo,
+          senderName,
+          subject,
+          htmlContent: renderInvoiceEmailHtml(invoiceEmail),
+          invoiceNumber: invoice.invoiceNumber,
+          pdfBase64,
+        })
+      : await sendInvoiceEmail({
+          to: recipient,
+          replyTo,
+          replyToName: senderName,
+          senderName,
+          subject,
+          ...invoiceEmail,
+          pdfBase64,
+        });
     if (!sent) throw new Error("The email provider did not accept this invoice.");
 
     await storage.updateInvoice(invoice.id, { status: "sent" });

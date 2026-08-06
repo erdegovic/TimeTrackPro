@@ -32,6 +32,7 @@ export type InvoiceAutomationProfile = {
   percentageIncrease: number;
   replyToEmail: string;
   replyToName: string;
+  deliveryMethod: "client" | "self" | "gmail";
 };
 
 export const DEFAULT_INVOICE_EMAIL_SUBJECT = "Invoice for {periodStart} to {periodEnd}";

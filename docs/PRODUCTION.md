@@ -29,6 +29,7 @@ GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 BREVO_API_KEY=...
 SENDER_EMAIL=noreply@tickd.me
+INVOICE_SENDER_EMAIL=invoice@tickd.me
 PADDLE_ENVIRONMENT=production
 PADDLE_API_KEY=...
 PADDLE_CLIENT_TOKEN=...
@@ -41,12 +42,19 @@ OPENAI_API_KEY=...
 OPENAI_AI_MODEL=gpt-5.4-nano
 OPENAI_AI_WRITING_MODEL=gpt-5.4-mini
 AI_MONTHLY_COST_LIMIT_MICROS=2000000
+OAUTH_TOKEN_ENCRYPTION_KEY=...
 ```
 
 The OpenAI key is server-only. The default application limit above is USD 2.00
 per Ultimate account per calendar month, with a separate allowance of 100 Smart
 Actions. Tickd sends only the work records a user selects; private notes and
 account credentials are excluded.
+
+Gmail invoice delivery uses the existing Google OAuth client with the additional
+`gmail.send` scope and callback URL
+`https://tickd.me/api/ultimate/gmail/callback`. Refresh tokens are encrypted with
+`OAUTH_TOKEN_ENCRYPTION_KEY`, which must be a base64-encoded 32-byte key. Tickd
+does not request permission to read or modify a connected mailbox.
 
 While Paddle is reviewing the live account, live credentials may be stored under
 `PADDLE_LIVE_API_KEY`, `PADDLE_LIVE_CLIENT_TOKEN`, `PADDLE_LIVE_WEBHOOK_SECRET`,

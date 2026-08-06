@@ -59,7 +59,11 @@ export async function ensureCurrentSchema() {
         ADD COLUMN IF NOT EXISTS default_due_date_mode text DEFAULT 'calendar_month',
         ADD COLUMN IF NOT EXISTS default_due_days integer DEFAULT 30,
         ADD COLUMN IF NOT EXISTS show_payment_terms boolean DEFAULT false,
-        ADD COLUMN IF NOT EXISTS payment_terms text
+        ADD COLUMN IF NOT EXISTS payment_terms text,
+        ADD COLUMN IF NOT EXISTS invoice_header_placement text DEFAULT 'standard',
+        ADD COLUMN IF NOT EXISTS invoice_info_layout text DEFAULT 'columns',
+        ADD COLUMN IF NOT EXISTS invoice_info_order text DEFAULT 'payment,terms,notes',
+        ADD COLUMN IF NOT EXISTS invoice_payment_accent_side text DEFAULT 'left'
     `);
     await client.query(`
       UPDATE settings
@@ -184,6 +188,16 @@ export async function ensureCurrentSchema() {
       )
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS ai_usage_events_user_created_idx ON ai_usage_events(user_id, created_at)`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS gmail_connections (
+        user_id integer PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        email text NOT NULL,
+        encrypted_refresh_token text NOT NULL,
+        scope text NOT NULL,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now()
+      )
+    `);
     await client.query(`
       CREATE TABLE IF NOT EXISTS recurring_invoice_schedules (
         id serial PRIMARY KEY,

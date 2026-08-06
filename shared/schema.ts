@@ -227,6 +227,10 @@ export const settings = pgTable("settings", {
   showFooterNotes: boolean("show_footer_notes").default(true),
   invoiceTemplate: text("invoice_template").default("professional"), // Template style
   invoiceLanguage: text("invoice_language").default("en"),
+  invoiceHeaderPlacement: text("invoice_header_placement").default("standard"),
+  invoiceInfoLayout: text("invoice_info_layout").default("columns"),
+  invoiceInfoOrder: text("invoice_info_order").default("payment,terms,notes"),
+  invoicePaymentAccentSide: text("invoice_payment_accent_side").default("left"),
   
   // Report settings
   enableWeeklyCategorization: boolean("enable_weekly_categorization").default(true),
@@ -337,6 +341,15 @@ export const aiUsageEvents = pgTable("ai_usage_events", {
 }, (table) => ({
   userCreatedIdx: index("ai_usage_events_user_created_idx").on(table.userId, table.createdAt),
 }));
+
+export const gmailConnections = pgTable("gmail_connections", {
+  userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  encryptedRefreshToken: text("encrypted_refresh_token").notNull(),
+  scope: text("scope").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 
 export const recurringInvoiceSchedules = pgTable("recurring_invoice_schedules", {
   id: serial("id").primaryKey(),

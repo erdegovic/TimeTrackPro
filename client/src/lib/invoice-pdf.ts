@@ -72,6 +72,7 @@ function drawTextBlock(
   y: number,
   width: number,
   primary: Rgb,
+  accentSide: "left" | "right" = "left",
 ): number {
   const body = plainText(content);
   if (!body) return y;
@@ -82,7 +83,7 @@ function drawTextBlock(
   doc.setDrawColor(...mix(primary, [255, 255, 255], 0.7));
   doc.roundedRect(x, y, width, height, 2, 2, "FD");
   doc.setFillColor(...primary);
-  doc.rect(x, y, 2, height, "F");
+  doc.rect(accentSide === "right" ? x + width - 2 : x, y, 2, height, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   doc.setTextColor(...primary);
@@ -171,24 +172,30 @@ export function createInvoicePdf(data: InvoiceTemplateData): jsPDF {
 
   const headerY = darkHeader ? 13 : data.template === "avant" ? 17 : 20;
   const headerColor: Rgb = darkHeader ? contrastText(primary) : ink;
+  const headerPlacement = data.invoiceHeaderPlacement || "standard";
+  const businessX = headerPlacement === "reversed" ? PAGE_WIDTH - contentRight : headerPlacement === "centered" ? PAGE_WIDTH / 2 : contentLeft;
+  const businessAlign = headerPlacement === "reversed" ? "right" : headerPlacement === "centered" ? "center" : "left";
+  const invoiceX = headerPlacement === "reversed" ? contentLeft : headerPlacement === "centered" ? PAGE_WIDTH / 2 : PAGE_WIDTH - contentRight;
+  const invoiceAlign = headerPlacement === "reversed" ? "left" : headerPlacement === "centered" ? "center" : "right";
   doc.setTextColor(...headerColor);
   doc.setFont("helvetica", "bold");
   fitText(doc, data.businessName || "Your Business", contentWidth * 0.58, 18, 10);
-  doc.text(data.businessName || "Your Business", contentLeft, headerY);
+  doc.text(data.businessName || "Your Business", businessX, headerY, { align: businessAlign });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   const businessLines = [data.businessMeta, data.businessAddress, data.businessEmail, data.businessPhone]
     .filter(Boolean)
     .join("\n");
-  if (businessLines) doc.text(businessLines, contentLeft, headerY + 5, { lineHeightFactor: 1.25 });
+  if (businessLines) doc.text(businessLines, businessX, headerY + 5, { lineHeightFactor: 1.25, align: businessAlign });
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(27);
-  doc.text(labels.invoice, PAGE_WIDTH - contentRight, headerY, { align: "right" });
+  const invoiceHeaderY = headerPlacement === "centered" ? headerY + 19 : headerY;
+  doc.text(labels.invoice, invoiceX, invoiceHeaderY, { align: invoiceAlign });
   doc.setFontSize(9);
-  doc.text(data.invoiceNumber, PAGE_WIDTH - contentRight, headerY + 6, { align: "right" });
+  doc.text(data.invoiceNumber, invoiceX, invoiceHeaderY + 6, { align: invoiceAlign });
 
-  let y = darkHeader ? 42 : 48;
+  let y = headerPlacement === "centered" ? (darkHeader ? 55 : 62) : darkHeader ? 42 : 48;
   const metaGap = 3;
   const metaItems = [
     [labels.issueDate, data.issueDate],
@@ -334,21 +341,43 @@ export function createInvoicePdf(data: InvoiceTemplateData): jsPDF {
   doc.text(`${data.currency} ${data.totalFormatted}`, PAGE_WIDTH - contentRight - 5, totalBaseline, { align: "right" });
   y += totalHeight + 10;
 
-  const blocks = [
-    data.showPaymentDetails !== false && data.paymentDetails ? [labels.paymentDetails, data.paymentDetails] : null,
-    data.showPaymentTerms !== false && data.paymentTerms ? [labels.paymentTerms, data.paymentTerms] : null,
-    data.showNotes !== false ? [labels.notes, data.notes || labels.defaultNotes] : null,
-  ].filter(Boolean) as Array<[string, string]>;
+  const availableBlocks: Record<string, [string, string, "left" | "right"] | undefined> = {
+    payment: data.showPaymentDetails !== false && data.paymentDetails
+      ? [labels.paymentDetails, data.paymentDetails, data.invoicePaymentAccentSide || "left"]
+      : undefined,
+    terms: data.showPaymentTerms !== false && data.paymentTerms
+      ? [labels.paymentTerms, data.paymentTerms, "left"]
+      : undefined,
+    notes: data.showNotes !== false
+      ? [labels.notes, data.notes || labels.defaultNotes, "left"]
+      : undefined,
+  };
+  const requestedOrder = (data.invoiceInfoOrder || "payment,terms,notes").split(",").map((key) => key.trim());
+  const blockOrder = Array.from(new Set([...requestedOrder, "payment", "terms", "notes"]));
+  const blocks = blockOrder.map((key) => availableBlocks[key]).filter(Boolean) as Array<[string, string, "left" | "right"]>;
 
-  for (const [title, content] of blocks) {
-    const lines = doc.splitTextToSize(plainText(content), contentWidth - 8) as string[];
+  const drawBlock = ([title, content, accentSide]: [string, string, "left" | "right"], x: number, width: number) => {
+    const lines = doc.splitTextToSize(plainText(content), width - 8) as string[];
     const blockHeight = Math.max(22, 12 + lines.length * 4.1);
     if (y + blockHeight > PAGE_HEIGHT - 22) {
       doc.addPage();
       drawPageDecoration(doc, data, primary, accent, background);
       y = 22;
     }
-    y = drawTextBlock(doc, title, content, contentLeft, y, contentWidth, primary) + 4;
+    return drawTextBlock(doc, title, content, x, y, width, primary, accentSide);
+  };
+
+  if (data.invoiceInfoLayout === "columns" && blocks.length > 1) {
+    const blockWidth = (contentWidth - 4) / 2;
+    for (let index = 0; index < blocks.length; index += 2) {
+      const leftBottom = drawBlock(blocks[index], contentLeft, blockWidth);
+      const rightBottom = blocks[index + 1] ? drawBlock(blocks[index + 1], contentLeft + blockWidth + 4, blockWidth) : leftBottom;
+      y = Math.max(leftBottom, rightBottom) + 4;
+    }
+  } else {
+    for (const block of blocks) {
+      y = drawBlock(block, contentLeft, contentWidth) + 4;
+    }
   }
 
   if (data.showFooterNotes !== false && plainText(data.footerNotes)) {

@@ -7,6 +7,7 @@ interface EmailParams {
   replyTo?: string;
   replyToName?: string;
   senderName?: string;
+  senderEmail?: string;
   attachments?: Array<{ name: string; content: string }>;
 }
 
@@ -23,6 +24,7 @@ interface TickdEmailLayoutParams {
 }
 
 const senderEmail = () => process.env.SENDER_EMAIL || "noreply@tickd.me";
+const invoiceSenderEmail = () => process.env.INVOICE_SENDER_EMAIL || "invoice@tickd.me";
 
 const escapeHtml = (value: string) => value
   .replace(/&/g, "&amp;")
@@ -139,7 +141,7 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
       body: JSON.stringify({
         sender: {
           name: params.senderName || "Tickd",
-          email: senderEmail(),
+          email: params.senderEmail || senderEmail(),
         },
         to: [{ email: params.to }],
         subject: params.subject,
@@ -163,28 +165,15 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
   }
 }
 
-export async function sendInvoiceEmail(params: {
-  to: string;
-  replyTo?: string;
-  replyToName?: string;
-  senderName?: string;
-  subject: string;
+export function renderInvoiceEmailHtml(params: {
   introduction: string;
   invoiceNumber: string;
   clientName: string;
   total: string;
   dueDate: string;
-  pdfBase64: string;
-}): Promise<boolean> {
+}) {
   const safeIntroduction = escapeHtml(params.introduction).replace(/\n/g, "<br>");
-  return sendEmail({
-    to: params.to,
-    replyTo: params.replyTo,
-    replyToName: params.replyToName,
-    senderName: params.senderName,
-    subject: params.subject,
-    attachments: [{ name: `${params.invoiceNumber}.pdf`, content: params.pdfBase64 }],
-    htmlContent: `<!doctype html>
+  return `<!doctype html>
 <html lang="en"><body style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#101828;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:32px 16px;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;">
@@ -203,7 +192,31 @@ export async function sendInvoiceEmail(params: {
       <tr><td style="padding:18px 4px 0;color:#98a2b3;font-size:11px;line-height:18px;">Prepared and delivered securely with Tickd.</td></tr>
     </table>
   </td></tr></table>
-</body></html>`,
+</body></html>`;
+}
+
+export async function sendInvoiceEmail(params: {
+  to: string;
+  replyTo?: string;
+  replyToName?: string;
+  senderName?: string;
+  subject: string;
+  introduction: string;
+  invoiceNumber: string;
+  clientName: string;
+  total: string;
+  dueDate: string;
+  pdfBase64: string;
+}): Promise<boolean> {
+  return sendEmail({
+    to: params.to,
+    replyTo: params.replyTo,
+    replyToName: params.replyToName,
+    senderName: params.senderName,
+    senderEmail: invoiceSenderEmail(),
+    subject: params.subject,
+    attachments: [{ name: `${params.invoiceNumber}.pdf`, content: params.pdfBase64 }],
+    htmlContent: renderInvoiceEmailHtml(params),
   });
 }
 

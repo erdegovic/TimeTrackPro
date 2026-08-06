@@ -1,5 +1,6 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
+import * as oidc from "openid-client";
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "../db";
 import { authenticate } from "../middleware/auth";
@@ -8,6 +9,7 @@ import {
   aiArtifacts,
   clients,
   invoiceAutomationAudit,
+  invoiceAutomationJobs,
   projects,
   recurringInvoiceSchedules,
   timeEntries,
@@ -24,14 +26,40 @@ import {
 import {
   approveInvoiceJob,
   cancelInvoiceJob,
+  getPreparedInvoicePreviewHtml,
   listAutomationData,
   prepareInvoiceJob,
   sendPreparedInvoice,
   updatePreparedInvoiceJob,
 } from "./automation";
+import { getBaseUrl } from "../utils/url-helper";
+import {
+  disconnectGmail,
+  GMAIL_SEND_SCOPE,
+  getGmailConnection,
+  isGmailIntegrationConfigured,
+  saveGmailConnection,
+} from "../integrations/gmail";
 
 const router = Router();
 router.use(authenticate);
+let gmailGoogleConfiguration: Promise<oidc.Configuration> | undefined;
+
+const getGmailGoogleConfiguration = () => {
+  if (!isGmailIntegrationConfigured()) throw new Error("Gmail delivery is not configured.");
+  if (!gmailGoogleConfiguration) {
+    gmailGoogleConfiguration = oidc.discovery(
+      new URL("https://accounts.google.com"),
+      process.env.GOOGLE_CLIENT_ID!,
+      process.env.GOOGLE_CLIENT_SECRET!,
+    );
+  }
+  return gmailGoogleConfiguration;
+};
+
+const saveSession = (req: Request) => new Promise<void>((resolve, reject) => {
+  req.session.save((error) => error ? reject(error) : resolve());
+});
 
 const requireUltimate = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -77,6 +105,105 @@ router.get("/status", requireUltimate, async (req, res) => {
       configured: Boolean(process.env.OPENAI_API_KEY),
       usage,
     });
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.get("/gmail/status", requireUltimate, async (req, res) => {
+  try {
+    const connection = await getGmailConnection(req.user!.id);
+    res.json({
+      configured: isGmailIntegrationConfigured(),
+      connected: Boolean(connection),
+      email: connection?.email || null,
+    });
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.get("/gmail/connect", requireUltimate, async (req, res) => {
+  try {
+    const configuration = await getGmailGoogleConfiguration();
+    const codeVerifier = oidc.randomPKCECodeVerifier();
+    const codeChallenge = await oidc.calculatePKCECodeChallenge(codeVerifier);
+    const state = oidc.randomState();
+    const nonce = oidc.randomNonce();
+    req.session.gmailOauthCodeVerifier = codeVerifier;
+    req.session.gmailOauthState = state;
+    req.session.gmailOauthNonce = nonce;
+    await saveSession(req);
+    const redirectUri = `${getBaseUrl(req)}/api/ultimate/gmail/callback`;
+    const authorizationUrl = oidc.buildAuthorizationUrl(configuration, {
+      redirect_uri: redirectUri,
+      scope: `openid email ${GMAIL_SEND_SCOPE}`,
+      code_challenge: codeChallenge,
+      code_challenge_method: "S256",
+      state,
+      nonce,
+      access_type: "offline",
+      include_granted_scopes: "true",
+      prompt: "consent",
+    });
+    res.redirect(authorizationUrl.href);
+  } catch (error) {
+    console.error("Unable to start Gmail connection:", error);
+    res.redirect("/ultimate?tab=automation&gmail=unavailable");
+  }
+});
+
+router.get("/gmail/callback", requireUltimate, async (req, res) => {
+  const codeVerifier = req.session.gmailOauthCodeVerifier;
+  const expectedState = req.session.gmailOauthState;
+  const expectedNonce = req.session.gmailOauthNonce;
+  delete req.session.gmailOauthCodeVerifier;
+  delete req.session.gmailOauthState;
+  delete req.session.gmailOauthNonce;
+  if (!codeVerifier || !expectedState || !expectedNonce) {
+    return res.redirect("/ultimate?tab=automation&gmail=session-expired");
+  }
+  try {
+    const configuration = await getGmailGoogleConfiguration();
+    const callbackUrl = new URL(req.originalUrl, getBaseUrl(req));
+    const tokens = await oidc.authorizationCodeGrant(configuration, callbackUrl, {
+      pkceCodeVerifier: codeVerifier,
+      expectedState,
+      expectedNonce,
+    });
+    const claims = tokens.claims();
+    const email = typeof claims?.email === "string" ? claims.email : "";
+    if (!email || claims?.email_verified !== true || !tokens.refresh_token) {
+      throw new Error("Google did not return a verified email and offline token.");
+    }
+    await saveGmailConnection({
+      userId: req.user!.id,
+      email,
+      refreshToken: tokens.refresh_token,
+      scope: tokens.scope || GMAIL_SEND_SCOPE,
+    });
+    res.redirect("/ultimate?tab=automation&gmail=connected");
+  } catch (error) {
+    console.error("Gmail connection callback failed:", error);
+    res.redirect("/ultimate?tab=automation&gmail=failed");
+  }
+});
+
+router.delete("/gmail/connection", requireUltimate, async (req, res) => {
+  try {
+    await disconnectGmail(req.user!.id);
+    res.status(204).end();
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.get("/jobs/:id/invoice-preview", requireUltimate, async (req, res) => {
+  try {
+    const html = await getPreparedInvoicePreviewHtml(req.params.id, req.user!.id);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.send(html);
   } catch (error) {
     sendRouteError(res, error);
   }
@@ -288,6 +415,99 @@ const automationProfileSchema = z.object({
   percentageIncrease: z.number().min(0).max(500).default(0),
   replyToEmail: z.union([z.string().trim().email(), z.literal("")]),
   replyToName: z.string().trim().max(120).default(""),
+  deliveryMethod: z.enum(["client", "self", "gmail"]).default("client"),
+});
+
+const invoiceCustomizationSchema = z.object({
+  invoiceTemplate: z.enum(["classic", "professional", "media", "web", "graphic", "minimalistic", "freelancer", "avant", "luxe"]),
+  invoiceColorTheme: z.string().regex(/^#[0-9a-f]{6}$/i),
+  invoiceAccentColor: z.string().regex(/^#[0-9a-f]{6}$/i),
+  invoiceTextColor: z.string().regex(/^#[0-9a-f]{6}$/i),
+  invoiceBackgroundColor: z.string().regex(/^#[0-9a-f]{6}$/i),
+  showDateColumn: z.boolean(),
+  showHourlyRate: z.boolean(),
+  showProjectName: z.boolean(),
+  showBankDetails: z.boolean(),
+  showPaymentTerms: z.boolean(),
+  showInvoiceNotes: z.boolean(),
+  showFooterNotes: z.boolean(),
+  invoiceNotes: z.string().max(3000),
+  paymentTerms: z.string().max(3000),
+  invoiceFooterText: z.string().max(3000),
+  invoiceHeaderPlacement: z.enum(["standard", "reversed", "centered"]),
+  invoiceInfoLayout: z.enum(["columns", "stacked"]),
+  invoiceInfoOrder: z.enum([
+    "payment,terms,notes",
+    "payment,notes,terms",
+    "terms,payment,notes",
+    "terms,notes,payment",
+    "notes,payment,terms",
+    "notes,terms,payment",
+  ]),
+  invoicePaymentAccentSide: z.enum(["left", "right"]),
+});
+
+const invoiceCustomizationJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "invoiceTemplate", "invoiceColorTheme", "invoiceAccentColor", "invoiceTextColor", "invoiceBackgroundColor",
+    "showDateColumn", "showHourlyRate", "showProjectName", "showBankDetails", "showPaymentTerms",
+    "showInvoiceNotes", "showFooterNotes", "invoiceNotes", "paymentTerms", "invoiceFooterText",
+    "invoiceHeaderPlacement", "invoiceInfoLayout", "invoiceInfoOrder", "invoicePaymentAccentSide",
+  ],
+  properties: {
+    invoiceTemplate: { type: "string", enum: ["classic", "professional", "media", "web", "graphic", "minimalistic", "freelancer", "avant", "luxe"] },
+    invoiceColorTheme: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+    invoiceAccentColor: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+    invoiceTextColor: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+    invoiceBackgroundColor: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+    showDateColumn: { type: "boolean" },
+    showHourlyRate: { type: "boolean" },
+    showProjectName: { type: "boolean" },
+    showBankDetails: { type: "boolean" },
+    showPaymentTerms: { type: "boolean" },
+    showInvoiceNotes: { type: "boolean" },
+    showFooterNotes: { type: "boolean" },
+    invoiceNotes: { type: "string" },
+    paymentTerms: { type: "string" },
+    invoiceFooterText: { type: "string" },
+    invoiceHeaderPlacement: { type: "string", enum: ["standard", "reversed", "centered"] },
+    invoiceInfoLayout: { type: "string", enum: ["columns", "stacked"] },
+    invoiceInfoOrder: { type: "string", enum: ["payment,terms,notes", "payment,notes,terms", "terms,payment,notes", "terms,notes,payment", "notes,payment,terms", "notes,terms,payment"] },
+    invoicePaymentAccentSide: { type: "string", enum: ["left", "right"] },
+  },
+} as const;
+
+router.post("/invoice-customization/interpret", requireUltimate, requireAiConsent, async (req, res) => {
+  try {
+    const data = z.object({
+      instruction: z.string().trim().min(3).max(2000),
+      current: z.record(z.unknown()),
+      context: z.enum(["settings", "client"]).default("settings"),
+    }).parse(req.body);
+    const ai = await runStructuredAi<{ customization: z.infer<typeof invoiceCustomizationSchema>; summary: string }>({
+      userId: req.user!.id,
+      action: "invoice_design_edit",
+      writing: true,
+      instructions: "Act as a careful invoice designer. Apply the user's instruction to the supplied current invoice settings. Return the complete settings object, preserving every unrelated value. Translate spatial requests into the available layout controls. Never add HTML, CSS, scripts, bank details, legal claims, financial amounts, or facts that the user did not supply. Keep invoice copy concise and professional.",
+      input: data,
+      schemaName: "invoice_design_edit",
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["customization", "summary"],
+        properties: {
+          customization: invoiceCustomizationJsonSchema,
+          summary: { type: "string" },
+        },
+      },
+    });
+    const customization = invoiceCustomizationSchema.parse(ai.result.customization);
+    res.json({ customization, summary: ai.result.summary.trim() });
+  } catch (error) {
+    sendRouteError(res, error);
+  }
 });
 
 router.put("/clients/:id/automation-profile", requireUltimate, async (req, res) => {
@@ -547,12 +767,101 @@ router.put("/jobs/:id/draft", requireUltimate, async (req, res) => {
       emailSubject: z.string().trim().min(1).max(200),
       emailBody: z.string().trim().min(1).max(5000),
       lineItems: z.array(preparedLineItemSchema).max(200),
+      invoiceCustomization: invoiceCustomizationSchema.partial().optional(),
     }).parse(req.body);
     res.json(await updatePreparedInvoiceJob({
       jobId: req.params.id,
       userId: req.user!.id,
       ...data,
     }));
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
+router.post("/jobs/:id/ai-edit", requireUltimate, requireAiConsent, async (req, res) => {
+  try {
+    const data = z.object({ instruction: z.string().trim().min(3).max(2000) }).parse(req.body);
+    const [job] = await db.select().from(invoiceAutomationJobs).where(and(
+      eq(invoiceAutomationJobs.id, req.params.id),
+      eq(invoiceAutomationJobs.userId, req.user!.id),
+    ));
+    if (!job) throw new Error("Prepared invoice not found.");
+    if (!["pending_approval", "needs_attention", "scheduled"].includes(job.status)) {
+      throw new Error("This prepared invoice can no longer be edited.");
+    }
+    const payload = JSON.parse(job.payload) as any;
+    const currentCustomization = {
+      invoiceTemplate: payload.business?.invoiceTemplate || "professional",
+      invoiceColorTheme: payload.business?.invoiceColorTheme || "#12283d",
+      invoiceAccentColor: payload.business?.invoiceAccentColor || "#2d6cdf",
+      invoiceTextColor: payload.business?.invoiceTextColor || "#111827",
+      invoiceBackgroundColor: payload.business?.invoiceBackgroundColor || "#ffffff",
+      showDateColumn: payload.business?.showDateColumn === true,
+      showHourlyRate: payload.business?.showHourlyRate !== false,
+      showProjectName: payload.business?.showProjectName !== false,
+      showBankDetails: payload.business?.showBankDetails !== false,
+      showPaymentTerms: payload.business?.showPaymentTerms === true,
+      showInvoiceNotes: payload.business?.showInvoiceNotes !== false,
+      showFooterNotes: payload.business?.showFooterNotes !== false,
+      invoiceNotes: payload.notes || "",
+      paymentTerms: payload.paymentTerms || "",
+      invoiceFooterText: payload.business?.invoiceFooterText || "",
+      invoiceHeaderPlacement: payload.business?.invoiceHeaderPlacement || "standard",
+      invoiceInfoLayout: payload.business?.invoiceInfoLayout || "columns",
+      invoiceInfoOrder: payload.business?.invoiceInfoOrder || "payment,terms,notes",
+      invoicePaymentAccentSide: payload.business?.invoicePaymentAccentSide || "left",
+    };
+    const ai = await runStructuredAi<{
+      lineItems: Array<{ key: string; description: string; projectName: string; hours: number; rate: number; weekLabel: string; isCustom: boolean }>;
+      customization: z.infer<typeof invoiceCustomizationSchema>;
+      summary: string;
+    }>({
+      userId: req.user!.id,
+      action: "prepared_invoice_edit",
+      writing: true,
+      instructions: "Edit the prepared invoice exactly as requested. You may rename, regroup, add, remove, or reorder line items, and change the available layout controls. Preserve unrelated content. A weekLabel is a visible grouping title; use an empty string for no group. isCustom means quantity-based rather than hourly. Never invent completed work or payment details. Preserve quantities and rates unless the user explicitly asks to change them. Do not calculate amounts; the server recalculates all totals. Never output HTML, CSS, scripts, or unsupported layout instructions.",
+      input: {
+        instruction: data.instruction,
+        currency: payload.currency,
+        client: payload.client?.name,
+        lineItems: payload.lineItems,
+        customization: currentCustomization,
+      },
+      schemaName: "prepared_invoice_edit",
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["lineItems", "customization", "summary"],
+        properties: {
+          lineItems: {
+            type: "array",
+            maxItems: 200,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["key", "description", "projectName", "hours", "rate", "weekLabel", "isCustom"],
+              properties: {
+                key: { type: "string" },
+                description: { type: "string" },
+                projectName: { type: "string" },
+                hours: { type: "number" },
+                rate: { type: "number" },
+                weekLabel: { type: "string" },
+                isCustom: { type: "boolean" },
+              },
+            },
+          },
+          customization: invoiceCustomizationJsonSchema,
+          summary: { type: "string" },
+        },
+      },
+    });
+    const lineItems = z.array(preparedLineItemSchema).min(1).max(200).parse(
+      ai.result.lineItems.map((item) => ({ ...item, weekLabel: item.weekLabel || undefined })),
+    );
+    const customization = invoiceCustomizationSchema.parse(ai.result.customization);
+    res.json({ lineItems, customization, summary: ai.result.summary.trim() });
   } catch (error) {
     sendRouteError(res, error);
   }

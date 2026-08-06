@@ -80,6 +80,12 @@ type AutomationData = {
   jobs: Array<any>;
 };
 
+type GmailStatus = {
+  configured: boolean;
+  connected: boolean;
+  email: string | null;
+};
+
 const statusStyles: Record<string, string> = {
   pending_approval: "border-amber-200 bg-amber-50 text-amber-800",
   scheduled: "border-blue-200 bg-blue-50 text-blue-700",
@@ -138,6 +144,7 @@ const getClientAutomationProfile = (
     percentageIncrease: Number(saved.percentageIncrease || 0),
     replyToEmail: saved.replyToEmail || settings?.businessEmail || user?.email || "",
     replyToName: saved.replyToName || settings?.businessName || userName || user?.username || "",
+    deliveryMethod: saved.deliveryMethod || "client",
   };
 };
 
@@ -168,6 +175,10 @@ export default function UltimatePage() {
   const { data: projects = [] } = useQuery<any[]>({ queryKey: ["/api/projects"], enabled: access.canUseAi });
   const { data: automation } = useQuery<AutomationData>({
     queryKey: ["/api/ultimate/automation"],
+    enabled: access.canAutomateInvoices,
+  });
+  const { data: gmailStatus } = useQuery<GmailStatus>({
+    queryKey: ["/api/ultimate/gmail/status"],
     enabled: access.canAutomateInvoices,
   });
 
@@ -359,7 +370,7 @@ export default function UltimatePage() {
         </TabsContent>
 
         <TabsContent value="automation" className="mt-5 space-y-6">
-          <ScheduleComposer clients={clients} settings={settings} user={user} aiEnabled={status?.enabled === true} onCreated={() => queryClient.invalidateQueries({ queryKey: ["/api/ultimate/automation"] })} />
+          <ScheduleComposer clients={clients} settings={settings} user={user} aiEnabled={status?.enabled === true} gmailStatus={gmailStatus} onCreated={() => queryClient.invalidateQueries({ queryKey: ["/api/ultimate/automation"] })} />
           <ScheduleList schedules={automation?.schedules || []} onChanged={() => queryClient.invalidateQueries({ queryKey: ["/api/ultimate/automation"] })} />
           <ApprovalQueue jobs={automation?.jobs || []} onChanged={() => { queryClient.invalidateQueries({ queryKey: ["/api/ultimate/automation"] }); queryClient.invalidateQueries({ queryKey: ["/api/invoices"] }); }} />
         </TabsContent>
@@ -385,12 +396,14 @@ function ScheduleComposer({
   settings,
   user,
   aiEnabled,
+  gmailStatus,
   onCreated,
 }: {
   clients: Client[];
   settings?: Settings;
   user: any;
   aiEnabled: boolean;
+  gmailStatus?: GmailStatus;
   onCreated: () => void;
 }) {
   const { toast } = useToast();
@@ -432,6 +445,12 @@ function ScheduleComposer({
     dueDate: format(addDays(new Date(), 30), "yyyy-MM-dd"),
     businessName: profile.replyToName || "Your business",
   };
+  const previewFromEmail = profile.deliveryMethod === "gmail"
+    ? gmailStatus?.email || "Connect Gmail"
+    : "invoice@tickd.me";
+  const previewRecipient = profile.deliveryMethod === "self"
+    ? profile.replyToEmail || "Add your email"
+    : selectedClient?.email || "Client email needed";
 
   const saveAutomationProfile = async () => {
     if (!clientId) throw new Error("Choose a client first.");
@@ -445,6 +464,16 @@ function ScheduleComposer({
       toast({ title: "Client automation defaults saved" });
     },
     onError: (error: Error) => toast({ title: "Could not save client defaults", description: error.message, variant: "destructive" }),
+  });
+
+  const disconnectGmailMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", "/api/ultimate/gmail/connection"),
+    onSuccess: () => {
+      setProfile((current) => ({ ...current, deliveryMethod: "client" }));
+      queryClient.invalidateQueries({ queryKey: ["/api/ultimate/gmail/status"] });
+      toast({ title: "Gmail disconnected" });
+    },
+    onError: (error: Error) => toast({ title: "Could not disconnect Gmail", description: error.message, variant: "destructive" }),
   });
 
   const emailPolishMutation = useMutation({
@@ -601,7 +630,30 @@ function ScheduleComposer({
                   <div><Label htmlFor="automation-sender-name">Sender name</Label><Input id="automation-sender-name" className="mt-1 bg-white" value={profile.replyToName} onChange={(event) => setProfile((current) => ({ ...current, replyToName: event.target.value }))} /></div>
                   <div><Label htmlFor="automation-reply-email">Replies go to</Label><Input id="automation-reply-email" className="mt-1 bg-white" type="email" value={profile.replyToEmail} onChange={(event) => setProfile((current) => ({ ...current, replyToEmail: event.target.value }))} /></div>
                 </div>
-                <p className="mt-3 text-xs leading-5 text-gray-500">Delivered from Tickd’s authenticated mail service as “{profile.replyToName || "Your business"} via Tickd”. Replies go directly to the address above.</p>
+                <div className="mt-4">
+                  <Label>Delivery</Label>
+                  <Tabs value={profile.deliveryMethod} onValueChange={(value) => setProfile((current) => ({ ...current, deliveryMethod: value as InvoiceAutomationProfile["deliveryMethod"] }))} className="mt-2">
+                    <TabsList className="grid h-auto w-full grid-cols-3">
+                      <TabsTrigger value="client" className="min-h-10 text-xs">To client</TabsTrigger>
+                      <TabsTrigger value="self" className="min-h-10 text-xs">To me</TabsTrigger>
+                      <TabsTrigger value="gmail" className="min-h-10 text-xs">My Gmail</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+                {profile.deliveryMethod === "gmail" ? (
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-md border bg-white p-3">
+                    <div className="min-w-0"><p className="truncate text-xs font-medium text-gray-900">{gmailStatus?.connected ? gmailStatus.email : "Gmail is not connected"}</p><p className="mt-0.5 text-xs text-gray-500">Invoices are sent through this account.</p></div>
+                    {gmailStatus?.connected
+                      ? <Button type="button" size="sm" variant="ghost" onClick={() => disconnectGmailMutation.mutate()} disabled={disconnectGmailMutation.isPending}>Disconnect</Button>
+                      : <Button type="button" size="sm" variant="outline" onClick={() => { window.location.href = "/api/ultimate/gmail/connect"; }} disabled={!gmailStatus?.configured}>Connect</Button>}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs leading-5 text-gray-500">
+                    {profile.deliveryMethod === "self"
+                      ? "Tickd sends the invoice to your reply address so you can forward it personally."
+                      : `Sent as ${profile.replyToName || "Your business"} <invoice@tickd.me>. Replies go directly to the address above.`}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -621,7 +673,7 @@ function ScheduleComposer({
                 </div>
                 <div className="overflow-hidden rounded-md border bg-white">
                   <div className="border-b bg-gray-50 px-4 py-3 text-xs text-gray-600">
-                    <div className="grid grid-cols-[4rem_1fr] gap-1"><span>From</span><span className="truncate font-medium text-gray-900">{profile.replyToName || "Your business"} via Tickd &lt;noreply@tickd.me&gt;</span><span>Reply to</span><span className="truncate">{profile.replyToEmail || "Add a reply address"}</span><span>To</span><span className="truncate">{selectedClient?.email || "Client email needed"}</span></div>
+                    <div className="grid grid-cols-[4rem_1fr] gap-1"><span>From</span><span className="truncate font-medium text-gray-900">{profile.replyToName || "Your business"} &lt;{previewFromEmail}&gt;</span><span>Reply to</span><span className="truncate">{profile.replyToEmail || "Add a reply address"}</span><span>To</span><span className="truncate">{previewRecipient}</span></div>
                   </div>
                   <div className="p-5">
                     <p className="text-xs font-semibold uppercase text-blue-600">Email preview</p>
@@ -689,11 +741,33 @@ function ApprovalQueue({ jobs, onChanged }: { jobs: any[]; onChanged: () => void
             {job.errorMessage && <p className="mt-3 text-xs text-red-700">{job.errorMessage}</p>}
             {editingJobId === job.id
               ? <PreparedJobEditor job={job} onSaved={() => { setEditingJobId(null); onChanged(); }} />
-              : <div className="mt-3 grid gap-2 sm:grid-cols-2">{payload.lineItems?.slice(0, 6).map((item: any) => <div key={item.key} className="flex items-start justify-between gap-3 text-xs"><span className="min-w-0 truncate text-gray-600">{item.description}</span><span className="shrink-0 font-mono text-gray-900">{Number(item.hours).toFixed(2)}{item.isCustom ? "" : "h"} · {payload.currency} {Number(item.amount).toFixed(2)}</span></div>)}</div>}
+              : <PreparedInvoicePreview job={job} />}
           </div>;
         })}</div> : <p className="py-6 text-center text-sm text-gray-500">Prepared invoices will appear here.</p>}
       </CardContent>
     </Card>
+  );
+}
+
+function PreparedInvoicePreview({ job }: { job: any }) {
+  return (
+    <div className="mt-4 overflow-hidden rounded-md border bg-gray-100">
+      <div className="flex items-center justify-between border-b bg-white px-3 py-2">
+        <p className="text-xs font-semibold text-gray-700">Generated invoice preview</p>
+        <p className="text-xs text-gray-500">Open the editor to change content or layout</p>
+      </div>
+      <div className="h-[34rem] overflow-auto p-3">
+        <div style={{ width: "794px", height: "1123px", transform: "scale(0.47)", transformOrigin: "top left", marginBottom: "-595px" }}>
+          <iframe
+            src={`/api/ultimate/jobs/${job.id}/invoice-preview?v=${encodeURIComponent(job.updatedAt || "")}`}
+            title={`Invoice preview for ${job.payload?.client?.name || "client"}`}
+            width="794"
+            height="1123"
+            className="block border-0 bg-white"
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -703,6 +777,28 @@ function PreparedJobEditor({ job, onSaved }: { job: any; onSaved: () => void }) 
   const [emailSubject, setEmailSubject] = useState(job.emailSubject || "");
   const [emailBody, setEmailBody] = useState(job.emailBody || "");
   const [lineItems, setLineItems] = useState<any[]>(() => (payload.lineItems || []).map((item: any) => ({ ...item })));
+  const [aiInstruction, setAiInstruction] = useState("");
+  const [invoiceCustomization, setInvoiceCustomization] = useState<Record<string, any>>(() => ({
+    invoiceTemplate: payload.business?.invoiceTemplate || "professional",
+    invoiceColorTheme: payload.business?.invoiceColorTheme || "#12283d",
+    invoiceAccentColor: payload.business?.invoiceAccentColor || "#2d6cdf",
+    invoiceTextColor: payload.business?.invoiceTextColor || "#111827",
+    invoiceBackgroundColor: payload.business?.invoiceBackgroundColor || "#ffffff",
+    showDateColumn: payload.business?.showDateColumn === true,
+    showHourlyRate: payload.business?.showHourlyRate !== false,
+    showProjectName: payload.business?.showProjectName !== false,
+    showBankDetails: payload.business?.showBankDetails !== false,
+    showPaymentTerms: payload.business?.showPaymentTerms === true,
+    showInvoiceNotes: payload.business?.showInvoiceNotes !== false,
+    showFooterNotes: payload.business?.showFooterNotes !== false,
+    invoiceNotes: payload.notes || "",
+    paymentTerms: payload.paymentTerms || "",
+    invoiceFooterText: payload.business?.invoiceFooterText || "",
+    invoiceHeaderPlacement: payload.business?.invoiceHeaderPlacement || "standard",
+    invoiceInfoLayout: payload.business?.invoiceInfoLayout || "columns",
+    invoiceInfoOrder: payload.business?.invoiceInfoOrder || "payment,terms,notes",
+    invoicePaymentAccentSide: payload.business?.invoicePaymentAccentSide || "left",
+  }));
   const updateItem = (key: string, field: string, value: string | number) => setLineItems((items) => items.map((item) => item.key === key ? { ...item, [field]: value } : item));
   const subtotal = lineItems.reduce((sum, item) => sum + Math.max(0, Number(item.hours || 0)) * Math.max(0, Number(item.rate || 0)), 0);
   const tax = subtotal * Number(payload.taxRate || 0) / 100;
@@ -720,6 +816,7 @@ function PreparedJobEditor({ job, onSaved }: { job: any; onSaved: () => void }) 
         weekLabel: item.weekLabel || undefined,
         isCustom: item.isCustom === true,
       })),
+      invoiceCustomization,
     }),
     onSuccess: () => { toast({ title: "Prepared invoice updated" }); onSaved(); },
     onError: (error: Error) => toast({ title: "Could not update prepared invoice", description: error.message, variant: "destructive" }),
@@ -732,13 +829,51 @@ function PreparedJobEditor({ job, onSaved }: { job: any; onSaved: () => void }) 
     onSuccess: (result) => { setEmailSubject(result.subject); setEmailBody(result.body); queryClient.invalidateQueries({ queryKey: ["/api/ultimate/status"] }); },
     onError: (error: Error) => toast({ title: "Email polish failed", description: error.message, variant: "destructive" }),
   });
+  const aiEditMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/ultimate/jobs/${job.id}/ai-edit`, { instruction: aiInstruction });
+      return response.json() as Promise<{ lineItems: any[]; customization: Record<string, any>; summary: string }>;
+    },
+    onSuccess: (result) => {
+      setLineItems(result.lineItems);
+      setInvoiceCustomization(result.customization);
+      setAiInstruction("");
+      queryClient.invalidateQueries({ queryKey: ["/api/ultimate/status"] });
+      toast({ title: "Invoice changes ready", description: `${result.summary} Review them, then save.` });
+    },
+    onError: (error: Error) => toast({ title: "AI invoice edit failed", description: error.message, variant: "destructive" }),
+  });
+
+  const deliveryMethod = payload.sender?.deliveryMethod || "client";
+  const senderAddress = deliveryMethod === "gmail" ? "Connected Gmail account" : "invoice@tickd.me";
+  const recipientAddress = deliveryMethod === "self"
+    ? payload.sender?.replyToEmail || payload.business?.businessEmail
+    : payload.client?.email;
 
   return (
     <div className="mt-4 space-y-5 border-t pt-5">
+      <div className="rounded-md border border-blue-200 bg-blue-50/60 p-4">
+        <div className="flex items-start gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white"><Sparkles className="h-4 w-4" /></div><div><p className="text-sm font-semibold text-gray-950">Edit this invoice with Tickd AI</p><p className="mt-1 text-xs leading-5 text-gray-600">Change wording, groups, quantities, rates, visibility, colours, or supported layout positions. You review the result before saving.</p></div></div>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+          <Textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} maxLength={2000} className="min-h-20 resize-y bg-white" placeholder='Example: “Rename the first week Video production, the second Shooting, and switch Payment Details with Notes.”' />
+          <Button type="button" onClick={() => aiEditMutation.mutate()} disabled={aiInstruction.trim().length < 3 || aiEditMutation.isPending} className="shrink-0">{aiEditMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <WandSparkles className="mr-2 h-4 w-4" />}Apply changes</Button>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-sm font-semibold text-gray-950">Invoice layout</p>
+        <div className="mt-3 grid gap-3 rounded-md border bg-gray-50 p-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div><Label className="text-xs">Header</Label><Select value={invoiceCustomization.invoiceHeaderPlacement} onValueChange={(value) => setInvoiceCustomization((current) => ({ ...current, invoiceHeaderPlacement: value }))}><SelectTrigger className="mt-1 bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="standard">Standard</SelectItem><SelectItem value="reversed">Reversed</SelectItem><SelectItem value="centered">Centered</SelectItem></SelectContent></Select></div>
+          <div><Label className="text-xs">Information cards</Label><Select value={invoiceCustomization.invoiceInfoLayout} onValueChange={(value) => setInvoiceCustomization((current) => ({ ...current, invoiceInfoLayout: value }))}><SelectTrigger className="mt-1 bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="columns">Columns</SelectItem><SelectItem value="stacked">Stacked</SelectItem></SelectContent></Select></div>
+          <div><Label className="text-xs">Card order</Label><Select value={invoiceCustomization.invoiceInfoOrder} onValueChange={(value) => setInvoiceCustomization((current) => ({ ...current, invoiceInfoOrder: value }))}><SelectTrigger className="mt-1 bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="payment,terms,notes">Payment, terms, notes</SelectItem><SelectItem value="payment,notes,terms">Payment, notes, terms</SelectItem><SelectItem value="terms,payment,notes">Terms, payment, notes</SelectItem><SelectItem value="terms,notes,payment">Terms, notes, payment</SelectItem><SelectItem value="notes,payment,terms">Notes, payment, terms</SelectItem><SelectItem value="notes,terms,payment">Notes, terms, payment</SelectItem></SelectContent></Select></div>
+          <div><Label className="text-xs">Payment accent</Label><Select value={invoiceCustomization.invoicePaymentAccentSide} onValueChange={(value) => setInvoiceCustomization((current) => ({ ...current, invoicePaymentAccentSide: value }))}><SelectTrigger className="mt-1 bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="left">Left side</SelectItem><SelectItem value="right">Right side</SelectItem></SelectContent></Select></div>
+        </div>
+      </div>
+
       <div>
         <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-gray-950">Invoice items</p><Button variant="outline" size="sm" onClick={() => setLineItems((items) => [...items, { key: `custom:${Date.now()}`, description: "Additional item", projectName: "", hours: 1, rate: 0, isCustom: true }])}><Plus className="mr-2 h-3.5 w-3.5" />Add item</Button></div>
         <div className="mt-3 space-y-2">{lineItems.map((item) => <div key={item.key} className="grid gap-2 rounded-md border bg-gray-50 p-3 sm:grid-cols-[minmax(0,1fr)_7rem_8rem_2.5rem]">
-          <div className="space-y-2"><div><Label className="text-xs">Description</Label><Input className="mt-1 bg-white" value={item.description} onChange={(event) => updateItem(item.key, "description", event.target.value)} /></div><Input className="bg-white" aria-label={`Project for ${item.description}`} placeholder="Project (optional)" value={item.projectName || ""} onChange={(event) => updateItem(item.key, "projectName", event.target.value)} /></div>
+          <div className="space-y-2"><div><Label className="text-xs">Description</Label><Input className="mt-1 bg-white" value={item.description} onChange={(event) => updateItem(item.key, "description", event.target.value)} /></div><Input className="bg-white" aria-label={`Project for ${item.description}`} placeholder="Project (optional)" value={item.projectName || ""} onChange={(event) => updateItem(item.key, "projectName", event.target.value)} /><Input className="bg-white" aria-label={`Group for ${item.description}`} placeholder="Group title (optional)" value={item.weekLabel || ""} onChange={(event) => updateItem(item.key, "weekLabel", event.target.value)} /></div>
           <div><Label className="text-xs">{item.isCustom ? "Quantity" : "Hours"}</Label><Input className="mt-1 bg-white" type="number" min="0" step="0.01" value={item.hours} onChange={(event) => updateItem(item.key, "hours", Number(event.target.value))} /></div>
           <div><Label className="text-xs">Rate</Label><Input className="mt-1 bg-white" type="number" min="0" step="0.01" value={item.rate} onChange={(event) => updateItem(item.key, "rate", Number(event.target.value))} /></div>
           <div className="flex items-end"><Button variant="ghost" size="icon" className="text-red-600" aria-label={`Remove ${item.description}`} onClick={() => setLineItems((items) => items.filter((candidate) => candidate.key !== item.key))}><Trash2 className="h-4 w-4" /></Button></div>
@@ -753,7 +888,7 @@ function PreparedJobEditor({ job, onSaved }: { job: any; onSaved: () => void }) 
           <div><Label htmlFor={`job-body-${job.id}`}>Message</Label><Textarea id={`job-body-${job.id}`} className="mt-1 min-h-44" value={emailBody} onChange={(event) => setEmailBody(event.target.value)} /></div>
         </div>
         <div className="overflow-hidden rounded-md border bg-white">
-          <div className="border-b bg-gray-50 px-4 py-3 text-xs text-gray-600"><div className="grid grid-cols-[4rem_1fr] gap-1"><span>From</span><span className="truncate font-medium text-gray-900">{payload.sender?.name || payload.business?.businessName || "Your business"} via Tickd</span><span>Reply to</span><span className="truncate">{payload.sender?.replyToEmail || payload.business?.businessEmail}</span><span>To</span><span className="truncate">{payload.client?.email}</span></div></div>
+          <div className="border-b bg-gray-50 px-4 py-3 text-xs text-gray-600"><div className="grid grid-cols-[4rem_1fr] gap-1"><span>From</span><span className="truncate font-medium text-gray-900">{payload.sender?.name || payload.business?.businessName || "Your business"} &lt;{senderAddress}&gt;</span><span>Reply to</span><span className="truncate">{payload.sender?.replyToEmail || payload.business?.businessEmail}</span><span>To</span><span className="truncate">{recipientAddress}</span></div></div>
           <div className="p-5"><p className="text-xs font-semibold uppercase text-blue-600">Email preview</p><p className="mt-2 break-words text-base font-semibold text-gray-950">{emailSubject}</p><div className="mt-5 h-1 w-11 rounded bg-blue-600" /><p className="mt-5 whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">{emailBody}</p><div className="mt-6 flex items-center gap-3 border-t pt-4 text-xs text-gray-500"><Mail className="h-4 w-4 text-blue-600" /><span>Invoice PDF attached · {payload.currency} {(subtotal + tax).toFixed(2)}</span></div></div>
         </div>
       </div>

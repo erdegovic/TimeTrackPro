@@ -82,3 +82,24 @@ test("invoice units label distinguishes hourly, quantity, and mixed items", () =
   assert.equal(getInvoiceUnitsLabel(labels, [quantity]), "Quantity");
   assert.equal(getInvoiceUnitsLabel(labels, [hourly, quantity]), "Hours / Qty");
 });
+
+test("invoice layout controls reorder information and move the payment accent", () => {
+  const html = generateInvoiceHTML({
+    ...sampleInvoice,
+    paymentTerms: "Pay in 30 days.",
+    showPaymentTerms: true,
+    invoiceHeaderPlacement: "reversed",
+    invoiceInfoLayout: "stacked",
+    invoiceInfoOrder: "notes,payment,terms",
+    invoicePaymentAccentSide: "right",
+  });
+
+  assert.match(html, /header-reversed/);
+  assert.match(html, /info-stacked/);
+  assert.match(html, /payment-accent-right/);
+  assert.ok(html.indexOf("Thank you for your business") < html.indexOf("IBAN: GB00 TEST"));
+  assert.ok(html.indexOf("IBAN: GB00 TEST") < html.indexOf("Pay in 30 days"));
+
+  const pdf = createInvoicePdf({ ...sampleInvoice, invoiceInfoOrder: "notes,payment,terms", invoicePaymentAccentSide: "right" });
+  assert.ok(Buffer.from(pdf.output("arraybuffer")).length > 5_000);
+});

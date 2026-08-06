@@ -53,6 +53,10 @@ export interface InvoiceTemplateData {
   showFooterNotes?: boolean;
   watermarkPreview?: boolean;
   watermarkLogoUrl?: string;
+  invoiceHeaderPlacement?: "standard" | "reversed" | "centered";
+  invoiceInfoLayout?: "columns" | "stacked";
+  invoiceInfoOrder?: string;
+  invoicePaymentAccentSide?: "left" | "right";
 }
 
 export const TEMPLATE_OPTIONS = [
@@ -332,6 +336,16 @@ const INVOICE_CSS = `
   .info-card p { margin: 0; color: var(--muted); font-size: 10.5px; line-height: 1.7; }
   .payment-card { border-left: 5px solid var(--ink); }
   .payment-card h4 { color: var(--ink); }
+  .invoice-page.header-reversed .topline { direction: rtl !important; }
+  .invoice-page.header-reversed .topline > * { direction: ltr !important; }
+  .invoice-page.header-reversed .invoice-title,
+  .invoice-page.header-reversed .invoice-number { text-align: left !important; }
+  .invoice-page.header-centered .topline { display: grid !important; grid-template-columns: 1fr !important; gap: 18px !important; text-align: center !important; }
+  .invoice-page.header-centered .brand { justify-content: center !important; }
+  .invoice-page.header-centered .invoice-title,
+  .invoice-page.header-centered .invoice-number { text-align: center !important; }
+  .invoice-page.info-stacked .info-grid { grid-template-columns: 1fr !important; }
+  .invoice-page.payment-accent-right .payment-card { border-left-width: 1px !important; border-right: 5px solid var(--ink) !important; }
   .totals { width: 100%; }
   .total-row { display: flex; justify-content: space-between; gap: 18px; padding: 8px 0; color: var(--muted); border-bottom: 1px solid var(--line); font-size: 11px; }
   .grand-total { display: flex; min-height: 48px; margin-top: 10px; padding: 10px 14px; align-items: center; justify-content: space-between; gap: 16px; color: #fff; border-radius: 6px; font-size: 16px; font-weight: 850; line-height: 1.2; }
@@ -657,20 +671,26 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
     <div class="summary">
       <div class="terms">
         ${(() => {
-          const parts: string[] = [];
+          const parts: Record<string, string> = {};
           if (data.showPaymentDetails !== false && data.paymentDetails) {
-            parts.push(`<div class="info-card payment-card"><h4>${esc(labels.paymentDetails)}</h4><p>${data.paymentDetails}</p></div>`);
+            parts.payment = `<div class="info-card payment-card"><h4>${esc(labels.paymentDetails)}</h4><p>${esc(data.paymentDetails).replace(/\n/g, "<br>")}</p></div>`;
           }
           if (data.showPaymentTerms !== false && data.paymentTerms) {
-            parts.push(`<div class="info-card terms-card"><h4>${esc(labels.paymentTerms)}</h4><p>${esc(data.paymentTerms).replace(/\n/g, "<br>")}</p></div>`);
+            parts.terms = `<div class="info-card terms-card"><h4>${esc(labels.paymentTerms)}</h4><p>${esc(data.paymentTerms).replace(/\n/g, "<br>")}</p></div>`;
           }
           if (data.showNotes !== false) {
-            parts.push(`<div class="info-card notes-card"><h4>${esc(labels.notes)}</h4><p>${data.notes ? esc(data.notes).replace(/\n/g, "<br>") : esc(labels.defaultNotes)}</p></div>`);
+            parts.notes = `<div class="info-card notes-card"><h4>${esc(labels.notes)}</h4><p>${data.notes ? esc(data.notes).replace(/\n/g, "<br>") : esc(labels.defaultNotes)}</p></div>`;
           }
-          if (parts.length === 0) {
+          const requestedOrder = (data.invoiceInfoOrder || "payment,terms,notes")
+            .split(",")
+            .map((key) => key.trim())
+            .filter((key) => ["payment", "terms", "notes"].includes(key));
+          const order = Array.from(new Set([...requestedOrder, "payment", "terms", "notes"]));
+          const orderedParts = order.map((key) => parts[key]).filter(Boolean);
+          if (orderedParts.length === 0) {
             return `<div class="info-card payment-card"><h4>${esc(labels.paymentTerms)}</h4><p>${esc(labels.defaultNotes)}</p></div>`;
           }
-          return `<div class="info-grid${parts.length === 1 ? ' single' : ''}${parts.length > 2 ? ' stacked' : ''}">${parts.join("")}</div>`;
+          return `<div class="info-grid${orderedParts.length === 1 ? ' single' : ''}${orderedParts.length > 2 ? ' stacked' : ''}">${orderedParts.join("")}</div>`;
         })()}
       </div>
       <div class="totals">
@@ -775,6 +795,12 @@ export function generateInvoiceHTML(data: InvoiceTemplateData): string {
   const watermark = data.watermarkPreview
     ? `<div class="preview-watermark" aria-hidden="true"><div class="preview-watermark__item">${data.watermarkLogoUrl ? `<img src="${esc(data.watermarkLogoUrl)}" alt="">` : ""}<span>Free preview</span></div></div>`
     : "";
+  const layoutClasses = [
+    data.invoiceHeaderPlacement === "reversed" ? "header-reversed" : "",
+    data.invoiceHeaderPlacement === "centered" ? "header-centered" : "",
+    data.invoiceInfoLayout === "stacked" ? "info-stacked" : "",
+    data.invoicePaymentAccentSide === "right" ? "payment-accent-right" : "",
+  ].filter(Boolean).join(" ");
   return `<!DOCTYPE html>
 <html lang="${esc(data.language || "en")}">
 <head>
@@ -786,7 +812,7 @@ export function generateInvoiceHTML(data: InvoiceTemplateData): string {
   </style>
 </head>
 <body>
-  <section class="invoice-page ${esc(data.template)}">
+  <section class="invoice-page ${esc(data.template)} ${layoutClasses}">
     ${watermark}
     <div class="invoice">
       ${buildInvoiceBody(data)}

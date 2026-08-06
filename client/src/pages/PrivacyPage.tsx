@@ -24,6 +24,14 @@ const sections = [
     content: <><p>We use carefully selected providers to run Tickd. These may include Hostinger for application infrastructure, Supabase for the production database, Brevo for transactional email, Google for optional sign-in, Paddle for subscription payments and tax handling, and Cloudflare R2 for encrypted backups.</p><p>Providers may process information in different countries. Where required, transfers are protected through recognised legal safeguards and provider contractual terms.</p></>,
   },
   {
+    title: "Optional Gmail invoice delivery",
+    content: <><p>If you connect Gmail for invoice delivery, Tickd requests permission only to send email from that Google account. Tickd does not request access to read, list, modify, or delete your mailbox. We store the connected email address and an encrypted authorisation token so scheduled invoices can be sent when you instruct Tickd to do so.</p><p>You can disconnect Gmail from Tickd at any time and revoke access from your Google Account. Tickd's use and transfer of information received from Google APIs follows the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer" className="font-semibold text-[#096cfb] hover:underline">Google API Services User Data Policy</a>, including its Limited Use requirements.</p></>,
+  },
+  {
+    title: "Optional AI assistance",
+    content: <p>AI assistance is disabled until you enable it. When used, Tickd sends only the information needed for the requested action, such as selected time-entry descriptions or the invoice content being edited, to its AI provider. AI output is treated as a draft, constrained to supported fields, and should be reviewed before it is saved or sent.</p>,
+  },
+  {
     title: "Cookies and sessions",
     content: <p>Tickd uses essential cookies or similar storage to keep you signed in, protect account sessions, remember necessary preferences, and operate security features. Optional analytics or marketing technologies should not be enabled without the notice or consent required in your region.</p>,
   },
