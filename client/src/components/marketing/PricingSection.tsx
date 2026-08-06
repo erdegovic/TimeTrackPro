@@ -112,7 +112,7 @@ export default function PricingSection({ currentPlan, currentBillingInterval = "
                 {plan.emphasis && <span className={`absolute right-5 top-5 rounded-md px-2.5 py-1 text-xs font-bold ${isHighlighted ? "bg-[#1473ff] text-white" : plan.available ? "bg-[#edf4ff] text-[#096cfb]" : "bg-[#f0f2f5] text-[#667085]"}`}>{plan.emphasis}</span>}
                 <div className="pr-24">
                   <h3 className="text-xl font-semibold">{plan.name}</h3>
-                  <div className="mt-7 flex items-end gap-1"><span className="text-4xl font-semibold tracking-tight">${billingInterval === "annual" ? plan.annualPrice.toFixed(2) : plan.monthlyPrice.toFixed(2)}</span><span className={`pb-1 text-sm ${mutedText}`}>/ {billingInterval === "annual" ? "year" : "month"}</span></div>
+                  <div className="mt-7 flex items-end gap-1"><span className="text-4xl font-semibold tracking-tight">${billingInterval === "annual" ? plan.annualPrice.toFixed(2) : plan.monthlyPrice.toFixed(2)}</span><span className={`pb-1 text-sm ${mutedText}`}>{plan.id === "free" ? "forever" : `/ ${billingInterval === "annual" ? "year" : "month"}`}</span></div>
                   {billingInterval === "annual" && plan.id !== "free" && <p className={`mt-2 text-xs font-semibold ${isHighlighted ? "text-emerald-300" : "text-emerald-700"}`}>Save {plan.annualDiscount}% · ${annualMonthlyEquivalent.toFixed(2)}/month, billed yearly</p>}
                   <p className={`mt-5 min-h-[48px] text-sm leading-6 ${mutedText}`}>{plan.description}</p>
                 </div>

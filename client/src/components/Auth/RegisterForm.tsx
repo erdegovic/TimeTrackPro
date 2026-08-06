@@ -131,7 +131,7 @@ export default function RegisterForm() {
                   <span className="block text-sm font-bold text-gray-900">{plan.name}</span>
                   <span className="mt-2 block text-xl font-bold text-gray-900">
                     ${billingInterval === 'annual' ? plan.annualPrice.toFixed(2) : plan.monthlyPrice.toFixed(2)}
-                    <span className="text-xs font-medium text-gray-500">/{billingInterval === 'annual' ? 'yr' : 'mo'}</span>
+                    <span className="text-xs font-medium text-gray-500">{plan.id === 'free' ? ' forever' : `/${billingInterval === 'annual' ? 'yr' : 'mo'}`}</span>
                   </span>
                   {billingInterval === 'annual' && plan.id !== 'free' && (
                     <span className="mt-1 block text-xs font-semibold text-emerald-700">
