@@ -391,12 +391,12 @@ export default function AccountPage() {
                       <div className="flex items-center gap-2"><h3 className="text-xl font-bold">{currentPlanDetails.name}</h3>{currentPlan !== 'free' && <span className="rounded bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white">{currentPlan.toUpperCase()}</span>}</div>
                       <p className="mt-1 text-sm text-gray-600">{currentPlanDetails.price} per month</p>
                     </div>
-                    {currentPlan !== 'ultimate' && <Button asChild><Link href="/plans">{currentPlan === 'free' ? 'View upgrade options' : 'Compare plans'}</Link></Button>}
+                    <Button asChild><Link href="/plans">{currentPlan === 'free' ? 'View upgrade options' : 'Compare plans'}</Link></Button>
                   </div>
 
                   {user?.subscriptionCancelAtPeriodEnd && user.subscriptionCurrentPeriodEnd && (
                     <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                      Pro remains active until {new Date(user.subscriptionCurrentPeriodEnd).toLocaleDateString()} and will then move to Free.
+                      {currentPlanDetails.name} remains active until {new Date(user.subscriptionCurrentPeriodEnd).toLocaleDateString()} and will then move to Free.
                     </div>
                   )}
 
@@ -408,7 +408,7 @@ export default function AccountPage() {
                     <div className="border-t border-gray-200 pt-5 md:border-l md:border-t-0 md:pl-6 md:pt-0">
                       <h3 className="text-sm font-semibold">Change plan</h3>
                       {currentPlan === 'free' ? (
-                        <div className="mt-3 space-y-3"><p className="text-sm leading-6 text-gray-600">Free is the permanent no-cost tier. Upgrade to Pro whenever you need invoice exports and client billing tools.</p><Button asChild><Link href="/plans">Upgrade securely</Link></Button></div>
+                        <div className="mt-3 space-y-3"><p className="text-sm leading-6 text-gray-600">Free is the permanent no-cost tier. Upgrade to Pro for client billing, or Ultimate for AI tools and invoice automation.</p><Button asChild><Link href="/plans">Upgrade securely</Link></Button></div>
                       ) : user?.subscriptionStatus === 'complimentary' ? (
                         <p className="mt-3 text-sm leading-6 text-gray-600">This plan was granted by Tickd and has no payment method or recurring charge.</p>
                       ) : user?.paddleCustomerId ? (

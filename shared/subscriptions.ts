@@ -2,7 +2,7 @@ export const subscriptionPlans = ["free", "pro", "ultimate"] as const;
 
 export type SubscriptionPlan = (typeof subscriptionPlans)[number];
 
-export const registrationPlans = ["free", "pro"] as const;
+export const registrationPlans = ["free", "pro", "ultimate"] as const;
 
 export const isSubscriptionPlan = (value: unknown): value is SubscriptionPlan =>
   typeof value === "string" && subscriptionPlans.includes(value as SubscriptionPlan);

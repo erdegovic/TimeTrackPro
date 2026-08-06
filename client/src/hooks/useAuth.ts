@@ -17,10 +17,11 @@ export interface UserProfile {
   role?: string;
   subscriptionPlan?: SubscriptionPlan;
   subscriptionStatus?: string;
-  subscriptionRequestedPlan?: "free" | "pro" | null;
+  subscriptionRequestedPlan?: SubscriptionPlan | null;
   subscriptionCurrentPeriodEnd?: string | null;
   subscriptionCancelAtPeriodEnd?: boolean;
   paddleCustomerId?: string | null;
+  paddleSubscriptionId?: string | null;
 }
 
 export function useAuth() {

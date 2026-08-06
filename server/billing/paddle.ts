@@ -1,9 +1,15 @@
 import express, { type Express, type Request, type Response, Router } from "express";
 import { randomBytes } from "node:crypto";
 import { Environment, EventName, Paddle } from "@paddle/paddle-node-sdk";
+import { z } from "zod";
 import { pool } from "../db";
 import { storage } from "../storage";
-import { extractTickdCheckoutToken, hasPaidPaddleStatus } from "@shared/paddle-billing";
+import {
+  extractTickdCheckoutToken,
+  hasPaidPaddleStatus,
+  resolvePaddlePlan,
+  type PaddlePaidPlan,
+} from "@shared/paddle-billing";
 
 type PaddleEnvironment = "sandbox" | "production";
 
@@ -19,13 +25,20 @@ const getPaddle = () => {
   });
 };
 
+const getConfiguredPriceIds = (): Partial<Record<PaddlePaidPlan, string>> => ({
+  pro: process.env.PADDLE_PRO_PRICE_ID,
+  ultimate: process.env.PADDLE_ULTIMATE_PRICE_ID,
+});
+
 export const isPaddleCheckoutConfigured = () => Boolean(
-  process.env.PADDLE_CLIENT_TOKEN && process.env.PADDLE_PRO_PRICE_ID,
+  process.env.PADDLE_CLIENT_TOKEN
+    && process.env.PADDLE_API_KEY
+    && process.env.PADDLE_WEBHOOK_SECRET
+    && (process.env.PADDLE_PRO_PRICE_ID || process.env.PADDLE_ULTIMATE_PRICE_ID),
 );
 
 export const hasConfiguredProPrice = (items: Array<{ price?: { id?: string } | null }>) => {
-  const expectedPriceId = process.env.PADDLE_PRO_PRICE_ID;
-  return Boolean(expectedPriceId && items.some((item) => item.price?.id === expectedPriceId));
+  return resolvePaddlePlan(items, getConfiguredPriceIds()) === "pro";
 };
 
 const findUserIdForPaddleEvent = async (data: {
@@ -82,7 +95,8 @@ const releaseEventForRetry = async (eventId: string) => {
 };
 
 const processSubscriptionEvent = async (data: any) => {
-  if (!hasConfiguredProPrice(data.items || [])) return;
+  const plan = resolvePaddlePlan(data.items || [], getConfiguredPriceIds());
+  if (!plan) return;
   const userId = await findUserIdForPaddleEvent(data);
   if (!userId) throw new Error(`No Tickd user matched Paddle subscription ${data.id}`);
 
@@ -103,28 +117,29 @@ const processSubscriptionEvent = async (data: any) => {
          paddle_subscription_id = $7,
          updated_at = now()
      WHERE id = $1`,
-    [userId, paidAccess ? "pro" : "free", status, periodEnd, cancelAtPeriodEnd, data.customerId, data.id],
+    [userId, paidAccess ? plan : "free", status, periodEnd, cancelAtPeriodEnd, data.customerId, data.id],
   );
 };
 
 const processCompletedTransaction = async (data: any) => {
-  if (!hasConfiguredProPrice(data.items || [])) return;
+  const plan = resolvePaddlePlan(data.items || [], getConfiguredPriceIds());
+  if (!plan) return;
   const userId = await findUserIdForPaddleEvent(data);
   if (!userId) throw new Error(`No Tickd user matched Paddle transaction ${data.id}`);
 
   await pool.query(
     `UPDATE users
-     SET subscription_plan = 'pro',
+     SET subscription_plan = $2,
          subscription_status = 'active',
          subscription_changed_at = now(),
          subscription_requested_plan = NULL,
-         subscription_current_period_end = COALESCE($2, subscription_current_period_end),
+         subscription_current_period_end = COALESCE($3, subscription_current_period_end),
          subscription_cancel_at_period_end = false,
-         paddle_customer_id = COALESCE($3, paddle_customer_id),
-         paddle_subscription_id = COALESCE($4, paddle_subscription_id),
+         paddle_customer_id = COALESCE($4, paddle_customer_id),
+         paddle_subscription_id = COALESCE($5, paddle_subscription_id),
          updated_at = now()
      WHERE id = $1`,
-    [userId, data.billingPeriod?.endsAt || null, data.customerId, data.subscriptionId],
+    [userId, plan, data.billingPeriod?.endsAt || null, data.customerId, data.subscriptionId],
   );
 };
 
@@ -133,7 +148,7 @@ const processFailedTransaction = async (data: any) => {
   if (!userId) return;
   await pool.query(
     `UPDATE users
-     SET subscription_status = CASE WHEN subscription_plan = 'pro' THEN 'past_due' ELSE subscription_status END,
+     SET subscription_status = CASE WHEN subscription_plan IN ('pro', 'ultimate') THEN 'past_due' ELSE subscription_status END,
          subscription_changed_at = now(),
          updated_at = now()
      WHERE id = $1`,
@@ -201,15 +216,69 @@ router.get("/config", async (req: Request, res: Response) => {
 
   const enabled = isPaddleCheckoutConfigured();
   const checkoutToken = enabled ? await createCheckoutToken(user.id) : null;
+  const priceIds = getConfiguredPriceIds();
   return res.json({
     enabled,
     environment: getEnvironment(),
     clientToken: enabled ? process.env.PADDLE_CLIENT_TOKEN : null,
-    proPriceId: enabled ? process.env.PADDLE_PRO_PRICE_ID : null,
+    priceIds: {
+      pro: enabled ? priceIds.pro || null : null,
+      ultimate: enabled ? priceIds.ultimate || null : null,
+    },
+    proPriceId: enabled ? priceIds.pro || null : null,
+    ultimatePriceId: enabled ? priceIds.ultimate || null : null,
     customerId: user.paddleCustomerId || null,
     checkoutToken,
     email: user.email,
   });
+});
+
+const changePlanSchema = z.object({
+  plan: z.enum(["pro", "ultimate"]),
+});
+
+router.post("/change-plan", async (req: Request, res: Response) => {
+  const userId = req.session?.userId;
+  if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+  const validation = changePlanSchema.safeParse(req.body);
+  if (!validation.success) return res.status(400).json({ message: "Choose a valid paid plan." });
+
+  const user = await storage.getUser(userId);
+  if (!user) return res.status(404).json({ message: "User not found" });
+  if (!user.paddleCustomerId || !user.paddleSubscriptionId) {
+    return res.status(400).json({ message: "Start a Paddle subscription before changing paid plans." });
+  }
+
+  const priceId = getConfiguredPriceIds()[validation.data.plan];
+  if (!priceId) return res.status(503).json({ message: `${validation.data.plan === "pro" ? "Pro" : "Ultimate"} checkout is not configured.` });
+
+  try {
+    const paddle = getPaddle();
+    const currentSubscription = await paddle.subscriptions.get(user.paddleSubscriptionId);
+    if (currentSubscription.customerId !== user.paddleCustomerId) {
+      return res.status(409).json({ message: "The linked Paddle subscription could not be verified." });
+    }
+
+    const isUpgrade = validation.data.plan === "ultimate";
+    const subscription = await paddle.subscriptions.update(user.paddleSubscriptionId, {
+      items: [{ priceId, quantity: 1 }],
+      prorationBillingMode: isUpgrade ? "prorated_immediately" : "prorated_next_billing_period",
+      customData: {
+        ...(currentSubscription.customData || {}),
+        tickd_plan: validation.data.plan,
+      },
+    });
+
+    return res.json({
+      plan: validation.data.plan,
+      status: subscription.status,
+      effective: isUpgrade ? "immediate" : "next_billing_period",
+    });
+  } catch (error) {
+    console.error("Could not change Paddle subscription plan:", error);
+    return res.status(502).json({ message: "The subscription could not be changed. Please try again." });
+  }
 });
 
 router.post("/portal", async (req: Request, res: Response) => {

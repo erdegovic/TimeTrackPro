@@ -38,7 +38,7 @@ const registrationRequestSchema = z.object({
   firstName: z.string().trim().max(100).nullish(),
   lastName: z.string().trim().max(100).nullish(),
   captchaToken: z.string().nullish(),
-  plan: z.enum(['free', 'pro']),
+  plan: z.enum(['free', 'pro', 'ultimate']),
 }).and(legalAcceptanceSchema);
 
 const emailCodeRequestSchema = z.object({
@@ -111,6 +111,7 @@ const serializeUser = (user: Awaited<ReturnType<typeof storage.getUser>>) => {
     subscriptionCurrentPeriodEnd: user.subscriptionCurrentPeriodEnd,
     subscriptionCancelAtPeriodEnd: user.subscriptionCancelAtPeriodEnd,
     paddleCustomerId: user.paddleCustomerId,
+    paddleSubscriptionId: user.paddleSubscriptionId,
   };
 };
 
@@ -722,7 +723,7 @@ router.get('/google/callback', async (req: Request, res: Response) => {
           resetPasswordToken: null,
           subscriptionPlan: 'free',
           subscriptionStatus: 'active',
-          subscriptionRequestedPlan: registrationPlan === 'pro' ? 'pro' : null,
+          subscriptionRequestedPlan: registrationPlan === 'free' ? null : registrationPlan,
           subscriptionChangedAt: new Date(),
           termsAcceptedAt: new Date(),
           termsVersion,
@@ -738,7 +739,11 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     await regenerateSession(req);
     req.session.userId = user.id;
     await saveSession(req);
-    res.redirect(user.subscriptionRequestedPlan === 'pro' ? '/plans?checkout=pro' : returnTo);
+    res.redirect(
+      user.subscriptionRequestedPlan && user.subscriptionRequestedPlan !== 'free'
+        ? `/plans?checkout=${user.subscriptionRequestedPlan}`
+        : returnTo,
+    );
   } catch (error) {
     console.error('Google authentication callback failed:', error);
     res.redirect('/login?error=google-sign-in-failed');
@@ -796,7 +801,7 @@ router.post('/register', async (req: Request, res: Response) => {
       profileImageUrl: null,
       subscriptionPlan: 'free',
       subscriptionStatus: 'active',
-      subscriptionRequestedPlan: plan === 'pro' ? 'pro' : null,
+      subscriptionRequestedPlan: plan === 'free' ? null : plan,
       subscriptionChangedAt: new Date(),
       termsAcceptedAt: new Date(),
       termsVersion,
@@ -910,7 +915,9 @@ router.post('/verify-email-code', async (req: Request, res: Response) => {
     verificationAttempts.delete(attemptKey);
     return res.status(200).json({
       message: 'Email verified successfully.',
-      next: updatedUser?.subscriptionRequestedPlan === 'pro' ? '/login?verified=true&plan=pro' : '/login?verified=true',
+      next: updatedUser?.subscriptionRequestedPlan && updatedUser.subscriptionRequestedPlan !== 'free'
+        ? `/login?verified=true&plan=${updatedUser.subscriptionRequestedPlan}`
+        : '/login?verified=true',
     });
   } catch (error) {
     console.error('Email code verification error:', error);

@@ -1,10 +1,13 @@
 import { initializePaddle, type Paddle, type PaddleEventData } from "@paddle/paddle-js";
+import type { PaddlePaidPlan } from "@shared/paddle-billing";
 
 export type PaddleBillingConfig = {
   enabled: boolean;
   environment: "sandbox" | "production";
   clientToken: string | null;
+  priceIds: Record<PaddlePaidPlan, string | null>;
   proPriceId: string | null;
+  ultimatePriceId: string | null;
   customerId: string | null;
   checkoutToken: string | null;
   email: string;
@@ -39,9 +42,11 @@ export const getPaddleBillingConfig = async (): Promise<PaddleBillingConfig> => 
   return result;
 };
 
-export const openProCheckout = async (onCompleted: () => void) => {
+export const openPlanCheckout = async (plan: PaddlePaidPlan, onCompleted: () => void) => {
   const config = await getPaddleBillingConfig();
-  if (!config.enabled || !config.proPriceId || !config.checkoutToken) {
+  const priceId = config.priceIds?.[plan]
+    || (plan === "pro" ? config.proPriceId : config.ultimatePriceId);
+  if (!config.enabled || !priceId || !config.checkoutToken) {
     throw new Error("Secure checkout is not available yet.");
   }
 
@@ -50,9 +55,9 @@ export const openProCheckout = async (onCompleted: () => void) => {
 
   checkoutCompletedListeners.add(onCompleted);
   paddle.Checkout.open({
-    items: [{ priceId: config.proPriceId, quantity: 1 }],
+    items: [{ priceId, quantity: 1 }],
     customer: { email: config.email },
-    customData: { tickd_checkout_token: config.checkoutToken, tickd_plan: "pro" },
+    customData: { tickd_checkout_token: config.checkoutToken, tickd_plan: plan },
     settings: {
       displayMode: "overlay",
       theme: "light",
@@ -63,6 +68,18 @@ export const openProCheckout = async (onCompleted: () => void) => {
   });
 
   return () => checkoutCompletedListeners.delete(onCompleted);
+};
+
+export const changePaddlePlan = async (plan: PaddlePaidPlan) => {
+  const response = await fetch("/api/billing/change-plan", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ plan }),
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.message || "The subscription could not be changed.");
+  return result as { plan: PaddlePaidPlan; status: string; effective: "immediate" | "next_billing_period" };
 };
 
 export const openBillingPortal = async () => {

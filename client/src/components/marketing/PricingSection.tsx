@@ -3,50 +3,69 @@ import { Check, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { planDetails } from "@/lib/plans";
-import type { SubscriptionPlan } from "@shared/subscriptions";
-import { openProCheckout } from "@/lib/paddle";
+import { subscriptionPlanRank, type SubscriptionPlan } from "@shared/subscriptions";
+import type { PaddlePaidPlan } from "@shared/paddle-billing";
+import { changePaddlePlan, openPlanCheckout } from "@/lib/paddle";
 import { queryClient } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 
 type PricingSectionProps = {
   currentPlan?: SubscriptionPlan;
+  paddleSubscriptionId?: string | null;
   compact?: boolean;
-  autoCheckout?: boolean;
+  autoCheckout?: PaddlePaidPlan | null;
 };
 
-export default function PricingSection({ currentPlan, compact = false, autoCheckout = false }: PricingSectionProps) {
-  const [isOpeningCheckout, setIsOpeningCheckout] = useState(false);
+export default function PricingSection({ currentPlan, paddleSubscriptionId, compact = false, autoCheckout = null }: PricingSectionProps) {
+  const [busyPlan, setBusyPlan] = useState<PaddlePaidPlan | null>(null);
   const autoCheckoutStarted = useRef(false);
 
-  const refreshSubscription = async () => {
+  const refreshSubscription = async (expectedPlan: PaddlePaidPlan) => {
     for (let attempt = 0; attempt < 10; attempt += 1) {
       await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 400 : 1200));
       const response = await fetch("/api/auth/user", { credentials: "include" });
       if (!response.ok) continue;
       const user = await response.json();
       queryClient.setQueryData(["/api/auth/user"], user);
-      if (user.subscriptionPlan === "pro" && ["active", "trialing", "past_due"].includes(user.subscriptionStatus)) {
-        toast({ title: "Welcome to Tickd Pro", description: "Invoice exports and Pro billing tools are now unlocked." });
-        setIsOpeningCheckout(false);
+      if (user.subscriptionPlan === expectedPlan && ["active", "trialing", "past_due"].includes(user.subscriptionStatus)) {
+        const planName = expectedPlan === "ultimate" ? "Ultimate" : "Pro";
+        toast({
+          title: `Tickd ${planName} is active`,
+          description: expectedPlan === "ultimate"
+            ? "AI tools and invoice automation are now unlocked."
+            : "Invoice exports and Pro billing tools are now unlocked.",
+        });
+        setBusyPlan(null);
         return;
       }
     }
-    setIsOpeningCheckout(false);
+    setBusyPlan(null);
     toast({ title: "Payment received", description: "Paddle is still confirming your subscription. Refresh this page in a moment." });
   };
 
-  const startProCheckout = async () => {
-    if (isOpeningCheckout) return;
-    setIsOpeningCheckout(true);
+  const selectPaidPlan = async (plan: PaddlePaidPlan) => {
+    if (busyPlan) return;
+    setBusyPlan(plan);
     let removeListener: () => void = () => {};
     try {
-      removeListener = await openProCheckout(() => {
-        removeListener();
-        void refreshSubscription();
-      });
-      setIsOpeningCheckout(false);
+      if (currentPlan && currentPlan !== "free" && paddleSubscriptionId) {
+        const result = await changePaddlePlan(plan);
+        toast({
+          title: result.effective === "immediate" ? "Plan change submitted" : "Downgrade scheduled",
+          description: result.effective === "immediate"
+            ? "Paddle is applying your new plan now."
+            : "The lower price takes effect at your next billing date.",
+        });
+        await refreshSubscription(plan);
+      } else {
+        removeListener = await openPlanCheckout(plan, () => {
+          removeListener();
+          void refreshSubscription(plan);
+        });
+        setBusyPlan(null);
+      }
     } catch (error) {
-      setIsOpeningCheckout(false);
+      setBusyPlan(null);
       toast({
         variant: "destructive",
         title: "Checkout unavailable",
@@ -58,7 +77,7 @@ export default function PricingSection({ currentPlan, compact = false, autoCheck
   useEffect(() => {
     if (autoCheckout && currentPlan === "free" && !autoCheckoutStarted.current) {
       autoCheckoutStarted.current = true;
-      void startProCheckout();
+      void selectPaidPlan(autoCheckout);
     }
   }, [autoCheckout, currentPlan]);
 
@@ -93,9 +112,17 @@ export default function PricingSection({ currentPlan, compact = false, autoCheck
                 {isCurrent ? (
                   <Button className="mt-7" variant="outline" disabled>Current plan</Button>
                 ) : currentPlan ? (
-                  plan.id === "free" ? <Button className="mt-7" variant="outline" asChild><Link href="/account?tab=subscription">Manage current plan</Link></Button> : plan.id === "pro" ? <Button className="mt-7" onClick={startProCheckout} disabled={isOpeningCheckout}>{isOpeningCheckout ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Opening checkout</> : "Upgrade to Pro"}</Button> : <Button className="mt-7" disabled>Coming soon</Button>
+                  plan.id === "free" ? (
+                    <Button className="mt-7" variant="outline" asChild><Link href="/account?tab=subscription">Manage current plan</Link></Button>
+                  ) : !paddleSubscriptionId && subscriptionPlanRank[plan.id] < subscriptionPlanRank[currentPlan] ? (
+                    <Button className="mt-7" variant="outline" asChild><Link href="/account?tab=subscription">Managed by Tickd</Link></Button>
+                  ) : (
+                    <Button className="mt-7" onClick={() => void selectPaidPlan(plan.id as PaddlePaidPlan)} disabled={busyPlan !== null}>
+                      {busyPlan === plan.id ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Updating plan</> : `${currentPlan === "free" ? "Upgrade" : "Switch"} to ${plan.name}`}
+                    </Button>
+                  )
                 ) : (
-                  plan.available ? <Button className={`mt-7 rounded-md ${isHighlighted ? "bg-white text-[#071127] hover:bg-[#edf4ff]" : ""}`} variant={plan.id === "pro" ? "default" : "outline"} asChild><Link href={`/register?plan=${plan.id}`}>{plan.id === "free" ? "Start free" : "Choose Pro"}</Link></Button> : <Button className="mt-7 rounded-md" variant="outline" disabled>Coming soon</Button>
+                  <Button className={`mt-7 rounded-md ${isHighlighted ? "bg-white text-[#071127] hover:bg-[#edf4ff]" : ""}`} variant={plan.id === "pro" ? "default" : "outline"} asChild><Link href={`/register?plan=${plan.id}`}>{plan.id === "free" ? "Start free" : `Choose ${plan.name}`}</Link></Button>
                 )}
               </article>
             );

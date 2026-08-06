@@ -9,10 +9,11 @@ import {
   subscriptionPlanRank,
 } from "../shared/subscriptions";
 
-test("registration accepts available plans and rejects coming-soon plans", () => {
+test("registration accepts every live plan", () => {
   assert.equal(isRegistrationPlan("free"), true);
   assert.equal(isRegistrationPlan("pro"), true);
-  assert.equal(isRegistrationPlan("ultimate"), false);
+  assert.equal(isRegistrationPlan("ultimate"), true);
+  assert.equal(isRegistrationPlan("enterprise"), false);
 });
 
 test("invoice access keeps Free previews visible but watermarked", () => {

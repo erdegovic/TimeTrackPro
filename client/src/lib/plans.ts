@@ -34,8 +34,8 @@ export const planDetails: PlanDetails[] = [
     price: "$8.99",
     description: "Let Tickd prepare the admin around your work.",
     features: ["Everything in Pro", "AI time-entry polish", "Work reviews and client summaries", "Client-specific language and tone", "Smart recurring invoices", "Approval queue and automatic delivery"],
-    available: false,
-    emphasis: "Coming soon",
+    available: true,
+    emphasis: "AI + automation",
   },
 ];
 

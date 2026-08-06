@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { FcGoogle } from 'react-icons/fc';
 import { Button } from '@/components/ui/button';
+import type { SubscriptionPlan } from '@shared/subscriptions';
 
 type GoogleSignInButtonProps = {
   label: string;
-  plan?: 'free' | 'pro';
+  plan?: SubscriptionPlan;
   legalAccepted?: boolean;
   termsVersion?: string;
   privacyVersion?: string;
