@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createInvoicePdf } from "../client/src/lib/invoice-pdf";
-import type { InvoiceTemplateData } from "../client/src/lib/invoice-html-generator";
+import {
+  generateInvoiceHTML,
+  getInvoiceLabels,
+  getInvoiceUnitsLabel,
+  type InvoiceTemplateData,
+} from "../client/src/lib/invoice-html-generator";
 
 const sampleInvoice: InvoiceTemplateData = {
   template: "professional",
@@ -55,4 +60,25 @@ test("free invoice PDF carries a native preview watermark", () => {
   const bytes = Buffer.from(pdf.output("arraybuffer"));
 
   assert.equal(bytes.includes(Buffer.from("TICKD FREE PREVIEW")), true);
+});
+
+test("invoice preview and selectable PDF use matching Helvetica typography", () => {
+  const html = generateInvoiceHTML(sampleInvoice);
+
+  assert.match(html, /font-family:\s*Helvetica, Arial, sans-serif/);
+  assert.doesNotMatch(html, /fonts\.googleapis\.com|font-family:\s*Inter/);
+
+  const pdf = createInvoicePdf(sampleInvoice);
+  const bytes = Buffer.from(pdf.output("arraybuffer"));
+  assert.equal(bytes.includes(Buffer.from("/BaseFont /Helvetica")), true);
+});
+
+test("invoice units label distinguishes hourly, quantity, and mixed items", () => {
+  const labels = getInvoiceLabels("en");
+  const hourly = { ...sampleInvoice.lineItems[0], billingType: "hourly" as const };
+  const quantity = { ...sampleInvoice.lineItems[0], billingType: "quantity" as const };
+
+  assert.equal(getInvoiceUnitsLabel(labels, [hourly]), "Hours");
+  assert.equal(getInvoiceUnitsLabel(labels, [quantity]), "Quantity");
+  assert.equal(getInvoiceUnitsLabel(labels, [hourly, quantity]), "Hours / Qty");
 });

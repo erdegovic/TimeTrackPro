@@ -6,6 +6,7 @@ export interface InvoiceLineItem {
   amount: string;
   date?: string;
   isGroupHeader?: boolean;
+  billingType?: "hourly" | "quantity";
 }
 
 export interface InvoiceTemplateData {
@@ -93,6 +94,8 @@ export type InvoiceLabels = {
   description: string;
   date: string;
   hours: string;
+  quantity: string;
+  hoursOrQuantity: string;
   rate: string;
   amount: string;
   paymentDetails: string;
@@ -115,6 +118,8 @@ export const INVOICE_LABEL_FIELDS: Array<{ key: keyof InvoiceLabels; label: stri
   { key: "description", label: "Description column" },
   { key: "date", label: "Date column" },
   { key: "hours", label: "Hours column" },
+  { key: "quantity", label: "Quantity column" },
+  { key: "hoursOrQuantity", label: "Mixed hours and quantity column" },
   { key: "rate", label: "Rate column" },
   { key: "amount", label: "Amount column" },
   { key: "paymentDetails", label: "Payment details heading" },
@@ -137,6 +142,8 @@ export const INVOICE_LABELS: Record<string, InvoiceLabels> = {
     description: "Description",
     date: "Date",
     hours: "Hours",
+    quantity: "Quantity",
+    hoursOrQuantity: "Hours / Qty",
     rate: "Rate",
     amount: "Amount",
     paymentDetails: "Payment Details",
@@ -158,6 +165,8 @@ export const INVOICE_LABELS: Record<string, InvoiceLabels> = {
     description: "Opis",
     date: "Datum",
     hours: "Sati",
+    quantity: "Kolicina",
+    hoursOrQuantity: "Sati / Kol.",
     rate: "Cena",
     amount: "Iznos",
     paymentDetails: "Podaci za placanje",
@@ -179,6 +188,8 @@ export const INVOICE_LABELS: Record<string, InvoiceLabels> = {
     description: "Beschreibung",
     date: "Datum",
     hours: "Stunden",
+    quantity: "Menge",
+    hoursOrQuantity: "Std. / Menge",
     rate: "Satz",
     amount: "Betrag",
     paymentDetails: "Zahlungsdetails",
@@ -200,6 +211,8 @@ export const INVOICE_LABELS: Record<string, InvoiceLabels> = {
     description: "Description",
     date: "Date",
     hours: "Heures",
+    quantity: "Quantite",
+    hoursOrQuantity: "Heures / Qte",
     rate: "Taux",
     amount: "Montant",
     paymentDetails: "Details de paiement",
@@ -221,6 +234,8 @@ export const INVOICE_LABELS: Record<string, InvoiceLabels> = {
     description: "Descripcion",
     date: "Fecha",
     hours: "Horas",
+    quantity: "Cantidad",
+    hoursOrQuantity: "Horas / Cant.",
     rate: "Tarifa",
     amount: "Importe",
     paymentDetails: "Datos de pago",
@@ -237,6 +252,14 @@ export const INVOICE_LABELS: Record<string, InvoiceLabels> = {
 export function getInvoiceLabels(language?: string, customLabels?: Partial<InvoiceLabels>): InvoiceLabels {
   const baseLabels = INVOICE_LABELS[language || "en"] || INVOICE_LABELS.en;
   return language === "custom" ? { ...INVOICE_LABELS.en, ...customLabels } : baseLabels;
+}
+
+export function getInvoiceUnitsLabel(labels: InvoiceLabels, lineItems: InvoiceLineItem[]): string {
+  const billingTypes = new Set(
+    lineItems.filter((item) => !item.isGroupHeader).map((item) => item.billingType || "hourly"),
+  );
+  if (billingTypes.size > 1) return labels.hoursOrQuantity;
+  return billingTypes.has("quantity") ? labels.quantity : labels.hours;
 }
 
 function esc(str: string): string {
@@ -259,7 +282,7 @@ const INVOICE_CSS = `
     --shadow: 0 18px 55px rgba(26,32,44,0.14);
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: transparent; color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.45; }
+  body { margin: 0; background: transparent; color: var(--ink); font-family: Helvetica, Arial, sans-serif; line-height: 1.45; }
 
   .invoice-page { position: relative; width: 210mm; min-height: 297mm; overflow: hidden; background: var(--paper); break-after: page; page-break-after: always; }
   .invoice { position: relative; z-index: 1; min-height: 297mm; padding: 20mm; }
@@ -320,14 +343,14 @@ const INVOICE_CSS = `
   .footer hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
 
   /* === CLASSIC === */
-  .classic { border: 11mm solid #efe7d9; color: #261f19; font-family: Georgia,"Times New Roman",serif; background: linear-gradient(#fffaf1,#fffaf1) padding-box, linear-gradient(135deg,#c4a46a,#7c6242) border-box; }
+  .classic { border: 11mm solid #efe7d9; color: #261f19; font-family: Helvetica,Arial,sans-serif; background: linear-gradient(#fffaf1,#fffaf1) padding-box, linear-gradient(135deg,#c4a46a,#7c6242) border-box; }
   .classic .inner-border { position: absolute; inset: 13mm; border: 1px solid rgba(124,98,66,0.34); pointer-events: none; z-index: 0; }
   .classic .invoice { min-height: 275mm; padding: 17mm; }
   .classic .topline { display: block; text-align: center; }
   .classic .brand { justify-content: center; margin-top: 6mm; }
-  .classic .mark { background: #7c6242; font-family: Inter,sans-serif; border-radius: 50%; }
+  .classic .mark { background: #7c6242; font-family: Helvetica,Arial,sans-serif; border-radius: 50%; }
   .classic .address { margin-top: 12px; }
-  .classic .invoice-title { margin-top: 22px; color: #261f19; font-family: Georgia,"Times New Roman",serif; font-size: 34px; font-weight: 500; text-align: center; }
+  .classic .invoice-title { margin-top: 22px; color: #261f19; font-family: Helvetica,Arial,sans-serif; font-size: 34px; font-weight: 500; text-align: center; }
   .classic .invoice-number { color: #7c6242; text-align: center; }
   .classic .meta-grid { border-top: 1px solid rgba(124,98,66,0.36); border-bottom: 1px solid rgba(124,98,66,0.36); padding: 11px 0; }
   .classic .meta-card { padding: 6px 10px; border-width: 0 1px 0 0; border-radius: 0; background: transparent; }
@@ -486,6 +509,7 @@ const INVOICE_CSS = `
 
 function buildInvoiceBody(data: InvoiceTemplateData): string {
   const labels = getInvoiceLabels(data.language, data.customLabels);
+  const unitsLabel = getInvoiceUnitsLabel(labels, data.lineItems);
   const initials = data.businessName
     .split(" ")
     .slice(0, 2)
@@ -620,7 +644,7 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
         <tr>
           <th>${esc(labels.description)}</th>
           ${showDate ? `<th>${esc(labels.date)}</th>` : ""}
-          <th>${esc(labels.hours)}</th>
+          <th>${esc(unitsLabel)}</th>
           ${showRate ? `<th>${esc(labels.rate)}</th>` : ""}
           <th>${esc(labels.amount)}</th>
         </tr>
@@ -756,9 +780,7 @@ export function generateInvoiceHTML(data: InvoiceTemplateData): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
     ${INVOICE_CSS}
     ${colorOverrides}
   </style>

@@ -3,6 +3,12 @@ import { formatTimeFromDecimal, formatCurrency, convertCurrency } from "@/lib/ut
 import { format } from "date-fns";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import {
+  calculateManualItemAmount,
+  getManualItemUnits,
+  normalizeManualInvoiceItem,
+  type ManualInvoiceItem,
+} from "@shared/invoice-line-items";
 
 type PdfOptions = {
   filename: string;
@@ -708,12 +714,47 @@ function generateTimeEntriesTable({
       });
     }
   }
+
+  const additionalItems: ManualInvoiceItem[] = Array.isArray(reportData?.additionalItems)
+    ? reportData.additionalItems.map((item: Record<string, unknown>, index: number) =>
+        normalizeManualInvoiceItem(item, `pdf-item-${index}`)
+      )
+    : [];
+
+  additionalItems.forEach((item) => {
+    const units = getManualItemUnits(item);
+    const amount = calculateManualItemAmount(item);
+    const formattedUnits = item.billingType === "hourly"
+      ? formatInvoiceHours(units, reportData?.timeFormat || "decimal")
+      : units.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+    if (settings.showHourlyRate !== false) {
+      tableContent.push([
+        item.description,
+        formattedUnits,
+        formatCurrency(item.rate, clientCurrency),
+        formatCurrency(amount, clientCurrency),
+      ]);
+    } else {
+      tableContent.push([
+        item.description,
+        formattedUnits,
+        formatCurrency(amount, clientCurrency),
+      ]);
+    }
+
+    subtotal += amount;
+    if (item.billingType === "hourly") totalHours += units;
+  });
   
   
   // Generate the table with conditional headers and column styles
+  const unitsHeader = additionalItems.some((item) => item.billingType === "quantity")
+    ? "Hours / Qty"
+    : "Hours";
   const headers = settings.showHourlyRate !== false 
-    ? [['Description', 'Hours', 'Rate', 'Amount']]
-    : [['Description', 'Hours', 'Amount']];
+    ? [['Description', unitsHeader, 'Rate', 'Amount']]
+    : [['Description', unitsHeader, 'Amount']];
     
   const columnStyles = settings.showHourlyRate !== false 
     ? {

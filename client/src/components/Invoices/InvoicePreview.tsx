@@ -4,7 +4,8 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit, FileSpreadsheet, File, Plus, Minus, Loader2, Lock, Sparkles } from "lucide-react";
+import { Edit, FileSpreadsheet, File, Plus, Minus, Loader2, Lock, Sparkles, Clock3, Package } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatTimeFromDecimal, formatCurrency, parseTime } from "@/lib/utils/timeUtils";
@@ -17,6 +18,14 @@ import { calculateDueDate, DueDateMode, formatInvoiceDate, toInvoiceDateInput } 
 import { useAuth } from "@/hooks/useAuth";
 import { getInvoiceCapabilities } from "@shared/subscriptions";
 import tickdLogoFull from "@/assets/tickd-logo-full.svg";
+import {
+  calculateManualItemAmount,
+  createManualInvoiceItem,
+  getManualItemUnits,
+  InvoiceBillingType,
+  ManualInvoiceItem,
+  normalizeManualInvoiceItem,
+} from "@shared/invoice-line-items";
 
 interface InvoicePreviewProps {
   reportData: any;
@@ -117,11 +126,10 @@ export default function InvoicePreview({
   );
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [editableEntries, setEditableEntries] = useState<any[]>([]);
-  const [additionalItems, setAdditionalItems] = useState<{ description: string; amount: number; id: number }[]>(
-    propAdditionalItems || []
+  const [additionalItems, setAdditionalItems] = useState<ManualInvoiceItem[]>(() =>
+    (propAdditionalItems || []).map((item, index) => normalizeManualInvoiceItem(item, `legacy-${index}`)),
   );
   const [subtotal, setSubtotal] = useState(0);
-  const [total, setTotal] = useState(0);
   const [notes, setNotes] = useState(propNotes || "");
   const [showInvoiceNotes, setShowInvoiceNotes] = useState(true);
   const [showDueDate, setShowDueDate] = useState(propShowDueDate !== undefined ? propShowDueDate : true);
@@ -239,13 +247,16 @@ export default function InvoicePreview({
 
       setEditableEntries(data);
       setSubtotal(rowsTotal);
-      const tax = enableTax ? rowsTotal * (taxRate / 100) : 0;
-      setTotal(rowsTotal + tax);
     }
-  }, [reportData, enableTax, taxRate]);
+  }, [reportData]);
+
+  const commitAdditionalItems = useCallback((items: ManualInvoiceItem[]) => {
+    setAdditionalItems(items);
+    propSetAdditionalItems?.(items);
+  }, [propSetAdditionalItems]);
 
   const getAdditionalItemsTotal = useCallback(
-    () => additionalItems.reduce((s, i) => s + i.amount, 0),
+    () => additionalItems.reduce((sum, item) => sum + calculateManualItemAmount(item), 0),
     [additionalItems]
   );
 
@@ -253,11 +264,8 @@ export default function InvoicePreview({
     (entries = editableEntries) => {
       const entriesTotal = entries.reduce((s, e) => s + parseFloat(e.amount), 0);
       setSubtotal(entriesTotal);
-      const additionalTotal = additionalItems.reduce((s, i) => s + i.amount, 0);
-      const tax = enableTax ? entriesTotal * (taxRate / 100) : 0;
-      setTotal(entriesTotal + additionalTotal + tax);
     },
-    [additionalItems, enableTax, taxRate]
+    []
   );
 
   const updateEntryDuration = (entryId: number, newDuration: number, timeFormat: TimeFormat) => {
@@ -322,32 +330,28 @@ export default function InvoicePreview({
     });
   }, [editableEntries, reportData, reportUsesWeeklyGrouping]);
 
-  const addItem = () => {
-    const newItems = [...additionalItems, { id: Date.now(), description: "Additional Item", amount: 0 }];
-    setAdditionalItems(newItems);
-    setTimeout(() => recalculateTotals(editableEntries), 0);
+  const addItem = (billingType: InvoiceBillingType) => {
+    commitAdditionalItems([...additionalItems, createManualInvoiceItem(billingType)]);
   };
 
-  const updateAdditionalItem = (id: number, field: "description" | "amount", value: string) => {
+  const updateAdditionalItem = (
+    id: number | string,
+    field: "description" | "hours" | "quantity" | "rate",
+    value: string,
+  ) => {
     const updated = additionalItems.map((item) =>
-      item.id === id ? { ...item, [field]: field === "amount" ? parseFloat(value) || 0 : value } : item
+      item.id === id
+        ? normalizeManualInvoiceItem({
+            ...item,
+            [field]: field === "description" ? value : Math.max(0, Number.parseFloat(value) || 0),
+          }, item.id)
+        : item,
     );
-    setAdditionalItems(updated);
-    const additionalTotal = updated.reduce((s, i) => s + i.amount, 0);
-    const entriesTotal = editableEntries.reduce((s, e) => s + parseFloat(e.amount), 0);
-    const tax = enableTax ? entriesTotal * (taxRate / 100) : 0;
-    setSubtotal(entriesTotal);
-    setTotal(entriesTotal + additionalTotal + tax);
+    commitAdditionalItems(updated);
   };
 
-  const removeItem = (id: number) => {
-    const filtered = additionalItems.filter((i) => i.id !== id);
-    setAdditionalItems(filtered);
-    const additionalTotal = filtered.reduce((s, i) => s + i.amount, 0);
-    const entriesTotal = editableEntries.reduce((s, e) => s + parseFloat(e.amount), 0);
-    const tax = enableTax ? entriesTotal * (taxRate / 100) : 0;
-    setSubtotal(entriesTotal);
-    setTotal(entriesTotal + additionalTotal + tax);
+  const removeItem = (id: number | string) => {
+    commitAdditionalItems(additionalItems.filter((item) => item.id !== id));
   };
 
   const handleCreateInvoice = async () => {
@@ -364,10 +368,10 @@ export default function InvoicePreview({
       const entriesSubtotal = groupedInvoiceEntries.length > 0
         ? groupedInvoiceEntries.reduce((s, e) => s + e.amount, 0)
         : editableEntries.reduce((s, e) => s + parseFloat(e.amount.toString()), 0);
-      const additionalItemsTotal = additionalItems.reduce((s, i) => s + (i.amount || 0), 0);
-      const invoiceSubtotal = entriesSubtotal;
+      const additionalItemsTotal = getAdditionalItemsTotal();
+      const invoiceSubtotal = entriesSubtotal + additionalItemsTotal;
       const tax = enableTax ? invoiceSubtotal * (taxRate / 100) : 0;
-      const invoiceTotal = invoiceSubtotal + additionalItemsTotal + tax;
+      const invoiceTotal = invoiceSubtotal + tax;
 
       const weekLabelByEntryId = getWeekLabelByEntryId();
       const lineItemsData = [
@@ -382,7 +386,16 @@ export default function InvoicePreview({
           rate: parseFloat(e.hourlyRate || "0"),
           amount: e.amount,
         })),
-        ...additionalItems.map((item) => ({ id: item.id, isTimeEntry: false, description: item.description, amount: item.amount })),
+        ...additionalItems.map((item) => ({
+          id: item.id,
+          isTimeEntry: false,
+          description: item.description,
+          billingType: item.billingType,
+          hours: item.billingType === "hourly" ? item.hours : undefined,
+          quantity: item.billingType === "quantity" ? item.quantity : undefined,
+          rate: item.rate,
+          amount: calculateManualItemAmount(item),
+        })),
       ];
 
       await apiRequest("POST", "/api/invoices", {
@@ -423,6 +436,7 @@ export default function InvoicePreview({
           qty: formatHoursForInvoice(duration, timeFormat),
           rate: formatCurrency(rate, currency),
           amount: formatCurrency(amount, currency),
+          billingType: "hourly",
         };
     };
 
@@ -472,14 +486,18 @@ export default function InvoicePreview({
       ...additionalItems.map((item) => ({
         description: item.description || "Additional Item",
         subDescription: "",
-        qty: "1",
-        rate: formatCurrency(item.amount, currency),
-        amount: formatCurrency(item.amount, currency),
+        qty: item.billingType === "hourly"
+          ? formatHoursForInvoice(getManualItemUnits(item), timeFormat)
+          : getManualItemUnits(item).toLocaleString(undefined, { maximumFractionDigits: 2 }),
+        rate: formatCurrency(item.rate, currency),
+        amount: formatCurrency(calculateManualItemAmount(item), currency),
+        billingType: item.billingType,
       })),
     ];
 
-    const taxAmount = enableTax ? subtotal * (taxRate / 100) : 0;
-    const totalAmount = subtotal + getAdditionalItemsTotal() + taxAmount;
+    const invoiceSubtotal = subtotal + getAdditionalItemsTotal();
+    const taxAmount = enableTax ? invoiceSubtotal * (taxRate / 100) : 0;
+    const totalAmount = invoiceSubtotal + taxAmount;
 
     const s = effectiveSettings;
     const c = activeClient;
@@ -534,7 +552,7 @@ export default function InvoicePreview({
       clientZip: c?.zipCode || "",
       clientEmail: c?.email || "",
       lineItems,
-      subtotalFormatted: subtotal.toFixed(2),
+      subtotalFormatted: invoiceSubtotal.toFixed(2),
       taxFormatted: taxAmount.toFixed(2),
       taxLabel: enableTax && taxRate > 0 ? `Tax (${taxRate}%)` : "Tax",
       totalFormatted: totalAmount.toFixed(2),
@@ -656,13 +674,13 @@ export default function InvoicePreview({
           {/* Time entries table (editable when isEditing) */}
           {isEditing && (
             <div>
-              <div className="text-sm font-medium text-gray-700 mb-2">Time Entries</div>
+              <div className="text-sm font-medium text-gray-700 mb-2">Invoice items</div>
               <div className="border border-gray-200 rounded overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200">
                       <th className="px-3 py-2 text-left font-medium text-gray-600">Description</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600 w-24">Hours</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600 w-24">Hours / Qty</th>
                       <th className="px-3 py-2 text-left font-medium text-gray-600 w-24">Rate</th>
                       <th className="px-3 py-2 text-right font-medium text-gray-600 w-28">Amount</th>
                     </tr>
@@ -700,29 +718,64 @@ export default function InvoicePreview({
                             value={item.description}
                             onChange={(e) => updateAdditionalItem(item.id, "description", e.target.value)}
                           />
+                          <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-gray-500">
+                            {item.billingType === "hourly" ? <Clock3 className="h-3 w-3" /> : <Package className="h-3 w-3" />}
+                            {item.billingType === "hourly" ? "Hourly" : "Quantity"}
+                          </span>
                         </td>
-                        <td className="px-3 py-2 text-gray-400">—</td>
                         <td className="px-3 py-2">
-                          <Button variant="ghost" size="icon" className="h-6 w-6 p-0" onClick={() => removeItem(item.id)}>
-                            <Minus className="h-3 w-3 text-red-500" />
-                          </Button>
-                        </td>
-                        <td className="px-3 py-2 text-right">
                           <Input
                             type="number"
-                            className="w-24 h-7 p-1 text-sm text-right"
-                            defaultValue={item.amount.toString()}
-                            onBlur={(e) => updateAdditionalItem(item.id, "amount", e.target.value)}
+                            min="0"
+                            step="0.01"
+                            className="w-20 h-7 p-1 text-sm"
+                            value={getManualItemUnits(item)}
+                            aria-label={item.billingType === "hourly" ? "Hours" : "Quantity"}
+                            onChange={(event) => updateAdditionalItem(item.id, item.billingType === "hourly" ? "hours" : "quantity", event.target.value)}
                           />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="w-24 h-7 p-1 text-sm"
+                            value={item.rate}
+                            aria-label={item.billingType === "hourly" ? "Hourly rate" : "Unit price"}
+                            onChange={(event) => updateAdditionalItem(item.id, "rate", event.target.value)}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center justify-end gap-1">
+                            <span className="whitespace-nowrap text-sm font-medium text-gray-900">
+                              {formatCurrency(calculateManualItemAmount(item), activeClient?.currency || "USD")}
+                            </span>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label={`Remove ${item.description}`} onClick={() => removeItem(item.id)}>
+                              <Minus className="h-3.5 w-3.5 text-red-500" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
                     <tr>
                       <td colSpan={4} className="px-3 py-2 text-center border-t border-dashed border-gray-200">
-                        <Button variant="ghost" size="sm" onClick={addItem} className="text-blue-600">
-                          <Plus className="mr-1 h-3 w-3" />
-                          Add Item
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="text-blue-600">
+                              <Plus className="mr-1 h-3 w-3" /> Add item
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="center" className="w-56">
+                            <DropdownMenuItem onClick={() => addItem("hourly")}>
+                              <Clock3 className="mr-2 h-4 w-4 text-blue-600" />
+                              <span><span className="block font-medium">Hourly item</span><span className="block text-xs text-gray-500">Hours multiplied by hourly rate</span></span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addItem("quantity")}>
+                              <Package className="mr-2 h-4 w-4 text-emerald-600" />
+                              <span><span className="block font-medium">Quantity item</span><span className="block text-xs text-gray-500">Quantity multiplied by unit price</span></span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   </tbody>

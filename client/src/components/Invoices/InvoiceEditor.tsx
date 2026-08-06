@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Save, FileDown, X, Plus, Trash2, ChevronDown, Send, DollarSign, Clock
+  Save, FileDown, X, Plus, Trash2, ChevronDown, Send, DollarSign, Clock, Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,16 +18,16 @@ import { Invoice, Client, Settings } from "@shared/schema";
 import { formatCurrency } from "@/lib/utils/timeUtils";
 import { InvoiceDateFields } from "./InvoiceDateFields";
 import { DueDateMode } from "@/lib/invoice-dates";
+import {
+  calculateManualItemAmount,
+  createManualInvoiceItem,
+  getManualItemUnits,
+  normalizeManualInvoiceItem,
+  type InvoiceBillingType,
+  type ManualInvoiceItem,
+} from "@shared/invoice-line-items";
 
-interface LineItem {
-  id: number;
-  description: string;
-  hours?: number;
-  rate?: number;
-  amount: number;
-  isTimeEntry?: boolean;
-  timeEntryId?: number;
-}
+type LineItem = ManualInvoiceItem;
 
 interface InvoiceEditorProps {
   invoice: Invoice;
@@ -67,7 +67,14 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
       let storedLineItems: LineItem[] = [];
 
       if (invoice.lineItems) {
-        try { storedLineItems = JSON.parse(invoice.lineItems); } catch {}
+        try {
+          const parsedItems = JSON.parse(invoice.lineItems);
+          if (Array.isArray(parsedItems)) {
+            storedLineItems = parsedItems.map((item, index) =>
+              normalizeManualInvoiceItem(item, `saved-${index}`)
+            );
+          }
+        } catch {}
       }
 
       if (cleanNotes.includes("ADDITIONAL_ITEMS:")) {
@@ -76,11 +83,9 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         if (!storedLineItems.length) {
           try {
             const legacyItems = JSON.parse(parts[1].split("\n\nEDITED_ENTRIES:")[0].trim());
-            storedLineItems = legacyItems.map((item: any) => ({
-              id: item.id || Date.now(),
-              description: item.description,
-              amount: parseFloat(String(item.amount)) || 0,
-            }));
+            storedLineItems = legacyItems.map((item: any, index: number) =>
+              normalizeManualInvoiceItem(item, `legacy-${index}`)
+            );
           } catch {}
         }
       }
@@ -97,18 +102,20 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         const hourlyRate = parseFloat(entry.project?.hourlyRate || entry.hourlyRate || "0");
         const duration = parseFloat(entry.duration || "0");
         const stored = storedLineItems.find(i => i.timeEntryId === entry.id);
-        return {
+        return normalizeManualInvoiceItem({
           id: entry.id,
           timeEntryId: entry.id,
           isTimeEntry: true,
+          billingType: "hourly",
           description: entry.description || "Time Entry",
           hours: stored?.hours ?? duration,
           rate: stored?.rate ?? hourlyRate,
-          amount: stored?.amount ?? (hourlyRate * duration),
-        };
+        }, entry.id);
       });
 
-      const customItems = storedLineItems.filter(i => !i.isTimeEntry);
+      const customItems = storedLineItems
+        .filter(i => !i.isTimeEntry)
+        .map((item, index) => normalizeManualInvoiceItem(item, `custom-${index}`));
       setLineItems([...timeEntryItems, ...customItems]);
       setDataLoaded(true);
     } catch (err) {
@@ -125,22 +132,22 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
   const taxAmount = taxEnabled ? subtotal * (taxRate / 100) : parseFloat(String(invoice.tax || "0"));
   const total = subtotal + taxAmount;
 
-  const updateLineItem = (id: number, field: keyof LineItem, value: string | number) => {
+  const updateLineItem = (
+    id: number | string,
+    field: "description" | "hours" | "quantity" | "rate",
+    value: string | number,
+  ) => {
     setLineItems(prev => prev.map(item => {
       if (item.id !== id) return item;
-      const updated = { ...item, [field]: value };
-      if (field === "hours" || field === "rate") {
-        updated.amount = (Number(updated.hours) || 0) * (Number(updated.rate) || 0);
-      }
-      return updated;
+      return normalizeManualInvoiceItem({ ...item, [field]: value }, item.id);
     }));
   };
 
-  const addCustomLineItem = () => {
-    setLineItems(prev => [...prev, { id: Date.now(), description: "Custom item", amount: 0 }]);
+  const addCustomLineItem = (billingType: InvoiceBillingType) => {
+    setLineItems(prev => [...prev, createManualInvoiceItem(billingType)]);
   };
 
-  const removeLineItem = (id: number) => {
+  const removeLineItem = (id: number | string) => {
     setLineItems(prev => prev.filter(item => item.id !== id));
   };
 
@@ -149,7 +156,9 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
     try {
       const allItemsForStorage = lineItems.map(item => ({
         id: item.id, timeEntryId: item.timeEntryId, isTimeEntry: item.isTimeEntry,
-        description: item.description, hours: item.hours, rate: item.rate, amount: item.amount,
+        description: item.description, billingType: item.billingType,
+        hours: item.hours, quantity: item.quantity, rate: item.rate,
+        amount: calculateManualItemAmount(item),
       }));
 
       await apiRequest("PUT", `/api/invoices/${invoice.id}`, {
@@ -185,7 +194,15 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
           hourlyRate: String(item.rate || 0),
           project: { hourlyRate: String(item.rate || 0) },
         })),
-        additionalItems: customItems.map(item => ({ id: item.id, description: item.description, amount: item.amount })),
+        additionalItems: customItems.map(item => ({
+          id: item.id,
+          description: item.description,
+          billingType: item.billingType,
+          hours: item.hours,
+          quantity: item.quantity,
+          rate: item.rate,
+          amount: calculateManualItemAmount(item),
+        })),
         totalHours: timeItems.reduce((s, i) => s + (i.hours || 0), 0),
         totalAmount: total,
         timeFormat: settings.defaultTimeFormat || "decimal",
@@ -327,15 +344,36 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
         <div>
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">Line Items</p>
-            <Button variant="outline" size="sm" onClick={addCustomLineItem} className="h-8 text-xs gap-1">
-              <Plus className="h-3.5 w-3.5" /> Add Item
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1">
+                  <Plus className="h-3.5 w-3.5" /> Add Item
+                  <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuItem onClick={() => addCustomLineItem("hourly")} className="gap-3 py-2.5">
+                  <Clock className="h-4 w-4 text-blue-600" />
+                  <span>
+                    <span className="block font-medium">Hourly item</span>
+                    <span className="block text-xs text-gray-500">Hours multiplied by hourly rate</span>
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => addCustomLineItem("quantity")} className="gap-3 py-2.5">
+                  <Package className="h-4 w-4 text-emerald-600" />
+                  <span>
+                    <span className="block font-medium">Quantity item</span>
+                    <span className="block text-xs text-gray-500">Quantity multiplied by unit price</span>
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <div className="rounded-xl border border-gray-200 overflow-hidden">
             <div className="hidden sm:grid grid-cols-12 bg-gray-50 border-b px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
               <div className="col-span-5">Description</div>
-              <div className="col-span-2 text-center">Hours</div>
+              <div className="col-span-2 text-center">Hours / Qty</div>
               <div className="col-span-2 text-center">Rate</div>
               <div className="col-span-2 text-right">Amount</div>
               <div className="col-span-1" />
@@ -362,17 +400,24 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
                       className="h-8 text-sm border-gray-200 focus:border-gray-400"
                       placeholder="Description"
                     />
-                    {item.isTimeEntry && (
-                      <span className="text-xs text-blue-500 font-medium ml-1 mt-0.5 inline-block">Time entry</span>
-                    )}
+                    <span className={`text-xs font-medium ml-1 mt-0.5 inline-flex items-center gap-1 ${
+                      item.isTimeEntry || item.billingType === "hourly" ? "text-blue-600" : "text-emerald-600"
+                    }`}>
+                      {item.isTimeEntry ? "Time entry" : item.billingType === "hourly" ? "Hourly" : "Quantity"}
+                    </span>
                   </div>
                   <div className="col-span-4 sm:col-span-2">
                     <Input
                       type="number" step="0.01" min="0"
-                      value={item.hours ?? ""}
-                      onChange={e => updateLineItem(item.id, "hours", parseFloat(e.target.value) || 0)}
+                      value={getManualItemUnits(item)}
+                      onChange={e => updateLineItem(
+                        item.id,
+                        item.billingType === "hourly" ? "hours" : "quantity",
+                        parseFloat(e.target.value) || 0,
+                      )}
                       className="h-8 text-sm text-center border-gray-200"
                       placeholder="0"
+                      aria-label={item.billingType === "hourly" ? "Hours" : "Quantity"}
                     />
                   </div>
                   <div className="col-span-4 sm:col-span-2">
@@ -385,16 +430,9 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
                     />
                   </div>
                   <div className="col-span-3 sm:col-span-2 text-right">
-                    {item.isTimeEntry ? (
-                      <span className="text-sm font-semibold text-gray-900">{formatCurrency(item.amount, currency)}</span>
-                    ) : (
-                      <Input
-                        type="number" step="0.01" min="0"
-                        value={item.amount}
-                        onChange={e => updateLineItem(item.id, "amount", parseFloat(e.target.value) || 0)}
-                        className="h-8 text-sm text-right border-gray-200"
-                      />
-                    )}
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatCurrency(calculateManualItemAmount(item), currency)}
+                    </span>
                   </div>
                   <div className="col-span-1 flex justify-end">
                     <Button

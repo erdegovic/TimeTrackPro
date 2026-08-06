@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
 import {
   getInvoiceLabels,
+  getInvoiceUnitsLabel,
   InvoiceTemplateData,
   TEMPLATE_COLOR_DEFAULTS,
 } from "./invoice-html-generator";
@@ -231,7 +232,7 @@ export function createInvoicePdf(data: InvoiceTemplateData): jsPDF {
   const tableStartY = y + (clientLines ? 25 : 15);
   const showDate = data.showDateColumn === true;
   const showRate = data.showHourlyRate !== false;
-  const columns = [labels.description, ...(showDate ? [labels.date] : []), labels.hours, ...(showRate ? [labels.rate] : []), labels.amount];
+  const columns = [labels.description, ...(showDate ? [labels.date] : []), getInvoiceUnitsLabel(labels, data.lineItems), ...(showRate ? [labels.rate] : []), labels.amount];
   const columnCount = columns.length;
   const body = data.lineItems.map((item) => {
     if (item.isGroupHeader) {
