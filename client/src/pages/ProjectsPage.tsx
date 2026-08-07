@@ -111,17 +111,19 @@ export default function ProjectsPage() {
             variant="ghost" 
             size="icon" 
             onClick={() => handleEditProject(row)}
-            className="h-8 w-8 flex-shrink-0"
+            className="h-9 w-9 flex-shrink-0"
             title="Edit Project"
+            aria-label={`Edit ${row.name}`}
           >
             <Edit className="h-4 w-4" />
           </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setSelectedProjectId(row.id)}
-            className="h-8 w-8 flex-shrink-0 text-destructive hover:text-destructive/80"
+            className="h-9 w-9 flex-shrink-0 text-destructive hover:text-destructive/80"
             title="Delete Project"
+            aria-label={`Delete ${row.name}`}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -148,7 +150,10 @@ export default function ProjectsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0 sm:p-6">
-          <div className="overflow-x-auto">
+          {/* The six-column table only ever fit behind a horizontal scroll on a
+              phone. It is now desktop-only and phones get the same card list
+              ClientsPage uses, so no data needs sideways scrolling to read. */}
+          <div className="hidden sm:block overflow-x-auto">
             <DataTable
               data={projects}
               columns={columns}
@@ -160,8 +165,8 @@ export default function ProjectsPage() {
                 <p className="mt-1 text-sm text-gray-500">
                   You haven't added any projects yet. Add a project to get started.
                 </p>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="mt-4"
                   onClick={() => setShowNewProjectDialog(true)}
                 >
@@ -171,6 +176,74 @@ export default function ProjectsPage() {
               </div>
             }
           />
+          </div>
+          <div className="sm:hidden divide-y divide-gray-200">
+            {isLoading ? (
+              <div className="flex h-32 items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+              </div>
+            ) : projects.length === 0 ? (
+              <div className="px-5 py-8 text-center text-gray-500">
+                <Folder className="mx-auto h-10 w-10 text-gray-400" />
+                <h3 className="mt-2 text-sm font-semibold text-gray-900">No projects</h3>
+                <p className="mt-1 text-sm">
+                  You haven't added any projects yet. Add a project to get started.
+                </p>
+                <Button variant="outline" className="mt-4" onClick={() => setShowNewProjectDialog(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Project
+                </Button>
+              </div>
+            ) : projects.map((project) => {
+              const client = clients.find((item) => item.id === project.clientId);
+              const currency = client?.currency || "USD";
+              return (
+                <div key={project.id} className="px-5 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="flex items-center gap-2 break-words text-base font-semibold" style={{ color: project.color || "#111827" }}>
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: project.color || "#2563eb" }} />
+                        {project.name}
+                      </h3>
+                      <p className="mt-1 break-words text-sm text-gray-600">{client ? client.name : "Unknown Client"}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Badge variant={project.active ? "success" : "secondary"}>
+                          {project.active ? "Active" : "Inactive"}
+                        </Badge>
+                        <span className="text-sm font-medium text-gray-700">
+                          {formatCurrency(Number(project.hourlyRate), currency)}
+                        </span>
+                      </div>
+                      {project.description && (
+                        <p className="mt-2 break-words text-sm text-gray-500">{project.description}</p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9"
+                        onClick={() => handleEditProject(project)}
+                        title="Edit Project"
+                        aria-label={`Edit ${project.name}`}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-destructive hover:text-destructive/80"
+                        onClick={() => setSelectedProjectId(project.id)}
+                        title="Delete Project"
+                        aria-label={`Delete ${project.name}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

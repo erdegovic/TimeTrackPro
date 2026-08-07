@@ -86,10 +86,31 @@ const saveSession = (req: Request) => new Promise<void>((resolve, reject) => {
   req.session.save((error) => error ? reject(error) : resolve());
 });
 
+/**
+ * Normalises a post-authentication return path to a same-origin path.
+ *
+ * The previous check was `startsWith('/') && !startsWith('//')`, which lets
+ * `/\evil.com` through: per the WHATWG URL parser a backslash immediately after
+ * the leading slash enters "special authority ignore slashes" state, so browsers
+ * resolve `Location: /\evil.com` as `https://evil.com`. That turned the Google
+ * sign-in callback into an open redirect off the real login flow.
+ *
+ * Resolving against a fixed base and requiring the origin to match is the only
+ * check that stays correct as browsers evolve their URL parsing.
+ */
+const RETURN_TO_BASE = 'https://tickd.invalid';
+
 const safeReturnTo = (value: unknown) => {
-  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//')
-    ? value
-    : '/';
+  if (typeof value !== 'string' || value.length === 0 || value.length > 2048) return '/';
+
+  try {
+    const resolved = new URL(value, RETURN_TO_BASE);
+    if (resolved.origin !== RETURN_TO_BASE) return '/';
+    const path = `${resolved.pathname}${resolved.search}${resolved.hash}`;
+    return path.startsWith('/') ? path : '/';
+  } catch {
+    return '/';
+  }
 };
 
 const getRequestedCheckoutPath = (plan: unknown, billingInterval: unknown) => {

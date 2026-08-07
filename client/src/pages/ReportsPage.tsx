@@ -92,7 +92,9 @@ export default function ReportsPage() {
 
       {/* Invoice Preview Dialog */}
       <Dialog open={showInvoicePreview} onOpenChange={handleInvoicePreviewOpenChange}>
-        <DialogContent className="w-[95vw] max-w-[900px] max-h-[90vh] overflow-y-auto">
+        {/* Base DialogContent already handles width/height/scroll; only the desktop max width
+            is overridden here so the preview does not exceed the viewport at 320-390px. */}
+        <DialogContent className="max-w-[900px]">
           <DialogHeader>
             <DialogTitle>Generate Invoice</DialogTitle>
           </DialogHeader>

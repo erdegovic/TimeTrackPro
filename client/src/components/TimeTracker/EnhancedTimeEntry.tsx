@@ -68,6 +68,8 @@ interface EnhancedTimeEntryProps {
   isTracking?: boolean;
   onStop?: () => void;
   allTimeEntries?: Array<TimeEntry & { client?: Client; project?: Project; }>;
+  /** Supplied by the list from a single note-count request; avoids a per-row fetch. */
+  hasNotes?: boolean;
 }
 
 export default function EnhancedTimeEntry({
@@ -81,7 +83,8 @@ export default function EnhancedTimeEntry({
   isNew = false,
   isTracking: timerIsActive = false,
   onStop,
-  allTimeEntries = []
+  allTimeEntries = [],
+  hasNotes
 }: EnhancedTimeEntryProps) {
   const { toast } = useToast();
   const { isTracking: globalIsTracking, description: currentDescription, selectedProjectId, stopTimer, startTimerWithData } = useTimerContext();
@@ -539,16 +542,22 @@ export default function EnhancedTimeEntry({
 
   return (
     <div className={`border-b border-gray-200 transition-all duration-1000 ${isNew ? 'animate-highlight' : ''} ${isMerging ? 'bg-blue-100 border-blue-300 shadow-lg' : ''}`}>
-      {/* Main entry row */}
-      <div className={`flex items-center px-6 py-4 hover:bg-gray-50 transition-all duration-1000 ${isMerging ? 'bg-blue-50' : ''}`}>
+      {/* Main entry row.
+          Below `lg` the timing/duration/action cluster drops to its own full-width
+          line instead of competing with the description for horizontal space. The
+          previous single non-wrapping row collapsed the description to zero width
+          and painted the time range on top of the project name. */}
+      <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3 sm:px-4 lg:px-6 lg:py-4 hover:bg-gray-50 transition-colors duration-300 ${isMerging ? 'bg-blue-50' : ''}`}>
         {/* Expand/collapse button for grouped entries */}
-        <div className="w-8 flex justify-center">
+        <div className="flex w-6 shrink-0 justify-center lg:w-8">
           {isGrouped ? (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsExpanded(!isExpanded)}
-              className="p-0 h-6 w-6"
+              className="h-8 w-8 p-0"
+              aria-expanded={isExpanded}
+              aria-label={isExpanded ? "Collapse session blocks" : "Expand session blocks"}
             >
               {isExpanded ? (
                 <ChevronDown className="h-4 w-4" />
@@ -566,8 +575,13 @@ export default function EnhancedTimeEntry({
           )}
         </div>
 
-        {/* Description */}
-        <div className="flex-1 min-w-0 px-4">
+        {/* Description.
+            The 13rem floor is what makes the wrap decision automatic: once the
+            description can no longer keep it, flex-wrap pushes the timing cluster
+            onto its own line instead of squeezing the description to an ellipsis.
+            This matters because the usable content width depends on whether the
+            creative panel is docked, not just on the viewport. */}
+        <div className="min-w-[13rem] flex-1 basis-0 xl:px-4">
           {isEditingEntry ? (
             <div 
               className="space-y-2"
@@ -615,14 +629,14 @@ export default function EnhancedTimeEntry({
                 }}
                 autoFocus
               />
-              <div className="flex items-center space-x-2">
-                <div className="flex space-x-2 flex-1">
+              <div className="flex items-start gap-2">
+                <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
                   <Select value={editClientId?.toString() || ""} onValueChange={(value) => {
                     const clientId = value ? Number(value) : undefined;
                     setEditClientId(clientId);
                     setEditProjectId(undefined); // Reset project when client changes
                   }}>
-                    <SelectTrigger className="text-xs h-6 select-trigger">
+                    <SelectTrigger className="h-9 text-xs select-trigger">
                       <SelectValue placeholder="Client" />
                     </SelectTrigger>
                     <SelectContent className="select-content">
@@ -639,7 +653,7 @@ export default function EnhancedTimeEntry({
                   <Select value={editProjectId?.toString() || ""} onValueChange={(value) => {
                     setEditProjectId(value ? Number(value) : undefined);
                   }} disabled={!editClientId}>
-                    <SelectTrigger className="text-xs h-6 select-trigger">
+                    <SelectTrigger className="h-9 text-xs select-trigger">
                       <SelectValue placeholder="Project" />
                     </SelectTrigger>
                     <SelectContent className="select-content">
@@ -657,11 +671,12 @@ export default function EnhancedTimeEntry({
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  className="h-6 w-6 p-0 text-green-600 hover:text-white hover:bg-green-600 flex-shrink-0"
+                  className="h-9 w-9 shrink-0 p-0 text-green-600 hover:text-white hover:bg-green-600"
                   onClick={handleSaveEntry}
                   title="Save changes (or click outside to auto-save)"
+                  aria-label="Save changes"
                 >
-                  <Save className="h-3 w-3" />
+                  <Save className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -674,13 +689,15 @@ export default function EnhancedTimeEntry({
               >
                 {groupedEntry.description}
               </div>
-              <div className="text-xs text-gray-500">
+              {/* min-w-0 + wrapping keeps long project and client names from
+                  forcing this line wider than the description column. */}
+              <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">
 
                 {/* Always show project name with color */}
                 {groupedEntry.project && (
-                  <span 
+                  <span
                     style={{ color: groupedEntry.project.color || "#000000" }}
-                    className="cursor-pointer hover:opacity-75 hover:underline transition-all"
+                    className="max-w-full truncate cursor-pointer hover:opacity-75 hover:underline transition-all"
                     onClick={handleEditEntry}
                     title="Click to edit project"
                   >
@@ -690,13 +707,13 @@ export default function EnhancedTimeEntry({
                 {/* Always show client name if project exists (since all projects have clients) */}
                 {groupedEntry.project && groupedEntry.client && (
                   <span 
-                    className="ml-2 inline-flex cursor-pointer items-center gap-1.5 hover:underline transition-colors"
+                    className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 hover:underline transition-colors"
                     style={{ color: groupedEntry.client.color || "#2563eb" }}
                     onClick={handleEditEntry}
                     title="Click to edit client"
                   >
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: groupedEntry.client.color || "#2563eb" }} />
-                    {groupedEntry.client.name}
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: groupedEntry.client.color || "#2563eb" }} />
+                    <span className="truncate">{groupedEntry.client.name}</span>
                   </span>
                 )}
                 {/* Fallback: if no client data but we have project, find client from projects */}
@@ -704,13 +721,13 @@ export default function EnhancedTimeEntry({
                   const foundClient = clients.find(c => c.id === groupedEntry.project?.clientId);
                   return foundClient ? (
                     <span 
-                      className="ml-2 inline-flex cursor-pointer items-center gap-1.5 hover:underline transition-colors"
+                      className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 hover:underline transition-colors"
                       style={{ color: foundClient.color || "#2563eb" }}
                       onClick={handleEditEntry}
                       title="Click to edit client"
                     >
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: foundClient.color || "#2563eb" }} />
-                      {foundClient.name}
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: foundClient.color || "#2563eb" }} />
+                      <span className="truncate">{foundClient.name}</span>
                     </span>
                   ) : null;
                 })()}
@@ -720,13 +737,13 @@ export default function EnhancedTimeEntry({
                   if (groupedEntry.client) {
                     return (
                       <span 
-                        className="inline-flex cursor-pointer items-center gap-1.5 hover:underline transition-colors"
+                        className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 hover:underline transition-colors"
                         style={{ color: groupedEntry.client.color || "#2563eb" }}
                         onClick={handleEditEntry}
                         title="Click to edit client or assign project"
                       >
-                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: groupedEntry.client.color || "#2563eb" }} />
-                        {groupedEntry.client.name}
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: groupedEntry.client.color || "#2563eb" }} />
+                        <span className="truncate">{groupedEntry.client.name}</span>
                       </span>
                     );
                   }
@@ -747,9 +764,11 @@ export default function EnhancedTimeEntry({
           )}
         </div>
 
-        {/* Time range display */}
-        <div className="flex items-center space-x-4 text-sm">
-          <div className="flex items-center space-x-2">
+        {/* Time range, duration and actions.
+            `w-full` forces this cluster onto its own line until `lg`, which is the
+            first width where it fits beside the description without collapsing it. */}
+        <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-2 pl-9 text-sm xl:w-auto xl:flex-nowrap xl:justify-end xl:gap-4 xl:pl-0">
+          <div className="flex min-w-0 items-center gap-2">
             {canEditDirectly ? (
               <EditableTimeRange
                 startTime={groupedEntry.blocks[0].startTime}
@@ -759,9 +778,9 @@ export default function EnhancedTimeEntry({
                 onEditToggle={setEditingMainEntry}
               />
             ) : (
-              <div className="text-gray-500">
+              <div className="whitespace-nowrap text-gray-500">
                 {(() => {
-                  const sortedBlocks = [...groupedEntry.blocks].sort((a, b) => 
+                  const sortedBlocks = [...groupedEntry.blocks].sort((a, b) =>
                     a.startTime.getTime() - b.startTime.getTime()
                   );
                   const firstStart = sortedBlocks[0]?.startTime;
@@ -777,7 +796,7 @@ export default function EnhancedTimeEntry({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+                  className="h-9 w-9 shrink-0 p-0 text-gray-400 hover:text-gray-600"
                   title="Move entry to another date"
                   aria-label="Move entry to another date"
                 >
@@ -801,10 +820,10 @@ export default function EnhancedTimeEntry({
             </Popover>
           </div>
 
-          {/* Total duration - editable */}
-          <div className="font-mono font-medium text-gray-900 min-w-[80px] text-right">
+          {/* Total duration - editable. min-w keeps 12:34:56 from clipping. */}
+          <div className="ml-auto shrink-0 text-right font-mono font-medium tabular-nums text-gray-900 min-w-[5.5rem] xl:ml-0">
             {editingDuration ? (
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center justify-end gap-1">
                 <Input
                   value={durationInput}
                   onChange={(e) => setDurationInput(e.target.value)}
@@ -815,7 +834,7 @@ export default function EnhancedTimeEntry({
                       handleDurationCancel();
                     }
                   }}
-                  className="h-7 w-24 min-w-[6rem] text-center font-mono text-xs"
+                  className="h-9 w-24 min-w-[6rem] text-center font-mono text-xs"
                   placeholder="0:00:00"
                   autoFocus
                 />
@@ -823,21 +842,21 @@ export default function EnhancedTimeEntry({
                   variant="ghost"
                   size="sm"
                   onClick={handleDurationSave}
-                  className="h-6 w-6 p-0 text-green-600 hover:text-white hover:bg-green-600"
+                  className="h-9 w-9 shrink-0 p-0 text-green-600 hover:text-white hover:bg-green-600"
                   title="Save duration"
                   aria-label="Save duration"
                 >
-                  <Check className="h-3 w-3" />
+                  <Check className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleDurationCancel}
-                  className="h-6 w-6 p-0 text-gray-500 hover:text-white hover:bg-gray-500"
+                  className="h-9 w-9 shrink-0 p-0 text-gray-500 hover:text-white hover:bg-gray-500"
                   title="Cancel duration edit"
                   aria-label="Cancel duration edit"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-4 w-4" />
                 </Button>
               </div>
             ) : (
@@ -852,16 +871,16 @@ export default function EnhancedTimeEntry({
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center space-x-1">
+          <div className="flex shrink-0 items-center gap-0.5">
             {!isEditingEntry && (
               <>
                 {onPlay && (
                   <Button 
                     variant="ghost" 
                     size="icon"
-                    className={isCurrentlyTracking ? 
-                      "h-8 w-8 text-red-600 hover:text-white hover:bg-red-600" : 
-                      "h-8 w-8 text-green-600 hover:text-white hover:bg-green-600"
+                    className={isCurrentlyTracking ?
+                      "h-9 w-9 text-red-600 hover:text-white hover:bg-red-600" :
+                      "h-9 w-9 text-green-600 hover:text-white hover:bg-green-600"
                     }
                     onClick={() => {
                       if (isCurrentlyTracking) {
@@ -884,13 +903,14 @@ export default function EnhancedTimeEntry({
                     {isCurrentlyTracking ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                   </Button>
                 )}
-                <NotesButton timeEntryId={entry.id} />
+                <NotesButton timeEntryId={entry.id} hasNotes={hasNotes} />
                 <Button 
                   variant="ghost" 
                   size="icon"
-                  className="h-8 w-8 text-blue-600 hover:text-white hover:bg-blue-600"
+                  className="h-9 w-9 text-blue-600 hover:text-white hover:bg-blue-600"
                   onClick={handleEditEntry}
                   title="Edit entry"
+                  aria-label="Edit entry"
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
@@ -898,7 +918,7 @@ export default function EnhancedTimeEntry({
                 <Button 
                   variant="ghost" 
                   size="icon"
-                  className="h-8 w-8 text-destructive hover:text-white hover:bg-destructive"
+                  className="h-9 w-9 text-destructive hover:text-white hover:bg-destructive"
                   onClick={() => onDelete(groupedEntry.id)}
                   title="Delete entry"
                   aria-label="Delete entry"
@@ -915,13 +935,13 @@ export default function EnhancedTimeEntry({
       {isGrouped && isExpanded && (
         <div className="bg-gray-50">
           {groupedEntry.blocks.map((block, index) => (
-            <div key={block.id} className="flex items-center px-14 py-2 border-t border-gray-200">
-              <div className="flex-1 text-xs text-gray-500">
+            <div key={block.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-gray-200 px-3 py-2 sm:px-6 xl:px-14">
+              <div className="min-w-0 flex-1 text-xs text-gray-500">
                 Block {index + 1}
               </div>
-              
-              <div className="flex items-center space-x-4 text-sm">
-                <div className="flex items-center space-x-2">
+
+              <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm">
+                <div className="flex items-center gap-2">
                   <EditableTimeRange
                     startTime={block.startTime}
                     endTime={block.endTime}
@@ -935,7 +955,7 @@ export default function EnhancedTimeEntry({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+                        className="h-9 w-9 shrink-0 p-0 text-gray-400 hover:text-gray-600"
                         title="Move this block to another date"
                         aria-label="Move this block to another date"
                       >
@@ -959,7 +979,7 @@ export default function EnhancedTimeEntry({
                   </Popover>
                 </div>
                 
-                <div className="font-mono text-gray-600 min-w-[80px] text-right">
+                <div className="min-w-[5.5rem] shrink-0 text-right font-mono tabular-nums text-gray-600">
                   {formatDuration(block.duration)}
                 </div>
               </div>
@@ -1048,7 +1068,7 @@ function EditableTimeRange({
         <Input
           value={startInput}
           onChange={(e) => setStartInput(e.target.value)}
-          className="h-7 w-24 font-mono text-xs"
+          className="h-9 w-[5.5rem] font-mono text-xs"
           placeholder="6:33pm"
           onKeyDown={(e) => {
             if (e.key === 'Enter') void handleSave();
@@ -1060,17 +1080,17 @@ function EditableTimeRange({
         <Input
           value={endInput}
           onChange={(e) => setEndInput(e.target.value)}
-          className="h-7 w-24 font-mono text-xs"
+          className="h-9 w-[5.5rem] font-mono text-xs"
           placeholder="7:46pm"
           onKeyDown={(e) => {
             if (e.key === 'Enter') void handleSave();
             if (e.key === 'Escape') handleCancel();
           }}
         />
-        <Button size="sm" onClick={handleSave} className="h-7 px-2 text-xs">
+        <Button size="sm" onClick={handleSave} className="h-9 px-3 text-xs">
           Save
         </Button>
-        <Button size="sm" variant="outline" onClick={handleCancel} className="h-7 px-2 text-xs">
+        <Button size="sm" variant="outline" onClick={handleCancel} className="h-9 px-3 text-xs">
           Cancel
         </Button>
       </div>
@@ -1080,7 +1100,7 @@ function EditableTimeRange({
   return (
     <button
       onClick={() => onEditToggle(true)}
-      className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-2 py-1 rounded text-sm"
+      className="whitespace-nowrap rounded px-2 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
       key={`${startTime.getTime()}-${endTime.getTime()}`} // Force re-render when times change
     >
       {formatTime(startTime)} - {formatTime(endTime)}

@@ -178,7 +178,7 @@ export function CurrencySelector({
         className={`items-center gap-2 font-medium transition-colors cursor-pointer ${
           formField
             ? "flex h-10 w-full justify-between rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground hover:bg-accent"
-            : "inline-flex rounded px-2 py-1 text-green-600 hover:bg-green-50 hover:text-green-700"
+            : "inline-flex min-h-9 rounded px-2 py-1 text-green-600 hover:bg-green-50 hover:text-green-700"
         } ${
           compact ? "text-xs" : "text-sm"
         }`}
@@ -186,12 +186,23 @@ export function CurrencySelector({
       >
         {selectedSymbol && selectedSymbol !== selectedCurrency && <span>{selectedSymbol}</span>}
         <span>{selectedCurrency}</span>
-        <ChevronDown className="w-3 h-3" />
+        <ChevronDown className="h-4 w-4" />
       </button>
 
       {isOpen && (
+        // The panel is `overflow-hidden`, so anything the inner grid demands
+        // beyond the panel's own (viewport-capped) width is silently clipped.
+        // The old `sm:grid-cols-[280px_240px]` asked for a rigid 520px from
+        // `sm` (640px) upwards, while the panel itself is only ever
+        // `min(520px, 100vw - 2rem)` — between 640px and 767px that clipped the
+        // rate-editor column. It now stays stacked until `md` and both tracks
+        // are shrinkable, so the two-column layout only appears when the panel
+        // genuinely has room for it.
+        // NOTE: this dropdown is still a plain `absolute` element rather than a
+        // portal, so an ancestor with `overflow: hidden` can clip it (see the
+        // explicit `overflow-visible` workaround in Dashboard.tsx).
         <div className={`absolute top-full ${formField ? "left-0" : "right-0"} mt-1 max-w-[calc(100vw-2rem)] bg-white border border-gray-200 rounded-lg shadow-lg z-[100] overflow-hidden ${editorOpen ? "w-[520px]" : formField ? "w-full min-w-72" : "w-72"}`}>
-          <div className={`grid ${editorOpen ? "grid-cols-1 sm:grid-cols-[280px_240px]" : "grid-cols-1"}`}>
+          <div className={`grid ${editorOpen ? "grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,240px)]" : "grid-cols-1"}`}>
             <div className="min-w-0">
               <div className="p-3 border-b border-gray-200">
                 <div className="relative">
@@ -249,10 +260,11 @@ export function CurrencySelector({
                             <button
                               type="button"
                               onClick={() => openEditor({ code: currency.code, name: custom?.name || currency.name, rate: custom?.rate })}
-                              className="rounded p-1 text-gray-400 hover:bg-white hover:text-gray-700"
+                              className="flex h-9 w-9 items-center justify-center rounded text-gray-400 hover:bg-white hover:text-gray-700"
                               title="Edit manual USD rate"
+                              aria-label={`Edit manual USD rate for ${currency.code}`}
                             >
-                              <Pencil className="h-3.5 w-3.5" />
+                              <Pencil className="h-4 w-4" />
                             </button>
                           )}
                           {currency.code === selectedCurrency && <div className="ml-1 h-2 w-2 rounded-full bg-blue-600" />}
@@ -267,13 +279,18 @@ export function CurrencySelector({
             </div>
 
             {editorOpen && (
-              <div className="border-t border-gray-200 bg-gray-50 p-3 sm:border-l sm:border-t-0">
+              <div className="min-w-0 border-t border-gray-200 bg-gray-50 p-3 md:border-l md:border-t-0">
                 <div className="mb-3 flex items-center justify-between">
                   <div>
                     <div className="text-sm font-semibold text-gray-900">{editingCode ? "Edit currency" : "Custom currency"}</div>
                     <div className="text-xs text-gray-500">Rate is stored in your profile.</div>
                   </div>
-                  <button type="button" onClick={() => setEditorOpen(false)} className="rounded p-1 text-gray-400 hover:bg-white hover:text-gray-700">
+                  <button
+                    type="button"
+                    onClick={() => setEditorOpen(false)}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded text-gray-400 hover:bg-white hover:text-gray-700"
+                    aria-label="Close currency editor"
+                  >
                     <X className="h-4 w-4" />
                   </button>
                 </div>

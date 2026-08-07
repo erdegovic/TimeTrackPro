@@ -50,30 +50,40 @@ interface TimeEntryNotesProps {
   trigger?: React.ReactNode;
 }
 
-// Smart notes button that checks if notes exist and styles accordingly
-export function NotesButton({ timeEntryId }: { timeEntryId: number }) {
+/**
+ * Smart notes button that checks if notes exist and styles accordingly.
+ *
+ * `hasNotes` is passed down from the list, which loads every count in a single
+ * `/api/time-entries/note-counts` request. Each button used to run its own
+ * query for this, which meant one HTTP request per visible time entry on every
+ * tracker load — enough to trip the account's own API rate limit. The local
+ * query is kept only as a fallback for callers that do not supply the prop.
+ */
+export function NotesButton({ timeEntryId, hasNotes }: { timeEntryId: number; hasNotes?: boolean }) {
   const { data: notes = [] } = useQuery<TimeEntryNote[]>({
     queryKey: [`/api/time-entries/${timeEntryId}/notes`],
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    enabled: hasNotes === undefined,
   });
 
-  const hasNotes = notes.length > 0;
+  const entryHasNotes = hasNotes ?? notes.length > 0;
 
   return (
-    <TimeEntryNotes 
+    <TimeEntryNotes
       timeEntryId={timeEntryId}
       trigger={
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className={`h-8 w-8 ${
-            hasNotes 
-              ? 'text-orange-600 hover:text-white hover:bg-orange-600' 
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`h-9 w-9 ${
+            entryHasNotes
+              ? 'text-orange-600 hover:text-white hover:bg-orange-600'
               : 'text-orange-500 hover:text-white hover:bg-orange-500'
           }`}
-          title={hasNotes ? "View notes" : "Add note"}
+          title={entryHasNotes ? "View notes" : "Add note"}
+          aria-label={entryHasNotes ? "View notes" : "Add note"}
         >
-          <MessageSquare className={`h-4 w-4 ${hasNotes ? 'fill-current opacity-70' : ''}`} />
+          <MessageSquare className={`h-4 w-4 ${entryHasNotes ? 'fill-current opacity-70' : ''}`} />
         </Button>
       }
     />

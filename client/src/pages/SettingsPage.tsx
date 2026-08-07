@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -245,8 +245,9 @@ const EnhancedRichTextEditor = ({ value, onChange, placeholder }: {
 
   return (
     <div className="border rounded-md">
-      {/* Enhanced Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 p-2 border-b bg-gray-50 overflow-x-auto">
+      {/* Enhanced Toolbar — wraps instead of scrolling sideways; the buttons are
+          40px (h-9 w-9 plus the 1px hit area) so they stay tappable. */}
+      <div className="flex flex-wrap items-center gap-1 p-2 border-b bg-gray-50">
         {/* Text Formatting */}
         <div className="flex items-center gap-1 border-r pr-2 mr-2">
           <Button
@@ -254,7 +255,7 @@ const EnhancedRichTextEditor = ({ value, onChange, placeholder }: {
             variant="ghost"
             size="sm"
             onClick={() => applyFormat('bold')}
-            className="h-8 w-8 p-0"
+            className="h-9 w-9 p-0"
             title="Bold"
           >
             <Bold className="h-4 w-4" />
@@ -264,7 +265,7 @@ const EnhancedRichTextEditor = ({ value, onChange, placeholder }: {
             variant="ghost"
             size="sm"
             onClick={() => applyFormat('italic')}
-            className="h-8 w-8 p-0"
+            className="h-9 w-9 p-0"
             title="Italic"
           >
             <Italic className="h-4 w-4" />
@@ -274,7 +275,7 @@ const EnhancedRichTextEditor = ({ value, onChange, placeholder }: {
             variant="ghost"
             size="sm"
             onClick={() => applyFormat('underline')}
-            className="h-8 w-8 p-0"
+            className="h-9 w-9 p-0"
             title="Underline"
           >
             <Underline className="h-4 w-4" />
@@ -288,7 +289,7 @@ const EnhancedRichTextEditor = ({ value, onChange, placeholder }: {
             variant="ghost"
             size="sm"
             onClick={() => applyFormat('justifyLeft')}
-            className="h-8 w-8 p-0"
+            className="h-9 w-9 p-0"
             title="Align Left"
           >
             <AlignLeft className="h-4 w-4" />
@@ -298,7 +299,7 @@ const EnhancedRichTextEditor = ({ value, onChange, placeholder }: {
             variant="ghost"
             size="sm"
             onClick={() => applyFormat('justifyCenter')}
-            className="h-8 w-8 p-0"
+            className="h-9 w-9 p-0"
             title="Align Center"
           >
             <AlignCenter className="h-4 w-4" />
@@ -308,7 +309,7 @@ const EnhancedRichTextEditor = ({ value, onChange, placeholder }: {
             variant="ghost"
             size="sm"
             onClick={() => applyFormat('justifyRight')}
-            className="h-8 w-8 p-0"
+            className="h-9 w-9 p-0"
             title="Align Right"
           >
             <AlignRight className="h-4 w-4" />
@@ -322,7 +323,7 @@ const EnhancedRichTextEditor = ({ value, onChange, placeholder }: {
             variant="ghost"
             size="sm"
             onClick={() => applyFormat('insertUnorderedList')}
-            className="h-8 w-8 p-0"
+            className="h-9 w-9 p-0"
             title="Bullet List"
           >
             <List className="h-4 w-4" />
@@ -332,7 +333,7 @@ const EnhancedRichTextEditor = ({ value, onChange, placeholder }: {
             variant="ghost"
             size="sm"
             onClick={() => applyFormat('insertOrderedList')}
-            className="h-8 w-8 p-0"
+            className="h-9 w-9 p-0"
             title="Numbered List"
           >
             <ListOrdered className="h-4 w-4" />
@@ -346,7 +347,7 @@ const EnhancedRichTextEditor = ({ value, onChange, placeholder }: {
             variant="ghost"
             size="sm"
             onClick={insertDivider}
-            className="h-8 w-8 p-0"
+            className="h-9 w-9 p-0"
             title="Insert Divider"
           >
             <Minus className="h-4 w-4" />
@@ -420,14 +421,15 @@ const RichTextEditor = ({ value, onChange, placeholder }: {
 
   return (
     <div className="border rounded-md">
-      {/* Toolbar */}
-      <div className="flex items-center gap-1 p-2 border-b bg-gray-50 overflow-x-auto">
+      {/* Toolbar — `overflow-x-auto` without `flex-wrap` produced a sideways
+          scrolling strip on narrow screens; wrapping is the right behaviour. */}
+      <div className="flex flex-wrap items-center gap-1 p-2 border-b bg-gray-50">
         <Button
           type="button"
           variant="ghost"
           size="sm"
           onClick={() => applyFormat('bold')}
-          className="h-8 w-8 p-0"
+          className="h-9 w-9 p-0"
         >
           <Bold className="h-4 w-4" />
         </Button>
@@ -436,7 +438,7 @@ const RichTextEditor = ({ value, onChange, placeholder }: {
           variant="ghost"
           size="sm"
           onClick={() => applyFormat('italic')}
-          className="h-8 w-8 p-0"
+          className="h-9 w-9 p-0"
         >
           <Italic className="h-4 w-4" />
         </Button>
@@ -445,7 +447,7 @@ const RichTextEditor = ({ value, onChange, placeholder }: {
           variant="ghost"
           size="sm"
           onClick={() => applyFormat('underline')}
-          className="h-8 w-8 p-0"
+          className="h-9 w-9 p-0"
         >
           <Underline className="h-4 w-4" />
         </Button>
@@ -477,6 +479,39 @@ const RichTextEditor = ({ value, onChange, placeholder }: {
   );
 };
 
+const A4_PREVIEW_WIDTH = 794;
+const A4_PREVIEW_HEIGHT = 1123;
+
+/**
+ * Returns a ref for the preview's container plus the scale factor that makes an
+ * A4 (794px) page fit inside it. See the call site for why a fixed scale was
+ * wrong: `transform` shrinks the painted result but not the layout box.
+ */
+function useA4PreviewScale() {
+  const [width, setWidth] = useState(0);
+  const observerRef = useRef<ResizeObserver | null>(null);
+
+  // A callback ref, not a plain ref + mount effect: the preview lives inside a
+  // Radix TabsContent that is unmounted while another tab is active, so the
+  // observer has to be (re)attached whenever the node appears.
+  const ref = useCallback((node: HTMLDivElement | null) => {
+    observerRef.current?.disconnect();
+    observerRef.current = null;
+    if (!node) return;
+    setWidth(node.getBoundingClientRect().width);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setWidth(entry.contentRect.width);
+    });
+    observer.observe(node);
+    observerRef.current = observer;
+  }, []);
+
+  useEffect(() => () => observerRef.current?.disconnect(), []);
+
+  return { ref, scale: width > 0 ? Math.min(1, width / A4_PREVIEW_WIDTH) : 0 };
+}
+
 export default function SettingsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -493,6 +528,7 @@ export default function SettingsPage() {
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(["branding"]));
   const [customInvoiceLabels, setCustomInvoiceLabels] = useState<InvoiceLabels>(INVOICE_LABELS.en);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { ref: previewScaleRef, scale: previewScale } = useA4PreviewScale();
 
   // Fetch current settings
   const { data: settings, isLoading } = useQuery<Settings>({
@@ -1138,12 +1174,17 @@ export default function SettingsPage() {
 
             {/* Invoice Tab - Merged split-screen */}
             <TabsContent value="invoice" className="mt-0 p-0">
-              <div
-                className="flex flex-col lg:flex-row border rounded-lg overflow-hidden"
-                style={{ height: "calc(100vh - 230px)", minHeight: "600px" }}
-              >
+              {/* The fixed `calc(100vh - 230px)` / `min-height: 600px` split is
+                  only viable once the two panes sit side by side. Below `lg`
+                  the panes stack, so that height squeezed ~700 lines of invoice
+                  controls into a ~300px inner scroll pane with the live preview
+                  in another ~300px pane — two nested scroll regions inside the
+                  page scroll. From `lg` up the split-screen behaviour is
+                  unchanged; below it both panes are ordinary full-height
+                  sections that scroll with the page. */}
+              <div className="flex flex-col lg:flex-row border rounded-lg overflow-hidden lg:h-[calc(100vh-230px)] lg:min-h-[600px]">
                 {/* ── Left: scrollable controls ─────────────────────────── */}
-                <div className="w-full lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r bg-gray-50/80 overflow-y-auto flex flex-col">
+                <div className="w-full lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r bg-gray-50/80 lg:overflow-y-auto flex flex-col">
                   <div className="p-3 space-y-2">
 
                     {/* Template & Colors ─ always visible */}
@@ -1334,9 +1375,9 @@ export default function SettingsPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => fileInputRef.current?.click()}
-                                className="w-full h-8 text-xs"
+                                className="w-full h-9 text-xs"
                               >
-                                <Upload className="h-3 w-3 mr-1.5" />
+                                <Upload className="h-4 w-4 mr-1.5" />
                                 Upload Logo
                               </Button>
                               <p className="text-[11px] text-gray-400 text-center">PNG, JPG, or WebP - max 2 MB</p>
@@ -1361,9 +1402,12 @@ export default function SettingsPage() {
                                       variant="destructive"
                                       size="sm"
                                       onClick={removeLogo}
-                                      className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0"
+                                      title="Remove logo"
+                                      aria-label="Remove logo"
+                                      // Was h-5 w-5 — a 20px touch target.
+                                      className="absolute -top-2 -right-2 h-9 w-9 rounded-full p-0 shadow-sm"
                                     >
-                                      <X className="h-2 w-2" />
+                                      <X className="h-4 w-4" />
                                     </Button>
                                   </div>
                                   <FormField
@@ -1420,7 +1464,11 @@ export default function SettingsPage() {
                                 </FormItem>
                               )}
                             />
-                            <div className="grid grid-cols-3 gap-2">
+                            {/* Three fixed columns squeezed the `text-[11px]`
+                                Prefix / Digits / Suffix labels until they
+                                clipped at 320px; they stack until the column is
+                                wide enough to hold all three. */}
+                            <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-3">
                               <FormField
                                 control={form.control}
                                 name="invoiceNumberPrefix"
@@ -1639,8 +1687,11 @@ export default function SettingsPage() {
                                 </FormControl>
                               )}
                             />
-                            <CollapsibleTrigger>
-                              <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${openSections.has("payment") ? "rotate-180" : ""}`} />
+                            <CollapsibleTrigger
+                              className="flex h-9 w-9 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
+                              aria-label="Toggle payment details"
+                            >
+                              <ChevronDown className={`h-4 w-4 transition-transform ${openSections.has("payment") ? "rotate-180" : ""}`} />
                             </CollapsibleTrigger>
                           </div>
                         </div>
@@ -1774,8 +1825,11 @@ export default function SettingsPage() {
                               name="showPaymentTerms"
                               render={({ field }) => <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>}
                             />
-                            <CollapsibleTrigger>
-                              <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${openSections.has("terms") ? "rotate-180" : ""}`} />
+                            <CollapsibleTrigger
+                              className="flex h-9 w-9 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
+                              aria-label="Toggle payment terms"
+                            >
+                              <ChevronDown className={`h-4 w-4 transition-transform ${openSections.has("terms") ? "rotate-180" : ""}`} />
                             </CollapsibleTrigger>
                           </div>
                         </div>
@@ -1825,8 +1879,11 @@ export default function SettingsPage() {
                                 </FormControl>
                               )}
                             />
-                            <CollapsibleTrigger>
-                              <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${openSections.has("notes") ? "rotate-180" : ""}`} />
+                            <CollapsibleTrigger
+                              className="flex h-9 w-9 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
+                              aria-label="Toggle invoice notes"
+                            >
+                              <ChevronDown className={`h-4 w-4 transition-transform ${openSections.has("notes") ? "rotate-180" : ""}`} />
                             </CollapsibleTrigger>
                           </div>
                         </div>
@@ -1875,8 +1932,11 @@ export default function SettingsPage() {
                                 </FormControl>
                               )}
                             />
-                            <CollapsibleTrigger>
-                              <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${openSections.has("footer") ? "rotate-180" : ""}`} />
+                            <CollapsibleTrigger
+                              className="flex h-9 w-9 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
+                              aria-label="Toggle footer notes"
+                            >
+                              <ChevronDown className={`h-4 w-4 transition-transform ${openSections.has("footer") ? "rotate-180" : ""}`} />
                             </CollapsibleTrigger>
                           </div>
                         </div>
@@ -1906,7 +1966,7 @@ export default function SettingsPage() {
                 </div>
 
                 {/* ── Right: Live Preview ───────────────────────────────── */}
-                <div className="flex-1 overflow-y-auto bg-gray-100 p-4">
+                <div className="flex-1 min-w-0 bg-gray-100 p-4 lg:overflow-y-auto">
                   <InvoiceAiEditor
                     context="settings"
                     current={watchedValues as unknown as Record<string, unknown>}
@@ -1941,12 +2001,30 @@ export default function SettingsPage() {
                       {invoiceAccess.canExport ? "Export PDF" : "Pro export"}
                     </Button>
                   </div>
-                  <div style={{ width: "794px", transformOrigin: "top left", transform: "scale(0.65)", marginBottom: "-393px" }}>
+                  {/* The A4 page is painted with `transform: scale()`, which
+                      does not shrink the element's layout box — the old fixed
+                      `scale(0.65)` left the 794px box (and therefore the scroll
+                      container's scrollWidth) intact, so the user scrolled
+                      through blank dead space to the right. The scale is now
+                      derived from the measured container and the wrapper's
+                      height is set to match what is actually painted. */}
+                  <div
+                    ref={previewScaleRef}
+                    style={{ height: previewScale ? A4_PREVIEW_HEIGHT * previewScale : 0, overflow: "hidden" }}
+                  >
                     <iframe
                       srcDoc={settingsPreviewHtml}
-                      width="794"
-                      height="1123"
-                      style={{ border: "none", display: "block", width: "794px", height: "1123px" }}
+                      width={A4_PREVIEW_WIDTH}
+                      height={A4_PREVIEW_HEIGHT}
+                      style={{
+                        border: "none",
+                        display: "block",
+                        width: `${A4_PREVIEW_WIDTH}px`,
+                        height: `${A4_PREVIEW_HEIGHT}px`,
+                        transformOrigin: "top left",
+                        transform: `scale(${previewScale || 1})`,
+                        visibility: previewScale ? "visible" : "hidden",
+                      }}
                       title="Invoice Live Preview"
                     />
                   </div>

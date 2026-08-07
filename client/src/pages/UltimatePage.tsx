@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, endOfMonth, format, isValid, parseISO, startOfMonth, subDays, subMonths } from "date-fns";
 import { Link } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -288,9 +288,14 @@ export default function UltimatePage() {
       )}
 
       <Tabs defaultValue="assistant">
-        <TabsList className="grid w-full grid-cols-2 sm:w-[420px]">
-          <TabsTrigger value="assistant"><WandSparkles className="mr-2 h-4 w-4" />Work assistant</TabsTrigger>
-          <TabsTrigger value="automation"><CalendarClock className="mr-2 h-4 w-4" />Invoice automation</TabsTrigger>
+        {/* TabsTrigger is `whitespace-nowrap`, so at 320px "Invoice automation"
+            overflowed its grid cell and painted over the neighbouring tab. Same
+            fix as the delivery tabs further down this file: let the list grow
+            (`h-auto`) and let the trigger labels wrap inside a `min-h-10` tap
+            target. */}
+        <TabsList className="grid h-auto w-full grid-cols-2 sm:w-[420px]">
+          <TabsTrigger value="assistant" className="min-h-10 whitespace-normal px-2 text-center leading-tight sm:px-3"><WandSparkles className="mr-2 h-4 w-4 shrink-0" />Work assistant</TabsTrigger>
+          <TabsTrigger value="automation" className="min-h-10 whitespace-normal px-2 text-center leading-tight sm:px-3"><CalendarClock className="mr-2 h-4 w-4 shrink-0" />Invoice automation</TabsTrigger>
         </TabsList>
 
         <TabsContent value="assistant" className="mt-5 space-y-6">
@@ -749,22 +754,71 @@ function ApprovalQueue({ jobs, onChanged }: { jobs: any[]; onChanged: () => void
   );
 }
 
+const A4_PREVIEW_WIDTH = 794;
+const A4_PREVIEW_HEIGHT = 1123;
+
+/**
+ * Scales an A4 (794px) preview to whatever width its container actually has.
+ *
+ * A CSS `transform: scale()` paints smaller but leaves the layout box at its
+ * original size, so a fixed `scale(0.47)` left the scroll container's
+ * `scrollWidth` at 794px and the user scrolled sideways through blank dead
+ * space. Measuring the container and deriving both the scale *and* the wrapper
+ * height keeps the layout box the same size as what is painted.
+ */
+function useA4PreviewScale() {
+  const [width, setWidth] = useState(0);
+  const observerRef = useRef<ResizeObserver | null>(null);
+
+  // Callback ref so the observer attaches whenever the node appears, including
+  // when the preview is swapped in and out for the inline job editor.
+  const ref = useCallback((node: HTMLDivElement | null) => {
+    observerRef.current?.disconnect();
+    observerRef.current = null;
+    if (!node) return;
+    setWidth(node.getBoundingClientRect().width);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setWidth(entry.contentRect.width);
+    });
+    observer.observe(node);
+    observerRef.current = observer;
+  }, []);
+
+  useEffect(() => () => observerRef.current?.disconnect(), []);
+
+  const scale = width > 0 ? Math.min(1, width / A4_PREVIEW_WIDTH) : 0;
+  return { ref, scale };
+}
+
 function PreparedInvoicePreview({ job }: { job: any }) {
+  const { ref, scale } = useA4PreviewScale();
+
   return (
     <div className="mt-4 overflow-hidden rounded-md border bg-gray-100">
       <div className="flex items-center justify-between border-b bg-white px-3 py-2">
         <p className="text-xs font-semibold text-gray-700">Generated invoice preview</p>
         <p className="text-xs text-gray-500">Open the editor to change content or layout</p>
       </div>
-      <div className="h-[34rem] overflow-auto p-3">
-        <div style={{ width: "794px", height: "1123px", transform: "scale(0.47)", transformOrigin: "top left", marginBottom: "-595px" }}>
-          <iframe
-            src={`/api/ultimate/jobs/${job.id}/invoice-preview?v=${encodeURIComponent(job.updatedAt || "")}`}
-            title={`Invoice preview for ${job.payload?.client?.name || "client"}`}
-            width="794"
-            height="1123"
-            className="block border-0 bg-white"
-          />
+      <div className="max-h-[34rem] overflow-y-auto p-3">
+        <div ref={ref} style={{ height: scale ? A4_PREVIEW_HEIGHT * scale : 0, overflow: "hidden" }}>
+          <div
+            style={{
+              width: `${A4_PREVIEW_WIDTH}px`,
+              height: `${A4_PREVIEW_HEIGHT}px`,
+              transform: `scale(${scale || 1})`,
+              transformOrigin: "top left",
+              visibility: scale ? "visible" : "hidden",
+            }}
+          >
+            <iframe
+              src={`/api/ultimate/jobs/${job.id}/invoice-preview?v=${encodeURIComponent(job.updatedAt || "")}`}
+              title={`Invoice preview for ${job.payload?.client?.name || "client"}`}
+              width={A4_PREVIEW_WIDTH}
+              height={A4_PREVIEW_HEIGHT}
+              className="block border-0 bg-white"
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -186,3 +186,19 @@ export const adminLimiter = createLimiter(
   180,
   "Too many admin requests. Please wait a moment and try again.",
 );
+
+/**
+ * Ultimate AI actions were covered only by the 600-per-15-minutes catch-all.
+ * The monthly Smart Action allowance and the per-account USD cost ceiling are
+ * both enforced with a read-then-act check in server/ai/service.ts: usage is
+ * read, compared, and only written after the OpenAI round-trip completes. A
+ * burst of concurrent requests therefore all observe the same pre-spend figure
+ * and proceed past the ceiling. This limiter bounds how large that burst can
+ * be. It is a mitigation, not the fix — the quota should be reserved before the
+ * provider call, not after it.
+ */
+export const ultimateAiLimiter = createLimiter(
+  60 * 1000,
+  20,
+  "Too many assistant requests. Please wait a moment and try again.",
+);

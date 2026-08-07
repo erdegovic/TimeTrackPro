@@ -202,6 +202,15 @@ export default function TimeEntryList() {
     queryKey: ["/api/projects"],
   });
 
+  // One request for every entry's note count, instead of one request per rendered
+  // row. The per-row version issued 40+ requests on a normal tracker load, which
+  // is enough to trip the account's own 600-per-15-minute API rate limit.
+  const { data: noteCounts } = useQuery<{ counts: Record<string, number> }>({
+    queryKey: ["/api/time-entries/note-counts"],
+    staleTime: 5 * 60 * 1000,
+  });
+  const entryHasNotes = (entryId: number) => (noteCounts?.counts?.[String(entryId)] ?? 0) > 0;
+
   // Don't process entries until all data is loaded
   const isDataLoading = isLoadingEntries || clientsLoading || projectsLoading;
 
@@ -919,14 +928,17 @@ export default function TimeEntryList() {
       ) : (
         sortedGroups.map(([groupKey, group]) => (
           <div key={groupKey} className="tickd-card mb-6">
-            <div className="px-4 py-3 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h2 className="flex items-center gap-2 text-lg font-medium text-gray-900">
-                  {group.color && <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: group.color }} />}
-                  {group.label}
+            {/* Wrapping header: "September 12, 2025" + total + currency + amount is
+                ~406px of content, which did not fit on a phone and forced the
+                totals to overlap the date heading. */}
+            <div className="border-b border-gray-200 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5">
+                <h2 className="flex min-w-0 items-center gap-2 text-base font-medium text-gray-900 sm:text-lg">
+                  {group.color && <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: group.color }} />}
+                  <span className="truncate">{group.label}</span>
                 </h2>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-medium text-gray-500">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="whitespace-nowrap text-sm font-medium text-gray-500">
                     Total: {timeFormat === "decimal" ? group.totalHours.toFixed(1) + "h" : formatTimeFromDecimal(group.totalHours)}
                   </span>
                   {groupBy === "date" && (() => {
@@ -941,7 +953,7 @@ export default function TimeEntryList() {
                           manualRateCurrencyCodes={manualRateCurrencyCodes}
                           onSaveCustomCurrencies={handleSaveCustomCurrencies}
                         />
-                        <span className="text-sm font-medium text-green-600">
+                        <span className="whitespace-nowrap text-sm font-medium tabular-nums text-green-600">
                           {dailyEarnings.toFixed(2)}
                         </span>
                       </div>
@@ -967,12 +979,13 @@ export default function TimeEntryList() {
                   isTracking={isTracking}
                   onStop={stopTimer}
                   allTimeEntries={enhancedEntries}
+                  hasNotes={noteCounts ? entryHasNotes(entry.id) : undefined}
                 />
               ))}
             </div>
 
             {/* Mobile Card View - only on very small screens */}
-            <div className="sm:hidden space-y-3">
+            <div className="space-y-2 p-2 sm:hidden">
               {group.entries.map((entry) => {
                 const formatDuration = (duration: string | number) => {
                   const numDuration = typeof duration === "string" ? parseFloat(duration) : duration;
@@ -987,35 +1000,60 @@ export default function TimeEntryList() {
                   }
                 };
 
+                /* Grouped sessions carry the merged total on `exactDuration`; the
+                   card previously printed `entry.duration`, which is only the
+                   first block, so a phone disagreed with the day total above it. */
+                const cardDuration = Number((entry as any).exactDuration ?? entry.duration ?? 0);
+                const blockCount = Array.isArray((entry as any).blocks) ? (entry as any).blocks.length : 1;
+                const rangeStart = (entry as any).overallStartTime ?? (entry.startTime ? new Date(entry.startTime) : null);
+                const rangeEnd = (entry as any).overallEndTime ?? (entry.endTime ? new Date(entry.endTime) : null);
+                const timeRange = rangeStart && rangeEnd
+                  ? `${format(new Date(rangeStart), "h:mma").toLowerCase()} – ${format(new Date(rangeEnd), "h:mma").toLowerCase()}`
+                  : null;
+
                 return (
-                  <div 
-                    key={entry.id} 
-                    className={`tickd-card-subtle tickd-spacing-md ${entryShouldHighlight(entry) ? 'animate-highlight' : ''}`}
+                  <div
+                    key={entry.id}
+                    className={`tickd-card-subtle p-4 ${entryShouldHighlight(entry) ? 'animate-highlight' : ''}`}
                   >
                     {/* First line: Description and Time */}
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1 mr-4">
-                        <p className="font-medium text-gray-900 text-sm">{entry.description}</p>
-                      </div>
-                      <div className="font-mono font-semibold text-gray-900 text-sm">
-                        {formatDuration(entry.duration || 0)}
+                    <div className="mb-2 flex items-start justify-between gap-3">
+                      <p className="min-w-0 flex-1 break-words text-sm font-medium text-gray-900">
+                        {entry.description || <span className="italic text-gray-400">No description</span>}
+                      </p>
+                      <div className="shrink-0 text-right font-mono text-sm font-semibold tabular-nums text-gray-900">
+                        {formatDuration(cardDuration)}
                       </div>
                     </div>
-                    
-                    {/* Second line: Client, Project, and Actions */}
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs text-gray-500">
-                        <span className="flex items-center gap-1.5 font-medium">
-                          {entry.client && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.client.color || "#2563eb" }} />}
-                          {entry.client?.name || "—"}
-                        </span>
-                        <span className="hidden sm:inline">•</span>
-                        <span style={{ color: (entry.project as any)?.color || "#6B7280" }}>
-                          {entry.project?.name || "—"}
-                        </span>
+
+                    {/* Second line: when it happened */}
+                    {(timeRange || blockCount > 1) && (
+                      <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+                        {timeRange && <span className="whitespace-nowrap">{timeRange}</span>}
+                        {blockCount > 1 && (
+                          <span className="rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-600">
+                            {blockCount} blocks
+                          </span>
+                        )}
                       </div>
-                      
-                      <div className="flex items-center space-x-1">
+                    )}
+
+                    {/* Third line: Client, Project, and Actions */}
+                    <div className="flex flex-col gap-3">
+                      {/* Project above client, mirroring the desktop row. A middot
+                          separator was dropped here: once the two names wrapped it
+                          was left stranded at the end of the client line. */}
+                      <div className="min-w-0 space-y-0.5 text-xs text-gray-500">
+                        <div className="max-w-full truncate" style={{ color: (entry.project as any)?.color || "#6B7280" }}>
+                          {entry.project?.name || "No project assigned"}
+                        </div>
+                        <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 font-medium">
+                          {entry.client && <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: entry.client.color || "#2563eb" }} />}
+                          <span className="truncate">{entry.client?.name || "No client"}</span>
+                        </div>
+                      </div>
+
+                      <div className="-mx-1 flex items-center justify-between">
                         {handlePlay && (
                           <Button 
                             variant="ghost" 
@@ -1027,11 +1065,11 @@ export default function TimeEntryList() {
                                 handlePlay(entry.description || "", entry.projectId);
                               }
                             }}
-                            className={isTracking ? "text-red-600 hover:text-white hover:bg-red-600 h-8 w-8 p-0" : "text-green-600 hover:text-white hover:bg-green-600 h-8 w-8 p-0"}
+                            className={isTracking ? "text-red-600 hover:text-white hover:bg-red-600 h-10 w-10 p-0" : "text-green-600 hover:text-white hover:bg-green-600 h-10 w-10 p-0"}
                             title={isTracking ? "Stop timer" : "Continue tracking this task"}
                             aria-label={isTracking ? "Stop timer" : "Continue tracking this task"}
                           >
-                            <Play className="h-3 w-3" />
+                            <Play className="h-4 w-4" />
                           </Button>
                         )}
                         <Button 
@@ -1046,22 +1084,22 @@ export default function TimeEntryList() {
                               ? Number(entry.exactDuration ?? entry.duration ?? 0).toFixed(2)
                               : formatTimeFromDecimal(Number(entry.exactDuration ?? entry.duration ?? 0)),
                           })}
-                          className="text-primary hover:text-white hover:bg-primary h-8 w-8 p-0"
+                          className="text-primary hover:text-white hover:bg-primary h-10 w-10 p-0"
                           title="Edit time entry"
                           aria-label="Edit time entry"
                         >
-                          <Edit className="h-3 w-3" />
+                          <Edit className="h-4 w-4" />
                         </Button>
                         <Button 
                           variant="ghost" 
                           size="sm" 
                           onClick={() => duplicateEntryMutation.mutate(entry)}
                           disabled={duplicateEntryMutation.isPending}
-                          className="text-gray-500 hover:text-white hover:bg-gray-500 h-8 w-8 p-0"
+                          className="text-gray-500 hover:text-white hover:bg-gray-500 h-10 w-10 p-0"
                           title="Duplicate time entry"
                           aria-label="Duplicate time entry"
                         >
-                          <Copy className="h-3 w-3" />
+                          <Copy className="h-4 w-4" />
                         </Button>
                         <TimeEntryNotes
                           timeEntryId={entry.id}
@@ -1069,11 +1107,11 @@ export default function TimeEntryList() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-blue-600 hover:text-white hover:bg-blue-600 h-8 w-8 p-0"
+                              className="text-blue-600 hover:text-white hover:bg-blue-600 h-10 w-10 p-0"
                               title="Add or view notes"
                               aria-label="Add or view notes"
                             >
-                              <MessageSquare className="h-3 w-3" />
+                              <MessageSquare className="h-4 w-4" />
                             </Button>
                           }
                         />
@@ -1082,11 +1120,11 @@ export default function TimeEntryList() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-gray-500 hover:text-white hover:bg-gray-500 h-8 w-8 p-0"
+                              className="text-gray-500 hover:text-white hover:bg-gray-500 h-10 w-10 p-0"
                               title="Move entry to another date"
                               aria-label="Move entry to another date"
                             >
-                              <Calendar className="h-3 w-3" />
+                              <Calendar className="h-4 w-4" />
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="end">
@@ -1104,11 +1142,11 @@ export default function TimeEntryList() {
                           variant="ghost" 
                           size="sm" 
                           onClick={() => setDeleteId(entry.id)}
-                          className="text-destructive hover:text-white hover:bg-destructive h-8 w-8 p-0"
+                          className="text-destructive hover:text-white hover:bg-destructive h-10 w-10 p-0"
                           title="Delete time entry"
                           aria-label="Delete time entry"
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>

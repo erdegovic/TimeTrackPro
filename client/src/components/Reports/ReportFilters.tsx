@@ -137,19 +137,24 @@ export default function ReportFiltersComponent({ onApplyFilters, liveUpdate = fa
         
         <div className="col-span-1 sm:col-span-2 lg:col-span-1">
           <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          {/* Stacked below 400px. Two side-by-side native date inputs each need
+              roughly 150px for the value plus the browser's own picker glyph, so
+              on a phone the arrow column pushed that glyph past the input edge. */}
+          <div className="grid grid-cols-1 items-center gap-2 min-[400px]:grid-cols-[1fr_auto_1fr]">
             <Input
               type="date"
+              aria-label="Report start date"
               value={filters.startDate}
               onChange={(e) => updateFilters({ ...filters, startDate: e.target.value })}
-              className="min-w-0 w-full"
+              className="w-full min-w-0"
             />
-            <span className="text-gray-400 text-sm px-1">→</span>
+            <span aria-hidden="true" className="hidden px-1 text-sm text-gray-400 min-[400px]:inline">→</span>
             <Input
               type="date"
+              aria-label="Report end date"
               value={filters.endDate}
               onChange={(e) => updateFilters({ ...filters, endDate: e.target.value })}
-              className="min-w-0 w-full"
+              className="w-full min-w-0"
             />
           </div>
         </div>

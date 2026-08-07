@@ -246,7 +246,7 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
   return (
     <div className="flex flex-col">
       {/* Colored header band */}
-      <div className="bg-gradient-to-r from-gray-900 to-gray-700 rounded-t-lg px-6 py-5 text-white">
+      <div className="bg-gradient-to-r from-gray-900 to-gray-700 rounded-t-lg px-4 py-4 sm:px-6 sm:py-5 text-white">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">Invoice</p>
@@ -280,30 +280,32 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
             <Button size="sm" onClick={saveInvoice} disabled={isLoading} className="bg-white text-gray-900 hover:bg-gray-100 font-semibold">
               <Save className="h-4 w-4 mr-1.5" /> Save
             </Button>
-            <Button variant="ghost" size="icon" onClick={onClose} className="text-white/60 hover:text-white hover:bg-white/10 h-8 w-8">
+            <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close invoice editor" className="text-white/60 hover:text-white hover:bg-white/10 h-9 w-9">
               <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        {/* Summary strip */}
-        <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-3 gap-4 text-center">
-          <div>
+        {/* Summary strip — three fixed columns gave each value only ~90px at 390px, so date
+            strings and currency totals wrapped mid-value. Below sm each pair is a single
+            label/value row instead; the centred three-up layout returns at sm. */}
+        <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-4 sm:text-center">
+          <div className="flex items-baseline justify-between gap-3 sm:block">
             <p className="text-xs text-gray-400 uppercase tracking-wide">Issued</p>
-            <p className="text-sm font-medium mt-0.5">{issueDate || "—"}</p>
+            <p className="text-sm font-medium sm:mt-0.5">{issueDate || "—"}</p>
           </div>
-          <div>
+          <div className="flex items-baseline justify-between gap-3 sm:block">
             <p className="text-xs text-gray-400 uppercase tracking-wide">Due</p>
-            <p className="text-sm font-medium mt-0.5">{dueDate || "—"}</p>
+            <p className="text-sm font-medium sm:mt-0.5">{dueDate || "—"}</p>
           </div>
-          <div>
+          <div className="flex items-baseline justify-between gap-3 sm:block">
             <p className="text-xs text-gray-400 uppercase tracking-wide">Total</p>
-            <p className="text-lg font-bold mt-0.5">{formatCurrency(total, currency)}</p>
+            <p className="text-lg font-bold sm:mt-0.5">{formatCurrency(total, currency)}</p>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col gap-6 p-6">
+      <div className="flex flex-col gap-6 p-4 sm:p-6">
         {/* Metadata + Client row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Invoice fields */}
@@ -389,15 +391,19 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
               </div>
             ) : (
               lineItems.map((item, idx) => (
+                // Below sm this row used to stay a 12-column grid (12/4/4/3/1). At 390px each
+                // track is ~20.8px, so the col-span-1 delete cell could not hold its 28px button
+                // and it overlapped the amount, which itself clipped past 4 digits. The row is
+                // now a plain vertical stack on phones and only becomes the 12-column grid at sm.
                 <div
                   key={item.id}
-                  className={`grid grid-cols-12 items-center px-4 py-3 border-b last:border-b-0 gap-2 transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"}`}
+                  className={`flex flex-col gap-3 px-4 py-3 border-b last:border-b-0 transition-colors sm:grid sm:grid-cols-12 sm:items-center sm:gap-2 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"}`}
                 >
-                  <div className="col-span-12 sm:col-span-5">
+                  <div className="sm:col-span-5">
                     <Input
                       value={item.description}
                       onChange={e => updateLineItem(item.id, "description", e.target.value)}
-                      className="h-8 text-sm border-gray-200 focus:border-gray-400"
+                      className="h-9 text-sm border-gray-200 focus:border-gray-400"
                       placeholder="Description"
                     />
                     <span className={`text-xs font-medium ml-1 mt-0.5 inline-flex items-center gap-1 ${
@@ -406,42 +412,57 @@ export default function InvoiceEditor({ invoice, onClose, onSave }: InvoiceEdito
                       {item.isTimeEntry ? "Time entry" : item.billingType === "hourly" ? "Hourly" : "Quantity"}
                     </span>
                   </div>
-                  <div className="col-span-4 sm:col-span-2">
-                    <Input
-                      type="number" step="0.01" min="0"
-                      value={getManualItemUnits(item)}
-                      onChange={e => updateLineItem(
-                        item.id,
-                        item.billingType === "hourly" ? "hours" : "quantity",
-                        parseFloat(e.target.value) || 0,
-                      )}
-                      className="h-8 text-sm text-center border-gray-200"
-                      placeholder="0"
-                      aria-label={item.billingType === "hourly" ? "Hours" : "Quantity"}
-                    />
+                  {/* The column headers above are hidden below sm, which left these two numeric
+                      boxes unlabelled, so they carry their own visible labels on phones.
+                      `sm:contents` dissolves this wrapper so the grid spans stay 5/2/2/2/1. */}
+                  <div className="grid grid-cols-2 gap-3 sm:contents">
+                    <div className="sm:col-span-2">
+                      <Label className="mb-1 block text-xs font-medium text-gray-500 sm:hidden">
+                        {item.billingType === "hourly" ? "Hours" : "Qty"}
+                      </Label>
+                      <Input
+                        type="number" step="0.01" min="0"
+                        value={getManualItemUnits(item)}
+                        onChange={e => updateLineItem(
+                          item.id,
+                          item.billingType === "hourly" ? "hours" : "quantity",
+                          parseFloat(e.target.value) || 0,
+                        )}
+                        className="h-9 text-sm text-center border-gray-200"
+                        placeholder="0"
+                        aria-label={item.billingType === "hourly" ? "Hours" : "Quantity"}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label className="mb-1 block text-xs font-medium text-gray-500 sm:hidden">Rate</Label>
+                      <Input
+                        type="number" step="0.01" min="0"
+                        value={item.rate ?? ""}
+                        onChange={e => updateLineItem(item.id, "rate", parseFloat(e.target.value) || 0)}
+                        className="h-9 text-sm text-center border-gray-200"
+                        placeholder="0"
+                        aria-label="Rate"
+                      />
+                    </div>
                   </div>
-                  <div className="col-span-4 sm:col-span-2">
-                    <Input
-                      type="number" step="0.01" min="0"
-                      value={item.rate ?? ""}
-                      onChange={e => updateLineItem(item.id, "rate", parseFloat(e.target.value) || 0)}
-                      className="h-8 text-sm text-center border-gray-200"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="col-span-3 sm:col-span-2 text-right">
-                    <span className="text-sm font-semibold text-gray-900">
-                      {formatCurrency(calculateManualItemAmount(item), currency)}
-                    </span>
-                  </div>
-                  <div className="col-span-1 flex justify-end">
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-7 w-7 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors rounded-lg"
-                      onClick={() => removeLineItem(item.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                  <div className="flex items-center justify-between gap-2 sm:contents">
+                    <div className="flex items-baseline gap-2 sm:col-span-2 sm:block sm:text-right">
+                      <span className="text-xs font-medium text-gray-500 sm:hidden">Amount</span>
+                      <span className="text-sm font-semibold text-gray-900">
+                        {formatCurrency(calculateManualItemAmount(item), currency)}
+                      </span>
+                    </div>
+                    <div className="flex justify-end sm:col-span-1">
+                      {/* 28px was below the minimum touch target. */}
+                      <Button
+                        variant="ghost" size="icon"
+                        aria-label="Remove line item"
+                        className="h-9 w-9 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors rounded-lg"
+                        onClick={() => removeLineItem(item.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))

@@ -48,7 +48,7 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: 0, // Don't use stale data
-      cacheTime: 1000 * 60 * 5, // Cache for 5 minutes but allow fresh fetches
+      gcTime: 1000 * 60 * 5, // Renamed from cacheTime in React Query v5
       retry: false,
     },
     mutations: {

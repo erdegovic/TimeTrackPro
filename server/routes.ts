@@ -25,7 +25,7 @@ import {
 import { z } from "zod";
 import { format, addDays, differenceInCalendarWeeks, startOfWeek } from "date-fns";
 import { db } from "./db";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import authRoutes from "./routes/auth";
 import { authenticate } from "./middleware/auth";
@@ -645,8 +645,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       res.json({ id: snapshot.id, completedAt: snapshot.completedAt, byteSize: snapshot.byteSize });
     } catch (error) {
+      // Logged in full server-side, but not echoed: requireBackupConfig() and the
+      // AWS SDK put bucket names, endpoints and credential hints in these messages.
       console.error("Manual account backup failed:", error);
-      res.status(500).json({ message: error instanceof Error ? error.message : "Account backup failed" });
+      res.status(500).json({ message: "Account backup failed" });
     }
   });
 
@@ -682,9 +684,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         safetySnapshotId: result.safetySnapshot.id,
       });
     } catch (error) {
+      // See the note on the backup route above: raw provider errors carry
+      // storage endpoint and bucket detail and must not reach a response body.
       console.error("Account restore failed:", error);
       if (error instanceof z.ZodError) return res.status(400).json({ message: "A valid confirmation email is required" });
-      res.status(500).json({ message: error instanceof Error ? error.message : "Account restore failed" });
+      res.status(500).json({ message: "Account restore failed" });
     }
   });
   
@@ -969,6 +973,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Time Entry Notes API
+  //
+  // Note counts for every entry the account owns, in one request.
+  //
+  // The tracker previously rendered one <NotesButton> per time entry and each
+  // one ran its own GET /api/time-entries/:id/notes purely to decide whether the
+  // icon should be tinted. On an account with a normal amount of history that
+  // was 40+ requests per page load — measured at 387 of 600 logged requests in a
+  // short session here — which is enough for a user to trip the 600-per-15-minute
+  // API limiter and be signed out of their own tracker.
+  //
+  // Registered before the ":timeEntryId" route so "note-counts" is not parsed as
+  // an entry id.
+  app.get("/api/time-entries/note-counts", authenticate, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+
+      // Scoped by the note's owner, which is the same ownership rule the
+      // per-entry route enforces.
+      const rows = await db
+        .select({
+          timeEntryId: timeEntryNotesTable.timeEntryId,
+          total: sql<number>`count(*)::int`,
+        })
+        .from(timeEntryNotesTable)
+        .where(eq(timeEntryNotesTable.userId, userId))
+        .groupBy(timeEntryNotesTable.timeEntryId);
+
+      const counts: Record<string, number> = {};
+      for (const row of rows) {
+        counts[String(row.timeEntryId)] = Number(row.total) || 0;
+      }
+
+      res.json({ counts });
+    } catch (error) {
+      console.error('Error getting time entry note counts:', error);
+      res.status(500).json({ message: 'Failed to fetch note counts' });
+    }
+  });
+
   app.get("/api/time-entries/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
@@ -1044,26 +1091,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'User not authenticated' });
       }
       
-      // Convert timestamp strings to Date objects and ensure date field is set
-      const startTime = req.body.startTime ? new Date(req.body.startTime) : new Date();
+      // This route used to spread req.body straight into the insert. Because
+      // DatabaseStorage.createTimeEntry forwards `invoiceId` when present, that
+      // let a caller attach their entry to any other tenant's invoice — and it
+      // defeated insertTimeEntrySchema, which deliberately omits invoiceId.
+      // The tracker sends ISO strings, so timestamps are coerced here rather
+      // than relying on the shared schema's Date fields.
+      const trackerEntrySchema = z.object({
+        description: z.string().trim().max(1000).nullish(),
+        projectId: z.number().int().positive().nullish(),
+        clientId: z.number().int().positive().nullish(),
+        duration: z.union([z.string(), z.number()]).nullish(),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        startTime: z.string().datetime({ offset: true }).optional(),
+        endTime: z.string().datetime({ offset: true }).optional(),
+      });
 
-      const relationError = await validateTimeEntryRelations(userId, req.body);
+      const parsed = trackerEntrySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: 'Invalid time entry data', errors: parsed.error.errors });
+      }
+
+      const startTime = parsed.data.startTime ? new Date(parsed.data.startTime) : new Date();
+
+      const relationError = await validateTimeEntryRelations(userId, parsed.data);
       if (relationError) {
         return res.status(403).json({ message: relationError });
       }
-      
+
       // Allow projectId to be null for entries without projects
-      
       const data = {
-        ...req.body,
+        ...parsed.data,
         userId: userId,
         startTime: startTime,
-        endTime: req.body.endTime ? new Date(req.body.endTime) : undefined,
-        date: req.body.date || startTime.toISOString().split('T')[0],
+        endTime: parsed.data.endTime ? new Date(parsed.data.endTime) : undefined,
+        date: parsed.data.date || startTime.toISOString().split('T')[0],
       };
-      
-      console.log('Tracker time entry data being sent to database:', data);
-      
+
       const timeEntry = await storage.createTimeEntry(data as any);
       res.status(201).json(timeEntry);
     } catch (error) {
@@ -1372,7 +1436,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Time Entry Notes API
   app.get("/api/time-entries/:timeEntryId/notes", authenticate, async (req: Request, res: Response) => {
     try {
       const timeEntryId = parseInt(req.params.timeEntryId);
@@ -1546,17 +1609,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/invoices/number/:number", authenticate, async (req: Request, res: Response) => {
     try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+
       const invoiceNumber = req.params.number;
-      const invoice = await storage.getInvoiceByNumber(invoiceNumber);
-      
+      const invoice = await storage.getInvoiceByNumber(userId, invoiceNumber);
+
       if (!invoice) {
         return res.status(404).json({ message: 'Invoice not found' });
       }
-      
-      if (!isOwnedByUser(invoice.userId, req.user!.id)) {
-        return res.status(403).json({ message: 'You are not authorized to view this invoice' });
-      }
-      
+
       res.json(invoice);
     } catch (error) {
       console.error('Error getting invoice by number:', error);
@@ -1572,16 +1636,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Extract timeEntryIds before Zod parsing (not in schema, used separately)
-      const { timeEntryIds, ...bodyRest } = req.body;
+      const { timeEntryIds: rawTimeEntryIds, ...bodyRest } = req.body;
+
+      // Validate the id list rather than trusting the body shape.
+      const timeEntryIdsResult = z
+        .array(z.number().int().positive())
+        .max(5000)
+        .optional()
+        .safeParse(rawTimeEntryIds);
+
+      if (!timeEntryIdsResult.success) {
+        return res.status(400).json({ message: 'Invalid time entry selection' });
+      }
+
+      const timeEntryIds = timeEntryIdsResult.data;
 
       const data = insertInvoiceSchema.parse(bodyRest);
+
+      // An invoice may only be raised against a client this account owns.
+      // Without this a caller could point client_id at another tenant's client.
+      const invoiceClient = await storage.getClient(data.clientId);
+      if (!invoiceClient || !isOwnedByUser(invoiceClient.userId, userId)) {
+        return res.status(403).json({ message: 'The selected client is not available to this account' });
+      }
+
       const invoice = await storage.createInvoice({ ...data, userId });
 
-      // Link time entries to this invoice
-      if (Array.isArray(timeEntryIds) && timeEntryIds.length > 0) {
+      // Link time entries to this invoice.
+      // The userId predicate is load-bearing: without it any Pro account could
+      // stamp its own invoiceId onto every other tenant's time entries, which
+      // removes them from their owners' uninvoiced pool and silently under-bills.
+      if (timeEntryIds && timeEntryIds.length > 0) {
         await db.update(timeEntriesTable)
           .set({ invoiceId: invoice.id })
-          .where(inArray(timeEntriesTable.id, timeEntryIds));
+          .where(and(
+            eq(timeEntriesTable.userId, userId),
+            inArray(timeEntriesTable.id, timeEntryIds),
+          ));
       }
 
       res.status(201).json(invoice);
@@ -1641,8 +1732,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: 'You are not authorized to update this invoice' });
       }
       
-      // Use partial schema to allow partial updates
-      const data = insertInvoiceSchema.partial().parse(req.body);
+      // Use partial schema to allow partial updates.
+      // `userId` is stripped: it is a column on `invoices`, so createInsertSchema
+      // accepted it, and after passing the ownership check above a caller could
+      // otherwise re-parent one of their own invoices into another account by
+      // sending {"userId": <victim id>}. It is server-owned, never client input.
+      const data = insertInvoiceSchema
+        .omit({ userId: true })
+        .partial()
+        .parse(req.body);
+
+      // Reassigning the invoice to a different client is allowed, but only to a
+      // client this account owns.
+      if (data.clientId !== undefined && data.clientId !== existingInvoice.clientId) {
+        const nextClient = await storage.getClient(data.clientId);
+        if (!nextClient || !isOwnedByUser(nextClient.userId, userId)) {
+          return res.status(403).json({ message: 'The selected client is not available to this account' });
+        }
+      }
+
       const invoice = await storage.updateInvoice(id, data);
       
       if (!invoice) {
@@ -1880,6 +1988,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Creativity Notes Routes
+  // Bounded schemas for the creative panel. These routes previously spread
+  // req.body straight into the insert/update, so a caller could store unbounded
+  // strings and any wrong type surfaced as a raw 500 from the driver.
+  const creativityNoteInputSchema = z.object({
+    title: z.string().trim().max(200).nullish(),
+    content: z.string().max(20000),
+    category: z.string().trim().max(60).nullish(),
+    tags: z.string().trim().max(500).nullish(),
+    isPinned: z.boolean().optional(),
+  });
+
+  const weeklyGoalInputSchema = z.object({
+    title: z.string().trim().min(1).max(200),
+    description: z.string().max(5000).nullish(),
+    isCompleted: z.boolean().optional(),
+    priority: z.enum(["high", "medium", "low"]).nullish(),
+    weekOf: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    completedAt: z.coerce.date().nullish(),
+  });
+
   app.get("/api/creativity/notes", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = req.user!.id;
@@ -1894,8 +2022,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/creativity/notes", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = req.user!.id;
-      const noteData = { ...req.body, userId };
-      const note = await storage.createCreativityNote(noteData);
+      const parsed = creativityNoteInputSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid note data", errors: parsed.error.errors });
+      }
+      const note = await storage.createCreativityNote({ ...parsed.data, userId });
       res.json(note);
     } catch (error) {
       console.error("Error creating note:", error);
@@ -1914,7 +2045,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!isOwnedByUser(existingNote.userId, req.user!.id)) {
         return res.status(403).json({ message: "You are not authorized to update this note" });
       }
-      const note = await storage.updateCreativityNote(noteId, req.body);
+      const parsedUpdate = creativityNoteInputSchema.partial().safeParse(req.body);
+      if (!parsedUpdate.success) {
+        return res.status(400).json({ message: "Invalid note data", errors: parsedUpdate.error.errors });
+      }
+      const note = await storage.updateCreativityNote(noteId, parsedUpdate.data);
       res.json(note);
     } catch (error) {
       console.error("Error updating note:", error);
@@ -1956,8 +2091,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/creativity/goals", authenticate, async (req: Request, res: Response) => {
     try {
       const userId = req.user!.id;
-      const goalData = { ...req.body, userId };
-      const goal = await storage.createWeeklyGoal(goalData);
+      const parsed = weeklyGoalInputSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid goal data", errors: parsed.error.errors });
+      }
+      const goal = await storage.createWeeklyGoal({ ...parsed.data, userId });
       res.json(goal);
     } catch (error) {
       console.error("Error creating goal:", error);
@@ -1976,7 +2114,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!isOwnedByUser(existingGoal.userId, req.user!.id)) {
         return res.status(403).json({ message: "You are not authorized to update this goal" });
       }
-      const goal = await storage.updateWeeklyGoal(goalId, req.body);
+      const parsedUpdate = weeklyGoalInputSchema.partial().safeParse(req.body);
+      if (!parsedUpdate.success) {
+        return res.status(400).json({ message: "Invalid goal data", errors: parsedUpdate.error.errors });
+      }
+      const goal = await storage.updateWeeklyGoal(goalId, parsedUpdate.data);
       res.json(goal);
     } catch (error) {
       console.error("Error updating goal:", error);

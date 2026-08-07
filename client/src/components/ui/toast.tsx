@@ -13,8 +13,12 @@ const ToastViewport = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitives.Viewport
     ref={ref}
+    // `top-0` put the full-width phone toast directly over the app shell's
+    // 64px (h-16) mobile top bar, hiding the hamburger and creative-panel
+    // buttons for as long as a toast was on screen. `top-16` drops it just
+    // below that bar; from `sm` up the viewport is already bottom-anchored.
     className={cn(
-      "fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
+      "fixed top-16 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
       className
     )}
     {...props}

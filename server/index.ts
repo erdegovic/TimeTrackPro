@@ -22,6 +22,7 @@ import {
   securityHeaders,
   SESSION_COOKIE_NAME,
   sessionCookieOptions,
+  ultimateAiLimiter,
 } from "./security";
 
 const app = express();
@@ -58,6 +59,7 @@ app.use("/api/auth/resend-verification", emailVerificationLimiter);
 app.use("/api/auth/verify-email-code", emailVerificationLimiter);
 app.use("/api/contact", contactLimiter);
 app.use("/api/admin", adminLimiter);
+app.use("/api/ultimate", ultimateAiLimiter);
 app.use("/api", apiLimiter, protectStateChangingApiRequests);
 
 app.get('/api/health', async (_req, res) => {

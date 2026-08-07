@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   differenceInCalendarDays,
   eachDayOfInterval,
@@ -80,6 +80,34 @@ function getPresetRange(preset: RangePreset, today = new Date()): DashboardRange
   return { start: startOfWeek(today, { weekStartsOn: 0 }), end: endOfWeek(today, { weekStartsOn: 0 }) };
 }
 
+/**
+ * Measures an element's content width and keeps it in state. Used so the chart
+ * can size itself against the *actual* content column (which is ~374px on a
+ * phone, ~656px at 1024px and ~800px at 1440px because of the app shell) rather
+ * than against a hard-coded desktop assumption.
+ */
+function useMeasuredWidth<T extends HTMLElement>() {
+  const [width, setWidth] = useState(0);
+  const observerRef = useRef<ResizeObserver | null>(null);
+
+  const ref = useCallback((node: T | null) => {
+    observerRef.current?.disconnect();
+    observerRef.current = null;
+    if (!node) return;
+    setWidth(node.getBoundingClientRect().width);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setWidth(entry.contentRect.width);
+    });
+    observer.observe(node);
+    observerRef.current = observer;
+  }, []);
+
+  useEffect(() => () => observerRef.current?.disconnect(), []);
+
+  return [ref, width] as const;
+}
+
 function getRangeLabel(range: DashboardRange) {
   const sameYear = format(range.start, "yyyy") === format(range.end, "yyyy");
   const start = format(range.start, sameYear ? "MMM d" : "MMM d, yyyy");
@@ -93,6 +121,7 @@ export default function Dashboard() {
   const [displayCurrency, setDisplayCurrency] = useState<string>("USD");
   const [rangePreset, setRangePreset] = useState<RangePreset>("week");
   const [range, setRange] = useState<DashboardRange>(() => getPresetRange("week"));
+  const [chartContainerRef, chartContainerWidth] = useMeasuredWidth<HTMLDivElement>();
 
   const { data: allEntries = [] } = useQuery<TimeEntryWithRelations[]>({ queryKey: ["/api/time-entries"] });
   const { data: clients = [] } = useQuery<Client[]>({ queryKey: ["/api/clients"] });
@@ -233,16 +262,53 @@ export default function Dashboard() {
   const topProject = projectData[0];
   const topClient = clientData[0];
 
-  const chartWidth =
-    dailyHoursData.length <= 7
-      ? "100%"
-      : Math.max(
-          760,
-          dailyHoursData.length *
-            (dailyHoursData.length > 180 ? 9 : dailyHoursData.length > 90 ? 12 : dailyHoursData.length > 45 ? 16 : 28)
-        );
-  const xAxisInterval =
-    dailyHoursData.length > 180 ? 29 : dailyHoursData.length > 95 ? 13 : dailyHoursData.length > 45 ? 6 : dailyHoursData.length > 20 ? 2 : 0;
+  // The chart used to demand a hard 760px minimum for any range longer than a
+  // week. On a phone (a ~374px content column) that turned "Daily Work Pattern"
+  // into a horizontally scrolling region nested inside the vertically scrolling
+  // page — a gesture-conflict trap. The per-column width and the minimum are
+  // now derived from the measured container, so a 30-day range fits outright on
+  // a phone and longer ranges scroll far less; the x-axis also thins its ticks
+  // on narrow viewports so the labels stay legible.
+  const isNarrowChart = chartContainerWidth > 0 && chartContainerWidth < 640;
+  const dayCount = dailyHoursData.length;
+  const perColumnWidth = isNarrowChart
+    ? dayCount > 180
+      ? 6
+      : dayCount > 90
+        ? 8
+        : dayCount > 45
+          ? 10
+          : 12
+    : dayCount > 180
+      ? 9
+      : dayCount > 90
+        ? 12
+        : dayCount > 45
+          ? 16
+          : 28;
+  const minChartWidth = isNarrowChart ? chartContainerWidth : 760;
+  const chartWidth = dayCount <= 7 ? "100%" : Math.max(minChartWidth, dayCount * perColumnWidth);
+  const xAxisInterval = isNarrowChart
+    ? dayCount > 180
+      ? 44
+      : dayCount > 95
+        ? 20
+        : dayCount > 45
+          ? 10
+          : dayCount > 20
+            ? 6
+            : dayCount > 10
+              ? 2
+              : 0
+    : dayCount > 180
+      ? 29
+      : dayCount > 95
+        ? 13
+        : dayCount > 45
+          ? 6
+          : dayCount > 20
+            ? 2
+            : 0;
   const barCategoryGap =
     dailyHoursData.length <= 7 ? "18%" : dailyHoursData.length > 90 ? "6%" : dailyHoursData.length > 45 ? "10%" : "14%";
   const maxBarSize =
@@ -355,7 +421,7 @@ export default function Dashboard() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto pb-2">
+          <div ref={chartContainerRef} className="overflow-x-auto pb-2">
             <div style={{ width: chartWidth, height: 340 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={dailyHoursData} margin={{ top: 12, right: 20, bottom: 8, left: 0 }} barCategoryGap={barCategoryGap}>
@@ -404,10 +470,12 @@ function DateRangeControls({
   onEndChange: (date?: Date) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:w-[280px]">
+    // Two side-by-side buttons each rendering "MMM d, yyyy" clipped their label
+    // at 320px, so the pair only splits into columns once there is room for it.
+    <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 sm:w-[280px]">
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="justify-start px-3 text-left font-normal">
+          <Button variant="outline" className="justify-start truncate px-3 text-left font-normal">
             {format(range.start, "MMM d, yyyy")}
           </Button>
         </PopoverTrigger>
@@ -417,7 +485,7 @@ function DateRangeControls({
       </Popover>
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="justify-start px-3 text-left font-normal">
+          <Button variant="outline" className="justify-start truncate px-3 text-left font-normal">
             {format(range.end, "MMM d, yyyy")}
           </Button>
         </PopoverTrigger>

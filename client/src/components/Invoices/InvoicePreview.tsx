@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,10 @@ interface InvoicePreviewProps {
   isEditing?: boolean;
   invoice?: any;
 }
+
+// Intrinsic pixel size of the A4 page the invoice iframe renders at.
+const A4_PREVIEW_WIDTH = 794;
+const A4_PREVIEW_HEIGHT = 1123;
 
 const parseClientInvoiceSettings = (client?: Client) => {
   const raw = (client as any)?.invoiceSettings;
@@ -143,6 +147,37 @@ export default function InvoicePreview({
     propDueDate ? toInvoiceDateInput(propDueDate) : calculateDueDate(toInvoiceDateInput(propIssueDate), "calendar_month")
   );
   const dateDefaultsApplied = useRef(false);
+
+  // The A4 page used to be rendered at a fixed 794px inside a hard `scale(0.72)` wrapper.
+  // `transform` does not shrink the layout box, so the scroll container kept a 794px
+  // scrollWidth: the user side-scrolled through ~222px of dead space past the end of the
+  // painted invoice, and at 390px only ~258px of the 572px render was ever visible.
+  // We now measure the available width and derive the scale from it, then size the wrapper
+  // to the *painted* dimensions so the layout box and the pixels agree.
+  const [previewNode, setPreviewNode] = useState<HTMLDivElement | null>(null);
+  const [previewScale, setPreviewScale] = useState(1);
+
+  useLayoutEffect(() => {
+    if (!previewNode) return;
+
+    const updateScale = () => {
+      const available = previewNode.clientWidth;
+      if (available > 0) {
+        setPreviewScale(Math.min(1, available / A4_PREVIEW_WIDTH));
+      }
+    };
+
+    updateScale();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateScale);
+      return () => window.removeEventListener("resize", updateScale);
+    }
+
+    const observer = new ResizeObserver(updateScale);
+    observer.observe(previewNode);
+    return () => observer.disconnect();
+  }, [previewNode]);
 
   const { data: invoiceNumberData } = useQuery({
     queryKey: ["/api/next-invoice-number", clientId || "global"],
@@ -628,7 +663,8 @@ export default function InvoicePreview({
         <p className="mt-1 text-sm text-gray-500">{propInvoiceNumber || invoiceNumber || "PREVIEW"}</p>
       </div>
 
-      <div className="p-6">
+      {/* p-6 alone left only ~208px of content width at 320px once the dialog padding is counted. */}
+      <div className="p-4 sm:p-6">
         {invoiceAccess.watermarkPreview && (
           <div className="mb-5 flex flex-col gap-4 rounded-md border border-blue-200 bg-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 gap-3">
@@ -648,23 +684,36 @@ export default function InvoicePreview({
 
         {/* Invoice template preview */}
         <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden" style={{ background: "#f1f3f5" }}>
-          <div style={{ width: "100%", overflowX: "auto", padding: "16px" }}>
-            <div
-              style={{
-                width: "794px",
-                minHeight: "1123px",
-                transformOrigin: "top left",
-                transform: "scale(0.72)",
-                marginBottom: "-322px",
-              }}
-            >
-              <iframe
-                srcDoc={htmlString}
-                width="794"
-                height="1123"
-                style={{ border: "none", display: "block", width: "794px", height: "1123px" }}
-                title="Invoice Preview"
-              />
+          <div className="p-2 sm:p-4">
+            {/* Measured element: no padding of its own, so clientWidth is exactly the space
+                the scaled page may occupy. */}
+            <div ref={setPreviewNode} style={{ width: "100%" }}>
+              {/* Sized to the painted result (794*scale x 1123*scale) so there is no dead
+                  scroll space and no clipping. The negative-margin hack is gone. */}
+              <div
+                style={{
+                  width: `${A4_PREVIEW_WIDTH * previewScale}px`,
+                  height: `${A4_PREVIEW_HEIGHT * previewScale}px`,
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${A4_PREVIEW_WIDTH}px`,
+                    height: `${A4_PREVIEW_HEIGHT}px`,
+                    transformOrigin: "top left",
+                    transform: `scale(${previewScale})`,
+                  }}
+                >
+                  <iframe
+                    srcDoc={htmlString}
+                    width="794"
+                    height="1123"
+                    style={{ border: "none", display: "block", width: "794px", height: "1123px" }}
+                    title="Invoice Preview"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -675,8 +724,10 @@ export default function InvoicePreview({
           {isEditing && (
             <div>
               <div className="text-sm font-medium text-gray-700 mb-2">Invoice items</div>
-              <div className="border border-gray-200 rounded overflow-hidden">
-                <table className="w-full text-sm">
+              {/* Was `overflow-hidden`, which clipped the Amount and remove-item columns at
+                  phone widths instead of letting the user scroll to them. */}
+              <div className="border border-gray-200 rounded overflow-x-auto">
+                <table className="w-full min-w-[30rem] text-sm">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200">
                       <th className="px-3 py-2 text-left font-medium text-gray-600">Description</th>
@@ -750,8 +801,9 @@ export default function InvoicePreview({
                             <span className="whitespace-nowrap text-sm font-medium text-gray-900">
                               {formatCurrency(calculateManualItemAmount(item), activeClient?.currency || "USD")}
                             </span>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label={`Remove ${item.description}`} onClick={() => removeItem(item.id)}>
-                              <Minus className="h-3.5 w-3.5 text-red-500" />
+                            {/* 28px was below the minimum touch target. */}
+                            <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label={`Remove ${item.description}`} onClick={() => removeItem(item.id)}>
+                              <Minus className="h-4 w-4 text-red-500" />
                             </Button>
                           </div>
                         </td>
@@ -761,8 +813,8 @@ export default function InvoicePreview({
                       <td colSpan={4} className="px-3 py-2 text-center border-t border-dashed border-gray-200">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="text-blue-600">
-                              <Plus className="mr-1 h-3 w-3" /> Add item
+                            <Button variant="ghost" size="sm" className="h-9 text-blue-600">
+                              <Plus className="mr-1 h-4 w-4" /> Add item
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="center" className="w-56">
@@ -826,21 +878,23 @@ export default function InvoicePreview({
             )}
           </div>
 
-          {/* Action buttons */}
-          <div className="flex justify-between pt-2">
-            <Button variant="outline" onClick={onEditInvoice}>
+          {/* Action buttons — was `flex justify-between` with a non-wrapping `space-x-2` group,
+              so the four buttons spilled past the dialog edge at 320px. They now stack full
+              width on phones and wrap into rows from sm up. */}
+          <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={onEditInvoice}>
               <Edit className="mr-2 h-4 w-4" />
               {isEditing ? "Done Editing" : "Edit Entries"}
             </Button>
-            <div className="space-x-2">
-              <Button variant="outline" onClick={handleEditInvoiceSettings}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={handleEditInvoiceSettings}>
                 {activeClient?.id ? "Edit client invoice profile" : "Edit invoice settings"}
               </Button>
-              <Button variant="outline" onClick={handleCreateInvoice} disabled={!invoiceAccess.canSave} title={!invoiceAccess.canSave ? "Upgrade to Pro to save invoices" : undefined}>
+              <Button variant="outline" className="w-full sm:w-auto" onClick={handleCreateInvoice} disabled={!invoiceAccess.canSave} title={!invoiceAccess.canSave ? "Upgrade to Pro to save invoices" : undefined}>
                 {invoiceAccess.canSave ? <FileSpreadsheet className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}
                 Save Invoice
               </Button>
-              <Button onClick={handleExportPdf} disabled={pdfLoading || !invoiceAccess.canExport} title={!invoiceAccess.canExport ? "Upgrade to Pro to export invoices" : undefined}>
+              <Button className="w-full sm:w-auto" onClick={handleExportPdf} disabled={pdfLoading || !invoiceAccess.canExport} title={!invoiceAccess.canExport ? "Upgrade to Pro to export invoices" : undefined}>
                 {pdfLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : invoiceAccess.canExport ? <File className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}
                 Export PDF
               </Button>

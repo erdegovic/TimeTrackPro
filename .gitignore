@@ -9,3 +9,10 @@ vite.config.ts.*
 !.env.example
 .local/
 tmp/
+
+# Local curl/session artefacts — never commit session material
+cookies.txt
+
+# Audit hand-off artefacts — review then delete, never commit
+_to_delete/
+tickd-polish.patch

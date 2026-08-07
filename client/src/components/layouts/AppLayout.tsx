@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsCreativePanelCompact, useIsMobile } from "@/hooks/use-mobile";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient } from "@/lib/queryClient";
@@ -75,8 +75,10 @@ type AppLayoutProps = {
 export default function AppLayout({ children }: AppLayoutProps) {
   const [location] = useLocation();
   const isMobile = useIsMobile();
+  const isCreativePanelCompact = useIsCreativePanelCompact();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [creativitySidebarCollapsed, setCreativitySidebarCollapsed] = useState(false);
+  const [creativePanelOpen, setCreativePanelOpen] = useState(false);
   
   // Get user profile data from authentication
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -142,6 +144,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const closeSidebar = () => setSidebarOpen(false);
 
+  // Between 1024px and 1280px the docked panel and the 256px navigation sidebar
+  // together leave the content column too narrow for the tracker rows, so the
+  // panel starts as the 64px rail there. The user can still expand it manually.
+  useEffect(() => {
+    if (isCreativePanelCompact) setCreativitySidebarCollapsed(true);
+  }, [isCreativePanelCompact]);
+
+  // Close the mobile creative panel sheet as soon as the docked panel is available.
+  useEffect(() => {
+    if (!isMobile) setCreativePanelOpen(false);
+  }, [isMobile]);
+
   if (isAuthLoading || !user) return <TickdLoadingScreen />;
   
   return (
@@ -149,7 +163,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
       isCollapsed: creativitySidebarCollapsed,
       setIsCollapsed: setCreativitySidebarCollapsed
     }}>
-      <div className="flex h-screen overflow-hidden">
+      {/* 100dvh keeps the sidebar footer (upgrade, account, logout) reachable while
+          mobile browser chrome is expanded. 100vh pushed it below the fold. */}
+      <div className="flex h-screen h-[100dvh] overflow-hidden">
       {/* Sidebar */}
       {/* Added a backdrop div to handle closing when clicking outside the sidebar */}
       {isMobile && sidebarOpen && (
@@ -313,26 +329,45 @@ export default function AppLayout({ children }: AppLayoutProps) {
         {/* Top navbar */}
         {isMobile && (
           <div className="flex-shrink-0 bg-white border-b border-gray-200">
-            <div className="h-16 flex items-center justify-between px-4">
+            <div className="h-16 flex items-center justify-between gap-2 px-4">
               <Logo />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarOpen(true)}
-              >
-                <Menu className="w-5 h-5" />
-              </Button>
+              <div className="flex items-center gap-1">
+                {/* The creative panel has no other entry point below xl, so the
+                    soundtracks, notes, goals and breathing tools would otherwise
+                    be unreachable on phones and tablets entirely. */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-11 w-11"
+                  onClick={() => setCreativePanelOpen(true)}
+                  aria-label="Open creative panel"
+                  title="Creative panel"
+                >
+                  <Sparkles className="w-5 h-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-11 w-11"
+                  onClick={() => setSidebarOpen(true)}
+                  aria-label="Open navigation menu"
+                >
+                  <Menu className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
           </div>
         )}
         
         {/* Main content area */}
         <main 
-          className={`flex-1 overflow-y-auto p-2 sm:p-4 lg:p-6 transition-all duration-500 ${
+          className={`flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 transition-all duration-500 ${
             isMobile || !creativitySidebarCollapsed ? '' : 'lg:mr-16'
           } ${
-            isMobile || creativitySidebarCollapsed ? '' : 'lg:mr-80'
-          }`} 
+            /* 21rem, not mr-80 (20rem). The panel is w-[21rem] and fixed, so the
+               old 320px margin left 16px of content permanently underneath it. */
+            isMobile || creativitySidebarCollapsed ? '' : 'lg:mr-[21rem]'
+          }`}
           style={{ backgroundColor: 'hsl(var(--tickd-bg))' }}
         >
           <div className="max-w-7xl mx-auto tickd-fade-in">
@@ -342,9 +377,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
       </div>
 
       {/* Creativity Sidebar */}
-      <CreativitySidebar 
+      <CreativitySidebar
         isCollapsed={creativitySidebarCollapsed}
         onToggle={() => setCreativitySidebarCollapsed(!creativitySidebarCollapsed)}
+        mobileOpen={creativePanelOpen}
+        onMobileOpenChange={setCreativePanelOpen}
       />
     </div>
     </CreativitySidebarContext.Provider>

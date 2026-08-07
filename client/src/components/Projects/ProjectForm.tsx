@@ -61,7 +61,9 @@ export default function ProjectForm({ onSuccess, initialData, isEditing = false,
       name: initialData?.name || "",
       clientId: initialData?.clientId ? initialData.clientId.toString() : "",
       description: initialData?.description || "",
-      active: initialData?.active !== undefined ? initialData.active : true,
+      // `active` is `boolean | null` on InsertProject while the form field is a
+      // plain boolean, so a stored null has to fall back to the default.
+      active: initialData?.active ?? true,
       hourlyRate: initialData?.hourlyRate?.toString() || "0",
       color: (initialData as any)?.color || "#000000",
     },

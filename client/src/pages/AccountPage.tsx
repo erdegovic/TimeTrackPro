@@ -221,7 +221,7 @@ export default function AccountPage() {
                   </Avatar>
                   <Button 
                     size="icon" 
-                    className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-primary text-primary-foreground" 
+                    className="absolute bottom-0 right-0 h-9 w-9 rounded-full bg-primary text-primary-foreground"
                     onClick={handleAvatarClick}
                     disabled={isAvatarUploading}
                     title="Upload profile picture"
@@ -250,18 +250,21 @@ export default function AccountPage() {
         {/* Main content */}
         <div className="space-y-4 sm:space-y-6">
           <Tabs defaultValue={selectedTab}>
-            <TabsList className="mb-4 w-full grid grid-cols-3">
-              <TabsTrigger value="profile" className="flex items-center text-xs sm:text-sm">
-                <User className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+            {/* `h-auto` on the list plus `min-h-10` triggers keeps every tab a
+                full-height tap target and lets the labels wrap rather than
+                overflow their grid cell at 320px. */}
+            <TabsList className="mb-4 grid h-auto w-full grid-cols-3">
+              <TabsTrigger value="profile" className="flex min-h-10 items-center px-2 text-xs sm:px-3 sm:text-sm">
+                <User className="mr-1 sm:mr-2 h-4 w-4 shrink-0" />
                 <span className="hidden sm:inline">Profile</span>
                 <span className="sm:hidden">Info</span>
               </TabsTrigger>
-              <TabsTrigger value="security" className="flex items-center text-xs sm:text-sm">
-                <Lock className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <TabsTrigger value="security" className="flex min-h-10 items-center px-2 text-xs sm:px-3 sm:text-sm">
+                <Lock className="mr-1 sm:mr-2 h-4 w-4 shrink-0" />
                 Security
               </TabsTrigger>
-              <TabsTrigger value="subscription" className="flex items-center text-xs sm:text-sm">
-                <CreditCard className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <TabsTrigger value="subscription" className="flex min-h-10 items-center px-2 text-xs sm:px-3 sm:text-sm">
+                <CreditCard className="mr-1 sm:mr-2 h-4 w-4 shrink-0" />
                 Plan
               </TabsTrigger>
             </TabsList>

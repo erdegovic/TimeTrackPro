@@ -210,6 +210,87 @@ export default function InvoicesPage() {
     new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime()
   );
 
+  const formatInvoiceDate = (value: string) => {
+    try { return format(new Date(value), "MMM d, yyyy"); } catch { return value; }
+  };
+
+  // The status control and the action buttons are rendered in two places (the >=sm table
+  // and the <sm card list). They are shared helpers so the two layouts can never drift
+  // apart in behaviour — the mutations/entitlement checks below are unchanged.
+  const renderStatusControl = (invoice: Invoice) => {
+    const sc = STATUS_CONFIG[invoice.status] || STATUS_CONFIG.draft;
+    const StatusIcon = sc.icon;
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            disabled={!invoiceAccess.canSave}
+            title={invoiceAccess.canSave ? "Update invoice status" : "Upgrade to Pro to update invoice status"}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${invoiceAccess.canSave ? "cursor-pointer" : "cursor-not-allowed opacity-70"} ${sc.className}`}
+          >
+            <StatusIcon className="h-3.5 w-3.5" />
+            {sc.label}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-40">
+          <DropdownMenuItem
+            onClick={() => updateStatus.mutate({ id: invoice.id, status: "draft" })}
+            className="gap-2"
+          >
+            <Clock className="h-3.5 w-3.5 text-gray-500" /> Draft
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => updateStatus.mutate({ id: invoice.id, status: "sent" })}
+            className="gap-2"
+          >
+            <Send className="h-3.5 w-3.5 text-blue-500" /> Mark as Sent
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => updateStatus.mutate({ id: invoice.id, status: "paid" })}
+            className="gap-2"
+          >
+            <CheckCircle className="h-3.5 w-3.5 text-green-500" /> Mark as Paid
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
+  // Icon buttons were h-8 w-8 (32px) — below the 40px minimum touch target.
+  const renderActions = (invoice: Invoice) => (
+    <div className="flex items-center justify-end gap-1">
+      <Button
+        variant="ghost" size="icon"
+        className="h-9 w-9 text-gray-400 hover:text-gray-700"
+        title="Edit Invoice"
+        aria-label={`Edit invoice ${invoice.invoiceNumber}`}
+        onClick={() => openEdit(invoice)}
+        disabled={!invoiceAccess.canSave}
+      >
+        {invoiceAccess.canSave ? <Edit className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+      </Button>
+      <Button
+        variant="ghost" size="icon"
+        className="h-9 w-9 text-gray-400 hover:text-gray-700"
+        title="Export PDF"
+        aria-label={`Export invoice ${invoice.invoiceNumber} as PDF`}
+        onClick={() => handleExportPdf(invoice)}
+        disabled={!invoiceAccess.canExport}
+      >
+        {invoiceAccess.canExport ? <FileDown className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+      </Button>
+      <Button
+        variant="ghost" size="icon"
+        className="h-9 w-9 text-gray-400 hover:text-red-600"
+        title="Delete"
+        aria-label={`Delete invoice ${invoice.invoiceNumber}`}
+        onClick={() => setDeleteId(invoice.id)}
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -315,110 +396,88 @@ export default function InvoicesPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    <th className="px-6 py-3 text-left">Invoice #</th>
-                    <th className="px-6 py-3 text-left">Client</th>
-                    <th className="px-6 py-3 text-left">Issue Date</th>
-                    <th className="px-6 py-3 text-left">Due Date</th>
-                    <th className="px-6 py-3 text-left">Status</th>
-                    <th className="px-6 py-3 text-right">Amount</th>
-                    <th className="px-6 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {sortedInvoices.map(invoice => {
-                    const client = clients.find(c => c.id === invoice.clientId);
-                    const currency = client?.currency || "USD";
-                    const symbol = getCurrencySymbol(currency);
-                    const sc = STATUS_CONFIG[invoice.status] || STATUS_CONFIG.draft;
-                    const StatusIcon = sc.icon;
+            <>
+              {/* The 7-column table is ~900px wide, so on a phone the invoice number and the
+                  amount can never be on screen at the same time. It is now hidden below sm and
+                  replaced by the card list underneath (same pattern as ClientsPage). */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <th className="px-4 lg:px-6 py-3 text-left">Invoice #</th>
+                      <th className="px-4 lg:px-6 py-3 text-left">Client</th>
+                      <th className="px-4 lg:px-6 py-3 text-left">Issue Date</th>
+                      <th className="px-4 lg:px-6 py-3 text-left">Due Date</th>
+                      <th className="px-4 lg:px-6 py-3 text-left">Status</th>
+                      <th className="px-4 lg:px-6 py-3 text-right">Amount</th>
+                      <th className="px-4 lg:px-6 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {sortedInvoices.map(invoice => {
+                      const client = clients.find(c => c.id === invoice.clientId);
+                      const currency = client?.currency || "USD";
+                      const symbol = getCurrencySymbol(currency);
 
-                    return (
-                      <tr key={invoice.id} className="hover:bg-gray-50 transition-colors group">
-                        <td className="px-6 py-4 font-semibold text-gray-900">{invoice.invoiceNumber}</td>
-                        <td className="px-6 py-4 text-gray-700">{client?.name || "Unknown"}</td>
-                        <td className="px-6 py-4 text-gray-500">
-                          {(() => { try { return format(new Date(invoice.issueDate), "MMM d, yyyy"); } catch { return invoice.issueDate; } })()}
-                        </td>
-                        <td className="px-6 py-4 text-gray-500">
-                          {(() => { try { return format(new Date(invoice.dueDate), "MMM d, yyyy"); } catch { return invoice.dueDate; } })()}
-                        </td>
-                        <td className="px-6 py-4">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                disabled={!invoiceAccess.canSave}
-                                title={invoiceAccess.canSave ? "Update invoice status" : "Upgrade to Pro to update invoice status"}
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${invoiceAccess.canSave ? "cursor-pointer" : "cursor-not-allowed opacity-70"} ${sc.className}`}
-                              >
-                                <StatusIcon className="h-3 w-3" />
-                                {sc.label}
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="w-40">
-                              <DropdownMenuItem
-                                onClick={() => updateStatus.mutate({ id: invoice.id, status: "draft" })}
-                                className="gap-2"
-                              >
-                                <Clock className="h-3.5 w-3.5 text-gray-500" /> Draft
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => updateStatus.mutate({ id: invoice.id, status: "sent" })}
-                                className="gap-2"
-                              >
-                                <Send className="h-3.5 w-3.5 text-blue-500" /> Mark as Sent
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => updateStatus.mutate({ id: invoice.id, status: "paid" })}
-                                className="gap-2"
-                              >
-                                <CheckCircle className="h-3.5 w-3.5 text-green-500" /> Mark as Paid
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                        <td className="px-6 py-4 text-right font-semibold text-gray-900">
+                      return (
+                        <tr key={invoice.id} className="hover:bg-gray-50 transition-colors group">
+                          <td className="px-4 lg:px-6 py-4 font-semibold text-gray-900">{invoice.invoiceNumber}</td>
+                          <td className="px-4 lg:px-6 py-4 text-gray-700">{client?.name || "Unknown"}</td>
+                          <td className="px-4 lg:px-6 py-4 text-gray-500 whitespace-nowrap">
+                            {formatInvoiceDate(invoice.issueDate)}
+                          </td>
+                          <td className="px-4 lg:px-6 py-4 text-gray-500 whitespace-nowrap">
+                            {formatInvoiceDate(invoice.dueDate)}
+                          </td>
+                          <td className="px-4 lg:px-6 py-4">
+                            {renderStatusControl(invoice)}
+                          </td>
+                          <td className="px-4 lg:px-6 py-4 text-right font-semibold text-gray-900 whitespace-nowrap">
+                            {symbol}{Number(invoice.total).toFixed(2)}
+                          </td>
+                          <td className="px-4 lg:px-6 py-4">
+                            {renderActions(invoice)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile card fallback: everything the table row shows, stacked so nothing scrolls. */}
+              <div className="sm:hidden divide-y divide-gray-100">
+                {sortedInvoices.map(invoice => {
+                  const client = clients.find(c => c.id === invoice.clientId);
+                  const currency = client?.currency || "USD";
+                  const symbol = getCurrencySymbol(currency);
+
+                  return (
+                    <div key={invoice.id} className="px-4 py-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="break-words text-base font-semibold text-gray-900">{invoice.invoiceNumber}</p>
+                          <p className="mt-0.5 break-words text-sm text-gray-700">{client?.name || "Unknown"}</p>
+                        </div>
+                        <p className="shrink-0 whitespace-nowrap text-base font-semibold text-gray-900">
                           {symbol}{Number(invoice.total).toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost" size="icon"
-                              className="h-8 w-8 text-gray-400 hover:text-gray-700"
-                              title="Edit Invoice"
-                              onClick={() => openEdit(invoice)}
-                              disabled={!invoiceAccess.canSave}
-                            >
-                              {invoiceAccess.canSave ? <Edit className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-                            </Button>
-                            <Button
-                              variant="ghost" size="icon"
-                              className="h-8 w-8 text-gray-400 hover:text-gray-700"
-                              title="Export PDF"
-                              onClick={() => handleExportPdf(invoice)}
-                              disabled={!invoiceAccess.canExport}
-                            >
-                              {invoiceAccess.canExport ? <FileDown className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-                            </Button>
-                            <Button
-                              variant="ghost" size="icon"
-                              className="h-8 w-8 text-gray-400 hover:text-red-600"
-                              title="Delete"
-                              onClick={() => setDeleteId(invoice.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </p>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                        <div className="min-w-0 space-y-0.5 text-xs text-gray-500">
+                          <p>Issued {formatInvoiceDate(invoice.issueDate)}</p>
+                          <p>Due {formatInvoiceDate(invoice.dueDate)}</p>
+                        </div>
+                        {renderActions(invoice)}
+                      </div>
+                      <div className="mt-3">
+                        {renderStatusControl(invoice)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -446,7 +505,10 @@ export default function InvoicesPage() {
 
       {/* Edit Invoice Dialog */}
       <Dialog open={editingInvoice !== null} onOpenChange={open => !open && setEditingInvoice(null)}>
-        <DialogContent className="w-[95vw] max-w-[800px] max-h-[90vh] overflow-y-auto p-0 overflow-hidden rounded-xl">
+        {/* Width/height overrides removed: the base DialogContent already supplies
+            w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto, and w-[95vw]/max-h-[90vh]
+            re-introduced overflow at 320px. Only the max width and the p-0 chrome are kept. */}
+        <DialogContent className="max-w-[800px] p-0 overflow-hidden rounded-xl">
           {editingInvoice && (
             <InvoiceEditor
               invoice={editingInvoice}

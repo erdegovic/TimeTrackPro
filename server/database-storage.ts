@@ -61,7 +61,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: number): Promise<boolean> {
     const result = await db.delete(users).where(eq(users.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Verification methods
@@ -135,7 +135,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteClient(id: number): Promise<boolean> {
     const result = await db.delete(clients).where(eq(clients.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Projects methods
@@ -181,7 +181,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProject(id: number): Promise<boolean> {
     const result = await db.delete(projects).where(eq(projects.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Time Entries methods
@@ -375,7 +375,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTimeEntry(id: number): Promise<boolean> {
     const result = await db.delete(timeEntries).where(eq(timeEntries.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Invoices methods
@@ -391,11 +391,17 @@ export class DatabaseStorage implements IStorage {
     return invoice;
   }
 
-  async getInvoiceByNumber(invoiceNumber: string): Promise<Invoice | undefined> {
+  /**
+   * Invoice numbers are unique per (userId, invoiceNumber), not globally — every
+   * account starts at INV-1001, so duplicates across accounts are the norm. The
+   * previous global lookup returned whichever row Postgres happened to yield
+   * first, which could 403 a user out of their own invoice.
+   */
+  async getInvoiceByNumber(userId: number, invoiceNumber: string): Promise<Invoice | undefined> {
     const [invoice] = await db
       .select()
       .from(invoices)
-      .where(eq(invoices.invoiceNumber, invoiceNumber));
+      .where(and(eq(invoices.userId, userId), eq(invoices.invoiceNumber, invoiceNumber)));
     return invoice;
   }
 
@@ -433,7 +439,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(timeEntries.invoiceId, id));
       
     const result = await db.delete(invoices).where(eq(invoices.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async getNextInvoiceNumber(userId: number, options: InvoiceNumberOptions = {}): Promise<string> {

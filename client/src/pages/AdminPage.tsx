@@ -315,11 +315,14 @@ export default function AdminPage() {
           {isLoading ? (
             <div className="py-8 text-center text-sm text-gray-500">Loading users...</div>
           ) : (
+            // A hard 1280px minimum meant 3.3 screens of sideways scrolling at
+            // 390px. The minimum is now 900px and the identifying "User" column
+            // is sticky, so you can always see which row you are scrolled into.
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1280px] text-left text-sm">
+              <table className="w-full min-w-[900px] text-left text-sm">
                 <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
                   <tr>
-                    <th className="px-3 py-3">User</th>
+                    <th className="sticky left-0 z-10 bg-gray-50 px-3 py-3">User</th>
                     <th className="px-3 py-3">Status</th>
                     <th className="px-3 py-3">Role</th>
                     <th className="px-3 py-3">Plan</th>
@@ -331,8 +334,8 @@ export default function AdminPage() {
                 <tbody className="divide-y">
                   {users.map((user) => (
                     <tr key={user.id} className="align-top">
-                      <td className="px-3 py-3">
-                        <div className="font-medium text-gray-900">{user.email}</div>
+                      <td className="sticky left-0 z-10 min-w-[220px] bg-white px-3 py-3">
+                        <div className="break-all font-medium text-gray-900">{user.email}</div>
                         <div className="text-xs text-gray-500">
                           ID {user.id} / {user.username} / joined {formatDate(user.createdAt)}
                         </div>
@@ -390,7 +393,7 @@ export default function AdminPage() {
                         ) : null}
                       </td>
                       <td className="px-3 py-3">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex flex-wrap justify-end gap-2">
                           <Button
                             variant="outline"
                             size="sm"

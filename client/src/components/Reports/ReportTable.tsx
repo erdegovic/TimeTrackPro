@@ -289,10 +289,19 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
     true  // Amount always visible
   ].filter(Boolean).length;
 
+  // Layout helpers for the report table.
+  // - Horizontal padding was a flat px-6 on every cell, which alone added ~96px per column and
+  //   pushed a 7-column report to 1200-2000px. It now scales with the viewport.
+  // - The first visible column is pinned while the user scrolls right, so the row stays
+  //   identifiable. It is released at lg where the table fits without scrolling.
+  const cellX = "px-3 sm:px-4 lg:px-6";
+  const stickyCol = "sticky left-0 z-10 lg:static";
+  const dateIsFirstColumn = showDateColumn;
+
   return (
     <>
       <div className="border border-gray-200 rounded-md overflow-hidden mb-6">
-        <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-200 flex items-center justify-between gap-3">
+        <div className="bg-gray-50 px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2 sm:gap-3">
           <div>
             <span>Report Preview</span>
             {editableReportData && !isEditing && (
@@ -325,20 +334,20 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
             <thead className="bg-gray-50">
               <tr>
                 {showDateColumn && (
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th scope="col" className={`${cellX} ${stickyCol} bg-gray-50 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap`}>Date</th>
                 )}
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                <th scope="col" className={`${cellX} ${dateIsFirstColumn ? "" : `${stickyCol} bg-gray-50`} py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Description</th>
                 {showClientColumn && (
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                  <th scope="col" className={`${cellX} py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Client</th>
                 )}
                 {showProjectColumn && (
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
+                  <th scope="col" className={`${cellX} py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Project</th>
                 )}
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
+                <th scope="col" className={`${cellX} py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Hours</th>
                 {showRateColumn && (
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate</th>
+                  <th scope="col" className={`${cellX} py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Rate</th>
                 )}
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                <th scope="col" className={`${cellX} py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Amount</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -350,10 +359,12 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                   // Week header row
                   weekRows.push(
                     <tr key={`week-header-${weekData.weekNumber}-${weekData.weekLabel}`} className="bg-gray-50 font-semibold">
-                      <td colSpan={visibleColumnCount - 1} className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">
+                      {/* Deliberately not sticky: this cell spans nearly the whole row, so pinning
+                          it would paint over the amount column while scrolled right. */}
+                      <td colSpan={visibleColumnCount - 1} className={`${cellX} py-2 text-sm text-gray-900`}>
                         {weekData.weekLabel}
                       </td>
-                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+                      <td className={`${cellX} py-2 whitespace-nowrap text-sm text-gray-900 text-right`}>
                         {formatCurrency(weekData.totalAmount, getGroupCurrency(weekData.entries))}
                       </td>
                     </tr>
@@ -370,11 +381,12 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                     weekRows.push(
                       <tr key={`entry-${entry.id}-${weekData.weekNumber}-${index}`}>
                         {showDateColumn && (
-                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          <td className={`${cellX} ${stickyCol} bg-white py-3 whitespace-nowrap text-sm text-gray-500`}>
                             {format(new Date(entry.date), "MMM d, yyyy")}
                           </td>
                         )}
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {/* Description is free text, so it wraps instead of forcing the table wider. */}
+                        <td className={`${cellX} ${dateIsFirstColumn ? "" : `${stickyCol} bg-white`} py-3 text-sm text-gray-900 min-w-[8rem] max-w-[16rem] break-words`}>
                           {isEditing ? (
                             <Input
                               value={entry.description}
@@ -386,12 +398,12 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                           )}
                         </td>
                         {showClientColumn && (
-                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          <td className={`${cellX} py-3 text-sm text-gray-500`}>
                             {entry.client?.name || "—"}
                           </td>
                         )}
                         {showProjectColumn && (
-                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          <td className={`${cellX} py-3 text-sm text-gray-500`}>
                             {isEditing ? (
                               <Select
                                 value={entry.projectId?.toString() || ""}
@@ -415,7 +427,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                             )}
                           </td>
                         )}
-                        <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
+                        <td className={`${cellX} py-3 whitespace-nowrap text-sm font-mono text-gray-900`}>
                           {isEditing ? (
                             <Input
                               type="number"
@@ -435,7 +447,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                           )}
                         </td>
                         {showRateColumn && (
-                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          <td className={`${cellX} py-3 whitespace-nowrap text-sm text-gray-500`}>
                             {isEditing ? (
                               <Input
                                 type="number"
@@ -450,7 +462,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                             )}
                           </td>
                         )}
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                        <td className={`${cellX} py-3 whitespace-nowrap text-sm text-gray-900`}>
                           {formatCurrency(parseFloat(String(entry.amount) || '0'), getEntryCurrency(entry))}
                         </td>
                       </tr>
@@ -470,11 +482,12 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                   return (
                     <tr key={`entry-${entry.id}-${index}`}>
                       {showDateColumn && (
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                        <td className={`${cellX} ${stickyCol} bg-white py-3 whitespace-nowrap text-sm text-gray-500`}>
                           {format(new Date(entry.date), "MMM d, yyyy")}
                         </td>
                       )}
-                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                      {/* Description is free text, so it wraps instead of forcing the table wider. */}
+                      <td className={`${cellX} ${dateIsFirstColumn ? "" : `${stickyCol} bg-white`} py-3 text-sm text-gray-900 min-w-[8rem] max-w-[16rem] break-words`}>
                         {isEditing ? (
                           <Input
                             value={entry.description}
@@ -486,12 +499,12 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                         )}
                       </td>
                       {showClientColumn && (
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                        <td className={`${cellX} py-3 text-sm text-gray-500`}>
                           {entry.client?.name || "—"}
                         </td>
                       )}
                       {showProjectColumn && (
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                        <td className={`${cellX} py-3 text-sm text-gray-500`}>
                           {isEditing ? (
                             <Select
                               value={entry.projectId?.toString() || ""}
@@ -515,7 +528,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                           )}
                         </td>
                       )}
-                      <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
+                      <td className={`${cellX} py-3 whitespace-nowrap text-sm font-mono text-gray-900`}>
                         {isEditing ? (
                           <Input
                             type="number"
@@ -535,7 +548,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                         )}
                       </td>
                       {showRateColumn && (
-                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                        <td className={`${cellX} py-3 whitespace-nowrap text-sm text-gray-500`}>
                           {isEditing ? (
                             <Input
                               type="number"
@@ -550,7 +563,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                           )}
                         </td>
                       )}
-                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                      <td className={`${cellX} py-3 whitespace-nowrap text-sm text-gray-900`}>
                         {formatCurrency(parseFloat(String(entry.amount) || '0'), getEntryCurrency(entry))}
                       </td>
                     </tr>
@@ -559,8 +572,8 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
               )}
               
               <tr className="bg-gray-100 font-semibold">
-                <td colSpan={visibleColumnCount - 1} className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
-                  <div className="flex justify-between items-center">
+                <td colSpan={visibleColumnCount - 1} className={`${cellX} py-3 whitespace-nowrap text-sm text-gray-900`}>
+                  <div className="flex justify-between items-center gap-4">
                     <span>Total</span>
                     <span className="font-mono">
                       {(() => {
@@ -575,7 +588,7 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
                     </span>
                   </div>
                 </td>
-                <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                <td className={`${cellX} py-3 whitespace-nowrap text-sm text-gray-900`}>
                   {formatCurrency(displayedReportData.totalAmount, (displayedReportData as any).currency || getGroupCurrency(displayedReportData.timeEntries))}
                 </td>
               </tr>
@@ -593,21 +606,23 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
       
 
       
-      <div className="flex justify-between">
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={exportReport}>
+      {/* These three buttons need ~360px side by side but only ~342px is available at 390px.
+          They now stack full width below sm and wrap instead of overflowing above it. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Button variant="outline" className="w-full sm:w-auto" onClick={exportReport}>
             <Download className="mr-2 h-4 w-4" />
             Export Report
           </Button>
           {ultimateAccess.canUseAi && (
-            <Button variant="outline" onClick={() => reportSummaryMutation.mutate()} disabled={reportSummaryMutation.isPending}>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => reportSummaryMutation.mutate()} disabled={reportSummaryMutation.isPending}>
               {reportSummaryMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
               Write client summary
             </Button>
           )}
         </div>
-        <div>
-          <Button onClick={() => {
+        <div className="flex">
+          <Button className="w-full sm:w-auto" onClick={() => {
             // Pass report data to invoice generator
             onGenerateInvoice(displayedReportData);
           }}>
@@ -617,6 +632,8 @@ export default function ReportTable({ filters, onGenerateInvoice }: ReportTableP
         </div>
       </div>
       <Dialog open={Boolean(reportSummary)} onOpenChange={(open) => !open && setReportSummary(null)}>
+        {/* max-w-2xl only caps the desktop width; the base DialogContent supplies
+            w-[calc(100vw-2rem)] + max-h + scroll, so this fits at 320/390px. */}
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{reportSummary?.headline || "Client-ready summary"}</DialogTitle>
