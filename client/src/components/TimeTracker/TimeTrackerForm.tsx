@@ -148,6 +148,14 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
     return matchesClient && matchesSearch;
   });
 
+  const selectedClientName = selectedClientId
+    ? clients.find((client) => client.id === selectedClientId)?.name || "Select client"
+    : "Select client";
+  const selectedProject = selectedProjectId
+    ? allProjects.find((project) => project.id === selectedProjectId)
+    : undefined;
+  const selectedProjectName = selectedProject?.name || "Select project";
+
   // Listen for play button events from time entries
   useEffect(() => {
     const handleStartTimerFromEntry = (event: CustomEvent) => {
@@ -289,20 +297,21 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
     <div className="tickd-card-elevated tickd-spacing-lg">
       <div className="max-w-full">
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:gap-2.5">
-            <div className="w-full 2xl:flex-1">
+          <div className="flex flex-col gap-4 2xl:grid 2xl:grid-cols-[minmax(12rem,1fr)_minmax(22rem,34rem)_auto] 2xl:items-center 2xl:gap-2.5">
+            <div className="min-w-0 w-full">
               {renderDescriptionInput()}
             </div>
             
-            <div className="flex flex-col gap-3 sm:flex-row sm:gap-4 2xl:w-72 2xl:flex-none 2xl:gap-2.5">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:gap-4 2xl:gap-2.5">
               <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
-                    {selectedClientId ? 
-                      clients.find(c => c.id === selectedClientId)?.name || "Select client" : 
-                      "Select client"
-                    }
-                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  <Button
+                    variant="outline"
+                    className="min-w-0 w-full justify-between sm:flex-1"
+                    title={selectedClientName}
+                  >
+                    <span className="min-w-0 truncate text-left">{selectedClientName}</span>
+                    <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent
@@ -359,17 +368,18 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
                 <PopoverTrigger asChild>
                   <Button 
                     variant="outline" 
-                    className="w-full justify-between" 
+                    className="min-w-0 w-full justify-between sm:flex-1"
                     disabled={!selectedClientId}
+                    title={selectedProjectName}
                   >
                     {selectedProjectId ? (
-                      <span style={{ color: allProjects.find(p => p.id === selectedProjectId)?.color || "#000000" }}>
-                        {allProjects.find(p => p.id === selectedProjectId)?.name || "Select project"}
+                      <span className="min-w-0 truncate text-left" style={{ color: selectedProject?.color || "#000000" }}>
+                        {selectedProjectName}
                       </span>
                     ) : (
-                      "Select project"
+                      <span className="min-w-0 truncate text-left">Select project</span>
                     )}
-                    <ChevronDown className="h-4 w-4 opacity-50" />
+                    <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-80 p-0">
@@ -418,7 +428,7 @@ export default function TimeTrackerForm({ onAddClient, onAddProject }: TimeTrack
               </Popover>
             </div>
             
-            <div className="w-full 2xl:w-auto 2xl:flex-none">
+            <div className="w-full 2xl:w-auto 2xl:min-w-max 2xl:justify-self-end">
               <SimpleTimer 
                 description={description}
                 projectId={selectedProjectId || undefined}

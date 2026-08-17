@@ -61,8 +61,8 @@ export default function SimpleTimer({
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="font-mono text-lg">
+    <div className="flex items-center gap-2 whitespace-nowrap 2xl:shrink-0">
+      <div className="min-w-[8ch] font-mono text-lg tabular-nums">
         {formatTime(Math.floor(currentDuration))}
       </div>
       
@@ -71,7 +71,7 @@ export default function SimpleTimer({
           onClick={handleStop}
           size="sm"
           variant="destructive"
-          className="flex items-center gap-1"
+          className="flex shrink-0 items-center gap-1"
         >
           <Square className="h-3 w-3" />
           Stop
@@ -81,7 +81,7 @@ export default function SimpleTimer({
           onClick={handleStart}
           size="sm"
           variant="default"
-          className="flex items-center gap-1"
+          className="flex shrink-0 items-center gap-1"
           disabled={isDisabled}
         >
           <Play className="h-3 w-3" />
