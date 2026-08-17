@@ -477,7 +477,7 @@ export default function ClientForm({ onSuccess, onCancel, initialData, isEditing
   
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="min-w-0 max-w-full space-y-4 overflow-x-hidden">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="min-w-0 max-w-full space-y-4 px-1">
         <FormField
           control={form.control}
           name="name"

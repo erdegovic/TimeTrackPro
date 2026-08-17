@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { CustomCurrencyMap, normalizeCurrency } from "@/lib/currency-rates";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Currency {
   code: string;
@@ -61,7 +62,6 @@ export function CurrencySelector({
   const [draftName, setDraftName] = useState("");
   const [draftRate, setDraftRate] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const customList = useMemo(
@@ -90,19 +90,6 @@ export function CurrencySelector({
     currency.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
     currency.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-        setSearchTerm("");
-        setEditorOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   useEffect(() => {
     if (isOpen && searchInputRef.current && !editorOpen) {
@@ -171,37 +158,43 @@ export function CurrencySelector({
     setEditorOpen(false);
   };
 
-  return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`items-center gap-2 font-medium transition-colors cursor-pointer ${
-          formField
-            ? "flex h-10 w-full justify-between rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground hover:bg-accent"
-            : "inline-flex min-h-9 rounded px-2 py-1 text-green-600 hover:bg-green-50 hover:text-green-700"
-        } ${
-          compact ? "text-xs" : "text-sm"
-        }`}
-        type="button"
-      >
-        {selectedSymbol && selectedSymbol !== selectedCurrency && <span>{selectedSymbol}</span>}
-        <span>{selectedCurrency}</span>
-        <ChevronDown className="h-4 w-4" />
-      </button>
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      setSearchTerm("");
+      setEditorOpen(false);
+    }
+  };
 
-      {isOpen && (
-        // The panel is `overflow-hidden`, so anything the inner grid demands
-        // beyond the panel's own (viewport-capped) width is silently clipped.
-        // The old `sm:grid-cols-[280px_240px]` asked for a rigid 520px from
-        // `sm` (640px) upwards, while the panel itself is only ever
-        // `min(520px, 100vw - 2rem)` — between 640px and 767px that clipped the
-        // rate-editor column. It now stays stacked until `md` and both tracks
-        // are shrinkable, so the two-column layout only appears when the panel
-        // genuinely has room for it.
-        // NOTE: this dropdown is still a plain `absolute` element rather than a
-        // portal, so an ancestor with `overflow: hidden` can clip it (see the
-        // explicit `overflow-visible` workaround in Dashboard.tsx).
-        <div className={`absolute top-full ${formField ? "left-0" : "right-0"} mt-1 max-w-[calc(100vw-2rem)] bg-white border border-gray-200 rounded-lg shadow-lg z-[100] overflow-hidden ${editorOpen ? "w-[520px]" : formField ? "w-full min-w-72" : "w-72"}`}>
+  return (
+    <Popover open={isOpen} onOpenChange={handleOpenChange}>
+      <div className={className}>
+        <PopoverTrigger asChild>
+          <button
+            className={`items-center gap-2 font-medium transition-colors cursor-pointer ${
+              formField
+                ? "flex h-10 w-full justify-between rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground hover:bg-accent"
+                : "inline-flex min-h-9 rounded px-2 py-1 text-green-600 hover:bg-green-50 hover:text-green-700"
+            } ${
+              compact ? "text-xs" : "text-sm"
+            }`}
+            type="button"
+          >
+            {selectedSymbol && selectedSymbol !== selectedCurrency && <span>{selectedSymbol}</span>}
+            <span>{selectedCurrency}</span>
+            <ChevronDown className="h-4 w-4" />
+          </button>
+        </PopoverTrigger>
+      </div>
+
+      <PopoverContent
+        align={formField ? "start" : "end"}
+        side="bottom"
+        sideOffset={4}
+        collisionPadding={12}
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        className={`z-[100] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-lg border-gray-200 bg-white p-0 shadow-lg ${editorOpen ? "w-[520px]" : formField ? "w-[var(--radix-popover-trigger-width)] min-w-72" : "w-72"}`}
+      >
           <div className={`grid ${editorOpen ? "grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,240px)]" : "grid-cols-1"}`}>
             <div className="min-w-0">
               <div className="p-3 border-b border-gray-200">
@@ -349,8 +342,7 @@ export function CurrencySelector({
               </div>
             )}
           </div>
-        </div>
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 }

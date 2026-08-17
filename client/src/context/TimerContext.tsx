@@ -9,6 +9,7 @@ import {
   saveUserTimer,
   StoredTimer,
 } from "@/lib/timer-storage";
+import { formatTime, formatTimerTitle } from "@/lib/utils/timeUtils";
 
 const formatLocalDate = (date: Date) => {
   const year = date.getFullYear();
@@ -111,6 +112,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   // startTime of the timer currently applied to state (null = idle); lets the
   // periodic server reconcile avoid clobbering in-progress edits.
   const appliedStartTimeRef = useRef<number | null>(null);
+  const defaultDocumentTitleRef = useRef(typeof document === "undefined" ? "Tickd" : document.title);
   const { toast } = useToast();
   const { user, isLoading } = useAuth();
 
@@ -244,6 +246,16 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(interval);
   }, [isTracking, startTime]);
 
+  useEffect(() => {
+    document.title = isTracking
+      ? formatTimerTitle(currentDuration)
+      : defaultDocumentTitleRef.current;
+  }, [currentDuration, isTracking]);
+
+  useEffect(() => () => {
+    document.title = defaultDocumentTitleRef.current;
+  }, []);
+
   // Save locally first (instant UI), then register the running entry on the
   // server so Atlas / other devices see it. If the server call fails the timer
   // keeps running locally and is registered on the next reconcile.
@@ -370,7 +382,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
       toast({
         title: "Time entry saved",
-        description: `Tracked ${Math.round(duration * 3600)} seconds`,
+        description: `Tracked ${formatTime(Math.round(duration * 3600))}`,
       });
       return true;
     } catch (error) {

@@ -36,6 +36,10 @@ export function formatTime(value: number, format: 'decimal' | 'time' = 'time'): 
   }
 }
 
+export function formatTimerTitle(seconds: number): string {
+  return `${formatTime(Math.max(0, Math.floor(seconds)))} · Tickd`;
+}
+
 /**
  * Convert a decimal hours value to a time string (HH:MM:SS)
  */
