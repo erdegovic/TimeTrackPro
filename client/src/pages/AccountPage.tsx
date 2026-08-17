@@ -20,6 +20,7 @@ import { Lock, User, Key, Upload, Loader2, CreditCard, Check, ExternalLink } fro
 import { useAuth } from '../hooks/useAuth';
 import { queryClient } from '@/lib/queryClient';
 import ProfileForm from '@/components/Auth/ProfileForm';
+import ApiTokensCard from '@/components/Auth/ApiTokensCard';
 import { Link } from 'wouter';
 import { getPlanDetails } from '@/lib/plans';
 import type { SubscriptionPlan } from '@shared/subscriptions';
@@ -379,7 +380,8 @@ export default function AccountPage() {
                   </Form>
                 </CardContent>
               </Card>
-              
+
+              <ApiTokensCard />
             </TabsContent>
 
             <TabsContent value="subscription">

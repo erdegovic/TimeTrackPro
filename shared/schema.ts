@@ -351,6 +351,25 @@ export const gmailConnections = pgTable("gmail_connections", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Personal API tokens (Bearer `tk_…`) for external agents such as Atlas.
+// Only the sha256 hash is stored; the plaintext is shown once at creation.
+export const apiTokens = pgTable("api_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  prefix: text("prefix").notNull(),
+  scopes: text("scopes").notNull().default("*"),
+  lastUsedAt: timestamp("last_used_at"),
+  expiresAt: timestamp("expires_at"),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdx: index("api_tokens_user_idx").on(table.userId),
+}));
+
+export type ApiToken = typeof apiTokens.$inferSelect;
+
 export const recurringInvoiceSchedules = pgTable("recurring_invoice_schedules", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),

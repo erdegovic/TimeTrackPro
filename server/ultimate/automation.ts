@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { format } from "date-fns";
-import { and, asc, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, not, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import { storage } from "../storage";
 import {
@@ -133,6 +133,8 @@ export async function prepareInvoiceJob(params: {
       eq(timeEntries.userId, params.userId),
       sqlDateRange(period.startDate, period.endDate),
       isNull(timeEntries.invoiceId),
+      // skip a still-running server-side timer (end_time and duration both null)
+      not(and(isNull(timeEntries.endTime), isNull(timeEntries.duration))!),
       or(eq(timeEntries.clientId, client.id), eq(projects.clientId, client.id)),
     ))
     .orderBy(asc(timeEntries.date), asc(timeEntries.id));

@@ -17,6 +17,70 @@ const formatLocalDate = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const localTimeZone = () => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return undefined;
+  }
+};
+
+/** Running server-side timer as returned by GET /api/tracker/timer. */
+interface ServerTimer {
+  id: number;
+  description: string | null;
+  projectId: number | null;
+  clientId: number | null;
+  startTime: string;
+}
+
+const RECONCILE_INTERVAL_MS = 60_000;
+
+/** undefined = could not reach the server (offline / error); null = nothing running. */
+const fetchServerTimer = async (): Promise<ServerTimer | null | undefined> => {
+  try {
+    const response = await fetch("/api/tracker/timer", { credentials: "include" });
+    if (!response.ok) return undefined;
+    const data = await response.json() as { running: ServerTimer | null };
+    return data.running ?? null;
+  } catch {
+    return undefined;
+  }
+};
+
+const serverTimerToStored = (userId: number, timer: ServerTimer): StoredTimer => ({
+  ownerUserId: userId,
+  startTime: new Date(timer.startTime).getTime(),
+  description: timer.description ?? "",
+  projectId: timer.projectId ?? undefined,
+  clientId: timer.clientId ?? undefined,
+  serverEntryId: timer.id,
+});
+
+/** Registers a (browser) timer as the running server-side entry. Returns the server id or null. */
+const registerServerTimer = async (timer: StoredTimer): Promise<number | null> => {
+  try {
+    const response = await fetch("/api/tracker/timer/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        description: timer.description,
+        projectId: timer.projectId ?? null,
+        clientId: timer.projectId ? null : timer.clientId ?? null,
+        startTime: new Date(timer.startTime).toISOString(),
+        date: formatLocalDate(new Date(timer.startTime)),
+        timeZone: localTimeZone(),
+      }),
+    });
+    if (!response.ok) return null;
+    const data = await response.json() as { running?: { id?: number } };
+    return typeof data.running?.id === "number" ? data.running.id : null;
+  } catch {
+    return null;
+  }
+};
+
 interface TimerContextType {
   isTracking: boolean;
   startTime: number | null;
@@ -42,10 +106,16 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   const [selectedClientId, setSelectedClientId] = useState<number | undefined>();
   const [currentDuration, setCurrentDuration] = useState(0);
   const activeUserIdRef = useRef<number | null>(null);
+  const registrationQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const pendingRegistrationRef = useRef<{ startTime: number; promise: Promise<number | null> } | null>(null);
+  // startTime of the timer currently applied to state (null = idle); lets the
+  // periodic server reconcile avoid clobbering in-progress edits.
+  const appliedStartTimeRef = useRef<number | null>(null);
   const { toast } = useToast();
   const { user, isLoading } = useAuth();
 
   const resetTimerState = useCallback(() => {
+    appliedStartTimeRef.current = null;
     setIsTracking(false);
     setStartTime(null);
     setDescription("");
@@ -55,6 +125,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const applyStoredTimer = useCallback((timer: StoredTimer | null) => {
+    appliedStartTimeRef.current = timer?.startTime ?? null;
     if (!timer) {
       resetTimerState();
       return;
@@ -72,18 +143,75 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     const userId = user?.id;
 
     activeUserIdRef.current = userId || null;
+    pendingRegistrationRef.current = null;
     resetTimerState();
 
     if (isLoading || !userId) return () => { cancelled = true; };
 
-    const restoreTimer = async () => {
-      const storedTimer = readUserTimer(userId) || await migrateLegacyTimerForUser(userId);
-      if (!cancelled && activeUserIdRef.current === userId) {
-        applyStoredTimer(storedTimer);
+    // The server-side running entry is the source of truth (Atlas and other
+    // devices can start/stop it). Browser storage is a cache of it.
+    const runReconciliation = async (allowLegacyMigration: boolean) => {
+      const storedTimer = readUserTimer(userId)
+        || (allowLegacyMigration ? await migrateLegacyTimerForUser(userId) : null);
+      const serverTimer = await fetchServerTimer();
+      if (cancelled || activeUserIdRef.current !== userId) return;
+
+      if (serverTimer === undefined) {
+        // Offline / server error: keep whatever the browser has.
+        if (storedTimer && appliedStartTimeRef.current !== storedTimer.startTime) applyStoredTimer(storedTimer);
+        return;
       }
+
+      if (serverTimer) {
+        const timer = serverTimerToStored(userId, serverTimer);
+        if (!storedTimer || storedTimer.serverEntryId !== serverTimer.id) {
+          saveUserTimer(timer);
+        }
+        // State is reset before this first fetch. Apply the server timer even
+        // when the browser cache already references the same server row.
+        if (appliedStartTimeRef.current !== timer.startTime) {
+          applyStoredTimer(timer);
+        }
+        return;
+      }
+
+      // Nothing is running on the server (and nothing stored here either).
+      if (!storedTimer) return;
+      if (storedTimer.serverEntryId) {
+        // It was registered on the server and is gone now: stopped elsewhere.
+        clearUserTimer(userId);
+        resetTimerState();
+        window.dispatchEvent(new CustomEvent("timeEntryUpdated"));
+        toast({ title: "Timer stopped", description: "This timer was stopped from another device or by Atlas." });
+        return;
+      }
+      // Browser-only timer from before server-side timers existed: register it.
+      const serverEntryId = await registerServerTimer(storedTimer);
+      if (cancelled || activeUserIdRef.current !== userId) return;
+      const timer = serverEntryId ? { ...storedTimer, serverEntryId } : storedTimer;
+      if (serverEntryId) saveUserTimer(timer);
+      if (appliedStartTimeRef.current !== timer.startTime) applyStoredTimer(timer);
     };
 
-    void restoreTimer();
+    let reconciliation: Promise<void> | null = null;
+    const reconcileWithServer = (allowLegacyMigration: boolean) => {
+      if (reconciliation) return reconciliation;
+      reconciliation = runReconciliation(allowLegacyMigration).finally(() => {
+        reconciliation = null;
+      });
+      return reconciliation;
+    };
+
+    void reconcileWithServer(true);
+
+    const reconcileOnFocus = () => {
+      if (document.visibilityState === "visible") void reconcileWithServer(false);
+    };
+    window.addEventListener("focus", reconcileOnFocus);
+    document.addEventListener("visibilitychange", reconcileOnFocus);
+    const reconcileInterval = window.setInterval(() => {
+      if (document.visibilityState === "visible") void reconcileWithServer(false);
+    }, RECONCILE_INTERVAL_MS);
 
     const syncTimer = (event: Event) => {
       if (event instanceof StorageEvent && event.key !== getTimerStorageKey(userId)) return;
@@ -98,8 +226,11 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       window.removeEventListener("storage", syncTimer);
       window.removeEventListener("tickdTimerChanged", syncTimer);
+      window.removeEventListener("focus", reconcileOnFocus);
+      document.removeEventListener("visibilitychange", reconcileOnFocus);
+      window.clearInterval(reconcileInterval);
     };
-  }, [applyStoredTimer, isLoading, resetTimerState, user?.id]);
+  }, [applyStoredTimer, isLoading, resetTimerState, toast, user?.id]);
 
   useEffect(() => {
     if (!isTracking || !startTime) {
@@ -113,34 +244,54 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(interval);
   }, [isTracking, startTime]);
 
+  // Save locally first (instant UI), then register the running entry on the
+  // server so Atlas / other devices see it. If the server call fails the timer
+  // keeps running locally and is registered on the next reconcile.
+  const beginTimer = (timer: StoredTimer) => {
+    saveUserTimer(timer);
+    applyStoredTimer(timer);
+
+    const registration = registrationQueueRef.current.then(() => {
+      if (activeUserIdRef.current !== timer.ownerUserId) return null;
+      return registerServerTimer(timer);
+    });
+    registrationQueueRef.current = registration.then(() => undefined, () => undefined);
+    pendingRegistrationRef.current = { startTime: timer.startTime, promise: registration };
+
+    void registration.then((serverEntryId) => {
+      if (!serverEntryId) return;
+      const current = readUserTimer(timer.ownerUserId);
+      if (!current || current.startTime !== timer.startTime) return;
+      saveUserTimer({ ...current, serverEntryId });
+    }).finally(() => {
+      if (pendingRegistrationRef.current?.startTime === timer.startTime) {
+        pendingRegistrationRef.current = null;
+      }
+    });
+  };
+
   const startTimer = () => {
     if (!user?.id) return;
 
-    const timer: StoredTimer = {
+    beginTimer({
       ownerUserId: user.id,
       startTime: Date.now(),
       description,
       projectId: selectedProjectId,
       clientId: selectedClientId,
-    };
-
-    saveUserTimer(timer);
-    applyStoredTimer(timer);
+    });
   };
 
   const startTimerWithData = (desc: string, projectId: number, clientId?: number) => {
     if (!user?.id) return;
 
-    const timer: StoredTimer = {
+    beginTimer({
       ownerUserId: user.id,
       startTime: Date.now(),
       description: desc,
       projectId,
       clientId: clientId || selectedClientId,
-    };
-
-    saveUserTimer(timer);
-    applyStoredTimer(timer);
+    });
     toast({
       title: "Timer started",
       description: `Started tracking "${desc}"`,
@@ -151,7 +302,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     const userId = user?.id;
     if (!userId || !isTracking || !startTime || activeUserIdRef.current !== userId) return false;
 
-    const storedTimer = readUserTimer(userId);
+    let storedTimer = readUserTimer(userId);
     if (!storedTimer || storedTimer.startTime !== startTime) {
       resetTimerState();
       toast({
@@ -160,6 +311,15 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         variant: "destructive",
       });
       return false;
+    }
+
+    const pendingRegistration = pendingRegistrationRef.current;
+    if (pendingRegistration?.startTime === startTime) {
+      await pendingRegistration.promise;
+      if (activeUserIdRef.current !== userId) return false;
+      storedTimer = readUserTimer(userId);
+      // A newer timer was started while this stop was waiting. Leave it alone.
+      if (!storedTimer || storedTimer.startTime !== startTime) return false;
     }
 
     const endTime = Date.now();
@@ -177,8 +337,24 @@ export function TimerProvider({ children }: { children: ReactNode }) {
           endTime: new Date(endTime).toISOString(),
           duration: duration.toString(),
           date: formatLocalDate(new Date(startTime)),
+          serverEntryId: storedTimer.serverEntryId,
         }),
+        credentials: "include",
       });
+
+      if (response.status === 409) {
+        const latest = await fetchServerTimer();
+        if (latest !== undefined) {
+          if (latest) {
+            const timer = serverTimerToStored(userId, latest);
+            saveUserTimer(timer);
+            applyStoredTimer(timer);
+          } else {
+            clearUserTimer(userId);
+            resetTimerState();
+          }
+        }
+      }
 
       if (!response.ok) {
         const result = await response.json().catch(() => ({}));

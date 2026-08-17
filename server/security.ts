@@ -148,6 +148,16 @@ export const apiLimiter = createLimiter(
   "Too many requests. Please wait a moment and try again.",
 );
 
+/**
+ * `/api/v1` is authenticated with personal API tokens (no cookies), so it sits
+ * outside the Origin check. Agents poll it, so the window is generous but bounded.
+ */
+export const apiV1Limiter = createLimiter(
+  15 * 60 * 1000,
+  900,
+  "Too many API requests. Please slow down and try again shortly.",
+);
+
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,

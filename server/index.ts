@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import apiV1Routes from "./routes/v1";
 import { serveStatic, log } from "./runtime";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -14,6 +15,7 @@ import {
   accountRecoveryLimiter,
   adminLimiter,
   apiLimiter,
+  apiV1Limiter,
   contactLimiter,
   emailVerificationLimiter,
   loginLimiter,
@@ -60,6 +62,11 @@ app.use("/api/auth/verify-email-code", emailVerificationLimiter);
 app.use("/api/contact", contactLimiter);
 app.use("/api/admin", adminLimiter);
 app.use("/api/ultimate", ultimateAiLimiter);
+// Token-authenticated agent API. Bearer tokens are not sent by browsers
+// automatically, so this namespace is exempt from the Origin/CSRF check and the
+// session middleware; it carries its own limiter and its own 404 so nothing
+// falls through to the cookie-authenticated routes below.
+app.use("/api/v1", apiV1Limiter, apiV1Routes);
 app.use("/api", apiLimiter, protectStateChangingApiRequests);
 
 app.get('/api/health', async (_req, res) => {

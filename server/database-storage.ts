@@ -12,10 +12,15 @@ import {
 } from "@shared/schema";
 import { db, pool } from "./db";
 import * as schema from "@shared/schema";
-import { eq, and, between, desc, sql, like } from "drizzle-orm";
+import { eq, and, between, desc, sql, like, isNull, not } from "drizzle-orm";
 import { IStorage } from "./storage";
 import { addWeeks, format, startOfWeek, endOfWeek, getWeekOfMonth, getYear, getMonth } from "date-fns";
 import { formatInvoiceNumber, InvoiceNumberOptions } from "@shared/invoice-number";
+
+// A running server-side timer is a time_entries row with end_time IS NULL AND
+// duration IS NULL (see server/time-tracking.ts). Lists, reports and invoices only
+// ever see completed entries.
+const completedTimeEntries = () => not(and(isNull(timeEntries.endTime), isNull(timeEntries.duration))!);
 
 export class DatabaseStorage implements IStorage {
   // User methods
@@ -194,7 +199,7 @@ export class DatabaseStorage implements IStorage {
       return await db
         .select()
         .from(timeEntries)
-        .where(eq(timeEntries.userId, userId))
+        .where(and(eq(timeEntries.userId, userId), completedTimeEntries()))
         .orderBy(desc(timeEntries.date), desc(timeEntries.id));
     } catch (error) {
       console.error('[DB] Error querying time entries:', error);
@@ -227,7 +232,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTimeEntriesByFilters(filters: ReportFilters & { userId?: number }): Promise<TimeEntry[]> {
-    let whereConditions = [];
+    let whereConditions = [completedTimeEntries()];
 
     // Filter by user ID (most important)
     if (filters.userId) {

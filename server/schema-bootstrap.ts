@@ -260,6 +260,40 @@ export async function ensureCurrentSchema() {
       )
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS invoice_automation_audit_job_created_idx ON invoice_automation_audit(job_id, created_at)`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS api_tokens (
+        id serial PRIMARY KEY,
+        user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name text NOT NULL,
+        token_hash text NOT NULL UNIQUE,
+        prefix text NOT NULL,
+        scopes text NOT NULL DEFAULT '*',
+        last_used_at timestamp,
+        expires_at timestamp,
+        revoked_at timestamp,
+        created_at timestamp DEFAULT now()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS api_tokens_user_idx ON api_tokens(user_id)`);
+    // Keep the newest timer running if an older deployment ever created more
+    // than one, then enforce the invariant for concurrent browser/API starts.
+    await client.query(`
+      WITH ranked_running_timers AS (
+        SELECT id,
+          row_number() OVER (PARTITION BY user_id ORDER BY start_time DESC, id DESC) AS position
+        FROM time_entries
+        WHERE user_id IS NOT NULL AND end_time IS NULL AND duration IS NULL
+      )
+      UPDATE time_entries AS entry
+      SET end_time = entry.start_time, duration = 0
+      FROM ranked_running_timers AS ranked
+      WHERE entry.id = ranked.id AND ranked.position > 1
+    `);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS time_entries_one_running_per_user
+      ON time_entries(user_id)
+      WHERE user_id IS NOT NULL AND end_time IS NULL AND duration IS NULL
+    `);
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

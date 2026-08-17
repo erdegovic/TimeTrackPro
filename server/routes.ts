@@ -47,6 +47,8 @@ import { establishAuthenticatedSession, revokeUserSessions } from "./session-sto
 import { SESSION_COOKIE_NAME, sessionCookieOptions } from "./security";
 import { recordAdminAuditEvent } from "./admin-audit";
 import { validateProfileImageDataUrl } from "./utils/profile-image";
+import { createApiToken, listApiTokens, revokeApiToken } from "./api-tokens";
+import { completeRunningEntry, getRunningEntry, startTimer, stopTimer } from "./time-tracking";
 
 const parseInvoiceSettings = (raw?: string | null) => {
   if (!raw) return {};
@@ -1101,10 +1103,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: z.string().trim().max(1000).nullish(),
         projectId: z.number().int().positive().nullish(),
         clientId: z.number().int().positive().nullish(),
-        duration: z.union([z.string(), z.number()]).nullish(),
+        duration: z.coerce.number().nonnegative().max(24 * 31).nullish(),
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         startTime: z.string().datetime({ offset: true }).optional(),
         endTime: z.string().datetime({ offset: true }).optional(),
+        serverEntryId: z.number().int().positive().optional(),
+      }).refine((value) => value.endTime || value.duration !== null && value.duration !== undefined, {
+        message: 'An end time or duration is required',
       });
 
       const parsed = trackerEntrySchema.safeParse(req.body);
@@ -1119,12 +1124,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: relationError });
       }
 
+      // If the server holds a running timer for this account (started here or by
+      // an external agent through /api/v1), stopping the browser timer completes
+      // that row instead of inserting a duplicate.
+      const running = await getRunningEntry(userId);
+      if (running) {
+        if (parsed.data.serverEntryId && parsed.data.serverEntryId !== running.id) {
+          return res.status(409).json({ message: 'The running timer changed on another device. Tickd has refreshed it.' });
+        }
+        const completed = await completeRunningEntry(running, {
+          startTime: parsed.data.startTime ? startTime : undefined,
+          endTime: parsed.data.endTime ? new Date(parsed.data.endTime) : new Date(),
+          description: parsed.data.description ?? undefined,
+          projectId: parsed.data.projectId === undefined ? undefined : parsed.data.projectId,
+          clientId: parsed.data.clientId === undefined ? undefined : parsed.data.clientId,
+          date: parsed.data.date,
+        });
+        return res.status(200).json(completed);
+      }
+
+      if (parsed.data.serverEntryId) {
+        return res.status(409).json({ message: 'This timer was already stopped on another device.' });
+      }
+
       // Allow projectId to be null for entries without projects
+      const endTime = parsed.data.endTime ? new Date(parsed.data.endTime) : undefined;
+      if (endTime && endTime.getTime() < startTime.getTime()) {
+        return res.status(400).json({ message: 'End time must not be before start time' });
+      }
+      const duration = endTime
+        ? (endTime.getTime() - startTime.getTime()) / 3_600_000
+        : parsed.data.duration;
+      if (duration !== undefined && duration !== null && duration > 24 * 31) {
+        return res.status(400).json({ message: 'A time entry cannot exceed 31 days' });
+      }
+
       const data = {
         ...parsed.data,
+        serverEntryId: undefined,
         userId: userId,
         startTime: startTime,
-        endTime: parsed.data.endTime ? new Date(parsed.data.endTime) : undefined,
+        endTime,
+        duration: duration?.toFixed(6),
         date: parsed.data.date || startTime.toISOString().split('T')[0],
       };
 
@@ -1136,6 +1177,147 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Server-side running timer (session auth). Mirrors /api/v1/timer so the web
+  // app and external agents (Atlas) agree on what is running.
+  app.get("/api/tracker/timer", authenticate, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session!.userId!;
+      const running = await getRunningEntry(userId);
+      res.json({ running: running ? { ...running, startTime: new Date(running.startTime).toISOString() } : null });
+    } catch (error) {
+      console.error('Error reading running timer:', error);
+      res.status(500).json({ message: 'Failed to read timer' });
+    }
+  });
+
+  const trackerTimerStartSchema = z.object({
+    description: z.string().trim().max(1000).nullish(),
+    projectId: z.number().int().positive().nullish(),
+    clientId: z.number().int().positive().nullish(),
+    startTime: z.string().datetime({ offset: true }).optional(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    timeZone: z.string().max(64).optional(),
+  });
+
+  app.post("/api/tracker/timer/start", authenticate, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session!.userId!;
+      const parsed = trackerTimerStartSchema.safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return res.status(400).json({ message: 'Invalid timer data', errors: parsed.error.errors });
+      }
+      const relationError = await validateTimeEntryRelations(userId, parsed.data);
+      if (relationError) {
+        return res.status(403).json({ message: relationError });
+      }
+      const { entry, stopped } = await startTimer(userId, {
+        description: parsed.data.description ?? "",
+        projectId: parsed.data.projectId ?? null,
+        clientId: parsed.data.clientId ?? null,
+        startTime: parsed.data.startTime ? new Date(parsed.data.startTime) : new Date(),
+        date: parsed.data.date,
+        timeZone: parsed.data.timeZone,
+      });
+      res.status(201).json({ running: { ...entry, startTime: new Date(entry.startTime).toISOString() }, stopped });
+    } catch (error) {
+      console.error('Error starting timer:', error);
+      res.status(500).json({ message: 'Failed to start timer' });
+    }
+  });
+
+  const trackerTimerStopSchema = z.object({
+    description: z.string().trim().max(1000).nullish(),
+    projectId: z.number().int().positive().nullish(),
+    clientId: z.number().int().positive().nullish(),
+    endTime: z.string().datetime({ offset: true }).optional(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    timeZone: z.string().max(64).optional(),
+  });
+
+  app.post("/api/tracker/timer/stop", authenticate, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session!.userId!;
+      const parsed = trackerTimerStopSchema.safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return res.status(400).json({ message: 'Invalid timer data', errors: parsed.error.errors });
+      }
+      if (parsed.data.projectId !== undefined || parsed.data.clientId !== undefined) {
+        const relationError = await validateTimeEntryRelations(userId, parsed.data);
+        if (relationError) {
+          return res.status(403).json({ message: relationError });
+        }
+      }
+      const entry = await stopTimer(userId, {
+        endTime: parsed.data.endTime ? new Date(parsed.data.endTime) : new Date(),
+        description: parsed.data.description ?? undefined,
+        projectId: parsed.data.projectId,
+        clientId: parsed.data.clientId,
+        date: parsed.data.date,
+        timeZone: parsed.data.timeZone,
+      });
+      if (!entry) {
+        return res.status(404).json({ message: 'No timer is running', entry: null });
+      }
+      res.json({ entry });
+    } catch (error) {
+      console.error('Error stopping timer:', error);
+      res.status(500).json({ message: 'Failed to stop timer' });
+    }
+  });
+
+  // Personal API tokens (used by external agents against /api/v1). Session auth.
+  app.get("/api/auth/api-tokens", authenticate, async (req: Request, res: Response) => {
+    try {
+      res.json(await listApiTokens(req.session!.userId!));
+    } catch (error) {
+      console.error('Error listing API tokens:', error);
+      res.status(500).json({ message: 'Failed to list API tokens' });
+    }
+  });
+
+  app.post("/api/auth/api-tokens", authenticate, async (req: Request, res: Response) => {
+    try {
+      const parsed = z.object({
+        name: z.string().trim().min(1).max(80),
+        expiresInDays: z.number().int().min(1).max(3650).optional(),
+      }).safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return res.status(400).json({ message: 'A token name is required', errors: parsed.error.errors });
+      }
+      const userId = req.session!.userId!;
+      const existing = await listApiTokens(userId);
+      if (existing.length >= 20) {
+        return res.status(409).json({ message: 'Revoke an existing token before creating another (limit 20).' });
+      }
+      const expiresAt = parsed.data.expiresInDays
+        ? new Date(Date.now() + parsed.data.expiresInDays * 24 * 60 * 60 * 1000)
+        : null;
+      const { token, record } = await createApiToken(userId, parsed.data.name, { expiresAt });
+      // The plaintext token is returned exactly once.
+      res.status(201).json({ ...record, token });
+    } catch (error) {
+      console.error('Error creating API token:', error);
+      res.status(500).json({ message: 'Failed to create API token' });
+    }
+  });
+
+  app.delete("/api/auth/api-tokens/:id", authenticate, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ message: 'Invalid token id' });
+      }
+      const revoked = await revokeApiToken(req.session!.userId!, id);
+      if (!revoked) {
+        return res.status(404).json({ message: 'API token not found' });
+      }
+      res.json({ ok: true });
+    } catch (error) {
+      console.error('Error revoking API token:', error);
+      res.status(500).json({ message: 'Failed to revoke API token' });
+    }
+  });
+
   app.put("/api/time-entries/:id", authenticate, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);

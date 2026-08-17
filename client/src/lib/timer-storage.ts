@@ -4,6 +4,8 @@ export interface StoredTimer {
   description: string;
   projectId?: number;
   clientId?: number;
+  /** id of the running server-side time_entries row, once registered */
+  serverEntryId?: number;
 }
 
 const LEGACY_TIMER_KEY = "timeTracker";
@@ -32,6 +34,7 @@ const parseTimer = (value: string | null): Partial<StoredTimer> | null => {
       description: typeof parsed.description === "string" ? parsed.description : "",
       projectId: parseOptionalId(parsed.projectId),
       clientId: parseOptionalId(parsed.clientId),
+      serverEntryId: parseOptionalId(parsed.serverEntryId),
     };
   } catch {
     return null;
