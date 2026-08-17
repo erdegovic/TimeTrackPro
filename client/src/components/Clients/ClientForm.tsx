@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { InsertClient, Settings } from "@shared/schema";
+import { clientContactEmailSchema, InsertClient, Settings } from "@shared/schema";
 import { CurrencySelector } from "@/components/ui/CurrencySelector";
 import {
   CustomCurrencyMap,
@@ -47,7 +47,7 @@ import { InvoiceAiEditor } from "@/components/Invoices/InvoiceAiEditor";
 
 const clientSchema = z.object({
   name: z.string().min(1, "Client name is required"),
-  email: z.string().email("Invalid email address").optional().or(z.literal("")),
+  email: clientContactEmailSchema.default(""),
   address: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),

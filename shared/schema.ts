@@ -429,8 +429,21 @@ export const invoiceAutomationAudit = pgTable("invoice_automation_audit", {
   jobCreatedIdx: index("invoice_automation_audit_job_created_idx").on(table.jobId, table.createdAt),
 }));
 
+// Client contacts may use private or custom domains that are intentionally not
+// covered by public email-domain rules. Keep the structural checks without
+// requiring a public suffix.
+export const clientContactEmailSchema = z.string()
+  .trim()
+  .max(320, "Email address is too long")
+  .refine(
+    (value) => value === "" || /^[^\s@]+@[^\s@]+$/.test(value),
+    "Please enter a valid email address",
+  );
+
 // Create Insert Schemas
-export const insertClientSchema = createInsertSchema(clients).omit({ id: true });
+export const insertClientSchema = createInsertSchema(clients)
+  .omit({ id: true })
+  .extend({ email: clientContactEmailSchema.nullable().optional() });
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true });
 export const insertTimeEntrySchema = createInsertSchema(timeEntries)
   .omit({ id: true, invoiceId: true })
