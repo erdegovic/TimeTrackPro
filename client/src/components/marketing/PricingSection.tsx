@@ -56,7 +56,9 @@ export default function PricingSection({ currentPlan, currentBillingInterval = "
         toast({
           title: result.effective === "immediate" ? "Plan change submitted" : "Downgrade scheduled",
           description: result.effective === "immediate"
-            ? "Paddle is applying your new plan now."
+            ? result.creditsUnusedTime
+              ? "Paddle is applying your new plan now and crediting unused time on your current plan."
+              : "Paddle is applying your new plan now."
             : "The lower price takes effect at your next billing date.",
         });
         await refreshSubscription(plan, interval);
@@ -98,6 +100,11 @@ export default function PricingSection({ currentPlan, currentBillingInterval = "
           </div>
         )}
         <BillingCycleToggle value={billingInterval} onChange={setBillingInterval} compact={compact} />
+        {currentPlan && currentPlan !== "free" && (
+          <p className="mt-3 text-center text-xs text-[#667085]">
+            Upgrades apply immediately. Paddle automatically credits unused time on your current paid plan.
+          </p>
+        )}
         <div className={`grid gap-4 ${compact ? "lg:grid-cols-3" : "mt-12 lg:grid-cols-3 lg:items-stretch"}`}>
           {planDetails.map((plan) => {
             const isCurrent = currentPlan === plan.id && (plan.id === "free" || currentBillingInterval === billingInterval);

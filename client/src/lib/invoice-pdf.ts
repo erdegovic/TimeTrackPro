@@ -239,7 +239,14 @@ export function createInvoicePdf(data: InvoiceTemplateData): jsPDF {
   const tableStartY = y + (clientLines ? 25 : 15);
   const showDate = data.showDateColumn === true;
   const showRate = data.showHourlyRate !== false;
-  const columns = [labels.description, ...(showDate ? [labels.date] : []), getInvoiceUnitsLabel(labels, data.lineItems), ...(showRate ? [labels.rate] : []), labels.amount];
+  const showUnits = data.showUnits !== false;
+  const columns = [
+    labels.description,
+    ...(showDate ? [labels.date] : []),
+    ...(showUnits ? [getInvoiceUnitsLabel(labels, data.lineItems)] : []),
+    ...(showRate ? [labels.rate] : []),
+    labels.amount,
+  ];
   const columnCount = columns.length;
   const body = data.lineItems.map((item) => {
     if (item.isGroupHeader) {
@@ -251,7 +258,13 @@ export function createInvoicePdf(data: InvoiceTemplateData): jsPDF {
     const description = data.showProjectName !== false && item.subDescription
       ? `${item.description}\n${item.subDescription}`
       : item.description;
-    return [description, ...(showDate ? [item.date || ""] : []), item.qty, ...(showRate ? [item.rate] : []), item.amount];
+    return [
+      description,
+      ...(showDate ? [item.date || ""] : []),
+      ...(showUnits ? [item.qty] : []),
+      ...(showRate ? [item.rate] : []),
+      item.amount,
+    ];
   });
 
   let tableFinalY = tableStartY;
@@ -287,8 +300,8 @@ export function createInvoicePdf(data: InvoiceTemplateData): jsPDF {
     columnStyles: {
       0: { cellWidth: "auto", halign: "left" },
       ...(showDate ? { 1: { cellWidth: 23, halign: "right" } } : {}),
-      [showDate ? 2 : 1]: { cellWidth: 21, halign: "right" },
-      ...(showRate ? { [showDate ? 3 : 2]: { cellWidth: 27, halign: "right" } } : {}),
+      ...(showUnits ? { [1 + (showDate ? 1 : 0)]: { cellWidth: 21, halign: "right" } } : {}),
+      ...(showRate ? { [1 + (showDate ? 1 : 0) + (showUnits ? 1 : 0)]: { cellWidth: 27, halign: "right" } } : {}),
       [columnCount - 1]: { cellWidth: 29, halign: "right" },
     },
     didParseCell: ({ cell, column, section }) => {

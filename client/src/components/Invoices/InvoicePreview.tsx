@@ -317,6 +317,27 @@ export default function InvoicePreview({
     });
   };
 
+  const updateEntryRate = (entryId: number, newRate: number) => {
+    const safeRate = Number.isFinite(newRate) && newRate >= 0 ? newRate : 0;
+    setEditableEntries((prev) => {
+      const updated = prev.map((entry) => {
+        if (entry.id !== entryId) return entry;
+        const duration = getEntryDuration(entry);
+        const amount = Number((duration * safeRate).toFixed(2));
+        return {
+          ...entry,
+          hourlyRate: safeRate.toString(),
+          project: entry.project ? { ...entry.project, hourlyRate: safeRate.toString() } : entry.project,
+          editedAmount: amount,
+          amount: amount.toString(),
+          wasEdited: true,
+        };
+      });
+      recalculateTotals(updated);
+      return updated;
+    });
+  };
+
   const getWeekLabelByEntryId = useCallback(() => {
     const weekLabelByEntryId = new Map<number, string>();
     reportData?.weeklyData?.forEach((week: any) => {
@@ -430,6 +451,9 @@ export default function InvoicePreview({
           quantity: item.billingType === "quantity" ? item.quantity : undefined,
           rate: item.rate,
           amount: calculateManualItemAmount(item),
+          projectName: String(item.projectName || ""),
+          displayHours: item.displayHours !== false,
+          displayRate: item.displayRate !== false,
         })),
       ];
 
@@ -520,11 +544,11 @@ export default function InvoicePreview({
       ...timeLineItems,
       ...additionalItems.map((item) => ({
         description: item.description || "Additional Item",
-        subDescription: "",
-        qty: item.billingType === "hourly"
+        subDescription: String(item.projectName || ""),
+        qty: item.displayHours === false ? "" : item.billingType === "hourly"
           ? formatHoursForInvoice(getManualItemUnits(item), timeFormat)
           : getManualItemUnits(item).toLocaleString(undefined, { maximumFractionDigits: 2 }),
-        rate: formatCurrency(item.rate, currency),
+        rate: item.displayRate === false ? "" : formatCurrency(item.rate, currency),
         amount: formatCurrency(calculateManualItemAmount(item), currency),
         billingType: item.billingType,
       })),
@@ -602,7 +626,12 @@ export default function InvoicePreview({
       textColor: (s as any)?.invoiceTextColor || undefined,
       bgColor: (s as any)?.invoiceBackgroundColor || undefined,
       showDateColumn: (s as any)?.showDateColumn === true,
-      showHourlyRate: (s as any)?.showHourlyRate !== false,
+      showHourlyRate: editableEntries.length === 0 && additionalItems.length > 0
+        ? additionalItems.some((item) => item.displayRate !== false)
+        : (s as any)?.showHourlyRate !== false,
+      showUnits: editableEntries.length === 0 && additionalItems.length > 0
+        ? additionalItems.some((item) => item.displayHours !== false)
+        : true,
       showProjectName: (s as any)?.showProjectName !== false,
       paymentDetails,
       showPaymentDetails: !!(s as any)?.showBankDetails && !!paymentDetails,
@@ -755,7 +784,17 @@ export default function InvoicePreview({
                               onBlur={(e) => updateEntryDuration(entry.id, parseTime(e.target.value, reportData.timeFormat as TimeFormat), reportData.timeFormat as TimeFormat)}
                             />
                           </td>
-                          <td className="px-3 py-2 text-gray-600">{formatCurrency(rate, currency)}</td>
+                          <td className="px-3 py-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className="h-7 w-24 p-1 text-sm"
+                              value={rate}
+                              aria-label={`Hourly rate for ${entry.description}`}
+                              onChange={(event) => updateEntryRate(entry.id, Number(event.target.value))}
+                            />
+                          </td>
                           <td className="px-3 py-2 text-right text-gray-900">{formatCurrency(amount, currency)}</td>
                         </tr>
                       );

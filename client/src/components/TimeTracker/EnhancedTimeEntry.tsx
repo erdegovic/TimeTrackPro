@@ -982,6 +982,17 @@ export default function EnhancedTimeEntry({
                 <div className="min-w-[5.5rem] shrink-0 text-right font-mono tabular-nums text-gray-600">
                   {formatDuration(block.duration)}
                 </div>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 text-destructive hover:bg-destructive hover:text-white"
+                  onClick={() => onDelete(Number(getEntryIdFromBlockId(block.id)))}
+                  title={`Delete block ${index + 1}`}
+                  aria-label={`Delete block ${index + 1}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           ))}

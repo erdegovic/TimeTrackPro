@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractTickdCheckoutToken, hasPaidPaddleStatus, resolvePaddlePlan, resolvePaddlePrice } from "../shared/paddle-billing";
+import { extractTickdCheckoutToken, getPaddlePlanChangePolicy, hasPaidPaddleStatus, resolvePaddlePlan, resolvePaddlePrice } from "../shared/paddle-billing";
 
 test("Paddle custom data accepts only opaque Tickd checkout tokens", () => {
   const token = "UjM3NGRpV3RKT2QxSXNLNVE3OUc0VlJvNWVxSmpmOXc";
@@ -50,4 +50,32 @@ test("Paddle line items resolve both plan and billing interval", () => {
     { price: { id: "pri_pro_monthly" } },
     { price: { id: "pri_pro_annual" } },
   ], prices), null);
+});
+
+test("paid plan upgrades immediately credit unused subscription time", () => {
+  assert.deepEqual(
+    getPaddlePlanChangePolicy(
+      { plan: "pro", billingInterval: "monthly" },
+      { plan: "ultimate", billingInterval: "monthly" },
+    ),
+    {
+      prorationBillingMode: "prorated_immediately",
+      effective: "immediate",
+      creditsUnusedTime: true,
+    },
+  );
+});
+
+test("paid plan downgrades defer prorated billing until renewal", () => {
+  assert.deepEqual(
+    getPaddlePlanChangePolicy(
+      { plan: "ultimate", billingInterval: "monthly" },
+      { plan: "pro", billingInterval: "monthly" },
+    ),
+    {
+      prorationBillingMode: "prorated_next_billing_period",
+      effective: "next_billing_period",
+      creditsUnusedTime: false,
+    },
+  );
 });

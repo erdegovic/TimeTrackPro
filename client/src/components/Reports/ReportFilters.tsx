@@ -5,20 +5,22 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Filter, RotateCcw } from "lucide-react";
-import { format } from "date-fns";
 import { ReportFilters, Client, Project, TimeFormat, RoundingType } from "@shared/schema";
+import { getCompleteReportMonthRange, type ReportDatePreset } from "@shared/report-periods";
 
 interface ReportFiltersProps {
   onApplyFilters: (filters: ReportFilters) => void;
   liveUpdate?: boolean;
 }
 
+const defaultDateRange = () => getCompleteReportMonthRange(1);
+
 export default function ReportFiltersComponent({ onApplyFilters, liveUpdate = false }: ReportFiltersProps) {
+  const [datePreset, setDatePreset] = useState<ReportDatePreset>("previous_month");
   const [filters, setFilters] = useState<ReportFilters>({
     clientId: undefined,
     projectId: undefined,
-    startDate: format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd"), // 30 days ago
-    endDate: format(new Date(), "yyyy-MM-dd"), // Today
+    ...defaultDateRange(),
     timeFormat: "decimal",
     roundingType: "none",
     timeAdjustment: {
@@ -58,11 +60,11 @@ export default function ReportFiltersComponent({ onApplyFilters, liveUpdate = fa
   };
 
   const handleReset = () => {
+    setDatePreset("previous_month");
     const resetFilters: ReportFilters = {
       clientId: undefined,
       projectId: undefined,
-      startDate: format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd"),
-      endDate: format(new Date(), "yyyy-MM-dd"),
+      ...defaultDateRange(),
       timeFormat: "decimal",
       roundingType: "none",
       timeAdjustment: {
@@ -137,26 +139,48 @@ export default function ReportFiltersComponent({ onApplyFilters, liveUpdate = fa
         
         <div className="col-span-1 sm:col-span-2 lg:col-span-1">
           <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-          {/* Stacked below 400px. Two side-by-side native date inputs each need
-              roughly 150px for the value plus the browser's own picker glyph, so
-              on a phone the arrow column pushed that glyph past the input edge. */}
-          <div className="grid grid-cols-1 items-center gap-2 min-[400px]:grid-cols-[1fr_auto_1fr]">
-            <Input
-              type="date"
-              aria-label="Report start date"
-              value={filters.startDate}
-              onChange={(e) => updateFilters({ ...filters, startDate: e.target.value })}
-              className="w-full min-w-0"
-            />
-            <span aria-hidden="true" className="hidden px-1 text-sm text-gray-400 min-[400px]:inline">→</span>
-            <Input
-              type="date"
-              aria-label="Report end date"
-              value={filters.endDate}
-              onChange={(e) => updateFilters({ ...filters, endDate: e.target.value })}
-              className="w-full min-w-0"
-            />
-          </div>
+          <Select
+            value={datePreset}
+            onValueChange={(value: ReportDatePreset) => {
+              setDatePreset(value);
+              if (value === "custom") return;
+              const monthCount = value === "last_3_months" ? 3 : value === "last_6_months" ? 6 : value === "last_12_months" ? 12 : 1;
+              updateFilters({ ...filters, ...getCompleteReportMonthRange(monthCount) }, true);
+            }}
+          >
+            <SelectTrigger aria-label="Report period">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="previous_month">Previous month</SelectItem>
+              <SelectItem value="last_3_months">Last 3 complete months</SelectItem>
+              <SelectItem value="last_6_months">Last 6 complete months</SelectItem>
+              <SelectItem value="last_12_months">Last 12 complete months</SelectItem>
+              <SelectItem value="custom">Custom range</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {datePreset === "custom" && (
+            <div className="mt-2 grid grid-cols-1 items-center gap-2 min-[400px]:grid-cols-[1fr_auto_1fr]">
+              <Input
+                type="date"
+                aria-label="Report start date"
+                value={filters.startDate}
+                max={filters.endDate}
+                onChange={(e) => updateFilters({ ...filters, startDate: e.target.value })}
+                className="w-full min-w-0"
+              />
+              <span aria-hidden="true" className="hidden px-1 text-sm text-gray-400 min-[400px]:inline">to</span>
+              <Input
+                type="date"
+                aria-label="Report end date"
+                value={filters.endDate}
+                min={filters.startDate}
+                onChange={(e) => updateFilters({ ...filters, endDate: e.target.value })}
+                className="w-full min-w-0"
+              />
+            </div>
+          )}
         </div>
       </div>
       

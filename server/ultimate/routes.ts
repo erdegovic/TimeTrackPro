@@ -510,6 +510,94 @@ router.post("/invoice-customization/interpret", requireUltimate, requireAiConsen
   }
 });
 
+const voiceInvoiceDraftSchema = z.object({
+  clientId: z.number().int().positive(),
+  projectId: z.number().int().positive().nullable(),
+  showHours: z.boolean(),
+  showHourlyRate: z.boolean(),
+  items: z.array(z.object({
+    description: z.string().trim().min(1).max(500),
+    hours: z.number().min(0).max(1_000_000),
+    rate: z.number().min(0).max(1_000_000_000),
+    amount: z.number().min(0).max(1_000_000_000),
+  })).min(1).max(30),
+  summary: z.string().trim().max(500),
+});
+
+router.post("/invoice-draft/interpret", requireUltimate, requireAiConsent, async (req, res) => {
+  try {
+    const data = z.object({ instruction: z.string().trim().min(3).max(3000) }).parse(req.body);
+    const userId = req.user!.id;
+    const [ownedClients, ownedProjects] = await Promise.all([
+      db.select({ id: clients.id, name: clients.name, currency: clients.currency })
+        .from(clients)
+        .where(eq(clients.userId, userId)),
+      db.select({ id: projects.id, name: projects.name, clientId: projects.clientId, hourlyRate: projects.hourlyRate })
+        .from(projects)
+        .where(eq(projects.userId, userId)),
+    ]);
+
+    if (ownedClients.length === 0) throw new Error("Create a client before generating an invoice.");
+
+    const ai = await runStructuredAi<z.infer<typeof voiceInvoiceDraftSchema>>({
+      userId,
+      action: "voice_invoice_draft",
+      writing: true,
+      instructions: "Turn the user's spoken or typed request into an editable invoice draft. Select exactly one client from the supplied client list and only select a project belonging to that client. Use the selected project's hourly rate when the user requests hourly billing without stating a rate. For fixed-price work set showHours and showHourlyRate to false, put the requested charge in amount, and return hours 0 and rate 0. For hourly work set amount to hours multiplied by rate. Never invent completed work, clients, projects, taxes, payment details, or extra charges. Keep descriptions concise. The draft will always be reviewed by the user before it can be saved.",
+      input: {
+        instruction: data.instruction,
+        clients: ownedClients,
+        projects: ownedProjects,
+      },
+      schemaName: "voice_invoice_draft",
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["clientId", "projectId", "showHours", "showHourlyRate", "items", "summary"],
+        properties: {
+          clientId: { type: "integer" },
+          projectId: { type: ["integer", "null"] },
+          showHours: { type: "boolean" },
+          showHourlyRate: { type: "boolean" },
+          items: {
+            type: "array",
+            minItems: 1,
+            maxItems: 30,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["description", "hours", "rate", "amount"],
+              properties: {
+                description: { type: "string" },
+                hours: { type: "number" },
+                rate: { type: "number" },
+                amount: { type: "number" },
+              },
+            },
+          },
+          summary: { type: "string" },
+        },
+      },
+    });
+
+    const draft = voiceInvoiceDraftSchema.parse(ai.result);
+    const selectedClient = ownedClients.find((client) => client.id === draft.clientId);
+    const selectedProject = draft.projectId === null
+      ? null
+      : ownedProjects.find((project) => project.id === draft.projectId && project.clientId === draft.clientId);
+    if (!selectedClient) throw new Error("Choose a client from your account.");
+    if (draft.projectId !== null && !selectedProject) throw new Error("Choose a project that belongs to the selected client.");
+
+    res.json({
+      ...draft,
+      projectId: selectedProject?.id ?? null,
+      currency: selectedClient.currency || "USD",
+    });
+  } catch (error) {
+    sendRouteError(res, error);
+  }
+});
+
 router.put("/clients/:id/automation-profile", requireUltimate, async (req, res) => {
   try {
     const clientId = Number(req.params.id);

@@ -80,7 +80,7 @@ export const changePaddlePlan = async (plan: PaddlePaidPlan, billingInterval: Bi
   });
   const result = await response.json();
   if (!response.ok) throw new Error(result.message || "The subscription could not be changed.");
-  return result as { plan: PaddlePaidPlan; billingInterval: BillingInterval; status: string; effective: "immediate" | "next_billing_period" };
+  return result as { plan: PaddlePaidPlan; billingInterval: BillingInterval; status: string; effective: "immediate" | "next_billing_period"; creditsUnusedTime: boolean };
 };
 
 export const openBillingPortal = async () => {

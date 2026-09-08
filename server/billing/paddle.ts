@@ -6,12 +6,12 @@ import { pool } from "../db";
 import { storage } from "../storage";
 import {
   extractTickdCheckoutToken,
+  getPaddlePlanChangePolicy,
   hasPaidPaddleStatus,
   resolvePaddlePrice,
   type PaddlePaidPlan,
   type PaddlePriceMap,
 } from "@shared/paddle-billing";
-import { subscriptionPlanRank } from "@shared/subscriptions";
 
 type PaddleEnvironment = "sandbox" | "production";
 
@@ -279,16 +279,16 @@ router.post("/change-plan", async (req: Request, res: Response) => {
       return res.status(409).json({ message: "The linked Paddle subscription could not be verified." });
     }
 
-    const currentPlan = user.subscriptionPlan === "ultimate" ? "ultimate" : "pro";
-    const currentInterval = user.subscriptionBillingInterval === "annual" ? "annual" : "monthly";
-    const isPlanUpgrade = subscriptionPlanRank[validation.data.plan] > subscriptionPlanRank[currentPlan];
-    const isCadenceUpgrade = validation.data.plan === currentPlan
-      && currentInterval === "monthly"
-      && validation.data.billingInterval === "annual";
-    const isImmediate = isPlanUpgrade || isCadenceUpgrade;
+    const configuredPrices = getConfiguredPriceIds();
+    const currentSelection = resolvePaddlePrice(currentSubscription.items || [], configuredPrices) || {
+      plan: user.subscriptionPlan === "ultimate" ? "ultimate" : "pro",
+      billingInterval: user.subscriptionBillingInterval === "annual" ? "annual" : "monthly",
+    };
+    const policy = getPaddlePlanChangePolicy(currentSelection, validation.data);
     const subscription = await paddle.subscriptions.update(user.paddleSubscriptionId, {
       items: [{ priceId, quantity: 1 }],
-      prorationBillingMode: isImmediate ? "prorated_immediately" : "prorated_next_billing_period",
+      prorationBillingMode: policy.prorationBillingMode,
+      onPaymentFailure: "prevent_change",
       customData: {
         ...(currentSubscription.customData || {}),
         tickd_plan: validation.data.plan,
@@ -300,7 +300,8 @@ router.post("/change-plan", async (req: Request, res: Response) => {
       plan: validation.data.plan,
       billingInterval: validation.data.billingInterval,
       status: subscription.status,
-      effective: isImmediate ? "immediate" : "next_billing_period",
+      effective: policy.effective,
+      creditsUnusedTime: policy.creditsUnusedTime,
     });
   } catch (error) {
     console.error("Could not change Paddle subscription plan:", error);

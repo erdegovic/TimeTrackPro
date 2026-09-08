@@ -44,6 +44,7 @@ export interface InvoiceTemplateData {
   bgColor?: string;
   showDateColumn?: boolean;
   showHourlyRate?: boolean;
+  showUnits?: boolean;
   showProjectName?: boolean;
   paymentDetails?: string;
   showPaymentDetails?: boolean;
@@ -532,13 +533,14 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
 
   const showDate = data.showDateColumn === true;
   const showRate = data.showHourlyRate !== false;
+  const showUnits = data.showUnits !== false;
 
   const lineItemsHTML = data.lineItems
     .map(
       (item) => item.isGroupHeader
         ? `
     <tr class="group-row">
-      <td colspan="${1 + (showDate ? 1 : 0) + 1 + (showRate ? 1 : 0)}">${esc(item.description)}</td>
+      <td colspan="${1 + (showDate ? 1 : 0) + (showUnits ? 1 : 0) + (showRate ? 1 : 0)}">${esc(item.description)}</td>
       <td class="group-total">${esc(item.amount)}</td>
     </tr>`
         : `
@@ -548,7 +550,7 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
         ${data.showProjectName !== false && item.subDescription ? `<span class="item-sub">${esc(item.subDescription)}</span>` : ""}
       </td>
       ${showDate ? `<td>${esc(item.date || "")}</td>` : ""}
-      <td>${esc(item.qty)}</td>
+      ${showUnits ? `<td>${esc(item.qty)}</td>` : ""}
       ${showRate ? `<td>${esc(item.rate)}</td>` : ""}
       <td>${esc(item.amount)}</td>
     </tr>`
@@ -658,7 +660,7 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
         <tr>
           <th>${esc(labels.description)}</th>
           ${showDate ? `<th>${esc(labels.date)}</th>` : ""}
-          <th>${esc(unitsLabel)}</th>
+          ${showUnits ? `<th>${esc(unitsLabel)}</th>` : ""}
           ${showRate ? `<th>${esc(labels.rate)}</th>` : ""}
           <th>${esc(labels.amount)}</th>
         </tr>

@@ -83,6 +83,32 @@ test("invoice units label distinguishes hourly, quantity, and mixed items", () =
   assert.equal(getInvoiceUnitsLabel(labels, [hourly, quantity]), "Hours / Qty");
 });
 
+test("fixed-price invoice items can hide units and rates in preview and PDF", () => {
+  const fixedPriceInvoice = {
+    ...sampleInvoice,
+    showUnits: false,
+    showHourlyRate: false,
+    lineItems: [{
+      description: "Brand identity package",
+      subDescription: "",
+      qty: "",
+      rate: "",
+      amount: "GBP 937.50",
+      billingType: "quantity" as const,
+    }],
+  };
+  const html = generateInvoiceHTML(fixedPriceInvoice);
+
+  assert.doesNotMatch(html, /<th>Hours<\/th>|<th>Quantity<\/th>|<th>Hours \/ Qty<\/th>/);
+  assert.doesNotMatch(html, /<th>Rate<\/th>/);
+  assert.match(html, /Brand identity package/);
+
+  const pdf = createInvoicePdf(fixedPriceInvoice);
+  const bytes = Buffer.from(pdf.output("arraybuffer"));
+  assert.equal(bytes.includes(Buffer.from("Brand identity package")), true);
+  assert.ok(bytes.length > 5_000);
+});
+
 test("invoice layout controls reorder information and move the payment accent", () => {
   const html = generateInvoiceHTML({
     ...sampleInvoice,

@@ -10,6 +10,29 @@ export type PaddlePriceSelection = {
   billingInterval: BillingInterval;
 };
 
+export type PaddlePlanChangePolicy = {
+  prorationBillingMode: "prorated_immediately" | "prorated_next_billing_period";
+  effective: "immediate" | "next_billing_period";
+  creditsUnusedTime: boolean;
+};
+
+export const getPaddlePlanChangePolicy = (
+  current: PaddlePriceSelection,
+  next: PaddlePriceSelection,
+): PaddlePlanChangePolicy => {
+  const isPlanUpgrade = current.plan === "pro" && next.plan === "ultimate";
+  const isCadenceUpgrade = current.plan === next.plan
+    && current.billingInterval === "monthly"
+    && next.billingInterval === "annual";
+  const isImmediate = isPlanUpgrade || isCadenceUpgrade;
+
+  return {
+    prorationBillingMode: isImmediate ? "prorated_immediately" : "prorated_next_billing_period",
+    effective: isImmediate ? "immediate" : "next_billing_period",
+    creditsUnusedTime: isImmediate,
+  };
+};
+
 export const extractTickdCheckoutToken = (customData: unknown): string | null => {
   if (!customData || typeof customData !== "object") return null;
   const value = (customData as Record<string, unknown>).tickd_checkout_token;

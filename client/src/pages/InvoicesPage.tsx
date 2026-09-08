@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
-  FileText, Trash2, FileDown, Edit, Plus, CheckCircle, Send, Clock, MoreHorizontal, Lock
+  FileText, Trash2, FileDown, Edit, Plus, CheckCircle, Send, Clock, MoreHorizontal, Lock, Mic, Timer
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,8 +18,10 @@ import { generatePdf } from "@/lib/enhanced-pdf-generator";
 import { formatCurrency } from "@/lib/utils/timeUtils";
 import { Invoice, Client, Settings } from "@shared/schema";
 import InvoiceEditor from "../components/Invoices/InvoiceEditor";
+import CustomInvoiceDialog from "../components/Invoices/CustomInvoiceDialog";
 import { useAuth } from "@/hooks/useAuth";
-import { getInvoiceCapabilities } from "@shared/subscriptions";
+import { getInvoiceCapabilities, getUltimateCapabilities } from "@shared/subscriptions";
+import { useLocation } from "wouter";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline"; icon: any; className: string }> = {
   draft:  { label: "Draft",  variant: "secondary", icon: Clock,        className: "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200" },
@@ -34,9 +36,12 @@ function getCurrencySymbol(currency: string) {
 export default function InvoicesPage() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const [, navigate] = useLocation();
   const invoiceAccess = getInvoiceCapabilities(user?.subscriptionPlan, user?.subscriptionStatus);
+  const ultimateAccess = getUltimateCapabilities(user?.subscriptionPlan, user?.subscriptionStatus);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [creationMode, setCreationMode] = useState<"custom" | "voice" | null>(null);
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/invoices"],
@@ -298,6 +303,44 @@ export default function InvoicesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
           <p className="text-gray-500 mt-1 text-sm">Manage your invoices and track payments.</p>
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button className="shrink-0">
+              <Plus className="mr-2 h-4 w-4" />
+              New invoice
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-72">
+            <DropdownMenuItem className="items-start gap-3 py-3" onClick={() => navigate("/reports")}>
+              <Timer className="mt-0.5 h-4 w-4 text-blue-600" />
+              <div>
+                <div className="font-medium">From tracked time</div>
+                <div className="mt-0.5 text-xs text-gray-500">Filter completed work, then generate an invoice.</div>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="items-start gap-3 py-3" onClick={() => setCreationMode("custom")}>
+              <FileText className="mt-0.5 h-4 w-4 text-emerald-600" />
+              <div>
+                <div className="font-medium">Custom invoice</div>
+                <div className="mt-0.5 text-xs text-gray-500">Add fixed-price or hourly items manually.</div>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="items-start gap-3 py-3"
+              onClick={() => {
+                if (ultimateAccess.canUseAi) setCreationMode("voice");
+                else toast({ title: "Ultimate feature", description: "Voice invoice creation is available on Ultimate." });
+              }}
+            >
+              {ultimateAccess.canUseAi ? <Mic className="mt-0.5 h-4 w-4 text-violet-600" /> : <Lock className="mt-0.5 h-4 w-4 text-gray-400" />}
+              <div>
+                <div className="font-medium">Create with voice <span className="ml-1 text-[10px] font-semibold uppercase text-violet-600">Ultimate</span></div>
+                <div className="mt-0.5 text-xs text-gray-500">Describe the invoice and review an editable draft.</div>
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {!invoiceAccess.canSave && (
@@ -315,7 +358,7 @@ export default function InvoicesPage() {
         </div>
       )}
 
-      {/* How to create an invoice */}
+      {/* Invoice creation routes */}
       <div className="flex gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
         <div className="flex-shrink-0 mt-0.5">
           <FileText className="h-5 w-5 text-blue-600" />
@@ -323,11 +366,11 @@ export default function InvoicesPage() {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-blue-900">Creating invoices</p>
           <p className="text-sm text-blue-700 mt-0.5">
-            Invoices are generated from your time reports. Go to the{" "}
+            Create an invoice from completed work in the{" "}
             <a href="/reports" className="font-semibold underline underline-offset-2 hover:text-blue-900">
               Reports tab
             </a>
-            , apply your filters, then click <span className="font-semibold">Generate Invoice</span> to create and preview an invoice from your tracked time.
+            , or use <span className="font-semibold">New invoice</span> for one-time and fixed-price work.
           </p>
         </div>
       </div>
@@ -521,6 +564,16 @@ export default function InvoicesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {creationMode && (
+        <CustomInvoiceDialog
+          open
+          mode={creationMode}
+          clients={clients}
+          settings={settings}
+          onOpenChange={(open) => !open && setCreationMode(null)}
+        />
+      )}
     </div>
   );
 }

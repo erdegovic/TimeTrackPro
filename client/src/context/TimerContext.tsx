@@ -184,7 +184,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         clearUserTimer(userId);
         resetTimerState();
         window.dispatchEvent(new CustomEvent("timeEntryUpdated"));
-        toast({ title: "Timer stopped", description: "This timer was stopped from another device or by Atlas." });
+        toast({ title: "Timer stopped", description: "This timer was stopped from another device." });
         return;
       }
       // Browser-only timer from before server-side timers existed: register it.
