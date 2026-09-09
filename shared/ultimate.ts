@@ -35,6 +35,20 @@ export type InvoiceAutomationProfile = {
   deliveryMethod: "client" | "self" | "gmail";
 };
 
+export type InvoiceRecipientProject = {
+  id: number;
+  name?: string | null;
+  customInvoiceEmailEnabled?: boolean | null;
+  customInvoiceEmail?: string | null;
+};
+
+export type InvoiceRecipientResolution = {
+  email: string;
+  source: "client" | "project";
+  projectId: number | null;
+  projectName: string;
+};
+
 export const DEFAULT_INVOICE_EMAIL_SUBJECT = "Invoice for {periodStart} to {periodEnd}";
 export const DEFAULT_INVOICE_EMAIL_BODY = "Hello {clientName},\n\nPlease find the attached invoice for work completed from {periodStart} to {periodEnd}.\n\nThank you.";
 
@@ -129,6 +143,37 @@ export function buildAutomationLineItems(
       dates: item.dates.sort(),
     }))
     .sort((a, b) => (a.dates[0] || "").localeCompare(b.dates[0] || ""));
+}
+
+export function resolveInvoiceRecipient(
+  clientEmail: string | null | undefined,
+  lineItems: Array<Pick<AutomationLineItem, "projectId">>,
+  invoiceProjects: InvoiceRecipientProject[],
+): InvoiceRecipientResolution {
+  const firstProjectId = lineItems[0]?.projectId;
+  const isSingleProjectInvoice = typeof firstProjectId === "number"
+    && lineItems.length > 0
+    && lineItems.every((item) => item.projectId === firstProjectId);
+
+  if (isSingleProjectInvoice) {
+    const project = invoiceProjects.find((candidate) => candidate.id === firstProjectId);
+    const projectEmail = project?.customInvoiceEmail?.trim() || "";
+    if (project?.customInvoiceEmailEnabled && projectEmail) {
+      return {
+        email: projectEmail,
+        source: "project",
+        projectId: project.id,
+        projectName: project.name?.trim() || "Project",
+      };
+    }
+  }
+
+  return {
+    email: clientEmail?.trim() || "",
+    source: "client",
+    projectId: null,
+    projectName: "",
+  };
 }
 
 export function getPreviousMonthPeriod(anchor = new Date()) {

@@ -19,7 +19,9 @@ import {
   getNextMonthlyRun,
   getPreviousMonthPeriod,
   renderAutomationTemplate,
+  resolveInvoiceRecipient,
   type AutomationLineItem,
+  type InvoiceRecipientResolution,
 } from "@shared/ultimate";
 import { getUltimateCapabilities } from "@shared/subscriptions";
 import { runStructuredAi } from "../ai/service";
@@ -46,6 +48,7 @@ type JobPayload = {
   paymentTerms: string;
   clientPreferences: Record<string, any>;
   sender: { name: string; replyToEmail: string; deliveryMethod: "client" | "self" | "gmail" };
+  recipient?: InvoiceRecipientResolution;
   adjustments: { roundHoursUp: boolean; percentageIncreaseEnabled: boolean; percentageIncrease: number };
 };
 
@@ -167,8 +170,15 @@ export async function prepareInvoiceJob(params: {
     ? automationProfile.deliveryMethod as "client" | "self" | "gmail"
     : "client";
   lineItems = applyInvoiceAutomationAdjustments(lineItems, adjustments);
+  const recipient = resolveInvoiceRecipient(
+    client.email,
+    lineItems,
+    rows.flatMap(({ project }) => project ? [project] : []),
+  );
   const validation: ValidationState = { errors: [], warnings: [] };
-  if (deliveryMethod !== "self" && !client.email) validation.errors.push("Add an email address to this client before sending.");
+  if (deliveryMethod !== "self" && !recipient.email) {
+    validation.errors.push("Add an email address to this client or its only invoiced project before sending.");
+  }
   if (deliveryMethod === "self" && !(automationProfile.replyToEmail || effectiveSettings.businessEmail || user.email)) {
     validation.errors.push("Add your delivery email before sending.");
   }
@@ -275,6 +285,7 @@ export async function prepareInvoiceJob(params: {
       replyToEmail: automationProfile.replyToEmail || effectiveSettings.businessEmail || user.email,
       deliveryMethod,
     },
+    recipient,
     adjustments,
   };
   const id = crypto.randomUUID();
@@ -409,8 +420,20 @@ export async function updatePreparedInvoiceJob(params: {
   });
   const subtotal = Number(lineItems.reduce((sum, item) => sum + item.amount, 0).toFixed(2));
   const tax = Number((subtotal * payload.taxRate / 100).toFixed(2));
+  const projectIds = Array.from(new Set(
+    lineItems.flatMap((item) => typeof item.projectId === "number" ? [item.projectId] : []),
+  ));
+  const recipientProjects = projectIds.length
+    ? await db.select().from(projects).where(and(
+        eq(projects.userId, params.userId),
+        inArray(projects.id, projectIds),
+      ))
+    : [];
+  const recipient = resolveInvoiceRecipient(payload.client.email, lineItems, recipientProjects);
   const validation: ValidationState = { errors: [], warnings: [] };
-  if (payload.sender.deliveryMethod !== "self" && !payload.client.email) validation.errors.push("Add an email address to this client before sending.");
+  if (payload.sender.deliveryMethod !== "self" && !recipient.email) {
+    validation.errors.push("Add an email address to this client or its only invoiced project before sending.");
+  }
   if (payload.sender.deliveryMethod === "self" && !payload.sender.replyToEmail) validation.errors.push("Add your delivery email before sending.");
   if (payload.sender.deliveryMethod === "gmail" && !(await getGmailConnection(params.userId))) validation.errors.push("Reconnect Gmail before sending.");
   if (!lineItems.length) validation.errors.push("Add at least one invoice item before sending.");
@@ -424,6 +447,7 @@ export async function updatePreparedInvoiceJob(params: {
     notes: params.invoiceCustomization?.invoiceNotes ?? payload.notes,
     paymentTerms: params.invoiceCustomization?.paymentTerms ?? payload.paymentTerms,
     lineItems,
+    recipient,
     timeEntryIds: Array.from(new Set(lineItems.flatMap((item) => item.timeEntryIds))),
     subtotal,
     tax,
@@ -579,7 +603,9 @@ export async function sendPreparedInvoice(jobId: string, userId?: number) {
     const senderName = payload.sender?.name || payload.business.businessName || "Tickd user";
     const replyTo = payload.sender?.replyToEmail || payload.business.businessEmail || undefined;
     const deliveryMethod = payload.sender?.deliveryMethod || "client";
-    const recipient = deliveryMethod === "self" ? replyTo : payload.client.email;
+    const recipient = deliveryMethod === "self"
+      ? replyTo
+      : payload.recipient?.email || payload.client.email;
     if (!recipient) throw new Error("No delivery email is available for this invoice.");
     const invoiceEmail = {
       introduction,

@@ -8,6 +8,7 @@ import {
   getPreviousMonthPeriod,
   getZonedDateRunAt,
   renderAutomationTemplate,
+  resolveInvoiceRecipient,
 } from "../shared/ultimate";
 
 test("invoice automation groups matching entries across a month", () => {
@@ -63,6 +64,39 @@ test("saved invoice email templates preserve unknown placeholders", () => {
     renderAutomationTemplate("Hello {clientName}: {periodStart} {futureField}", { clientName: "Alex", periodStart: "2026-07-01" }),
     "Hello Alex: 2026-07-01 {futureField}",
   );
+});
+
+test("a single-project invoice uses that project's custom recipient", () => {
+  const recipient = resolveInvoiceRecipient(
+    "accounts@client.test",
+    [{ projectId: 7 }, { projectId: 7 }],
+    [{ id: 7, name: "Website", customInvoiceEmailEnabled: true, customInvoiceEmail: "web@client.test" }],
+  );
+  assert.deepEqual(recipient, {
+    email: "web@client.test",
+    source: "project",
+    projectId: 7,
+    projectName: "Website",
+  });
+});
+
+test("mixed-project and projectless invoices use the client recipient", () => {
+  const projects = [
+    { id: 7, name: "Website", customInvoiceEmailEnabled: true, customInvoiceEmail: "web@client.test" },
+    { id: 8, name: "Campaign", customInvoiceEmailEnabled: true, customInvoiceEmail: "campaign@client.test" },
+  ];
+  assert.equal(resolveInvoiceRecipient("accounts@client.test", [{ projectId: 7 }, { projectId: 8 }], projects).email, "accounts@client.test");
+  assert.equal(resolveInvoiceRecipient("accounts@client.test", [{ projectId: 7 }, { projectId: null }], projects).email, "accounts@client.test");
+});
+
+test("a disabled project override preserves the client recipient", () => {
+  const recipient = resolveInvoiceRecipient(
+    "accounts@client.test",
+    [{ projectId: 7 }],
+    [{ id: 7, name: "Website", customInvoiceEmailEnabled: false, customInvoiceEmail: "web@client.test" }],
+  );
+  assert.equal(recipient.email, "accounts@client.test");
+  assert.equal(recipient.source, "client");
 });
 
 test("AI cost estimation uses micro-dollars", () => {

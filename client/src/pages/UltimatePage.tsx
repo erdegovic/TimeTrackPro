@@ -902,7 +902,7 @@ function PreparedJobEditor({ job, onSaved }: { job: any; onSaved: () => void }) 
   const senderAddress = deliveryMethod === "gmail" ? "Connected Gmail account" : "invoice@tickd.me";
   const recipientAddress = deliveryMethod === "self"
     ? payload.sender?.replyToEmail || payload.business?.businessEmail
-    : payload.client?.email;
+    : payload.recipient?.email || payload.client?.email;
 
   return (
     <div className="mt-4 space-y-5 border-t pt-5">
@@ -942,7 +942,7 @@ function PreparedJobEditor({ job, onSaved }: { job: any; onSaved: () => void }) 
           <div><Label htmlFor={`job-body-${job.id}`}>Message</Label><Textarea id={`job-body-${job.id}`} className="mt-1 min-h-44" value={emailBody} onChange={(event) => setEmailBody(event.target.value)} /></div>
         </div>
         <div className="overflow-hidden rounded-md border bg-white">
-          <div className="border-b bg-gray-50 px-4 py-3 text-xs text-gray-600"><div className="grid grid-cols-[4rem_1fr] gap-1"><span>From</span><span className="truncate font-medium text-gray-900">{payload.sender?.name || payload.business?.businessName || "Your business"} &lt;{senderAddress}&gt;</span><span>Reply to</span><span className="truncate">{payload.sender?.replyToEmail || payload.business?.businessEmail}</span><span>To</span><span className="truncate">{recipientAddress}</span></div></div>
+          <div className="border-b bg-gray-50 px-4 py-3 text-xs text-gray-600"><div className="grid grid-cols-[4rem_1fr] gap-1"><span>From</span><span className="truncate font-medium text-gray-900">{payload.sender?.name || payload.business?.businessName || "Your business"} &lt;{senderAddress}&gt;</span><span>Reply to</span><span className="truncate">{payload.sender?.replyToEmail || payload.business?.businessEmail}</span><span>To</span><span className="min-w-0"><span className="block truncate">{recipientAddress}</span>{deliveryMethod !== "self" && payload.recipient?.source === "project" && <span className="mt-0.5 block text-[11px] font-medium text-blue-600">{payload.recipient.projectName} project email</span>}</span></div></div>
           <div className="p-5"><p className="text-xs font-semibold uppercase text-blue-600">Email preview</p><p className="mt-2 break-words text-base font-semibold text-gray-950">{emailSubject}</p><div className="mt-5 h-1 w-11 rounded bg-blue-600" /><p className="mt-5 whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">{emailBody}</p><div className="mt-6 flex items-center gap-3 border-t pt-4 text-xs text-gray-500"><Mail className="h-4 w-4 text-blue-600" /><span>Invoice PDF attached · {payload.currency} {(subtotal + tax).toFixed(2)}</span></div></div>
         </div>
       </div>

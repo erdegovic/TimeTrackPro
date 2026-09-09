@@ -22,7 +22,15 @@ const projectSchema = z.object({
   active: z.boolean().default(true),
   hourlyRate: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid rate format").default("0"),
   color: z.string().default("#000000"),
-});
+  customInvoiceEmailEnabled: z.boolean().default(false),
+  customInvoiceEmail: z.string()
+    .trim()
+    .max(320, "Email address is too long")
+    .refine((value) => value === "" || /^[^\s@]+@[^\s@]+$/.test(value), "Please enter a valid email address"),
+}).refine(
+  (project) => !project.customInvoiceEmailEnabled || Boolean(project.customInvoiceEmail),
+  { path: ["customInvoiceEmail"], message: "Enter an invoice email for this project" },
+);
 
 // Predefined color options for projects
 const projectColors = [
@@ -66,6 +74,8 @@ export default function ProjectForm({ onSuccess, initialData, isEditing = false,
       active: initialData?.active ?? true,
       hourlyRate: initialData?.hourlyRate?.toString() || "0",
       color: (initialData as any)?.color || "#000000",
+      customInvoiceEmailEnabled: initialData?.customInvoiceEmailEnabled ?? false,
+      customInvoiceEmail: initialData?.customInvoiceEmail || "",
     },
   });
 
@@ -283,6 +293,51 @@ export default function ProjectForm({ onSuccess, initialData, isEditing = false,
             )}
           />
         </div>
+
+        <FormField
+          control={form.control}
+          name="customInvoiceEmailEnabled"
+          render={({ field }) => (
+            <FormItem className="rounded-md border p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <FormLabel>Custom project invoice email</FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    Send invoices containing only this project to a different address.
+                  </p>
+                </div>
+                <FormControl>
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+              </div>
+              {field.value && (
+                <FormField
+                  control={form.control}
+                  name="customInvoiceEmail"
+                  render={({ field: emailField }) => (
+                    <FormItem className="mt-4">
+                      <FormLabel>Invoice recipient</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          inputMode="email"
+                          autoComplete="email"
+                          placeholder="billing@client.com"
+                          {...emailField}
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        Invoices with multiple projects continue to use the client's email.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <div className="flex justify-end space-x-2 pt-4">
           <Button type="button" variant="outline" onClick={onSuccess}>

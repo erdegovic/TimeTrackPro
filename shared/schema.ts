@@ -132,6 +132,8 @@ export const projects = pgTable("projects", {
   active: boolean("active").default(true),
   hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }).default("0"),
   color: text("color").default("#000000"), // Default to black
+  customInvoiceEmailEnabled: boolean("custom_invoice_email_enabled").default(false),
+  customInvoiceEmail: text("custom_invoice_email"),
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
 });
 
@@ -444,7 +446,13 @@ export const clientContactEmailSchema = z.string()
 export const insertClientSchema = createInsertSchema(clients)
   .omit({ id: true })
   .extend({ email: clientContactEmailSchema.nullable().optional() });
-export const insertProjectSchema = createInsertSchema(projects).omit({ id: true });
+export const insertProjectSchema = createInsertSchema(projects)
+  .omit({ id: true })
+  .extend({ customInvoiceEmail: clientContactEmailSchema.nullable().optional() })
+  .refine(
+    (project) => !project.customInvoiceEmailEnabled || Boolean(project.customInvoiceEmail?.trim()),
+    { path: ["customInvoiceEmail"], message: "Enter an invoice email for this project" },
+  );
 export const insertTimeEntrySchema = createInsertSchema(timeEntries)
   .omit({ id: true, invoiceId: true })
   .partial();

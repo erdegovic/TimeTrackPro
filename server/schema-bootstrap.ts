@@ -54,6 +54,11 @@ export async function ensureCurrentSchema() {
         ADD COLUMN IF NOT EXISTS ai_preferences text
     `);
     await client.query(`
+      ALTER TABLE projects
+        ADD COLUMN IF NOT EXISTS custom_invoice_email_enabled boolean NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS custom_invoice_email text
+    `);
+    await client.query(`
       ALTER TABLE settings
         ADD COLUMN IF NOT EXISTS user_id integer,
         ADD COLUMN IF NOT EXISTS default_due_date_mode text DEFAULT 'calendar_month',
