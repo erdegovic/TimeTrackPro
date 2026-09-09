@@ -35,6 +35,82 @@ function mix(color: Rgb, target: Rgb, amount: number): Rgb {
   ) as Rgb;
 }
 
+function overlayColor(base: Rgb, color: Rgb, opacity: number): Rgb {
+  const strength = Math.min(1, Math.max(0, opacity));
+  return base.map((channel, index) =>
+    Math.round(channel * (1 - strength) + color[index] * strength),
+  ) as Rgb;
+}
+
+function drawPixelLabHeroGradient(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  primary: Rgb,
+  accent: Rgb,
+  background: Rgb,
+): void {
+  const columns = 84;
+  const rows = 24;
+  const cellWidth = width / columns;
+  const cellHeight = height / rows;
+
+  doc.saveGraphicsState();
+  doc.roundedRect(x, y, width, height, 3, 3);
+  doc.clip();
+  doc.discardPath();
+
+  for (let row = 0; row < rows; row += 1) {
+    const vertical = (row + 0.5) / rows;
+    for (let column = 0; column < columns; column += 1) {
+      const horizontal = (column + 0.5) / columns;
+      const greenProgress = horizontal * 0.72 + vertical * 0.28;
+      const pinkProgress = (1 - horizontal) * 0.72 + (1 - vertical) * 0.28;
+      const greenOpacity = 0.12 * Math.max(0, 1 - greenProgress / 0.42);
+      const pinkOpacity = 0.12 * Math.max(0, 1 - pinkProgress / 0.44);
+      const color = overlayColor(
+        overlayColor(background, primary, greenOpacity),
+        accent,
+        pinkOpacity,
+      );
+      doc.setFillColor(...color);
+      doc.rect(
+        x + column * cellWidth,
+        y + row * cellHeight,
+        cellWidth + 0.04,
+        cellHeight + 0.04,
+        "F",
+      );
+    }
+  }
+  doc.restoreGraphicsState();
+}
+
+function drawPixelLabGradientMarker(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+  primary: Rgb,
+  accent: Rgb,
+): void {
+  const steps = 20;
+  const stepWidth = width / steps;
+  doc.saveGraphicsState();
+  doc.roundedRect(x, y, width, height, radius, radius);
+  doc.clip();
+  doc.discardPath();
+  for (let index = 0; index < steps; index += 1) {
+    doc.setFillColor(...mix(primary, accent, (index + 0.5) / steps));
+    doc.rect(x + index * stepWidth, y, stepWidth + 0.03, height, "F");
+  }
+  doc.restoreGraphicsState();
+}
+
 function contrastText(color: Rgb): Rgb {
   const luminance = (0.299 * color[0] + 0.587 * color[1] + 0.114 * color[2]) / 255;
   return luminance > 0.62 ? [20, 28, 39] : [255, 255, 255];
@@ -162,10 +238,7 @@ function drawPixelLabFrame(doc: jsPDF, primary: Rgb, accent: Rgb, background: Rg
   doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, "F");
   if (!includeHero) return;
 
-  doc.setFillColor(...mix(primary, [255, 255, 255], 0.88));
-  doc.triangle(12.2, 10.2, 86, 10.2, 12.2, 57, "F");
-  doc.setFillColor(...mix(accent, [255, 255, 255], 0.88));
-  doc.triangle(197.8, 10.2, 197.8, 57, 123, 10.2, "F");
+  drawPixelLabHeroGradient(doc, 12, 10, 186, 47, primary, accent, background);
   doc.setDrawColor(231, 235, 239);
   doc.line(12, 57, 198, 57);
 }
@@ -291,10 +364,7 @@ function createPixelLabInvoicePdf(
   drawPixelAddressCard(doc, labels.billTo, clientLines, contentLeft + addressWidth + 6, addressY, addressWidth, addressHeight, ink);
 
   let y = addressY + addressHeight + 9;
-  doc.setFillColor(...primary);
-  doc.roundedRect(contentLeft, y - 2.5, 4, 4, 0.8, 0.8, "F");
-  doc.setFillColor(...accent);
-  doc.rect(contentLeft + 2, y - 2.5, 2, 4, "F");
+  drawPixelLabGradientMarker(doc, contentLeft, y - 2.5, 4, 4, 0.8, primary, accent);
   doc.setTextColor(...muted);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
@@ -370,10 +440,16 @@ function createPixelLabInvoicePdf(
     },
     didDrawCell: ({ cell, column, row, section }) => {
       if (section !== "body" || column.index !== 0 || !groupRows.has(row.index)) return;
-      doc.setFillColor(...primary);
-      doc.roundedRect(cell.x + 2, cell.y + cell.height / 2 - 1.5, 3, 3, 0.6, 0.6, "F");
-      doc.setFillColor(...accent);
-      doc.rect(cell.x + 3.5, cell.y + cell.height / 2 - 1.5, 1.5, 3, "F");
+      drawPixelLabGradientMarker(
+        doc,
+        cell.x + 2,
+        cell.y + cell.height / 2 - 1.5,
+        3,
+        3,
+        0.6,
+        primary,
+        accent,
+      );
     },
     willDrawPage: ({ pageNumber }) => {
       if (pageNumber > 1) drawPixelLabFrame(doc, primary, accent, background);
