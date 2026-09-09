@@ -311,32 +311,32 @@ export default function InvoicesPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-72">
-            <DropdownMenuItem className="items-start gap-3 py-3" onClick={() => navigate("/reports")}>
-              <Timer className="mt-0.5 h-4 w-4 text-blue-600" />
+            <DropdownMenuItem className="group items-start gap-3 py-3 focus:bg-primary focus:text-primary-foreground" onClick={() => navigate("/reports")}>
+              <Timer className="mt-0.5 h-4 w-4 text-blue-600 group-focus:text-white" />
               <div>
                 <div className="font-medium">From tracked time</div>
-                <div className="mt-0.5 text-xs text-gray-500">Filter completed work, then generate an invoice.</div>
+                <div className="mt-0.5 text-xs text-gray-500 group-focus:text-white/80">Filter completed work, then generate an invoice.</div>
               </div>
             </DropdownMenuItem>
-            <DropdownMenuItem className="items-start gap-3 py-3" onClick={() => setCreationMode("custom")}>
-              <FileText className="mt-0.5 h-4 w-4 text-emerald-600" />
+            <DropdownMenuItem className="group items-start gap-3 py-3 focus:bg-primary focus:text-primary-foreground" onClick={() => setCreationMode("custom")}>
+              <FileText className="mt-0.5 h-4 w-4 text-emerald-600 group-focus:text-white" />
               <div>
                 <div className="font-medium">Custom invoice</div>
-                <div className="mt-0.5 text-xs text-gray-500">Add fixed-price or hourly items manually.</div>
+                <div className="mt-0.5 text-xs text-gray-500 group-focus:text-white/80">Add fixed-price or hourly items manually.</div>
               </div>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              className="items-start gap-3 py-3"
+              className="group items-start gap-3 py-3 focus:bg-primary focus:text-primary-foreground"
               onClick={() => {
                 if (ultimateAccess.canUseAi) setCreationMode("voice");
                 else toast({ title: "Ultimate feature", description: "Voice invoice creation is available on Ultimate." });
               }}
             >
-              {ultimateAccess.canUseAi ? <Mic className="mt-0.5 h-4 w-4 text-violet-600" /> : <Lock className="mt-0.5 h-4 w-4 text-gray-400" />}
+              {ultimateAccess.canUseAi ? <Mic className="mt-0.5 h-4 w-4 text-violet-600 group-focus:text-white" /> : <Lock className="mt-0.5 h-4 w-4 text-gray-400 group-focus:text-white" />}
               <div>
-                <div className="font-medium">Create with voice <span className="ml-1 text-[10px] font-semibold uppercase text-violet-600">Ultimate</span></div>
-                <div className="mt-0.5 text-xs text-gray-500">Describe the invoice and review an editable draft.</div>
+                <div className="font-medium">Create with voice <span className="ml-1 text-[10px] font-semibold uppercase text-violet-600 group-focus:text-white">Ultimate</span></div>
+                <div className="mt-0.5 text-xs text-gray-500 group-focus:text-white/80">Describe the invoice and review an editable draft.</div>
               </div>
             </DropdownMenuItem>
           </DropdownMenuContent>

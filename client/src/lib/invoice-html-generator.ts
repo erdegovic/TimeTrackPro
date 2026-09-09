@@ -61,6 +61,7 @@ export interface InvoiceTemplateData {
 }
 
 export const TEMPLATE_OPTIONS = [
+  { value: "pixellab", label: "Pixel Lab" },
   { value: "classic", label: "Classic" },
   { value: "professional", label: "Professional" },
   { value: "media", label: "Media" },
@@ -79,6 +80,7 @@ export interface TemplateColorConfig {
 }
 
 export const TEMPLATE_COLOR_DEFAULTS: Record<string, TemplateColorConfig> = {
+  pixellab:     { primary: "#00b67a", accent: "#f33464", primaryLabel: "Green Accent",  accentLabel: "Pink Accent" },
   classic:      { primary: "#7c6242", accent: "#c8a96e", primaryLabel: "Primary Tone",  accentLabel: "Border Accent" },
   professional: { primary: "#12283d",                   primaryLabel: "Brand Color" },
   media:        { primary: "#f04f5f", accent: "#ffd166", primaryLabel: "Header Color",  accentLabel: "Total Block" },
@@ -520,9 +522,157 @@ const INVOICE_CSS = `
   .luxe th { color: #fff; background: #111827; }
   .luxe tbody tr:nth-child(odd) td { background: rgba(239,71,111,0.055); }
   .luxe .grand-total { color: #fff; background: #ef476f; box-shadow: 5px 5px 0 #111827; }
+
+  /* === PIXEL LAB === */
+  .pixellab { --pixel-green: #00b67a; --pixel-pink: #f33464; --pixel-ink: #202124; --pixel-muted: #6f7782; --pixel-line: #e7ebef; --pixel-panel: #f7f9fa; background: #fff; }
+  .pixellab .invoice { min-height: 297mm; padding: 10mm 12mm; }
+  .pixel-shell { display: flex; overflow: hidden; flex-direction: column; border: 1px solid var(--pixel-line); border-radius: 12px; background: #fff; }
+  .pixel-hero { padding: 14px 18px 12px; border-bottom: 1px solid var(--pixel-line); background: linear-gradient(135deg, color-mix(in srgb, var(--pixel-green) 12%, transparent), transparent 38%), linear-gradient(315deg, color-mix(in srgb, var(--pixel-pink) 12%, transparent), transparent 40%), #fff; }
+  .pixel-topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+  .pixel-brand { display: flex; min-width: 0; align-items: center; gap: 13px; }
+  .pixel-logo-image { display: block; max-width: 96px; max-height: 42px; object-fit: contain; }
+  .pixel-mark { display: grid; grid-template-columns: repeat(3, 11px); gap: 3px; flex: none; }
+  .pixel-mark span { width: 11px; height: 11px; border-radius: 3px; background: var(--pixel-green); }
+  .pixel-mark span:nth-child(2), .pixel-mark span:nth-child(4), .pixel-mark span:nth-child(6), .pixel-mark span:nth-child(8) { background: var(--pixel-pink); }
+  .pixel-mark span:nth-child(5) { background: var(--pixel-ink); }
+  .pixel-brand-name { overflow-wrap: anywhere; color: var(--pixel-ink); font-size: 19px; font-weight: 700; line-height: 1.1; }
+  .pixel-invoice-title { margin: 0; color: var(--pixel-ink); font-size: 29px; font-weight: 700; line-height: 1; text-align: right; }
+  .pixel-meta-row { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 12px; overflow: hidden; border: 1px solid var(--pixel-line); border-radius: 9px; background: rgba(255,255,255,0.82); }
+  .pixel-meta-row.two-col { grid-template-columns: repeat(2, 1fr); }
+  .pixel-meta { min-width: 0; padding: 8px 11px; }
+  .pixel-meta + .pixel-meta { border-left: 1px solid var(--pixel-line); }
+  .pixel-label { margin-bottom: 4px; color: var(--pixel-muted); font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+  .pixel-value { overflow-wrap: anywhere; color: var(--pixel-ink); font-size: 13px; font-weight: 650; }
+  .pixel-section { padding: 10px 18px; }
+  .pixel-addresses { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .pixel-card { min-width: 0; padding: 10px 12px; border: 1px solid var(--pixel-line); border-radius: 8px; background: var(--pixel-panel); }
+  .pixel-card strong { display: block; margin-bottom: 5px; color: var(--pixel-ink); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+  .pixel-card p { margin: 2px 0; overflow-wrap: anywhere; color: var(--pixel-ink); font-size: 11px; line-height: 1.4; }
+  .pixel-items { padding-top: 4px; }
+  .pixel-group-title { display: flex; align-items: center; gap: 9px; margin: 0 0 6px; color: var(--pixel-muted); font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+  .pixel-group-title::before, .pixellab .group-row td:first-child::before { display: inline-block; width: 9px; height: 9px; flex: none; border-radius: 3px; background: linear-gradient(90deg, var(--pixel-green), var(--pixel-pink)); content: ""; }
+  .pixellab table { table-layout: fixed; font-size: 10px; }
+  .pixellab th { height: auto; padding: 6px 7px; color: var(--pixel-muted); background: transparent; font-size: 8px; }
+  .pixellab td { padding: 7px; border-top: 0; border-bottom: 1px solid var(--pixel-line); font-size: 10px; }
+  .pixellab .group-row td { padding: 8px 7px 4px; color: var(--pixel-ink); background: transparent; border: 0; font-size: 10px; }
+  .pixellab .group-row td:first-child { display: table-cell; }
+  .pixellab .group-row td:first-child::before { margin-right: 9px; vertical-align: -1px; }
+  .pixellab .item-title { font-weight: 500; }
+  .pixellab .item-sub { color: var(--pixel-muted); }
+  .pixel-total-wrap { display: flex; margin-top: 10px; justify-content: flex-end; }
+  .pixel-total-stack { width: 270px; max-width: 100%; }
+  .pixel-total-row { display: flex; justify-content: space-between; gap: 18px; padding: 5px 4px; color: var(--pixel-muted); font-size: 10px; }
+  .pixel-total-box { display: flex; min-height: 45px; padding: 10px 14px; align-items: center; justify-content: space-between; gap: 18px; border-radius: 9px; color: #fff; background: var(--pixel-ink); font-size: 12px; font-weight: 700; }
+  .pixel-total-box span { font-size: 17px; }
+  .pixel-footer { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: stretch; border-top: 1px solid var(--pixel-line); background: #fbfcfc; }
+  .pixel-footer-card { padding: 10px 12px; color: var(--pixel-muted); font-size: 9px; line-height: 1.45; }
+  .pixel-footer-card strong { display: block; margin-bottom: 5px; color: var(--pixel-ink); font-size: 9px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .pixel-footer-note { padding: 0 18px 10px; color: var(--pixel-muted); background: #fbfcfc; font-size: 8px; line-height: 1.4; text-align: right; }
 `;
 
+function buildPixelLabInvoiceBody(data: InvoiceTemplateData): string {
+  const labels = getInvoiceLabels(data.language, data.customLabels);
+  const unitsLabel = getInvoiceUnitsLabel(labels, data.lineItems);
+  const showDate = data.showDateColumn === true;
+  const showRate = data.showHourlyRate !== false;
+  const showUnits = data.showUnits !== false;
+  const columnCount = 2 + (showDate ? 1 : 0) + (showUnits ? 1 : 0) + (showRate ? 1 : 0);
+
+  const addressParagraphs = (values: string[]) => values
+    .flatMap((value) => value ? value.split(/\n+/) : [])
+    .filter(Boolean)
+    .map((value) => `<p>${esc(value)}</p>`)
+    .join("");
+
+  const businessLines = addressParagraphs([
+    data.businessName || "Your Business",
+    data.businessMeta,
+    data.businessAddress,
+    data.businessEmail,
+    data.businessPhone,
+  ]);
+  const clientLines = addressParagraphs([
+    data.clientName || labels.noClient,
+    data.clientAddress,
+    [data.clientCity, data.clientState, data.clientZip].filter(Boolean).join(", "),
+    data.clientEmail,
+  ]);
+
+  const rows = data.lineItems.map((item) => item.isGroupHeader
+    ? `<tr class="group-row"><td colspan="${columnCount - 1}">${esc(item.description)}</td><td class="group-total">${esc(item.amount)}</td></tr>`
+    : `<tr>
+        <td><span class="item-title">${esc(item.description)}</span>${data.showProjectName !== false && item.subDescription ? `<span class="item-sub">${esc(item.subDescription)}</span>` : ""}</td>
+        ${showDate ? `<td>${esc(item.date || "")}</td>` : ""}
+        ${showUnits ? `<td>${esc(item.qty)}</td>` : ""}
+        ${showRate ? `<td>${esc(item.rate)}</td>` : ""}
+        <td>${esc(item.amount)}</td>
+      </tr>`).join("");
+
+  const infoParts: Record<string, string> = {};
+  if (data.showPaymentDetails !== false && data.paymentDetails) {
+    infoParts.payment = `<div class="pixel-footer-card"><strong>${esc(labels.paymentDetails)}</strong>${esc(data.paymentDetails).replace(/\n/g, "<br>")}</div>`;
+  }
+  if (data.showPaymentTerms !== false && data.paymentTerms) {
+    infoParts.terms = `<div class="pixel-footer-card"><strong>${esc(labels.paymentTerms)}</strong>${esc(data.paymentTerms).replace(/\n/g, "<br>")}</div>`;
+  }
+  if (data.showNotes !== false) {
+    infoParts.notes = `<div class="pixel-footer-card"><strong>${esc(labels.notes)}</strong>${esc(data.notes || labels.defaultNotes).replace(/\n/g, "<br>")}</div>`;
+  }
+  const requestedInfo = (data.invoiceInfoOrder || "payment,notes,terms").split(",").map((key) => key.trim());
+  const orderedInfo = Array.from(new Set([...requestedInfo, "payment", "notes", "terms"]))
+    .map((key) => infoParts[key])
+    .filter(Boolean)
+    .join("");
+
+  const taxAmount = Number.parseFloat(data.taxFormatted);
+  return `<article class="pixel-shell">
+    <header class="pixel-hero">
+      <div class="pixel-topline">
+        <div class="pixel-brand">
+          ${data.showLogo !== false && data.logoUrl
+            ? `<img class="pixel-logo-image" src="${esc(data.logoUrl)}" alt="">`
+            : `<div class="pixel-mark" aria-hidden="true">${"<span></span>".repeat(9)}</div>`}
+          <div class="pixel-brand-name">${esc(data.businessName) || "Your Business"}</div>
+        </div>
+        <h1 class="pixel-invoice-title">${esc(labels.invoice)}</h1>
+      </div>
+      <div class="pixel-meta-row${data.dueDate ? "" : " two-col"}">
+        <div class="pixel-meta"><div class="pixel-label">${esc(labels.invoice)} No</div><div class="pixel-value">${esc(data.invoiceNumber)}</div></div>
+        <div class="pixel-meta"><div class="pixel-label">${esc(labels.issueDate)}</div><div class="pixel-value">${esc(data.issueDate)}</div></div>
+        ${data.dueDate ? `<div class="pixel-meta"><div class="pixel-label">${esc(labels.dueDate)}</div><div class="pixel-value">${esc(data.dueDate)}</div></div>` : ""}
+      </div>
+    </header>
+    <section class="pixel-section">
+      <div class="pixel-addresses">
+        <div class="pixel-card"><strong>From</strong>${businessLines}</div>
+        <div class="pixel-card"><strong>${esc(labels.billTo)}</strong>${clientLines}</div>
+      </div>
+    </section>
+    <section class="pixel-section pixel-items">
+      <div class="pixel-group-title">${esc(labels.description)}</div>
+      <table>
+        <thead><tr>
+          <th>${esc(labels.description)}</th>
+          ${showDate ? `<th>${esc(labels.date)}</th>` : ""}
+          ${showUnits ? `<th>${esc(unitsLabel)}</th>` : ""}
+          ${showRate ? `<th>${esc(labels.rate)}</th>` : ""}
+          <th>${esc(labels.amount)}</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="pixel-total-wrap"><div class="pixel-total-stack">
+        ${taxAmount > 0 ? `<div class="pixel-total-row"><span>${esc(labels.subtotal)}</span><strong>${esc(data.currency)} ${esc(data.subtotalFormatted)}</strong></div><div class="pixel-total-row"><span>${esc(data.taxLabel || labels.tax)}</span><strong>${esc(data.currency)} ${esc(data.taxFormatted)}</strong></div>` : ""}
+        <div class="pixel-total-box"><div>${esc(labels.total)}</div><span>${esc(data.currency)} ${esc(data.totalFormatted)}</span></div>
+      </div></div>
+    </section>
+    ${orderedInfo ? `<footer class="pixel-section pixel-footer">${orderedInfo}</footer>` : ""}
+    ${data.showFooterNotes !== false && data.footerNotes ? `<div class="pixel-footer-note">${data.footerNotes}</div>` : ""}
+  </article>`;
+}
+
 function buildInvoiceBody(data: InvoiceTemplateData): string {
+  if (data.template === "pixellab") return buildPixelLabInvoiceBody(data);
+
   const labels = getInvoiceLabels(data.language, data.customLabels);
   const unitsLabel = getInvoiceUnitsLabel(labels, data.lineItems);
   const initials = data.businessName
@@ -786,6 +936,10 @@ function buildColorOverrideCSS(data: InvoiceTemplateData): string {
         .avant th { background: ${acc} !important; }
         .avant .creative-badge { background: ${acc} !important; }
         .avant .grand-total { background: ${acc} !important; box-shadow: 5px 5px 0 ${p} !important; }
+      `;
+    case "pixellab":
+      return `
+        .pixellab { --pixel-green: ${p}; --pixel-pink: ${acc}; }
       `;
     default:
       return "";

@@ -155,6 +155,339 @@ function drawPreviewWatermark(doc: jsPDF): void {
   });
 }
 
+function drawPixelLabFrame(doc: jsPDF, primary: Rgb, accent: Rgb, background: Rgb, includeHero = false): void {
+  doc.setFillColor(...background);
+  doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, "F");
+  if (!includeHero) return;
+
+  doc.setFillColor(...mix(primary, [255, 255, 255], 0.88));
+  doc.triangle(12.2, 10.2, 86, 10.2, 12.2, 57, "F");
+  doc.setFillColor(...mix(accent, [255, 255, 255], 0.88));
+  doc.triangle(197.8, 10.2, 197.8, 57, 123, 10.2, "F");
+  doc.setDrawColor(231, 235, 239);
+  doc.line(12, 57, 198, 57);
+}
+
+function drawPixelLabBrand(doc: jsPDF, data: InvoiceTemplateData, primary: Rgb, accent: Rgb, ink: Rgb): void {
+  const x = 18;
+  const y = 17;
+  let nameX = x;
+  const logoUrl = data.showLogo !== false ? data.logoUrl : undefined;
+
+  if (logoUrl?.startsWith("data:image/")) {
+    try {
+      const properties = doc.getImageProperties(logoUrl);
+      const ratio = properties.width / properties.height || 1;
+      const height = 10;
+      const width = Math.min(30, height * ratio);
+      doc.addImage(logoUrl, properties.fileType, x, y, width, height, undefined, "FAST");
+      nameX = x + width + 4;
+    } catch {
+      nameX = x;
+    }
+  }
+
+  if (nameX === x) {
+    const colors: Rgb[] = [primary, accent, primary, accent, ink, accent, primary, accent, primary];
+    for (let index = 0; index < colors.length; index += 1) {
+      const column = index % 3;
+      const row = Math.floor(index / 3);
+      doc.setFillColor(...colors[index]);
+      doc.roundedRect(x + column * 3.8, y + row * 3.8, 3, 3, 0.7, 0.7, "F");
+    }
+    nameX = x + 14;
+  }
+
+  doc.setTextColor(...ink);
+  doc.setFont("helvetica", "bold");
+  fitText(doc, data.businessName || "Your Business", 82 - (nameX - x), 15, 8);
+  doc.text(data.businessName || "Your Business", nameX, y + 7);
+}
+
+function pixelAddressLines(data: InvoiceTemplateData, type: "business" | "client", fallback: string): string[] {
+  const values = type === "business"
+    ? [data.businessName || "Your Business", data.businessMeta, data.businessAddress, data.businessEmail, data.businessPhone]
+    : [data.clientName || fallback, data.clientAddress, [data.clientCity, data.clientState, data.clientZip].filter(Boolean).join(", "), data.clientEmail];
+  return values.flatMap((value) => plainText(value).split("\n")).filter(Boolean);
+}
+
+function drawPixelAddressCard(
+  doc: jsPDF,
+  title: string,
+  lines: string[],
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  ink: Rgb,
+): void {
+  doc.setFillColor(247, 249, 250);
+  doc.setDrawColor(231, 235, 239);
+  doc.roundedRect(x, y, width, height, 2, 2, "FD");
+  doc.setTextColor(...ink);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.text(title.toUpperCase(), x + 4, y + 6);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.2);
+  const wrapped = lines.flatMap((line) => doc.splitTextToSize(line, width - 8) as string[]);
+  doc.text(wrapped, x + 4, y + 11, { lineHeightFactor: 1.25 });
+}
+
+function createPixelLabInvoicePdf(
+  doc: jsPDF,
+  data: InvoiceTemplateData,
+  primary: Rgb,
+  accent: Rgb,
+  ink: Rgb,
+  background: Rgb,
+): jsPDF {
+  const labels = getInvoiceLabels(data.language, data.customLabels);
+  const muted: Rgb = [111, 119, 130];
+  const contentLeft = 18;
+  const contentRight = 18;
+  const contentWidth = PAGE_WIDTH - contentLeft - contentRight;
+
+  drawPixelLabFrame(doc, primary, accent, background, true);
+  drawPixelLabBrand(doc, data, primary, accent, ink);
+  doc.setTextColor(...ink);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.text(labels.invoice, PAGE_WIDTH - contentRight, 24, { align: "right" });
+
+  const metaItems = [
+    [`${labels.invoice} No`, data.invoiceNumber],
+    [labels.issueDate, data.issueDate],
+    ...(data.dueDate ? [[labels.dueDate, data.dueDate]] : []),
+  ];
+  const metaX = contentLeft;
+  const metaY = 32;
+  const metaHeight = 18;
+  const metaWidth = contentWidth / metaItems.length;
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(231, 235, 239);
+  doc.roundedRect(metaX, metaY, contentWidth, metaHeight, 2, 2, "FD");
+  metaItems.forEach(([label, value], index) => {
+    const x = metaX + index * metaWidth;
+    if (index > 0) doc.line(x, metaY, x, metaY + metaHeight);
+    doc.setTextColor(...muted);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.text(label.toUpperCase(), x + 4, metaY + 6);
+    doc.setTextColor(...ink);
+    fitText(doc, value, metaWidth - 8, 9.5, 7);
+    doc.text(value, x + 4, metaY + 13);
+  });
+
+  const businessLines = pixelAddressLines(data, "business", labels.noClient);
+  const clientLines = pixelAddressLines(data, "client", labels.noClient);
+  const addressWidth = (contentWidth - 6) / 2;
+  const maxAddressLines = Math.max(businessLines.length, clientLines.length);
+  const addressHeight = Math.max(28, 15 + maxAddressLines * 3.6);
+  const addressY = 63;
+  drawPixelAddressCard(doc, "From", businessLines, contentLeft, addressY, addressWidth, addressHeight, ink);
+  drawPixelAddressCard(doc, labels.billTo, clientLines, contentLeft + addressWidth + 6, addressY, addressWidth, addressHeight, ink);
+
+  let y = addressY + addressHeight + 9;
+  doc.setFillColor(...primary);
+  doc.roundedRect(contentLeft, y - 2.5, 4, 4, 0.8, 0.8, "F");
+  doc.setFillColor(...accent);
+  doc.rect(contentLeft + 2, y - 2.5, 2, 4, "F");
+  doc.setTextColor(...muted);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.text(labels.description.toUpperCase(), contentLeft + 7, y + 0.8);
+  y += 5;
+
+  const showDate = data.showDateColumn === true;
+  const showRate = data.showHourlyRate !== false;
+  const showUnits = data.showUnits !== false;
+  const columns = [
+    labels.description,
+    ...(showDate ? [labels.date] : []),
+    ...(showUnits ? [getInvoiceUnitsLabel(labels, data.lineItems)] : []),
+    ...(showRate ? [labels.rate] : []),
+    labels.amount,
+  ];
+  const columnCount = columns.length;
+  const groupRows = new Set<number>();
+  const body = data.lineItems.map((item, index) => {
+    if (item.isGroupHeader) {
+      groupRows.add(index);
+      return [
+        { content: item.description, colSpan: columnCount - 1, styles: { fontStyle: "bold", cellPadding: { top: 4, right: 2, bottom: 2.5, left: 8 } } },
+        { content: item.amount, styles: { fontStyle: "bold", halign: "right", cellPadding: { top: 4, right: 2, bottom: 2.5, left: 2 } } },
+      ];
+    }
+    const description = data.showProjectName !== false && item.subDescription ? `${item.description}\n${item.subDescription}` : item.description;
+    return [description, ...(showDate ? [item.date || ""] : []), ...(showUnits ? [item.qty] : []), ...(showRate ? [item.rate] : []), item.amount];
+  });
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: contentLeft, right: contentRight, top: 18, bottom: 18 },
+    head: [columns],
+    body: body as any,
+    theme: "plain",
+    showHead: "everyPage",
+    rowPageBreak: "avoid",
+    styles: {
+      font: "helvetica",
+      fontSize: 8.3,
+      textColor: ink,
+      lineColor: [231, 235, 239],
+      lineWidth: { bottom: 0.2 },
+      cellPadding: { top: 2.5, right: 2, bottom: 2.5, left: 2 },
+      valign: "middle",
+      overflow: "linebreak",
+    },
+    headStyles: {
+      fillColor: [255, 255, 255],
+      textColor: muted,
+      fontStyle: "bold",
+      fontSize: 7,
+      minCellHeight: 8,
+      valign: "middle",
+      lineColor: [231, 235, 239],
+      lineWidth: { bottom: 0.2 },
+    },
+    columnStyles: {
+      0: { cellWidth: "auto", halign: "left" },
+      ...(showDate ? { 1: { cellWidth: 23, halign: "right" } } : {}),
+      ...(showUnits ? { [1 + (showDate ? 1 : 0)]: { cellWidth: 20, halign: "right" } } : {}),
+      ...(showRate ? { [1 + (showDate ? 1 : 0) + (showUnits ? 1 : 0)]: { cellWidth: 28, halign: "right" } } : {}),
+      [columnCount - 1]: { cellWidth: 29, halign: "right" },
+    },
+    didParseCell: ({ cell, column, row, section }) => {
+      if (section === "head" && column.index > 0) cell.styles.halign = "right";
+      if (section === "body" && groupRows.has(row.index)) {
+        cell.styles.fillColor = [255, 255, 255];
+        cell.styles.lineWidth = 0;
+      }
+      if (section === "body" && cell.text.length > 1 && column.index === 0) cell.styles.minCellHeight = 11;
+    },
+    didDrawCell: ({ cell, column, row, section }) => {
+      if (section !== "body" || column.index !== 0 || !groupRows.has(row.index)) return;
+      doc.setFillColor(...primary);
+      doc.roundedRect(cell.x + 2, cell.y + cell.height / 2 - 1.5, 3, 3, 0.6, 0.6, "F");
+      doc.setFillColor(...accent);
+      doc.rect(cell.x + 3.5, cell.y + cell.height / 2 - 1.5, 1.5, 3, "F");
+    },
+    willDrawPage: ({ pageNumber }) => {
+      if (pageNumber > 1) drawPixelLabFrame(doc, primary, accent, background);
+    },
+  });
+
+  y = ((doc as any).lastAutoTable?.finalY || y) + 8;
+  const infoValues: Record<string, [string, string] | undefined> = {
+    payment: data.showPaymentDetails !== false && data.paymentDetails ? [labels.paymentDetails, data.paymentDetails] : undefined,
+    terms: data.showPaymentTerms !== false && data.paymentTerms ? [labels.paymentTerms, data.paymentTerms] : undefined,
+    notes: data.showNotes !== false ? [labels.notes, data.notes || labels.defaultNotes] : undefined,
+  };
+  const infoOrder = Array.from(new Set([...(data.invoiceInfoOrder || "payment,notes,terms").split(",").map((key) => key.trim()), "payment", "notes", "terms"]));
+  const infoBlocks = infoOrder.map((key) => infoValues[key]).filter(Boolean) as Array<[string, string]>;
+  const totalRowsHeight = Number.parseFloat(data.taxFormatted) > 0 ? 13 : 0;
+  const totalHeight = totalRowsHeight + 16;
+  if (y + totalHeight + (infoBlocks.length ? 30 : 0) > PAGE_HEIGHT - 18) {
+    doc.addPage();
+    drawPixelLabFrame(doc, primary, accent, background);
+    y = 20;
+  }
+
+  const totalsWidth = 74;
+  const totalsX = PAGE_WIDTH - contentRight - totalsWidth;
+  if (Number.parseFloat(data.taxFormatted) > 0) {
+    doc.setFontSize(8);
+    doc.setTextColor(...muted);
+    doc.setFont("helvetica", "normal");
+    doc.text(labels.subtotal, totalsX + 2, y + 4);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${data.currency} ${data.subtotalFormatted}`, PAGE_WIDTH - contentRight - 2, y + 4, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.text(data.taxLabel || labels.tax, totalsX + 2, y + 10);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${data.currency} ${data.taxFormatted}`, PAGE_WIDTH - contentRight - 2, y + 10, { align: "right" });
+    y += 13;
+  }
+  doc.setFillColor(...ink);
+  doc.roundedRect(totalsX, y, totalsWidth, 16, 2, 2, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text(labels.total, totalsX + 5, y + 10);
+  doc.setFontSize(12);
+  fitText(doc, `${data.currency} ${data.totalFormatted}`, totalsWidth - 34, 12, 8);
+  doc.text(`${data.currency} ${data.totalFormatted}`, PAGE_WIDTH - contentRight - 5, y + 10, { align: "right" });
+  y += 24;
+
+  const drawInfoContent = ([title, content]: [string, string], x: number, contentY: number, width: number): void => {
+    const lines = doc.splitTextToSize(plainText(content), width - 8) as string[];
+    doc.setTextColor(...ink);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.text(title.toUpperCase(), x, contentY + 6);
+    doc.setTextColor(...muted);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.8);
+    doc.text(lines, x, contentY + 11, { lineHeightFactor: 1.25 });
+  };
+
+  if (infoBlocks.length) {
+    const stacked = data.invoiceInfoLayout === "stacked";
+    const cardWidth = stacked ? contentWidth : (contentWidth - 5) / 2;
+    const rows: Array<{ left: [string, string]; right?: [string, string]; height: number }> = [];
+    for (let index = 0; index < infoBlocks.length; index += stacked ? 1 : 2) {
+      const left = infoBlocks[index];
+      const leftLines = doc.splitTextToSize(plainText(left[1]), cardWidth - 8) as string[];
+      const right = !stacked ? infoBlocks[index + 1] : undefined;
+      const rightLines = right ? doc.splitTextToSize(plainText(right[1]), cardWidth - 8) as string[] : [];
+      rows.push({ left, right, height: Math.max(20, 12 + Math.max(leftLines.length, rightLines.length) * 3.5) });
+    }
+    const panelHeight = 5 + rows.reduce((sum, row) => sum + row.height, 0);
+    if (y + panelHeight > PAGE_HEIGHT - 20) {
+      doc.addPage();
+      drawPixelLabFrame(doc, primary, accent, background);
+      y = 20;
+    }
+    doc.setFillColor(251, 252, 252);
+    doc.rect(12, y, 186, panelHeight, "F");
+    doc.setDrawColor(231, 235, 239);
+    doc.line(12, y, 198, y);
+    let rowY = y + 3;
+    for (const row of rows) {
+      drawInfoContent(row.left, contentLeft, rowY, cardWidth);
+      if (row.right) drawInfoContent(row.right, contentLeft + cardWidth + 5, rowY, cardWidth);
+      rowY += row.height;
+    }
+    y += panelHeight;
+  }
+
+  if (data.showFooterNotes !== false && plainText(data.footerNotes)) {
+    const footer = plainText(data.footerNotes);
+    const footerLines = doc.splitTextToSize(footer, contentWidth) as string[];
+    doc.setTextColor(...muted);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.text(footerLines, PAGE_WIDTH - contentRight, Math.min(PAGE_HEIGHT - 13, y + 5), { align: "right", lineHeightFactor: 1.15 });
+    y += 5 + footerLines.length * 3;
+  }
+
+  const pageCount = doc.getNumberOfPages();
+  for (let page = 1; page <= pageCount; page += 1) {
+    doc.setPage(page);
+    doc.setDrawColor(231, 235, 239);
+    doc.setLineWidth(0.25);
+    const frameHeight = page < pageCount ? 277 : Math.min(277, Math.max(100, y - 10 + 6));
+    doc.roundedRect(12, 10, 186, frameHeight, 3, 3, "S");
+    if (data.watermarkPreview) drawPreviewWatermark(doc);
+    doc.setTextColor(145, 153, 164);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.text(`${page} / ${pageCount}`, PAGE_WIDTH - contentRight, PAGE_HEIGHT - 7, { align: "right" });
+  }
+  return doc;
+}
+
 export function createInvoicePdf(data: InvoiceTemplateData): jsPDF {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: false });
   const labels = getInvoiceLabels(data.language, data.customLabels);
@@ -163,6 +496,9 @@ export function createInvoicePdf(data: InvoiceTemplateData): jsPDF {
   const accent = hexToRgb(data.accentColor || defaults.accent, mix(primary, [255, 255, 255], 0.35));
   const ink = hexToRgb(data.textColor, [23, 32, 42]);
   const background = hexToRgb(data.bgColor, [255, 255, 255]);
+  if (data.template === "pixellab") {
+    return createPixelLabInvoicePdf(doc, data, primary, accent, ink, background);
+  }
   const contentLeft = data.template === "graphic" ? 29 : data.template === "professional" ? 20 : MARGIN;
   const contentRight = MARGIN;
   const contentWidth = PAGE_WIDTH - contentLeft - contentRight;

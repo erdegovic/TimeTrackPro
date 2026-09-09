@@ -66,6 +66,7 @@ export default function CustomInvoiceDialog({ open, mode, clients, settings, onO
   const [isListening, setIsListening] = useState(false);
   const [isEditingPreview, setIsEditingPreview] = useState(true);
   const recognitionRef = useRef<any>(null);
+  const speechBaseRef = useRef("");
 
   const { data: projects = [] } = useQuery<Project[]>({ queryKey: ["/api/projects"], enabled: open });
   const selectedClient = clients.find((client) => client.id === Number(clientId));
@@ -134,22 +135,43 @@ export default function CustomInvoiceDialog({ open, mode, clients, settings, onO
     }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.continuous = true;
+    recognition.interimResults = true;
     recognition.lang = navigator.language || "en-US";
+    speechBaseRef.current = instruction.trim();
     recognition.onresult = (event: any) => {
-      const transcript = event.results?.[0]?.[0]?.transcript || "";
-      setInstruction((current) => `${current}${current ? " " : ""}${transcript}`.trim());
+      const finalParts: string[] = [];
+      const interimParts: string[] = [];
+
+      for (let index = 0; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        const transcript = String(result?.[0]?.transcript || "").trim();
+        if (!transcript) continue;
+        (result.isFinal ? finalParts : interimParts).push(transcript);
+      }
+
+      setInstruction([speechBaseRef.current, ...finalParts, ...interimParts].filter(Boolean).join(" "));
     };
-    recognition.onerror = () => toast({ title: "Microphone input stopped", description: "Check browser microphone permission and try again.", variant: "destructive" });
-    recognition.onend = () => setIsListening(false);
+    recognition.onerror = (event: any) => {
+      if (event.error !== "aborted" && event.error !== "no-speech") {
+        toast({ title: "Microphone input stopped", description: "Check browser microphone permission and try again.", variant: "destructive" });
+      }
+    };
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      setIsListening(false);
+    };
     recognitionRef.current = recognition;
     setIsListening(true);
     recognition.start();
   };
 
   const stopListening = () => {
-    recognitionRef.current?.stop?.();
+    try {
+      recognitionRef.current?.stop?.();
+    } catch {
+      recognitionRef.current = null;
+    }
     setIsListening(false);
   };
 
@@ -254,10 +276,19 @@ export default function CustomInvoiceDialog({ open, mode, clients, settings, onO
                 <Textarea
                   value={instruction}
                   onChange={(event) => setInstruction(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (isListening && event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      stopListening();
+                    }
+                  }}
                   placeholder='Example: “Invoice Northwind Studio for two logo concepts at £250 each.”'
                   className="mt-3 min-h-24 bg-white"
                   maxLength={3000}
                 />
+                <p className="mt-2 text-xs text-blue-700" aria-live="polite">
+                  {isListening ? "Listening... your words appear here live. Press Enter or Stop listening when finished." : "Review and edit the transcript before building the invoice."}
+                </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button type="button" variant="outline" onClick={isListening ? stopListening : startListening}>
                     {isListening ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}

@@ -129,3 +129,29 @@ test("invoice layout controls reorder information and move the payment accent", 
   const pdf = createInvoicePdf({ ...sampleInvoice, invoiceInfoOrder: "notes,payment,terms", invoicePaymentAccentSide: "right" });
   assert.ok(Buffer.from(pdf.output("arraybuffer")).length > 5_000);
 });
+
+test("Pixel Lab template keeps the reference layout data-driven in preview and PDF", () => {
+  const pixelLabInvoice = {
+    ...sampleInvoice,
+    template: "pixellab",
+    businessName: "Northstar Studio",
+    lineItems: [
+      { ...sampleInvoice.lineItems[0], isGroupHeader: true, description: "Week 1", amount: "GBP 937.50" },
+      sampleInvoice.lineItems[0],
+    ],
+  };
+  const html = generateInvoiceHTML(pixelLabInvoice);
+
+  assert.match(html, /pixel-shell/);
+  assert.match(html, /pixel-meta-row/);
+  assert.match(html, /Northstar Studio/);
+  assert.match(html, /Product design/);
+  assert.doesNotMatch(html, /Video production/);
+
+  const pdf = createInvoicePdf(pixelLabInvoice);
+  const bytes = Buffer.from(pdf.output("arraybuffer"));
+  assert.ok(bytes.length > 5_000);
+  assert.equal(bytes.includes(Buffer.from("Northstar Studio")), true);
+  assert.equal(bytes.includes(Buffer.from("Product design")), true);
+  assert.equal(bytes.includes(Buffer.from("Video production")), false);
+});

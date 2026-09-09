@@ -419,7 +419,7 @@ const automationProfileSchema = z.object({
 });
 
 const invoiceCustomizationSchema = z.object({
-  invoiceTemplate: z.enum(["classic", "professional", "media", "web", "graphic", "minimalistic", "freelancer", "avant", "luxe"]),
+  invoiceTemplate: z.enum(["pixellab", "classic", "professional", "media", "web", "graphic", "minimalistic", "freelancer", "avant", "luxe"]),
   invoiceColorTheme: z.string().regex(/^#[0-9a-f]{6}$/i),
   invoiceAccentColor: z.string().regex(/^#[0-9a-f]{6}$/i),
   invoiceTextColor: z.string().regex(/^#[0-9a-f]{6}$/i),
@@ -457,7 +457,7 @@ const invoiceCustomizationJsonSchema = {
     "invoiceHeaderPlacement", "invoiceInfoLayout", "invoiceInfoOrder", "invoicePaymentAccentSide",
   ],
   properties: {
-    invoiceTemplate: { type: "string", enum: ["classic", "professional", "media", "web", "graphic", "minimalistic", "freelancer", "avant", "luxe"] },
+    invoiceTemplate: { type: "string", enum: ["pixellab", "classic", "professional", "media", "web", "graphic", "minimalistic", "freelancer", "avant", "luxe"] },
     invoiceColorTheme: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
     invoiceAccentColor: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
     invoiceTextColor: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
