@@ -589,7 +589,7 @@ export default function InvoicePreview({
       } else if (type === "other") {
         return (s as any)?.otherPaymentInstructions || "";
       }
-      return lines.join("<br>");
+      return lines.join("\n");
     })();
 
     return {

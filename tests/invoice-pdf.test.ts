@@ -5,6 +5,7 @@ import {
   generateInvoiceHTML,
   getInvoiceLabels,
   getInvoiceUnitsLabel,
+  normalizePaymentDetailsText,
   type InvoiceTemplateData,
 } from "../client/src/lib/invoice-html-generator";
 
@@ -71,6 +72,18 @@ test("invoice preview and selectable PDF use matching Helvetica typography", () 
   const pdf = createInvoicePdf(sampleInvoice);
   const bytes = Buffer.from(pdf.output("arraybuffer"));
   assert.equal(bytes.includes(Buffer.from("/BaseFont /Helvetica")), true);
+});
+
+test("legacy payment details render line breaks instead of escaped HTML", () => {
+  const legacyPaymentDetails = "**Payment Details**Bank: Wise\\<br>Account Name: Attila Ordog\\<br>Account No: 86396008&lt;br&gt;Sort Code: 231470";
+  assert.equal(
+    normalizePaymentDetailsText(legacyPaymentDetails),
+    "Bank: Wise\nAccount Name: Attila Ordog\nAccount No: 86396008\nSort Code: 231470",
+  );
+
+  const html = generateInvoiceHTML({ ...sampleInvoice, paymentDetails: legacyPaymentDetails });
+  assert.match(html, /Bank: Wise<br>Account Name: Attila Ordog<br>Account No: 86396008<br>Sort Code: 231470/);
+  assert.doesNotMatch(html, /\*\*Payment Details\*\*|&lt;br|\\&lt;br/);
 });
 
 test("invoice units label distinguishes hourly, quantity, and mixed items", () => {

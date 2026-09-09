@@ -60,6 +60,23 @@ export interface InvoiceTemplateData {
   invoicePaymentAccentSide?: "left" | "right";
 }
 
+export function normalizeInvoiceMultilineText(value?: string): string {
+  if (!value) return "";
+  return value
+    .replace(/\\?<br\s*\/?\s*>/gi, "\n")
+    .replace(/&lt;br\s*\/?&gt;/gi, "\n")
+    .replace(/\\n/g, "\n")
+    .replace(/\r\n?/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export function normalizePaymentDetailsText(value?: string): string {
+  return normalizeInvoiceMultilineText(value)
+    .replace(/^\s*(?:\*\*|__)?payment details(?:\*\*|__)?\s*:?\s*/i, "")
+    .trim();
+}
+
 export const TEMPLATE_OPTIONS = [
   { value: "pixellab", label: "Pixel Lab" },
   { value: "classic", label: "Classic" },
@@ -610,7 +627,7 @@ function buildPixelLabInvoiceBody(data: InvoiceTemplateData): string {
 
   const infoParts: Record<string, string> = {};
   if (data.showPaymentDetails !== false && data.paymentDetails) {
-    infoParts.payment = `<div class="pixel-footer-card"><strong>${esc(labels.paymentDetails)}</strong>${esc(data.paymentDetails).replace(/\n/g, "<br>")}</div>`;
+    infoParts.payment = `<div class="pixel-footer-card"><strong>${esc(labels.paymentDetails)}</strong>${esc(normalizePaymentDetailsText(data.paymentDetails)).replace(/\n/g, "<br>")}</div>`;
   }
   if (data.showPaymentTerms !== false && data.paymentTerms) {
     infoParts.terms = `<div class="pixel-footer-card"><strong>${esc(labels.paymentTerms)}</strong>${esc(data.paymentTerms).replace(/\n/g, "<br>")}</div>`;
@@ -825,7 +842,7 @@ function buildInvoiceBody(data: InvoiceTemplateData): string {
         ${(() => {
           const parts: Record<string, string> = {};
           if (data.showPaymentDetails !== false && data.paymentDetails) {
-            parts.payment = `<div class="info-card payment-card"><h4>${esc(labels.paymentDetails)}</h4><p>${esc(data.paymentDetails).replace(/\n/g, "<br>")}</p></div>`;
+            parts.payment = `<div class="info-card payment-card"><h4>${esc(labels.paymentDetails)}</h4><p>${esc(normalizePaymentDetailsText(data.paymentDetails)).replace(/\n/g, "<br>")}</p></div>`;
           }
           if (data.showPaymentTerms !== false && data.paymentTerms) {
             parts.terms = `<div class="info-card terms-card"><h4>${esc(labels.paymentTerms)}</h4><p>${esc(data.paymentTerms).replace(/\n/g, "<br>")}</p></div>`;

@@ -172,7 +172,7 @@ const buildPaymentDetails = (values: ClientFormValues) => {
     return values.otherPaymentInstructions || "";
   }
 
-  return lines.join("<br>");
+  return lines.join("\n");
 };
 
 type ClientFormProps = {

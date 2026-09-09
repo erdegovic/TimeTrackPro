@@ -102,7 +102,7 @@ function buildPaymentDetailsHtml(v: {
   } else if (type === "other") {
     return v.otherPaymentInstructions || "";
   }
-  return lines.join("<br>");
+  return lines.join("\n");
 }
 
 // Enhanced schema with invoice customization validation

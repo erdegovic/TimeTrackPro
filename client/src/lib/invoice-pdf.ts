@@ -4,6 +4,8 @@ import {
   getInvoiceLabels,
   getInvoiceUnitsLabel,
   InvoiceTemplateData,
+  normalizeInvoiceMultilineText,
+  normalizePaymentDetailsText,
   TEMPLATE_COLOR_DEFAULTS,
 } from "./invoice-html-generator";
 
@@ -40,7 +42,7 @@ function contrastText(color: Rgb): Rgb {
 
 function plainText(value: string | undefined): string {
   if (!value) return "";
-  return value
+  return normalizeInvoiceMultilineText(value)
     .replace(/<br\s*\/?\s*>/gi, "\n")
     .replace(/<\/p>|<\/div>|<\/li>/gi, "\n")
     .replace(/<[^>]+>/g, "")
@@ -380,7 +382,7 @@ function createPixelLabInvoicePdf(
 
   y = ((doc as any).lastAutoTable?.finalY || y) + 8;
   const infoValues: Record<string, [string, string] | undefined> = {
-    payment: data.showPaymentDetails !== false && data.paymentDetails ? [labels.paymentDetails, data.paymentDetails] : undefined,
+    payment: data.showPaymentDetails !== false && data.paymentDetails ? [labels.paymentDetails, normalizePaymentDetailsText(data.paymentDetails)] : undefined,
     terms: data.showPaymentTerms !== false && data.paymentTerms ? [labels.paymentTerms, data.paymentTerms] : undefined,
     notes: data.showNotes !== false ? [labels.notes, data.notes || labels.defaultNotes] : undefined,
   };
@@ -692,7 +694,7 @@ export function createInvoicePdf(data: InvoiceTemplateData): jsPDF {
 
   const availableBlocks: Record<string, [string, string, "left" | "right"] | undefined> = {
     payment: data.showPaymentDetails !== false && data.paymentDetails
-      ? [labels.paymentDetails, data.paymentDetails, data.invoicePaymentAccentSide || "left"]
+      ? [labels.paymentDetails, normalizePaymentDetailsText(data.paymentDetails), data.invoicePaymentAccentSide || "left"]
       : undefined,
     terms: data.showPaymentTerms !== false && data.paymentTerms
       ? [labels.paymentTerms, data.paymentTerms, "left"]
