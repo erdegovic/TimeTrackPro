@@ -129,6 +129,32 @@ Verify every deployment:
 3. Create a disposable client, project, and time entry.
 4. Generate a report and invoice, then remove the disposable records.
 
+### Dependency security maintenance
+
+The 2026-10-07 dependency refresh patches the reported production vulnerabilities,
+including `proxy-addr`, Axios, `qs`, DOMPurify, and `fflate`. `npm audit --omit=dev`
+reports zero known vulnerabilities for that lockfile. Install with `npm ci` and
+run `npm run check`, `npm test`, and `npm run build` before deploying updates.
+
+`postcss-selector-parser` and Drizzle Kit's nested esbuild dependency have targeted
+security overrides. Both remain build/development tools; `tailwindcss-animate`
+belongs in `devDependencies` because only `tailwind.config.ts` loads it. The
+generated production CSS was verified unchanged after these updates.
+
+The full audit still reports five high-severity package findings from one
+upstream advisory, `GHSA-vfj7-8cjw-p6xm`, in the development-only `braces` chain
+used by Tailwind 3. No patched `braces` release was available on 2026-10-07.
+Do not run `npm audit fix --force`: it proposes a breaking Tailwind migration.
+Keep build inputs trusted, do not expose development servers publicly, and
+recheck the advisory before the next dependency refresh. A Tailwind 4 migration
+needs its own visual regression pass rather than an unattended audit fix.
+
+Paddle key rotation must preserve the configured environment and least-privilege
+permissions. Replace `PADDLE_LIVE_API_KEY` and, when production is promoted,
+`PADDLE_API_KEY`, then redeploy. Health checks alone do not verify a key: confirm
+authenticated billing portal creation for a Paddle-linked account before
+revoking the previous key. Complimentary accounts cannot perform this check.
+
 ## Backups and recovery
 
 Tickd has two independent backup layers:
